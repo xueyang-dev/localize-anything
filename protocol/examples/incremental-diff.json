@@ -1,0 +1,24 @@
+{
+  "protocol_version": "0.1",
+  "summary": {
+    "new": 0,
+    "unchanged": 1,
+    "changed": 1,
+    "moved": 0,
+    "deleted": 0
+  },
+  "segments": [
+    {
+      "status": "changed",
+      "segment_id": "json:locales/en-US.json#/menu/start",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "previous_segment_id": "json:locales/en-US.json#/menu/start",
+      "previous_source_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "status": "unchanged",
+      "segment_id": "json:locales/en-US.json#/menu/quit",
+      "source_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ]
+}

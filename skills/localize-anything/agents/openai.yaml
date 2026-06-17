@@ -1,0 +1,4 @@
+interface:
+  display_name: "Localize Anything"
+  short_description: "Deliver production-ready localization across formats"
+  default_prompt: "Use $localize-anything to inspect this project and prepare a review-ready localization delivery package."

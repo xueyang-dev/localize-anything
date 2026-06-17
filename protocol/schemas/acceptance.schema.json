@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/acceptance.schema.json",
+  "title": "Localize Anything Scoped Acceptance",
+  "type": "object",
+  "required": ["protocol_version", "run_id", "manifest_sha256", "accepted_at", "accepted_by", "accepted_scope"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "accepted_at": { "type": "string", "format": "date-time" },
+    "accepted_by": { "type": "string", "minLength": 1 },
+    "accepted_scope": {
+      "type": "object",
+      "properties": {
+        "locales": { "type": "array", "items": { "type": "string" } },
+        "content_types": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "batch_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

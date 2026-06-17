@@ -1,0 +1,14 @@
+{
+  "protocol_version": "0.1",
+  "run_id": "example-run-001",
+  "target_locale": "zh-CN",
+  "changes": [
+    {
+      "segment_id": "json:locales/en-US.json#/menu/start",
+      "before": "开始",
+      "after": "开始游戏",
+      "classification": "translation_correction"
+    }
+  ],
+  "tm_updates": 1
+}

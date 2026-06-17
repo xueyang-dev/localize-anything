@@ -1,0 +1,53 @@
+{
+  "benchmark_id": "wesnoth-south-guard-en-us-zh-cn",
+  "benchmark_version": "0.1",
+  "run_id": "REQUIRED",
+  "started_at": "REQUIRED ISO-8601",
+  "completed_at": null,
+  "agent": {
+    "runtime": "REQUIRED",
+    "runtime_version": "REQUIRED",
+    "model_provider": "REQUIRED",
+    "model": "REQUIRED",
+    "model_version": "REQUIRED",
+    "context_window": "REQUIRED OR unknown",
+    "settings": {},
+    "tools": []
+  },
+  "localize_anything": {
+    "version": "0.1.0",
+    "protocol_version": "0.1",
+    "adapter_versions": {
+      "core.gettext-po": "0.1.0",
+      "scenario.wesnoth": "0.1.0"
+    }
+  },
+  "source": {
+    "repository": "https://github.com/wesnoth/wesnoth.git",
+    "commit": "41fcb95bb5e33264eb517bfc3559bb9dc16f0037",
+    "source_locale": "en-US",
+    "target_locale": "zh-CN"
+  },
+  "workflow": {
+    "depth": "REQUIRED",
+    "preflight_mode": "REQUIRED",
+    "privacy_mode": "REQUIRED",
+    "glossary_available": false,
+    "translation_memory_available": false,
+    "network_available_to_agent": false,
+    "human_intervention": [],
+    "batch_policy": "content_unit_then_adapter_constraints"
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "cached_tokens": null,
+    "wall_time_seconds": null
+  },
+  "local_hardware": null,
+  "evaluation": {
+    "highest_evidence_level": "E0",
+    "human_reviewers": [],
+    "reference_exposed_during_generation": false
+  }
+}

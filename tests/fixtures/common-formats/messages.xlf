@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" target-language="zh-CN" datatype="plaintext" original="messages.json">
+    <body>
+      <trans-unit id="welcome">
+        <source>Welcome, <ph id="player"/>!</source>
+      </trans-unit>
+      <trans-unit id="start">
+        <source>Start game</source>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "segment_id": "json:locales/en-US.json#/menu/start",
+  "source": "Start Game",
+  "target": "开始游戏",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "source_path": "locales/en-US.json",
+  "source_hash": "62e0df134d7e80abb976d863e3602a9a240fe509ac17654521ac4ac6bffda44d",
+  "context": {
+    "json_pointer": "/menu/start",
+    "content_type": "locale_string"
+  },
+  "constraints": {
+    "placeholders": [],
+    "markup": []
+  },
+  "status": "generated"
+}

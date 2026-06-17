@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "run_id": "example-run-001",
+  "mode": "dry_run",
+  "project_root": "/project",
+  "operations": [
+    {
+      "action": "replace",
+      "source": "files/locales/zh-CN.json",
+      "destination": "locales/zh-CN.json",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "destination_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "summary": {
+    "create": 0,
+    "replace": 1,
+    "unchanged": 0,
+    "conflict": 0
+  }
+}

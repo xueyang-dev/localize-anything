@@ -1,0 +1,39 @@
+{
+  "benchmark_version": "0.1",
+  "id": "wesnoth-south-guard-en-us-zh-cn",
+  "name": "Battle for Wesnoth: The South Guard blind localization",
+  "upstream": {
+    "repository": "https://github.com/wesnoth/wesnoth.git",
+    "commit": "41fcb95bb5e33264eb517bfc3559bb9dc16f0037",
+    "commit_date": "2026-06-17T03:26:08Z",
+    "license": "GPL-2.0-or-later",
+    "source_template": "po/wesnoth-tsg/wesnoth-tsg.pot",
+    "source_template_sha256": "f77bfe4c9b8baed10483f92ae318c8a29536becffa6ab8d8780ee7c9d1d72499",
+    "scenario_root": "data/campaigns/The_South_Guard",
+    "evaluation_reference": "po/wesnoth-tsg/zh_CN.po",
+    "evaluation_reference_sha256": "d9128171501735a3be7b4895ec1fcaf3381a89cd416b95353a72d8ecedeaa7ba"
+  },
+  "locales": {
+    "source": "en-US",
+    "target": "zh-CN"
+  },
+  "generation_policy": {
+    "blind": true,
+    "forbidden_during_generation": [
+      "po/wesnoth-tsg/zh_CN.po",
+      "reference/zh_CN.po",
+      "any pre-existing zh-CN translation memory for this campaign"
+    ],
+    "reference_release_gate": "A non-empty generated PO must exist before the reference can be prepared."
+  },
+  "adapters": ["core.gettext-po", "scenario.wesnoth"],
+  "required_evidence": [
+    "run-metadata.json",
+    "preflight inventory",
+    "batch plan",
+    "generated segment JSONL",
+    "delivery-manifest.json",
+    "qa-report.md",
+    "E0 structural result"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "protocol_version": "0.1",
+  "run_id": "example-run-001",
+  "delivery_status": "review_ready",
+  "project": {
+    "source_locale": "en-US",
+    "target_locales": ["zh-CN"],
+    "mode": "standard_project"
+  },
+  "source_material": [
+    {
+      "path": "locales/en-US.json",
+      "role": "source_of_truth"
+    }
+  ],
+  "outputs": [
+    {
+      "package_path": "files/locales/zh-CN.json",
+      "destination": "locales/zh-CN.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "assets": {
+    "context": "localization-context.md",
+    "glossary": "glossary.csv",
+    "translation_memory": "translation-memory.jsonl",
+    "qa_report": "qa-report.md"
+  },
+  "qa": {
+    "status": "pass",
+    "blocking_count": 0,
+    "warning_count": 0,
+    "report": "qa-report.md"
+  },
+  "runtime": {
+    "name": "localize-anything-reference",
+    "version": "0.1.0"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "protocol_version": "0.1",
+  "packet_id": "example-packet-001",
+  "batch_id": "batch-0001",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "segments": [
+    {
+      "protocol_version": "0.1",
+      "segment_id": "json:locales/en-US.json#/menu/start",
+      "source": "Start game",
+      "source_locale": "en-US",
+      "source_path": "locales/en-US.json",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context": {
+        "content_type": "locale_string",
+        "json_pointer": "/menu/start"
+      },
+      "constraints": {
+        "placeholders": [],
+        "markup": []
+      },
+      "status": "new"
+    }
+  ],
+  "memory": {
+    "context_sections": [],
+    "glossary": [],
+    "translation_memory": []
+  },
+  "budget": {
+    "estimated_tokens": 64,
+    "limit_tokens": 4000,
+    "estimation": "estimated",
+    "trimmed": []
+  }
+}

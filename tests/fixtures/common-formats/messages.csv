@@ -1,0 +1,3 @@
+key,text,note
+menu.start,Start game,Primary action
+menu.welcome,"Welcome, {player}!",Greeting

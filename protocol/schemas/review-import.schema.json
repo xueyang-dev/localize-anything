@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/review-import.schema.json",
+  "title": "Localize Anything Review Import",
+  "type": "object",
+  "required": ["protocol_version", "run_id", "target_locale", "changes"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["segment_id", "before", "after", "classification"],
+        "properties": {
+          "segment_id": { "type": "string" },
+          "before": { "type": "string" },
+          "after": { "type": "string" },
+          "classification": {
+            "enum": ["translation_correction", "terminology_change", "style_change", "character_voice_change", "locale_convention", "format_only", "source_correction", "unknown"]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "tm_updates": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": true
+}

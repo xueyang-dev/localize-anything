@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "id": "core.markup",
+  "name": "Core Markdown and HTML Adapter",
+  "version": "0.1.0",
+  "implementation_status": "implemented",
+  "trust": "core",
+  "formats": ["markdown", "html"],
+  "extensions": [".md", ".markdown", ".html", ".htm"],
+  "capabilities": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply"],
+  "round_trip_level": "extract_and_rebuild",
+  "permissions": ["read_project", "write_staging"],
+  "runtime": {"type": "python", "version": ">=3.11", "dependencies": []},
+  "entrypoints": {
+    "extract": ["python3", "-m", "runtime.localize_anything", "extract-markup"],
+    "rebuild": ["python3", "-m", "runtime.localize_anything", "rebuild-markup"],
+    "validate_output": ["python3", "-m", "runtime.localize_anything", "validate-markup"]
+  }
+}

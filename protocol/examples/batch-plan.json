@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "plan_id": "example-plan-001",
+  "source_locale": "en-US",
+  "target_locales": ["zh-CN"],
+  "strategy": "content_unit_then_adapter_constraints",
+  "batches": [
+    {
+      "batch_id": "batch-0001",
+      "content_unit": "json:menu",
+      "source_paths": ["locales/en-US.json"],
+      "segment_ids": ["json:locales/en-US.json#/menu/start"],
+      "estimated_source_tokens": 2,
+      "blocking_questions": []
+    }
+  ]
+}

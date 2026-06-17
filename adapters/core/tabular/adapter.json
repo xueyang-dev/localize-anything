@@ -1,0 +1,23 @@
+{
+  "protocol_version": "0.1",
+  "id": "core.tabular",
+  "name": "Core CSV TSV and XLSX Adapter",
+  "version": "0.1.0",
+  "implementation_status": "implemented",
+  "trust": "core",
+  "formats": ["csv", "tsv", "xlsx"],
+  "extensions": [".csv", ".tsv", ".xlsx"],
+  "capabilities": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply"],
+  "round_trip_level": "full_round_trip",
+  "permissions": ["read_project", "write_staging"],
+  "runtime": {
+    "type": "python",
+    "version": ">=3.11",
+    "dependencies": []
+  },
+  "entrypoints": {
+    "extract": ["python3", "-m", "runtime.localize_anything", "extract-tabular"],
+    "rebuild": ["python3", "-m", "runtime.localize_anything", "rebuild-tabular"],
+    "validate_output": ["python3", "-m", "runtime.localize_anything", "validate-tabular"]
+  }
+}

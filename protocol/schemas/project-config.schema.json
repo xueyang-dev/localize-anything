@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/project-config.schema.json",
+  "title": "Localize Anything Project Configuration",
+  "type": "object",
+  "required": ["protocol_version", "source_locale", "source_files", "target_locales"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "source_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "target_locales": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "delivery_mode": { "enum": ["bundle", "apply"] },
+    "preflight_mode": { "enum": ["auto", "full", "layered", "light", "skip_deep"] },
+    "workflow_depth": { "enum": ["ask", "fast", "standard", "high_assurance"] },
+    "recommended_preflight_mode": { "enum": ["full", "layered", "light", "skip_deep"] },
+    "recommended_workflow_depth": { "enum": ["fast", "standard", "high_assurance"] },
+    "privacy_mode": { "enum": ["standard", "minimal_disclosure", "local_only"] },
+    "data_classification": { "enum": ["public", "internal", "confidential", "restricted"] },
+    "ambiguity_policy": { "const": "preserve_and_ask" },
+    "question_policy": { "const": "batch_by_severity" },
+    "pseudo_localization": { "type": "boolean" },
+    "visual_qa": { "enum": ["when_applicable", "required", "disabled"] },
+    "output_directory": { "type": "string", "minLength": 1 },
+    "adapter_overrides": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  },
+  "additionalProperties": false
+}

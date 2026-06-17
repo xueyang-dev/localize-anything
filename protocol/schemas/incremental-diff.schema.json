@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/incremental-diff.schema.json",
+  "title": "Localize Anything Incremental Diff",
+  "type": "object",
+  "required": ["protocol_version", "summary", "segments"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "summary": {
+      "type": "object",
+      "required": ["new", "unchanged", "changed", "moved", "deleted"],
+      "properties": {
+        "new": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 },
+        "changed": { "type": "integer", "minimum": 0 },
+        "moved": { "type": "integer", "minimum": 0 },
+        "deleted": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["status", "segment_id"],
+        "properties": {
+          "status": { "enum": ["new", "unchanged", "changed", "moved", "deleted"] },
+          "segment_id": { "type": "string" },
+          "previous_segment_id": { "type": "string" },
+          "source_hash": { "type": "string" },
+          "previous_source_hash": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

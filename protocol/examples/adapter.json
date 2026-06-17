@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "id": "example.locale-json",
+  "name": "Example JSON Adapter",
+  "version": "0.1.0",
+  "implementation_status": "implemented",
+  "trust": "core",
+  "formats": ["json-locale"],
+  "extensions": [".json"],
+  "capabilities": ["detect", "inventory", "extract", "rebuild", "validate_output"],
+  "round_trip_level": "full_round_trip",
+  "permissions": ["read_project", "write_staging"],
+  "runtime": {
+    "type": "python",
+    "version": ">=3.11",
+    "dependencies": []
+  },
+  "entrypoints": {
+    "extract": ["localize-anything", "extract-json"]
+  }
+}

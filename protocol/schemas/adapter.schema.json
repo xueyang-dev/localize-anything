@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter.schema.json",
+  "title": "Localize Anything Adapter Manifest",
+  "type": "object",
+  "required": ["protocol_version", "id", "name", "version", "implementation_status", "formats", "capabilities", "permissions", "runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "implementation_status": { "enum": ["implemented", "experimental", "planned"] },
+    "trust": { "enum": ["core", "project", "community", "verified"] },
+    "formats": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+    "extensions": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^\\." } },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply", "pseudo_localize"] }
+    },
+    "round_trip_level": { "enum": ["full_round_trip", "extract_and_rebuild", "extract_only", "inspect_only", "unsupported"] },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["read_project", "write_staging", "write_project", "network", "execute"] }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["type", "dependencies"],
+      "properties": {
+        "type": { "enum": ["declarative", "python", "node", "shell", "other"] },
+        "version": { "type": "string" },
+        "dependencies": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": false
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "type": "string" }
+      }
+    },
+    "forked_from": { "type": "string" },
+    "forked_version": { "type": "string" }
+  },
+  "additionalProperties": false
+}

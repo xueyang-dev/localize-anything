@@ -1,0 +1,23 @@
+{
+  "protocol_version": "0.1",
+  "id": "scenario.wesnoth",
+  "name": "Wesnoth Scenario Adapter",
+  "version": "0.1.0",
+  "implementation_status": "implemented",
+  "trust": "core",
+  "formats": ["wesnoth-wml", "gettext-po"],
+  "extensions": [".cfg", ".po", ".pot"],
+  "capabilities": ["detect", "inventory", "extract", "validate_source"],
+  "round_trip_level": "extract_only",
+  "permissions": ["read_project", "write_staging"],
+  "runtime": {
+    "type": "python",
+    "version": ">=3.11",
+    "dependencies": []
+  },
+  "entrypoints": {
+    "inventory": ["python3", "-m", "runtime.localize_anything", "wesnoth-inventory"],
+    "extract": ["python3", "-m", "runtime.localize_anything", "enrich-wesnoth"],
+    "validate_source": ["python3", "-m", "runtime.localize_anything", "validate-wesnoth"]
+  }
+}

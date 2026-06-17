@@ -1,0 +1,9 @@
+WEBVTT
+
+intro-1
+00:00:01.000 --> 00:00:03.500 align:middle
+Welcome, <i>{player}</i>!
+
+intro-2
+00:00:04.000 --> 00:00:06.000
+The journey begins.

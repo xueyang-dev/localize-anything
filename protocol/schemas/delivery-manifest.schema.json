@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/delivery-manifest.schema.json",
+  "title": "Localize Anything Delivery Manifest",
+  "type": "object",
+  "required": ["protocol_version", "run_id", "delivery_status", "project", "source_material", "outputs", "assets", "qa", "runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "delivery_status": { "enum": ["draft_package", "review_ready", "blocked", "applied_draft", "user_accepted"] },
+    "project": {
+      "type": "object",
+      "required": ["source_locale", "target_locales", "mode"],
+      "properties": {
+        "source_locale": { "type": "string" },
+        "target_locales": { "type": "array", "items": { "type": "string" } },
+        "mode": { "enum": ["inline", "lightweight_file", "standard_project"] }
+      },
+      "additionalProperties": true
+    },
+    "source_material": { "type": "array", "items": { "type": "object" } },
+    "outputs": { "type": "array", "items": { "type": "object" } },
+    "assets": { "type": "object" },
+    "qa": {
+      "type": "object",
+      "required": ["status", "blocking_count", "warning_count"],
+      "properties": {
+        "status": { "enum": ["pass", "pass_with_warnings", "fail", "not_checked"] },
+        "blocking_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "report": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "runtime": { "type": "object" },
+    "accepted_scope": { "type": "object" }
+  },
+  "additionalProperties": true
+}

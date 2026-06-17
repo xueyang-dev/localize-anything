@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/batch-plan.schema.json",
+  "title": "Localize Anything Batch Plan",
+  "type": "object",
+  "required": ["protocol_version", "plan_id", "source_locale", "target_locales", "batches"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locales": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+    "strategy": { "const": "content_unit_then_adapter_constraints" },
+    "batches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["batch_id", "content_unit", "segment_ids", "estimated_source_tokens"],
+        "properties": {
+          "batch_id": { "type": "string", "minLength": 1 },
+          "content_unit": { "type": "string", "minLength": 1 },
+          "source_paths": { "type": "array", "items": { "type": "string" } },
+          "segment_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "estimated_source_tokens": { "type": "integer", "minimum": 0 },
+          "blocking_questions": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

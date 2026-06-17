@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "source_locale": "en-US",
+  "source_files": ["locales/en-US.json"],
+  "target_locales": ["zh-CN"],
+  "delivery_mode": "bundle",
+  "preflight_mode": "auto",
+  "workflow_depth": "ask",
+  "privacy_mode": "standard",
+  "data_classification": "internal",
+  "ambiguity_policy": "preserve_and_ask",
+  "question_policy": "batch_by_severity",
+  "pseudo_localization": false,
+  "visual_qa": "when_applicable",
+  "output_directory": "localize-anything-output",
+  "adapter_overrides": {}
+}

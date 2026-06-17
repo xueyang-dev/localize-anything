@@ -1,0 +1,9 @@
+[menu]
+start = "Start game"
+welcome = 'Welcome, {player}!' # Keep the player token.
+retry = "Try again"
+max_items = 12
+
+[inventory]
+sword = "Sword"
+shield = 'Shield'

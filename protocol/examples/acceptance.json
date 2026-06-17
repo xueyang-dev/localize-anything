@@ -1,0 +1,12 @@
+{
+  "protocol_version": "0.1",
+  "run_id": "example-run-001",
+  "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "accepted_at": "2026-06-17T10:00:00Z",
+  "accepted_by": "project-owner",
+  "accepted_scope": {
+    "locales": ["zh-CN"],
+    "files": ["locales/zh-CN.json"],
+    "batch_ids": ["batch-0001"]
+  }
+}

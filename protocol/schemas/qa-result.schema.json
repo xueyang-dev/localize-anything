@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/qa-result.schema.json",
+  "title": "Localize Anything QA Result",
+  "type": "object",
+  "required": ["protocol_version", "status", "items"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "status": { "enum": ["pass", "pass_with_warnings", "fail", "not_checked"] },
+    "evidence_channels": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["runtime", "adapter", "agent", "human"] }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["channel", "category", "severity", "message", "checked_by", "coverage", "confidence"],
+        "properties": {
+          "channel": { "enum": ["runtime", "adapter", "agent", "human"] },
+          "category": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["blocking", "warning", "info"] },
+          "message": { "type": "string", "minLength": 1 },
+          "segment_id": { "type": "string" },
+          "path": { "type": "string" },
+          "checked_by": { "enum": ["runtime", "adapter", "agent", "human"] },
+          "coverage": { "enum": ["complete", "sampled", "partial"] },
+          "confidence": { "enum": ["deterministic", "high", "medium", "low"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

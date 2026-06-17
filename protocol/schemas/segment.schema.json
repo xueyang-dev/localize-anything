@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/segment.schema.json",
+  "title": "Localize Anything Segment",
+  "type": "object",
+  "required": ["protocol_version", "segment_id", "source", "source_locale", "source_path", "source_hash", "context", "constraints"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "segment_id": { "type": "string", "minLength": 1 },
+    "source": { "type": "string" },
+    "source_plural": { "type": "string" },
+    "target": { "type": "string" },
+    "target_plural": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" } },
+        { "type": "object", "additionalProperties": { "type": "string" } }
+      ]
+    },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "source_path": { "type": "string", "minLength": 1 },
+    "source_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "context": { "type": "object" },
+    "constraints": {
+      "type": "object",
+      "required": ["placeholders"],
+      "properties": {
+        "placeholders": { "type": "array", "items": { "type": "string" } },
+        "markup": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "status": { "enum": ["new", "generated", "reviewed", "approved", "stale"] }
+  },
+  "additionalProperties": true
+}

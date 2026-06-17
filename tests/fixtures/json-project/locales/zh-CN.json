@@ -1,0 +1,10 @@
+{
+  "menu": {
+    "start": "开始游戏",
+    "welcome": "欢迎你，{player}！"
+  },
+  "inventory": {
+    "coins": "你有 {{count}} 枚硬币。",
+    "weight": "重量：%s kg"
+  }
+}

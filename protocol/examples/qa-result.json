@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "status": "pass_with_warnings",
+  "evidence_channels": ["agent"],
+  "items": [
+    {
+      "channel": "agent",
+      "category": "terminology",
+      "severity": "warning",
+      "message": "A new item name requires reviewer confirmation.",
+      "segment_id": "json:locales/en-US.json#/inventory/relic",
+      "checked_by": "agent",
+      "coverage": "complete",
+      "confidence": "medium"
+    }
+  ]
+}
