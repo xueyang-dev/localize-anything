@@ -115,39 +115,47 @@ def _select_glossary(path: Path, segments: list[dict[str, Any]], target_locale: 
 
 
 def _select_tm(path: Path, segments: list[dict[str, Any]], target_locale: str, limit: int) -> list[dict[str, Any]]:
-    if not path.exists() or not path.read_text(encoding="utf-8").strip():
+    if not path.exists():
         return []
-    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    content = path.read_text(encoding="utf-8")
+    if not content.strip():
+        return []
+    records = [json.loads(line) for line in content.splitlines() if line.strip()]
+    candidate_records = [
+        record
+        for record in records
+        if record.get("target_locale") == target_locale and record.get("status") in ("approved", "reviewed")
+    ]
+    by_segment_id: dict[str, list[dict[str, Any]]] = {}
+    by_source: dict[str, list[dict[str, Any]]] = {}
+    for record in candidate_records:
+        segment_id = record.get("segment_id")
+        if isinstance(segment_id, str) and segment_id:
+            by_segment_id.setdefault(segment_id, []).append(record)
+        source = record.get("source")
+        if isinstance(source, str):
+            by_source.setdefault(source, []).append(record)
+
     candidates: list[dict[str, Any]] = []
     for segment in segments:
         source = str(segment.get("source", ""))
         content_type = segment.get("context", {}).get("content_type")
-        for record in records:
-            if record.get("target_locale") != target_locale or record.get("status") not in ("approved", "reviewed"):
-                continue
-            record_type = record.get("content_type")
-            if content_type and record_type and content_type != record_type:
-                continue
-            if record.get("segment_id") == segment.get("segment_id"):
-                score, kind = 1.0, "exact_id"
-            elif record.get("source") == source:
-                score, kind = 0.99, "exact_source"
-            else:
+        exact_matches = False
+        for record in by_segment_id.get(str(segment.get("segment_id", "")), []):
+            if _tm_type_matches(record, content_type):
+                exact_matches = True
+                candidates.append(_tm_candidate(segment, record, 1.0, "exact_id"))
+        for record in by_source.get(source, []):
+            if _tm_type_matches(record, content_type):
+                exact_matches = True
+                candidates.append(_tm_candidate(segment, record, 0.99, "exact_source"))
+        if exact_matches:
+            continue
+        for record in candidate_records:
+            if _tm_type_matches(record, content_type):
                 score = SequenceMatcher(None, str(record.get("source", "")).casefold(), source.casefold()).ratio()
-                kind = "high_fuzzy_match"
-            if score < 0.82:
-                continue
-            candidates.append(
-                {
-                    "for_segment_id": segment["segment_id"],
-                    "tm_id": record.get("id") or record.get("segment_id"),
-                    "source": record.get("source"),
-                    "target": record.get("target"),
-                    "status": record.get("status"),
-                    "match_kind": kind,
-                    "score": round(score, 4),
-                }
-            )
+                if score >= 0.82:
+                    candidates.append(_tm_candidate(segment, record, score, "high_fuzzy_match"))
     candidates.sort(key=lambda item: (-item["score"], str(item["tm_id"])))
     deduped: list[dict[str, Any]] = []
     seen = set()
@@ -159,6 +167,23 @@ def _select_tm(path: Path, segments: list[dict[str, Any]], target_locale: str, l
         if len(deduped) >= limit:
             break
     return deduped
+
+
+def _tm_type_matches(record: dict[str, Any], content_type: Any) -> bool:
+    record_type = record.get("content_type")
+    return not (content_type and record_type and content_type != record_type)
+
+
+def _tm_candidate(segment: dict[str, Any], record: dict[str, Any], score: float, kind: str) -> dict[str, Any]:
+    return {
+        "for_segment_id": segment["segment_id"],
+        "tm_id": record.get("id") or record.get("segment_id"),
+        "source": record.get("source"),
+        "target": record.get("target"),
+        "status": record.get("status"),
+        "match_kind": kind,
+        "score": round(score, 4),
+    }
 
 
 def _packet(

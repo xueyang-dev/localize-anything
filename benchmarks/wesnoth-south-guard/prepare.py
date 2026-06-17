@@ -114,6 +114,8 @@ def _checkout_paths(checkout: Path, paths: list[str]) -> None:
     upstream = CONFIG["upstream"]
     _run(["git", "init", "--quiet", str(checkout)])
     _run(["git", "-C", str(checkout), "remote", "add", "origin", upstream["repository"]])
+    _run(["git", "-C", str(checkout), "config", "core.autocrlf", "false"])
+    _run(["git", "-C", str(checkout), "config", "core.eol", "lf"])
     _run(["git", "-C", str(checkout), "config", "remote.origin.promisor", "true"])
     _run(["git", "-C", str(checkout), "config", "remote.origin.partialclonefilter", "blob:none"])
     _run(["git", "-C", str(checkout), "config", "core.sparseCheckout", "true"])

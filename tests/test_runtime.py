@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import gettext
+import io
 import tempfile
 import unittest
 import zipfile
@@ -16,6 +18,7 @@ from runtime.localize_anything.io_utils import read_jsonl, write_json, write_jso
 from runtime.localize_anything.json_adapter import extract_segments, rebuild, validate_pair
 from runtime.localize_anything.markup_adapter import extract_segments as extract_markup_segments
 from runtime.localize_anything.markup_adapter import rebuild as rebuild_markup, validate_pair as validate_markup_pair
+from runtime.localize_anything.mo_compiler import compile_segments_to_mo
 from runtime.localize_anything.planning import create_batch_plan
 from runtime.localize_anything.project import initialize_project, inspect_project
 from runtime.localize_anything.retrieval import build_work_packet
@@ -28,6 +31,7 @@ from runtime.localize_anything.subtitle_adapter import extract_segments as extra
 from runtime.localize_anything.subtitle_adapter import rebuild as rebuild_subtitles, validate_pair as validate_subtitle_pair
 from runtime.localize_anything.tabular_adapter import extract_segments as extract_tabular_segments
 from runtime.localize_anything.tabular_adapter import rebuild as rebuild_tabular, validate_pair as validate_tabular_pair
+from runtime.localize_anything.wesnoth_adapter import extract_segments as extract_wesnoth_segments
 from runtime.localize_anything.wesnoth_adapter import enrich_segments, inventory as wesnoth_inventory, validate_source
 from runtime.localize_anything.xliff_adapter import extract_segments as extract_xliff_segments
 from runtime.localize_anything.xliff_adapter import rebuild as rebuild_xliff, validate_pair as validate_xliff_pair
@@ -67,7 +71,10 @@ class JsonAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "zh-CN.json"
             rebuild(source, segments, output)
-            self.assertEqual(json.loads(output.read_text()), json.loads(expected.read_text()))
+            self.assertEqual(
+                json.loads(output.read_text(encoding="utf-8")),
+                json.loads(expected.read_text(encoding="utf-8")),
+            )
             result = validate_pair(source, output)
             self.assertEqual(result["status"], "pass")
             assert_protocol_schema(self, "qa-result", result)
@@ -76,7 +83,7 @@ class JsonAdapterTests(unittest.TestCase):
         source = FIXTURE_ROOT / "locales" / "en-US.json"
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "broken.json"
-            target.write_text(source.read_text().replace("{player}", "{username}"), encoding="utf-8")
+            target.write_text(source.read_text(encoding="utf-8").replace("{player}", "{username}"), encoding="utf-8")
             result = validate_pair(source, target)
             self.assertEqual(result["status"], "fail")
             self.assertTrue(any(item["category"] == "placeholder_parity" for item in result["items"]))
@@ -135,6 +142,26 @@ class WesnothAdapterTests(unittest.TestCase):
         self.assertEqual(opening["speaker"], "Deoran")
         self.assertEqual(opening["content_type"], "dialogue")
         self.assertEqual(validate_source(GETTEXT_WESNOTH_ROOT, segments)["status"], "pass")
+
+    def test_wml_extract_and_compile_mo(self) -> None:
+        segments = extract_wesnoth_segments(GETTEXT_WESNOTH_ROOT)
+        self.assertEqual({item["source"] for item in segments}, {"Born to the Banner", "Welcome, %s!", "%d turns"})
+        dialogue = next(item for item in segments if item["source"] == "Welcome, %s!")
+        self.assertEqual(dialogue["context"]["speaker"], "Deoran")
+        self.assertEqual(dialogue["context"]["content_type"], "dialogue")
+        for segment in segments:
+            segment["target"] = {
+                "Born to the Banner": "生于旌旗下",
+                "Welcome, %s!": "欢迎你，%s！",
+                "%d turns": "%d 回合",
+            }[segment["source"]]
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "wesnoth-tsg.mo"
+            compile_segments_to_mo(segments, output)
+            translations = gettext.GNUTranslations(io.BytesIO(output.read_bytes()))
+            self.assertEqual(translations.gettext("Born to the Banner"), "生于旌旗下")
+            self.assertEqual(translations.gettext("Welcome, %s!"), "欢迎你，%s！")
 
 
 class StructuredAdapterTests(unittest.TestCase):
@@ -290,7 +317,10 @@ class ProjectTests(unittest.TestCase):
             project.mkdir()
             locale_dir = project / "locales"
             locale_dir.mkdir()
-            (locale_dir / "en-US.json").write_text((FIXTURE_ROOT / "locales" / "en-US.json").read_text(), encoding="utf-8")
+            (locale_dir / "en-US.json").write_text(
+                (FIXTURE_ROOT / "locales" / "en-US.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
             (project / "cover.png").write_bytes(b"not-a-real-image")
 
             inspection = inspect_project(project)
@@ -325,7 +355,7 @@ class ProjectTests(unittest.TestCase):
             project.mkdir()
             locale_dir = project / "locales"
             locale_dir.mkdir()
-            (locale_dir / "en-US.json").write_text(source.read_text(), encoding="utf-8")
+            (locale_dir / "en-US.json").write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
             result = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
             state = Path(result["state_directory"])
             with (state / "glossary.csv").open("a", encoding="utf-8") as handle:

@@ -19,6 +19,7 @@ from .json_adapter import extract_segments, rebuild, validate_pair
 from .markup_adapter import extract_segments as extract_markup_segments
 from .markup_adapter import rebuild as rebuild_markup
 from .markup_adapter import validate_pair as validate_markup_pair
+from .mo_compiler import compile_segments_to_mo
 from .planning import create_batch_plan
 from .project import initialize_project, inspect_project
 from .retrieval import build_work_packet
@@ -34,6 +35,7 @@ from .subtitle_adapter import validate_pair as validate_subtitle_pair
 from .tabular_adapter import extract_segments as extract_tabular_segments
 from .tabular_adapter import rebuild as rebuild_tabular
 from .tabular_adapter import validate_pair as validate_tabular_pair
+from .wesnoth_adapter import extract_segments as extract_wesnoth_segments
 from .wesnoth_adapter import enrich_segments as enrich_wesnoth_segments
 from .wesnoth_adapter import inventory as inventory_wesnoth
 from .wesnoth_adapter import validate_source as validate_wesnoth_source
@@ -183,6 +185,11 @@ def build_parser() -> argparse.ArgumentParser:
     wesnoth_parser.add_argument("project", type=Path)
     wesnoth_parser.add_argument("--output", type=Path)
 
+    extract_wesnoth_parser = subparsers.add_parser("extract-wesnoth", help="Extract translatable WML strings")
+    extract_wesnoth_parser.add_argument("project", type=Path)
+    extract_wesnoth_parser.add_argument("--source-locale", default="en-US")
+    extract_wesnoth_parser.add_argument("--output", type=Path)
+
     enrich_wesnoth_parser = subparsers.add_parser("enrich-wesnoth", help="Add WML scenario context to PO segments")
     enrich_wesnoth_parser.add_argument("segments", type=Path)
     enrich_wesnoth_parser.add_argument("project", type=Path)
@@ -230,6 +237,10 @@ def build_parser() -> argparse.ArgumentParser:
     package_parser.add_argument("--status", choices=["draft_package", "review_ready", "blocked"], default="draft_package")
     package_parser.add_argument("--run-id")
     package_parser.add_argument("--output", type=Path)
+
+    compile_mo_parser = subparsers.add_parser("compile-mo", help="Compile translated segments into a GNU gettext MO file")
+    compile_mo_parser.add_argument("translations", type=Path)
+    compile_mo_parser.add_argument("--output", type=Path, required=True)
 
     review_parser = subparsers.add_parser("review-import", help="Import scoped human-reviewed segments into project TM")
     review_parser.add_argument("generated", type=Path)
@@ -374,6 +385,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if result["status"] in {"pass", "pass_with_warnings"} else 1
         if args.command == "wesnoth-inventory":
             return _emit_json(inventory_wesnoth(args.project), args.output)
+        if args.command == "extract-wesnoth":
+            records = extract_wesnoth_segments(args.project, args.source_locale)
+            if args.output:
+                write_jsonl(args.output, records)
+            else:
+                sys.stdout.write("".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records))
+            return 0
         if args.command == "enrich-wesnoth":
             records = enrich_wesnoth_segments(read_jsonl(args.segments), args.project)
             if args.output:
@@ -419,6 +437,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.run_id,
             )
             return _emit_json(result, args.output)
+        if args.command == "compile-mo":
+            compile_segments_to_mo(read_jsonl(args.translations), args.output)
+            return 0
         if args.command == "review-import":
             result = import_review(args.generated, args.reviewed, args.state_dir, args.run_id, args.target_locale)
             return _emit_json(result, args.output)

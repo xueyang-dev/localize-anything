@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION
+from .json_adapter import source_hash
 
 
 OPEN_TAG_RE = re.compile(r"^\s*\[([A-Za-z0-9_+-]+)]\s*$")
 CLOSE_TAG_RE = re.compile(r"^\s*\[/([A-Za-z0-9_+-]+)]\s*$")
 ASSIGNMENT_RE = re.compile(r"^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$")
+
+
+@dataclass(frozen=True)
+class WmlString:
+    value: str
+    line: int
+    index: int
 
 
 def inventory(project_root: Path) -> dict[str, Any]:
@@ -27,6 +36,40 @@ def inventory(project_root: Path) -> dict[str, Any]:
         "po_files": [_relative(path, project_root) for path in po_files],
         "pot_files": [_relative(path, project_root) for path in pot_files],
     }
+
+
+def extract_segments(project_root: Path, source_locale: str = "en-US") -> list[dict[str, Any]]:
+    segments: list[dict[str, Any]] = []
+    cfg_files = sorted(path for path in project_root.rglob("*.cfg") if ".git" not in path.parts)
+    context_indexes: dict[Path, dict[int, dict[str, str]]] = {}
+    for path in cfg_files:
+        relative = _relative(path, project_root)
+        text = path.read_text(encoding="utf-8")
+        strings = _extract_translatable_strings(text)
+        if not strings:
+            continue
+        context_indexes[path] = _wml_line_context(path)
+        for item in strings:
+            context = _nearest_context(context_indexes[path], item.line) or {
+                "campaign": project_root.name,
+                "content_unit": f"wesnoth:{path.stem}",
+                "content_type": "game_text",
+            }
+            context = {**context, "occurrences": [{"path": relative, "line": item.line}]}
+            segments.append(
+                {
+                    "protocol_version": PROTOCOL_VERSION,
+                    "segment_id": _wml_segment_id(relative, item),
+                    "source": item.value,
+                    "source_locale": source_locale,
+                    "source_path": relative,
+                    "source_hash": source_hash(item.value),
+                    "context": context,
+                    "constraints": {"placeholders": _wml_placeholders(item.value), "markup": []},
+                    "status": "new",
+                }
+            )
+    return segments
 
 
 def enrich_segments(segments: list[dict[str, Any]], project_root: Path) -> list[dict[str, Any]]:
@@ -153,6 +196,64 @@ def _strip_wml_value(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] == '"':
         value = value[1:-1]
     return value
+
+
+def _extract_translatable_strings(text: str) -> list[WmlString]:
+    strings: list[WmlString] = []
+    index = 0
+    while index < len(text):
+        found = text.find("_", index)
+        if found < 0:
+            break
+        before = text[found - 1] if found else ""
+        if before and (before.isalnum() or before == "_"):
+            index = found + 1
+            continue
+        cursor = found + 1
+        while cursor < len(text) and text[cursor].isspace():
+            cursor += 1
+        if cursor >= len(text) or text[cursor] != '"':
+            index = found + 1
+            continue
+        parsed, end = _parse_wml_quoted_string(text, cursor)
+        if parsed is not None:
+            line = text.count("\n", 0, found) + 1
+            strings.append(WmlString(parsed, line, len(strings)))
+            index = end
+        else:
+            index = found + 1
+    return strings
+
+
+def _parse_wml_quoted_string(text: str, start: int) -> tuple[str | None, int]:
+    value: list[str] = []
+    escaped = False
+    cursor = start + 1
+    while cursor < len(text):
+        char = text[cursor]
+        if escaped:
+            value.append({"n": "\n", "t": "\t", "r": "\r"}.get(char, char))
+            escaped = False
+            cursor += 1
+            continue
+        if char == "\\":
+            escaped = True
+            cursor += 1
+            continue
+        if char == '"':
+            return "".join(value), cursor + 1
+        value.append(char)
+        cursor += 1
+    return None, cursor
+
+
+def _wml_segment_id(relative_path: str, item: WmlString) -> str:
+    digest = source_hash(f"{relative_path}\0{item.line}\0{item.index}\0{item.value}")[:20]
+    return f"wml:{relative_path}#{digest}"
+
+
+def _wml_placeholders(text: str) -> list[str]:
+    return sorted(set(re.findall(r"\$[A-Za-z_][A-Za-z0-9_.]*", text)))
 
 
 def _relative(path: Path, root: Path) -> str:
