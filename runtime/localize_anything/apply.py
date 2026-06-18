@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -57,8 +58,121 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
     }
 
 
+def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
+    summary = plan.get("summary", {})
+    lines = [
+        "# Apply Plan",
+        "",
+        f"- Run ID: `{plan.get('run_id')}`",
+        f"- Mode: `{plan.get('mode')}`",
+        f"- Project root: `{plan.get('project_root')}`",
+        f"- Creates: {summary.get('create', 0)}",
+        f"- Replaces: {summary.get('replace', 0)}",
+        f"- Unchanged: {summary.get('unchanged', 0)}",
+        f"- Conflicts: {summary.get('conflict', 0)}",
+        f"- Requires confirmation: `{bool(plan.get('requires_confirmation'))}`",
+        f"- Blocked by conflicts: `{bool(plan.get('blocked_by_conflicts'))}`",
+        "",
+        "## Operations",
+        "",
+    ]
+    operations = plan.get("operations", [])
+    if not operations:
+        lines.append("No file operations are planned.")
+    for operation in operations:
+        action = str(operation.get("action", "unknown"))
+        destination = str(operation.get("destination", ""))
+        lines.extend(
+            [
+                f"### `{destination}`",
+                "",
+                f"- Action: `{action}`",
+                f"- Package source: `{operation.get('source')}`",
+                f"- Source sha256: `{operation.get('source_sha256')}`",
+                f"- Current destination sha256: `{operation.get('destination_sha256') or 'none'}`",
+                f"- Destination base sha256: `{operation.get('destination_base_sha256') or 'none'}`",
+                f"- Backup required: `{bool(operation.get('backup_required'))}`",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Confirmation",
+            "",
+            "This is a dry run. It does not write to the project.",
+            f"Apply only after review with `apply-delivery --confirm-run-id {plan.get('run_id')}`.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def execute_apply(
+    delivery_dir: Path,
+    project_root: Path,
+    confirm_run_id: str,
+    backup_root: Path | None = None,
+) -> dict[str, Any]:
+    plan = create_apply_plan(delivery_dir, project_root)
+    if confirm_run_id != plan["run_id"]:
+        raise ValueError("confirm_run_id must match the delivery run_id")
+    if plan["blocked_by_conflicts"]:
+        raise ValueError("Apply is blocked by destination conflicts; create a fresh plan after resolving them")
+
+    delivery_dir = delivery_dir.resolve()
+    project_root = project_root.resolve()
+    backup_root = (backup_root or project_root / ".localize-anything" / "backups" / plan["run_id"]).resolve()
+    executed: list[dict[str, Any]] = []
+    for operation in plan["operations"]:
+        action = operation["action"]
+        destination_path = _safe_relative(operation["destination"], "destination")
+        source_path = _safe_relative(operation["source"], "source")
+        source = delivery_dir / source_path
+        destination = project_root / destination_path
+        result = dict(operation)
+        if action == "unchanged":
+            result["applied"] = False
+            executed.append(result)
+            continue
+        if action not in {"create", "replace"}:
+            raise ValueError(f"Unsupported apply action: {action}")
+        if action == "replace" and destination.exists():
+            backup = backup_root / destination_path
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(destination, backup)
+            result["backup_path"] = backup.relative_to(project_root).as_posix() if _is_relative_to(backup, project_root) else backup.as_posix()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        result["applied"] = True
+        result["destination_sha256_after"] = sha256_file(destination)
+        executed.append(result)
+
+    summary = {
+        "created": sum(item.get("action") == "create" and item.get("applied") for item in executed),
+        "replaced": sum(item.get("action") == "replace" and item.get("applied") for item in executed),
+        "unchanged": sum(item.get("action") == "unchanged" for item in executed),
+    }
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "run_id": plan["run_id"],
+        "mode": "executed",
+        "project_root": project_root.as_posix(),
+        "operations": executed,
+        "summary": summary,
+        "backup_root": backup_root.as_posix(),
+    }
+
+
 def _safe_relative(value: str, label: str) -> PurePosixPath:
     path = PurePosixPath(value)
     if not value or path.is_absolute() or ".." in path.parts:
         raise ValueError(f"Unsafe {label}: {value!r}")
     return path
+
+
+def _is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False

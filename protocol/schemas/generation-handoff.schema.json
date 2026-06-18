@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/generation-handoff.schema.json",
+  "title": "Localize Anything Generation Handoff",
+  "type": "object",
+  "required": ["protocol_version", "handoff_id", "task", "request_count", "generated_dir", "output_contract", "batches"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "handoff_id": { "type": "string", "minLength": 1 },
+    "task": { "const": "host_agent_translation_generation" },
+    "target_locales": { "type": "array", "items": { "type": "string" } },
+    "request_count": { "type": "integer", "minimum": 1 },
+    "generated_dir": { "type": "string", "minLength": 1 },
+    "output_contract": {
+      "type": "object",
+      "required": ["format", "record_schema", "required_status", "validation_command"],
+      "properties": {
+        "format": { "const": "jsonl_per_batch" },
+        "record_schema": { "const": "segment.schema.json" },
+        "required_status": { "const": "generated" },
+        "validation_command": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "batches": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["batch_id", "packet_id", "request_id", "work_packet", "draft_request", "generated", "segment_count", "target_locale", "status"],
+        "properties": {
+          "batch_id": { "type": "string", "minLength": 1 },
+          "packet_id": { "type": "string", "minLength": 1 },
+          "request_id": { "type": "string", "minLength": 1 },
+          "work_packet": { "type": "string", "minLength": 1 },
+          "draft_request": { "type": "string", "minLength": 1 },
+          "generated": { "type": "string", "minLength": 1 },
+          "segment_count": { "type": "integer", "minimum": 1 },
+          "target_locale": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pending", "generated", "validated", "failed"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

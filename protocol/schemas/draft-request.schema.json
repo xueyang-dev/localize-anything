@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/draft-request.schema.json",
+  "title": "Localize Anything Translation Draft Request",
+  "type": "object",
+  "required": ["protocol_version", "request_id", "packet_id", "batch_id", "source_locale", "target_locale", "task", "instructions", "output_contract", "segments"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "request_id": { "type": "string", "minLength": 1 },
+    "packet_id": { "type": "string", "minLength": 1 },
+    "batch_id": { "type": "string", "minLength": 1 },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "task": { "const": "generate_translation_draft" },
+    "instructions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "output_contract": {
+      "type": "object",
+      "required": ["format", "record_schema", "required_fields", "status", "coverage"],
+      "properties": {
+        "format": { "const": "jsonl" },
+        "record_schema": { "const": "segment.schema.json" },
+        "required_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "status": { "const": "generated" },
+        "coverage": { "const": "exactly_all_segments_in_request" }
+      },
+      "additionalProperties": true
+    },
+    "segments": { "type": "array", "minItems": 1, "items": { "$ref": "segment.schema.json" } },
+    "memory": { "type": "object" },
+    "budget": { "type": "object" }
+  },
+  "additionalProperties": true
+}

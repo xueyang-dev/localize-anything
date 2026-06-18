@@ -9,4 +9,10 @@ localize-anything-output/
 benchmarks/private/
 benchmarks/wesnoth-south-guard/work/
 benchmarks/wesnoth-south-guard/runs/
+benchmarks/android-antennapod/work/
+benchmarks/android-antennapod/runs/
+benchmarks/ios-signal/work/
+benchmarks/ios-signal/runs/
+benchmarks/ios-icecubes-xcstrings/work/
+benchmarks/ios-icecubes-xcstrings/runs/
 test01-Wesnoth/

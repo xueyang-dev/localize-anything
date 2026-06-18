@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION, __version__
+from .android_strings_adapter import is_android_strings_path
+from .ios_strings_adapter import is_ios_strings_path
+from .xcstrings_adapter import is_xcstrings_path
 
 
 KNOWN_EXTENSIONS = {
@@ -69,7 +72,14 @@ def inspect_project(project: Path) -> dict[str, Any]:
         if not path.is_file() or any(part in ignored_parts for part in path.parts):
             continue
         extension = path.suffix.lower()
-        adapter = KNOWN_EXTENSIONS.get(extension)
+        if is_xcstrings_path(project, path):
+            adapter = "core.xcstrings"
+        elif is_android_strings_path(project, path):
+            adapter = "core.android-strings"
+        elif is_ios_strings_path(project, path):
+            adapter = "core.ios-strings"
+        else:
+            adapter = KNOWN_EXTENSIONS.get(extension)
         if not adapter:
             asset_type = NON_TEXT_EXTENSIONS.get(extension)
             if asset_type:

@@ -34,6 +34,9 @@ Core adapters follow the same contract as third-party adapters. They receive no 
 | `core.markup` | Markdown/HTML | `extract_and_rebuild` | code, tags, link destinations, attributes, placeholders |
 | `core.subtitles` | SRT/WebVTT | `full_round_trip` | cue identity, timing, inline tags, placeholders |
 | `core.xliff` | XLIFF 1.2/2.x | `full_round_trip` | unit IDs, source units, inline tags, placeholders |
+| `core.android-strings` | Android `strings.xml` | `extract_and_rebuild` | string, string-array, plurals, resource names, `translatable="false"`, `formatted="false"`, placeholders, target resource path |
+| `core.ios-strings` | iOS `.strings` / `.stringsdict` | `extract_and_rebuild` | keys, comments/order for `.strings`, plural forms for `.stringsdict`, placeholders, target `.lproj` path |
+| `core.xcstrings` | Xcode `.xcstrings` | `extract_and_rebuild` | sourceLanguage, stringUnit values, variation leaves, comments/metadata, placeholders, target language entries |
 | `scenario.wesnoth` | WML + gettext | `extract_only` overlay | campaign, scenario, speaker, occurrence context |
 
 YAML/TOML v0.1 targets localization-resource scalars. Complex YAML block
@@ -52,6 +55,27 @@ alt text. Markup QA protects link destinations, entities, tags, and placeholders
 
 Subtitle QA does not perform rendered line-length or reading-speed review; the
 agent and human QA channels must record those checks when required.
+
+Android strings support is an experimental v0.2 platform slice. It handles
+simple `<string>`, `<string-array>`, and `<plurals>` resources from
+`res/values/strings.xml` and writes target locale files such as
+`res/values-zh-rCN/strings.xml` to staging. It skips `translatable="false"`
+resources and warns on inline markup instead of silently claiming complete
+Android resource coverage.
+APK decompilation, repackaging, signing, layouts, drawables, and build-system
+changes remain out of scope for this adapter.
+
+iOS strings support is an experimental v0.2 platform slice. It handles
+`.lproj` `.strings` key/value resources and `.stringsdict` plural category
+strings, then writes target locale files such as `zh-Hans.lproj` to staging.
+It does not edit Xcode project files, Swift/Objective-C code, storyboards,
+assets, or build settings.
+
+String Catalog support is an experimental v0.2 platform slice for `.xcstrings`
+files. It extracts source-language `stringUnit` values and variation leaves,
+then writes target language entries such as `zh-Hans` into a staged copy of the
+same catalog. It preserves non-localization catalog metadata and does not edit
+Xcode project files or application code.
 
 ## Resolution Order
 

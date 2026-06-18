@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sample App</string>
+    <string name="welcome_user">Welcome, %1$s!</string>
+    <string name="coin_count">You have %d coins.</string>
+    <string name="literal_percent" formatted="false">Battery at 100%</string>
+    <string name="debug_token" translatable="false">DO_NOT_TRANSLATE</string>
+    <string-array name="tab_titles">
+        <item>Home</item>
+        <item>Settings</item>
+    </string-array>
+    <plurals name="message_count">
+        <item quantity="one">%d message</item>
+        <item quantity="other">%d messages</item>
+    </plurals>
+</resources>

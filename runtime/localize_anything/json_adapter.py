@@ -14,8 +14,9 @@ from . import PROTOCOL_VERSION
 PLACEHOLDER_RE = re.compile(
     r"{{[^{}]+}}"
     r"|{[A-Za-z_][^{}]*}"
-    r"|%\([^)]+\)[#0 +\-]*\d*(?:\.\d+)?[A-Za-z]"
-    r"|%[#0 +\-]*\d*(?:\.\d+)?[A-Za-z]"
+    r"|%\d+\$[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]"
+    r"|%\([^)]+\)[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]"
+    r"|%[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]"
     r"|\$[A-Za-z_][A-Za-z0-9_.]*"
 )
 

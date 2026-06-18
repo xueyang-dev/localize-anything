@@ -1,0 +1,49 @@
+{
+  "benchmark_version": "0.2",
+  "id": "icecubes-ios-xcstrings-en-us-zh-cn",
+  "name": "IceCubesApp Xcode String Catalog staged localization",
+  "upstream": {
+    "repository": "https://github.com/Dimillian/IceCubesApp.git",
+    "branch": "main",
+    "commit": "9c05a720597b3ff13de2e241bf58d3fba0863c09",
+    "license": "AGPL-3.0",
+    "source_file": "IceCubesApp/Resources/Localization/Localizable.xcstrings",
+    "source_file_sha256": "da9fc332c987e770eee4b2e10c17540e39ef9d4c8ab9c4735f8ebc5b588b8f0c",
+    "raw_url": "https://raw.githubusercontent.com/Dimillian/IceCubesApp/9c05a720597b3ff13de2e241bf58d3fba0863c09/IceCubesApp/Resources/Localization/Localizable.xcstrings"
+  },
+  "locales": {
+    "source": "en-US",
+    "target": "zh-CN"
+  },
+  "generation_policy": {
+    "blind": false,
+    "synthetic_draft_allowed": true,
+    "synthetic_draft_scope": "Adapter and delivery verification only; not localization quality evidence",
+    "expected_target_destination": "IceCubesApp/Resources/Localization/Localizable.xcstrings"
+  },
+  "expected_results": {
+    "segments": 747,
+    "default_max_segments": 20,
+    "batches": 38,
+    "qa_status": "pass",
+    "qa_warnings": 0
+  },
+  "adapters": ["core.xcstrings"],
+  "required_evidence": [
+    "source-provenance.json",
+    "segments.jsonl",
+    "batch-plan.json",
+    "work-packets/*.json",
+    "draft-requests/*.json",
+    "generation-handoff.json",
+    "generated-batches/*.jsonl or external generated batch directory",
+    "generation-collect.json",
+    "generated.jsonl",
+    "staging result",
+    "String Catalog QA result",
+    "delivery-manifest.json",
+    "qa-report.md",
+    "delivery-dashboard.json",
+    "delivery-dashboard.md"
+  ]
+}

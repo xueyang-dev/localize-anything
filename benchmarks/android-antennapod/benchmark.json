@@ -1,0 +1,49 @@
+{
+  "benchmark_version": "0.2",
+  "id": "antennapod-android-strings-en-us-zh-cn",
+  "name": "AntennaPod Android strings staged localization",
+  "upstream": {
+    "repository": "https://github.com/AntennaPod/AntennaPod.git",
+    "branch": "develop",
+    "commit": "85c2993b6fb1a48dcb81327bd9841fd7c7d668e2",
+    "license": "GPL-3.0",
+    "source_file": "ui/i18n/src/main/res/values/strings.xml",
+    "source_file_sha256": "b249495366cd700bec19f3814f1634d721ebe0d95d0455476d8d276f5a41a28b",
+    "raw_url": "https://raw.githubusercontent.com/AntennaPod/AntennaPod/85c2993b6fb1a48dcb81327bd9841fd7c7d668e2/ui/i18n/src/main/res/values/strings.xml"
+  },
+  "locales": {
+    "source": "en-US",
+    "target": "zh-CN"
+  },
+  "generation_policy": {
+    "blind": false,
+    "synthetic_draft_allowed": true,
+    "synthetic_draft_scope": "Adapter and delivery verification only; not localization quality evidence",
+    "expected_target_destination": "ui/i18n/src/main/res/values-zh-rCN/strings.xml"
+  },
+  "expected_results": {
+    "segments": 869,
+    "default_max_segments": 20,
+    "batches": 44,
+    "qa_status": "pass",
+    "qa_warnings": 0
+  },
+  "adapters": ["core.android-strings"],
+  "required_evidence": [
+    "source-provenance.json",
+    "segments.jsonl",
+    "batch-plan.json",
+    "work-packets/*.json",
+    "draft-requests/*.json",
+    "generation-handoff.json",
+    "generated-batches/*.jsonl or external generated batch directory",
+    "generation-collect.json",
+    "generated.jsonl",
+    "staging result",
+    "android QA result",
+    "delivery-manifest.json",
+    "qa-report.md",
+    "delivery-dashboard.json",
+    "delivery-dashboard.md"
+  ]
+}

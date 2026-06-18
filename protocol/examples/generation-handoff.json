@@ -1,0 +1,27 @@
+{
+  "protocol_version": "0.1",
+  "handoff_id": "handoff-001",
+  "task": "host_agent_translation_generation",
+  "target_locales": ["zh-CN"],
+  "request_count": 1,
+  "generated_dir": "evidence/generated-batches",
+  "output_contract": {
+    "format": "jsonl_per_batch",
+    "record_schema": "segment.schema.json",
+    "required_status": "generated",
+    "validation_command": "localize-anything validate-generated <work-packet> <generated-jsonl>"
+  },
+  "batches": [
+    {
+      "batch_id": "batch-0001",
+      "packet_id": "packet-001",
+      "request_id": "draft-001",
+      "work_packet": "evidence/work-packets/batch-0001.json",
+      "draft_request": "evidence/draft-requests/batch-0001.json",
+      "generated": "evidence/generated-batches/batch-0001.jsonl",
+      "segment_count": 1,
+      "target_locale": "zh-CN",
+      "status": "pending"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "benchmark_version": "0.2",
+  "id": "signal-ios-localizable-en-us-zh-cn",
+  "name": "Signal iOS Localizable.strings staged localization",
+  "upstream": {
+    "repository": "https://github.com/signalapp/Signal-iOS.git",
+    "branch": "main",
+    "commit": "4a369b66390f248a2a2c019620ce05e4124a6c89",
+    "license": "AGPL-3.0",
+    "source_file": "Signal/translations/en.lproj/Localizable.strings",
+    "source_file_sha256": "798d83c8c0f3fd1a7112e49ac47b6f4be6bc13c8dbaa66a63fcf27ba5c612d3f",
+    "raw_url": "https://raw.githubusercontent.com/signalapp/Signal-iOS/4a369b66390f248a2a2c019620ce05e4124a6c89/Signal/translations/en.lproj/Localizable.strings"
+  },
+  "locales": {
+    "source": "en-US",
+    "target": "zh-CN"
+  },
+  "generation_policy": {
+    "blind": false,
+    "synthetic_draft_allowed": true,
+    "synthetic_draft_scope": "Adapter and delivery verification only; not localization quality evidence",
+    "expected_target_destination": "Signal/translations/zh-Hans.lproj/Localizable.strings"
+  },
+  "expected_results": {
+    "segments": 3486,
+    "default_max_segments": 20,
+    "batches": 175,
+    "qa_status": "pass",
+    "qa_warnings": 0
+  },
+  "adapters": ["core.ios-strings"],
+  "required_evidence": [
+    "source-provenance.json",
+    "segments.jsonl",
+    "batch-plan.json",
+    "work-packets/*.json",
+    "draft-requests/*.json",
+    "generation-handoff.json",
+    "generated-batches/*.jsonl or external generated batch directory",
+    "generation-collect.json",
+    "generated.jsonl",
+    "staging result",
+    "iOS QA result",
+    "delivery-manifest.json",
+    "qa-report.md",
+    "delivery-dashboard.json",
+    "delivery-dashboard.md"
+  ]
+}

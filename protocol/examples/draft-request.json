@@ -1,0 +1,54 @@
+{
+  "protocol_version": "0.1",
+  "request_id": "draft-001",
+  "packet_id": "packet-001",
+  "batch_id": "batch-0001",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "task": "generate_translation_draft",
+  "instructions": [
+    "Translate each segment from source_locale to target_locale.",
+    "Return JSONL records that preserve segment_id, source, source_hash, source_path, context, constraints, and status.",
+    "Set target_locale to the requested target locale.",
+    "Set target to the translated draft text.",
+    "Set status to generated.",
+    "Preserve placeholders exactly as listed in constraints.placeholders."
+  ],
+  "output_contract": {
+    "format": "jsonl",
+    "record_schema": "segment.schema.json",
+    "required_fields": ["segment_id", "source", "source_hash", "source_path", "target", "target_locale", "status"],
+    "status": "generated",
+    "coverage": "exactly_all_segments_in_request"
+  },
+  "segments": [
+    {
+      "protocol_version": "0.1",
+      "segment_id": "json:locales/en-US.json#/menu/start",
+      "source": "Start game",
+      "source_locale": "en-US",
+      "source_path": "locales/en-US.json",
+      "source_hash": "e6a3bb0525e5901674ba674df09b23e2cf81fe83e67b046e2da02e12a7b6fc68",
+      "context": {
+        "json_pointer": "/menu/start",
+        "content_type": "locale_string"
+      },
+      "constraints": {
+        "placeholders": [],
+        "markup": []
+      },
+      "status": "new"
+    }
+  ],
+  "memory": {
+    "context_sections": [],
+    "glossary": [],
+    "translation_memory": []
+  },
+  "budget": {
+    "estimated_tokens": 128,
+    "limit_tokens": 4000,
+    "estimation": "estimated",
+    "trimmed": []
+  }
+}

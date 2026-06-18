@@ -1,0 +1,8 @@
+/* Main screen */
+"app.title" = "Sample App";
+"welcome.message" = "Welcome, %@!";
+"coins.count" = "You have %d coins.";
+
+// Escaping and percent literals
+"quote.example" = "Tap \"Continue\"";
+"battery.percent" = "Battery at 100%";
