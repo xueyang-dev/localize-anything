@@ -12,6 +12,7 @@ import unittest
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from xml.etree import ElementTree
 
 from runtime.localize_anything.acceptance import create_acceptance
 from runtime.localize_anything.agent import run_agent
@@ -558,13 +559,78 @@ class AndroidStringsAdapterTests(unittest.TestCase):
         plan = create_batch_plan(segments, "en-US", ["zh-CN"], max_segments=100)
         planned_ids = {segment_id for batch in plan["batches"] for segment_id in batch["segment_ids"]}
 
-        self.assertEqual(len(blocked), 4)
+        self.assertEqual(len(blocked), 8)
         self.assertTrue(all(segment["segment_id"] not in planned_ids for segment in blocked))
         forbidden = dict(blocked[0])
         forbidden.update({"target_locale": "zh-CN", "target": forbidden["source"], "status": "generated", "generation": {"provider": "synthetic"}})
         qa = validate_generated_segments({"target_locale": "zh-CN", "segments": segments}, [forbidden])
         self.assertEqual(qa["status"], "fail")
         self.assertIn("owner_review_required_generation_forbidden", {item["category"] for item in qa["items"]})
+
+    def test_android_array_item_markup_policy(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture"
+        source = project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        by_key = {segment["context"]["resource_key"]: segment for segment in segments}
+        supported = {
+            "string-array:rich_sort_options[0]": "b",
+            "string-array:rich_sort_options[1]": "i",
+            "string-array:rich_sort_options[2]": "a",
+        }
+        for index, (key, tag) in enumerate(supported.items()):
+            segment = by_key[key]
+            self.assertTrue(segment["generation_eligible"])
+            self.assertEqual(segment["context"]["resource_type"], "string-array")
+            self.assertEqual(segment["context"]["item_index"], index)
+            self.assertEqual([item["tag"] for item in segment["markup_signature"]], [tag])
+
+        self.assertIn("complex_nested_markup", by_key["string-array:complex_sort_options[0]"]["review_required_reasons"])
+        self.assertIn("unsupported_markup_tag", by_key["string-array:complex_sort_options[1]"]["review_required_reasons"])
+        self.assertTrue(all(by_key[key]["owner_review_required"] for key in (
+            "string-array:complex_sort_options[0]",
+            "string-array:complex_sort_options[1]",
+        )))
+
+        generated = []
+        for segment in segments:
+            if not is_generation_eligible(segment):
+                continue
+            item = dict(segment)
+            item.update({"target_locale": "zh-CN", "target": item["source"], "status": "generated", "generation": {"provider": "synthetic"}})
+            generated.append(item)
+        with tempfile.TemporaryDirectory() as directory:
+            staged = stage_android_strings(source, generated, Path(directory), "zh-CN", project, preserve_target_only=True)
+            self.assertTrue(ElementTree.parse(staged["output"]).getroot() is not None)
+            self.assertIn("string-array:complex_sort_options[0]", staged["preserved_review_required_keys"])
+            self.assertIn("string-array:complex_sort_options[1]", staged["preserved_review_required_keys"])
+
+    def test_android_plural_item_markup_policy(self) -> None:
+        source = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture" / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        by_key = {segment["context"]["resource_key"]: segment for segment in segments}
+        for key, quantity in (
+            ("plurals:rich_episode_count#one", "one"),
+            ("plurals:rich_episode_count#other", "other"),
+        ):
+            segment = by_key[key]
+            self.assertTrue(segment["generation_eligible"])
+            self.assertEqual(segment["context"]["resource_type"], "plurals")
+            self.assertEqual(segment["context"]["quantity"], quantity)
+            self.assertEqual(segment["constraints"]["placeholders"], ["%1$d"])
+            self.assertEqual([item["tag"] for item in segment["markup_signature"]], ["b"])
+
+        self.assertIn("unsupported_markup_tag", by_key["plurals:complex_episode_count#one"]["review_required_reasons"])
+        self.assertIn("unsupported_markup_attribute", by_key["plurals:complex_episode_count#other"]["review_required_reasons"])
+        normal = [segment for segment in segments if is_generation_eligible(segment)]
+        generated = []
+        for segment in normal:
+            item = dict(segment)
+            item.update({"target_locale": "zh-CN", "target": item["source"], "status": "generated", "generation": {"provider": "synthetic"}})
+            if item["context"]["resource_key"] == "plurals:rich_episode_count#one":
+                item["target"] = "%1$d episode"
+            generated.append(item)
+        qa = validate_generated_segments({"target_locale": "zh-CN", "segments": normal}, generated)
+        self.assertIn("markup_missing", {item["category"] for item in qa["items"]})
 
     def test_android_inline_markup_drift_validation(self) -> None:
         source = (
@@ -2560,12 +2626,12 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             report = benchmark.run_benchmark(root / "work", root / "report")
 
             self.assertEqual(report["status"], "pass", report["failed_checks"])
-            self.assertEqual(report["verdict"], "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: PASS")
+            self.assertEqual(report["verdict"], "V0.2.2-H ANDROID ARRAY/PLURAL MARKUP BOUNDARY POLICY: PASS")
             self.assertTrue((root / "report" / "report.json").is_file())
             self.assertTrue((root / "report" / "report.md").is_file())
-            self.assertEqual(report["source_segment_count"], 23)
-            self.assertEqual(report["extracted_segment_count"], 23)
-            self.assertEqual(report["generated_segment_count"], 19)
+            self.assertEqual(report["source_segment_count"], 32)
+            self.assertEqual(report["extracted_segment_count"], 32)
+            self.assertEqual(report["generated_segment_count"], 24)
             self.assertEqual(report["skipped_translatable_false_count"], 1)
             self.assertTrue(report["blind_leakage_check_result"]["pass"])
             self.assertTrue(report["maintenance_preservation_check_result"]["pass"])
@@ -2643,6 +2709,30 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             self.assertEqual(policy["sent_to_normal_generation_count"], 0)
             self.assertTrue(policy["preserved_without_corruption"])
             self.assertTrue(policy["staged_xml_parse"])
+            self.assertTrue(all(item["pass"] for item in policy["negative_checks"]))
+
+    def test_v022_android_resource_reliability_array_plural_markup_policy(self) -> None:
+        benchmark = _load_v022_android_resource_reliability_benchmark()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = benchmark.run_benchmark(root / "work", root / "report")
+
+            policy = report["array_plural_markup_policy_check"]
+            self.assertTrue(policy["pass"], policy)
+            self.assertEqual(policy["supported_array_markup_segments"], 3)
+            self.assertEqual(policy["supported_plural_markup_segments"], 2)
+            self.assertEqual(policy["unsupported_array_items_detected"], 2)
+            self.assertEqual(policy["unsupported_plural_items_detected"], 2)
+            self.assertEqual(policy["owner_review_required_count"], 4)
+            self.assertEqual(policy["sent_to_normal_generation_count"], 0)
+            self.assertTrue(policy["existing_target_preserved_in_maintenance"])
+            self.assertTrue(policy["source_fallback_preserved_without_target_use"])
+            self.assertTrue(policy["supported_markup_preserved"])
+            self.assertTrue(policy["placeholder_qa_preserved"])
+            self.assertTrue(policy["array_item_order_preserved"])
+            self.assertTrue(policy["plural_quantity_branches_preserved"])
+            self.assertTrue(policy["staged_xml_parse"])
+            self.assertEqual(policy["known_limitations"], [])
             self.assertTrue(all(item["pass"] for item in policy["negative_checks"]))
 
     def test_v022_android_resource_reliability_cdata(self) -> None:

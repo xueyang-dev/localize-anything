@@ -36,6 +36,23 @@ COMPLEX_MARKUP_KEYS = {
     "string:styled_bold",
     "string:complex_link",
 }
+SUPPORTED_ARRAY_MARKUP_KEYS = {
+    "string-array:rich_sort_options[0]",
+    "string-array:rich_sort_options[1]",
+    "string-array:rich_sort_options[2]",
+}
+SUPPORTED_PLURAL_MARKUP_KEYS = {
+    "plurals:rich_episode_count#one",
+    "plurals:rich_episode_count#other",
+}
+UNSUPPORTED_ARRAY_MARKUP_KEYS = {
+    "string-array:complex_sort_options[0]",
+    "string-array:complex_sort_options[1]",
+}
+UNSUPPORTED_PLURAL_MARKUP_KEYS = {
+    "plurals:complex_episode_count#one",
+    "plurals:complex_episode_count#other",
+}
 
 
 def main() -> int:
@@ -86,6 +103,14 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         maintenance["result"],
         target_path,
     )
+    array_plural_markup_policy = _array_plural_markup_policy_check(
+        extraction["segments"],
+        generated_segments,
+        staging,
+        blind["result"],
+        maintenance["result"],
+        target_path,
+    )
 
     checks = {
         "extraction": _strip_segments(extraction),
@@ -98,6 +123,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "blind_leakage": blind_leakage,
         "maintenance_preservation": maintenance_preservation,
         "complex_markup_policy": complex_markup_policy,
+        "array_plural_markup_policy": array_plural_markup_policy,
     }
     failed_checks = _failed_checks(checks)
     known_limitations = _known_limitations(extraction, staging, qa)
@@ -105,7 +131,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
     status = "pass" if core_pass else "fail"
 
     report = {
-        "schema": "localize-anything-v022-android-complex-markup-boundary-policy",
+        "schema": "localize-anything-v022-android-array-plural-markup-boundary-policy",
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "status": status,
         "verdict": _verdict(status),
@@ -142,6 +168,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "blind_leakage_check_result": blind_leakage,
         "maintenance_preservation_check_result": maintenance_preservation,
         "complex_markup_policy_check": complex_markup_policy,
+        "array_plural_markup_policy_check": array_plural_markup_policy,
         "qa_check_result": qa,
         "known_limitations": known_limitations,
         "checks": checks,
@@ -181,6 +208,8 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         "string:delete_files": ["%1$d", "%2$d"],
         "plurals:episode_count#one": ["%1$d"],
         "plurals:episode_count#other": ["%1$d"],
+        "plurals:rich_episode_count#one": ["%1$d"],
+        "plurals:rich_episode_count#other": ["%1$d"],
     }
     placeholder_checks = {
         key: by_key.get(key, {}).get("constraints", {}).get("placeholders") == expected
@@ -200,6 +229,11 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         "string:formatting_example": ["i", "u"],
         "string:unsupported_link": ["a"],
         "string:privacy_link": ["a"],
+        "string-array:rich_sort_options[0]": ["b"],
+        "string-array:rich_sort_options[1]": ["i"],
+        "string-array:rich_sort_options[2]": ["a"],
+        "plurals:rich_episode_count#one": ["b"],
+        "plurals:rich_episode_count#other": ["b"],
     }
     markup_checks = {
         key: [item.get("tag") for item in by_key.get(key, {}).get("constraints", {}).get("markup_signature", [])] == expected
@@ -242,7 +276,7 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
             and all(markup_checks.values())
             and all(cdata_checks.values())
             and all(comment_checks.values())
-            and set(review_by_key) == COMPLEX_MARKUP_KEYS
+            and COMPLEX_MARKUP_KEYS.issubset(set(review_by_key))
             and all(complex_markup_checks.values())
             and bool(translatable_false)
         ),
@@ -297,8 +331,13 @@ def _target_for_key(key: str, source: str) -> str:
         "string-array:sort_options[0]": "最新优先",
         "string-array:sort_options[1]": "最旧优先",
         "string-array:sort_options[2]": "播放最多",
+        "string-array:rich_sort_options[0]": "<b>最新</b>优先",
+        "string-array:rich_sort_options[1]": "最旧<i>优先</i>",
+        "string-array:rich_sort_options[2]": "阅读<a href=\"https://example.com/sort\">排序帮助</a>",
         "plurals:episode_count#one": "%1$d 集",
         "plurals:episode_count#other": "%1$d 集",
+        "plurals:rich_episode_count#one": "<b>%1$d</b> 集",
+        "plurals:rich_episode_count#other": "<b>%1$d</b> 集",
         "string:settings_title": "设置",
     }
     return mapping.get(key, source)
@@ -901,6 +940,174 @@ def _complex_markup_policy_check(
     }
 
 
+def _array_plural_markup_policy_check(
+    source_segments: list[dict[str, Any]],
+    generated_segments: list[dict[str, Any]],
+    direct_staging: dict[str, Any],
+    blind_result: dict[str, Any],
+    maintenance_result: dict[str, Any],
+    existing_target_path: Path,
+) -> dict[str, Any]:
+    by_key = {segment.get("context", {}).get("resource_key"): segment for segment in source_segments}
+    supported_array = [by_key[key] for key in sorted(SUPPORTED_ARRAY_MARKUP_KEYS) if key in by_key]
+    supported_plural = [by_key[key] for key in sorted(SUPPORTED_PLURAL_MARKUP_KEYS) if key in by_key]
+    policy = _validate_array_plural_segments(source_segments)
+
+    normal_segments = _normal_generation_segments(source_segments)
+    valid_qa = validate_generated_segments(
+        {"target_locale": TARGET_LOCALE, "segments": normal_segments},
+        generated_segments,
+    )
+    plural_markup_loss = _negative_generated_case(
+        {"target_locale": TARGET_LOCALE, "segments": normal_segments},
+        generated_segments,
+        "plurals:rich_episode_count#one",
+        "%1$d 集",
+        {"markup_missing", "markup_mismatch"},
+    )
+
+    generated_keys = {segment.get("context", {}).get("resource_key") for segment in generated_segments}
+    packet_keys = _work_packet_resource_keys(Path(blind_result["artifacts"]["work_packets"]))
+    unsupported_keys = UNSUPPORTED_ARRAY_MARKUP_KEYS | UNSUPPORTED_PLURAL_MARKUP_KEYS
+    sent_keys = sorted(unsupported_keys & (generated_keys | packet_keys))
+
+    direct_target = Path(direct_staging["staged_target"])
+    staged_document = android._read_document(direct_target)  # noqa: SLF001 - benchmark checks item order and structure.
+    staged = {resource["key"]: resource for resource in staged_document["resources"]}
+    expected = _resources_by_key(existing_target_path)
+    supported_keys = SUPPORTED_ARRAY_MARKUP_KEYS | SUPPORTED_PLURAL_MARKUP_KEYS
+    supported_markup_preserved = all(
+        staged.get(key, {}).get("value") == expected.get(key, {}).get("value")
+        and staged.get(key, {}).get("markup_structure_signature") == expected.get(key, {}).get("markup_structure_signature")
+        for key in supported_keys
+    )
+    rich_array_order = [
+        resource["key"]
+        for resource in staged_document["resources"]
+        if resource.get("name") == "rich_sort_options"
+    ]
+    rich_plural_quantities = [
+        resource.get("quantity")
+        for resource in staged_document["resources"]
+        if resource.get("name") == "rich_episode_count"
+    ]
+
+    maintenance_staging = read_json(Path(maintenance_result["artifacts"]["staging_result"]))
+    maintenance_target = Path(maintenance_staging["outputs"][0]["output"])
+    maintained = _resources_by_key(maintenance_target)
+    preserved_keys = sorted(
+        key
+        for key in unsupported_keys
+        if maintained.get(key, {}).get("value") == expected.get(key, {}).get("value")
+        and maintained.get(key, {}).get("markup_structure_signature") == expected.get(key, {}).get("markup_structure_signature")
+    )
+    existing_preserved = set(preserved_keys) == unsupported_keys
+
+    blind_staging = read_json(Path(blind_result["artifacts"]["staging_result"]))
+    blind_target = Path(blind_staging["outputs"][0]["output"])
+    blind_resources = _resources_by_key(blind_target)
+    source_resources = _resources_by_key(ROOT / "fixture" / SOURCE_FILE)
+    source_fallback_preserved = all(
+        blind_resources.get(key, {}).get("value") == source_resources.get(key, {}).get("value")
+        and blind_resources.get(key, {}).get("markup_structure_signature") == source_resources.get(key, {}).get("markup_structure_signature")
+        for key in unsupported_keys
+    )
+
+    negative_policy_checks = _array_plural_negative_policy_checks(source_segments)
+    negative_checks = [*negative_policy_checks, plural_markup_loss]
+    passed = (
+        len(supported_array) == len(SUPPORTED_ARRAY_MARKUP_KEYS)
+        and len(supported_plural) == len(SUPPORTED_PLURAL_MARKUP_KEYS)
+        and all(is_generation_eligible(segment) and segment.get("markup_signature") for segment in supported_array + supported_plural)
+        and all(segment.get("constraints", {}).get("placeholders") == ["%1$d"] for segment in supported_plural)
+        and policy["pass"]
+        and not sent_keys
+        and valid_qa["status"] == "pass"
+        and supported_markup_preserved
+        and rich_array_order == [
+            "string-array:rich_sort_options[0]",
+            "string-array:rich_sort_options[1]",
+            "string-array:rich_sort_options[2]",
+        ]
+        and rich_plural_quantities == ["one", "other"]
+        and existing_preserved
+        and source_fallback_preserved
+        and _xml_parse_ok(direct_target)
+        and _xml_parse_ok(maintenance_target)
+        and all(check["pass"] for check in negative_checks)
+    )
+    return {
+        "pass": passed,
+        "supported_array_markup_segments": len(supported_array),
+        "supported_plural_markup_segments": len(supported_plural),
+        "unsupported_array_items_detected": policy["unsupported_array_items_detected"],
+        "unsupported_plural_items_detected": policy["unsupported_plural_items_detected"],
+        "owner_review_required_count": policy["owner_review_required_count"],
+        "sent_to_normal_generation_count": len(sent_keys),
+        "sent_to_normal_generation_keys": sent_keys,
+        "existing_target_preserved_in_maintenance": existing_preserved,
+        "source_fallback_preserved_without_target_use": source_fallback_preserved,
+        "preserved_existing_target_keys": preserved_keys,
+        "supported_markup_preserved": supported_markup_preserved,
+        "placeholder_qa_preserved": all(segment.get("constraints", {}).get("placeholders") == ["%1$d"] for segment in supported_plural),
+        "array_item_order_preserved": len(rich_array_order) == 3,
+        "plural_quantity_branches_preserved": rich_plural_quantities == ["one", "other"],
+        "staged_xml_parse": _xml_parse_ok(direct_target) and _xml_parse_ok(maintenance_target),
+        "valid_generated_qa_status": valid_qa["status"],
+        "negative_checks": negative_checks,
+        "known_limitations": [],
+    }
+
+
+def _validate_array_plural_segments(segments: list[dict[str, Any]]) -> dict[str, Any]:
+    by_key = {segment.get("context", {}).get("resource_key"): segment for segment in segments}
+    array_items = [by_key[key] for key in sorted(UNSUPPORTED_ARRAY_MARKUP_KEYS) if key in by_key]
+    plural_items = [by_key[key] for key in sorted(UNSUPPORTED_PLURAL_MARKUP_KEYS) if key in by_key]
+    scoped = [*array_items, *plural_items]
+    sent = [segment for segment in scoped if is_generation_eligible(segment)]
+    owner_count = sum(bool(segment.get("owner_review_required")) for segment in scoped)
+    result = {
+        "unsupported_array_items_detected": len(array_items),
+        "unsupported_plural_items_detected": len(plural_items),
+        "owner_review_required_count": owner_count,
+        "sent_to_normal_generation_count": len(sent),
+    }
+    result["pass"] = (
+        len(array_items) == len(UNSUPPORTED_ARRAY_MARKUP_KEYS)
+        and len(plural_items) == len(UNSUPPORTED_PLURAL_MARKUP_KEYS)
+        and all(segment.get("review_required_reasons") for segment in scoped)
+        and owner_count == len(scoped)
+        and not sent
+    )
+    return result
+
+
+def _array_plural_negative_policy_checks(source_segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cases = [
+        ("unsupported_array_item_sent_to_normal_generation", "string-array:complex_sort_options[0]"),
+        ("unsupported_plural_item_sent_to_normal_generation", "plurals:complex_episode_count#one"),
+    ]
+    checks: list[dict[str, Any]] = []
+    for name, resource_key in cases:
+        tampered = json.loads(json.dumps(source_segments))
+        for segment in tampered:
+            if segment.get("context", {}).get("resource_key") != resource_key:
+                continue
+            segment["generation_eligible"] = True
+            segment["owner_review_required"] = False
+            segment["workflow_status"] = "generation_candidate"
+            break
+        result = _validate_array_plural_segments(tampered)
+        checks.append(
+            {
+                "name": name,
+                "pass": not result["pass"] and result["sent_to_normal_generation_count"] > 0,
+                "policy_validation": result,
+            }
+        )
+    return checks
+
+
 def _validate_complex_markup_segments(segments: list[dict[str, Any]]) -> dict[str, Any]:
     by_key = {segment.get("context", {}).get("resource_key"): segment for segment in segments}
     scoped = [by_key[key] for key in sorted(COMPLEX_MARKUP_KEYS) if key in by_key]
@@ -1008,10 +1215,23 @@ def _generation_facing_artifacts(artifacts: dict[str, Any]) -> list[str]:
 def _target_texts(target_path: Path) -> list[str]:
     tree = ElementTree.parse(target_path)
     texts: list[str] = []
-    for element in tree.getroot().iter():
-        if element.text and element.text.strip():
-            texts.append(element.text.strip())
+    for resource in list(tree.getroot()):
+        if _local_tag(resource.tag) == "string":
+            text = "".join(resource.itertext()).strip()
+            if text:
+                texts.append(text)
+            continue
+        for item in list(resource):
+            if _local_tag(item.tag) != "item":
+                continue
+            text = "".join(item.itertext()).strip()
+            if text:
+                texts.append(text)
     return texts
+
+
+def _local_tag(tag: Any) -> str:
+    return str(tag).rsplit("}", 1)[-1]
 
 
 def _strip_segments(extraction: dict[str, Any]) -> dict[str, Any]:
@@ -1040,6 +1260,8 @@ def _failed_checks(checks: dict[str, Any]) -> list[str]:
         failures.append("maintenance preservation check failed")
     if not checks["complex_markup_policy"]["pass"]:
         failures.append("complex markup boundary policy check failed")
+    if not checks["array_plural_markup_policy"]["pass"]:
+        failures.append("array/plural markup boundary policy check failed")
     return failures
 
 
@@ -1066,10 +1288,10 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
 
 def _verdict(status: str) -> str:
     if status == "pass":
-        return "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: PASS"
+        return "V0.2.2-H ANDROID ARRAY/PLURAL MARKUP BOUNDARY POLICY: PASS"
     if status == "partial":
-        return "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: PARTIAL"
-    return "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: FAIL"
+        return "V0.2.2-H ANDROID ARRAY/PLURAL MARKUP BOUNDARY POLICY: PARTIAL"
+    return "V0.2.2-H ANDROID ARRAY/PLURAL MARKUP BOUNDARY POLICY: FAIL"
 
 
 def _xml_parse_ok(path: Path) -> bool:
@@ -1146,7 +1368,7 @@ def _duplicate_comment(text: str, comment: str) -> str:
 
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
-        "# v0.2.2-G Android Complex Markup Boundary Policy",
+        "# v0.2.2-H Android Array/Plural Markup Boundary Policy",
         "",
         f"- Status: `{report['status']}`",
         f"- Verdict: **{report['verdict']}**",
@@ -1175,6 +1397,7 @@ def render_report_markdown(report: dict[str, Any]) -> str:
         f"- Blind leakage: `{report['blind_leakage_check_result']['pass']}`",
         f"- Maintenance preservation: `{report['maintenance_preservation_check_result']['pass']}`",
         f"- Complex markup boundary policy: `{report['complex_markup_policy_check']['pass']}`",
+        f"- Array/plural markup boundary policy: `{report['array_plural_markup_policy_check']['pass']}`",
         f"- QA status: `{report['qa_check_result']['status']}`",
         "",
         "## Escape Signature QA",
@@ -1260,6 +1483,26 @@ def render_report_markdown(report: dict[str, Any]) -> str:
             f"- Preserved without corruption: `{complex_markup['preserved_without_corruption']}`",
             f"- Staged XML parses: `{complex_markup['staged_xml_parse']}`",
             f"- Known limitations: `{', '.join(complex_markup['known_limitations'])}`",
+            "",
+        ]
+    )
+    item_markup = report["array_plural_markup_policy_check"]
+    lines.extend(
+        [
+            "## Array/Plural Markup Boundary Policy",
+            "",
+            f"- Pass: `{item_markup['pass']}`",
+            f"- Supported array markup segments: {item_markup['supported_array_markup_segments']}",
+            f"- Supported plural markup segments: {item_markup['supported_plural_markup_segments']}",
+            f"- Unsupported array items detected: {item_markup['unsupported_array_items_detected']}",
+            f"- Unsupported plural items detected: {item_markup['unsupported_plural_items_detected']}",
+            f"- Owner review required: {item_markup['owner_review_required_count']}",
+            f"- Sent to normal generation: {item_markup['sent_to_normal_generation_count']}",
+            f"- Existing target preserved: `{item_markup['existing_target_preserved_in_maintenance']}`",
+            f"- Source fallback preserved: `{item_markup['source_fallback_preserved_without_target_use']}`",
+            f"- Placeholder QA preserved: `{item_markup['placeholder_qa_preserved']}`",
+            f"- Staged XML parses: `{item_markup['staged_xml_parse']}`",
+            f"- Known limitations: `{len(item_markup['known_limitations'])}`",
             "",
         ]
     )

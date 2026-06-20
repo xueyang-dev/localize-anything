@@ -24,10 +24,27 @@
         <item>Oldest first</item>
         <item>Most played</item>
     </string-array>
+    <string-array name="rich_sort_options">
+        <item><b>Newest</b> first</item>
+        <item>Oldest <i>first</i></item>
+        <item>Read <a href="https://example.com/sort">sorting help</a></item>
+    </string-array>
+    <string-array name="complex_sort_options">
+        <item><b><i>Nested</i></b> option</item>
+        <item><font color="#ff0000">Danger</font> option</item>
+    </string-array>
     <!-- Number of downloaded episodes -->
     <plurals name="episode_count">
         <item quantity="one">%1$d episode</item>
         <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <plurals name="rich_episode_count">
+        <item quantity="one"><b>%1$d</b> episode</item>
+        <item quantity="other"><b>%1$d</b> episodes</item>
+    </plurals>
+    <plurals name="complex_episode_count">
+        <item quantity="one"><font color="#ff0000">%1$d</font> episode</item>
+        <item quantity="other"><b style="color:red">%1$d</b> episodes</item>
     </plurals>
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>

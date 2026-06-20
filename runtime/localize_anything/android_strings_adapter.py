@@ -78,13 +78,19 @@ def rebuild(
             index += 1
         rendered_items = []
         for item in grouped:
-            segment = by_key.get(item["key"])
-            if not segment or "target" not in segment:
-                continue
-            if resource_type == "plurals":
-                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{_render_segment_value(segment)}</item>")
+            if _owner_review_required(item):
+                preserved = existing_by_key.get(item["key"], item)
+                rendered_value = _render_resource_value(preserved)
+                preserved_review_required.append(item["key"])
             else:
-                rendered_items.append(f"        <item>{_render_segment_value(segment)}</item>")
+                segment = by_key.get(item["key"])
+                if not segment or "target" not in segment:
+                    continue
+                rendered_value = _render_segment_value(segment)
+            if resource_type == "plurals":
+                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{rendered_value}</item>")
+            else:
+                rendered_items.append(f"        <item>{rendered_value}</item>")
         if rendered_items:
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
@@ -345,16 +351,53 @@ def _read_document(path: Path) -> dict[str, Any]:
             child_tag = _tag(child.tag)
             if child_tag != "item":
                 continue
-            if list(child):
-                skipped.append({"tag": tag, "name": _item_key(tag, name, item_index, child.attrib.get("quantity")), "reason": "inline_markup"})
-                item_index += 1
-                continue
+            quantity = child.attrib.get("quantity") if tag == "plurals" else None
             if tag == "plurals":
-                quantity = child.attrib.get("quantity", "")
                 if not quantity:
                     skipped.append({"tag": tag, "name": _item_key(tag, name, item_index, None), "reason": "missing_quantity"})
                     item_index += 1
                     continue
+            if list(child):
+                inline = _extract_supported_inline_markup(child)
+                if inline is not None:
+                    resources.append(
+                        _resource(
+                            tag,
+                            name,
+                            inline["value"],
+                            dict(element.attrib),
+                            item_index,
+                            quantity,
+                            markup_signature=inline["markup_signature"],
+                            comment_info=comment_info,
+                        )
+                    )
+                else:
+                    markup_policy = _classify_unsupported_inline_markup(child)
+                    resource = _resource(
+                        tag,
+                        name,
+                        _serialize_element_inner(child),
+                        dict(element.attrib),
+                        item_index,
+                        quantity,
+                        comment_info=comment_info,
+                        markup_policy=markup_policy,
+                        markup_structure_signature=_markup_structure_signature(child),
+                        preserve_inline_xml=True,
+                    )
+                    resources.append(resource)
+                    skipped.append(
+                        {
+                            "tag": tag,
+                            "name": resource["key"],
+                            "reason": markup_policy["category"],
+                            "category": markup_policy["category"],
+                            "categories": markup_policy["categories"],
+                            "owner_review_required": True,
+                        }
+                    )
+            elif tag == "plurals":
                 resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
             else:
                 resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index, comment_info=comment_info))
@@ -488,13 +531,48 @@ def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
         item_index = 0
         for child in list(element):
             child_tag = _tag(child.tag)
-            if child_tag != "item" or list(child):
+            if child_tag != "item":
+                item_index += 1
+                continue
+            quantity = child.attrib.get("quantity") if tag == "plurals" else None
+            if tag == "plurals" and not quantity:
+                item_index += 1
+                continue
+            if list(child):
+                inline = _extract_supported_inline_markup(child)
+                if inline is not None:
+                    resources.append(
+                        _resource(
+                            tag,
+                            name,
+                            inline["value"],
+                            dict(element.attrib),
+                            item_index,
+                            quantity,
+                            markup_signature=inline["markup_signature"],
+                            comment_info=comment_info,
+                        )
+                    )
+                else:
+                    markup_policy = _classify_unsupported_inline_markup(child)
+                    resources.append(
+                        _resource(
+                            tag,
+                            name,
+                            _serialize_element_inner(child),
+                            dict(element.attrib),
+                            item_index,
+                            quantity,
+                            comment_info=comment_info,
+                            markup_policy=markup_policy,
+                            markup_structure_signature=_markup_structure_signature(child),
+                            preserve_inline_xml=True,
+                        )
+                    )
                 item_index += 1
                 continue
             if tag == "plurals":
-                quantity = child.attrib.get("quantity", "")
-                if quantity:
-                    resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
+                resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
             else:
                 resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index, comment_info=comment_info))
             item_index += 1
@@ -522,9 +600,9 @@ def _render_existing_resources(resources: list[dict[str, Any]]) -> list[str]:
         rendered_items = []
         for item in grouped:
             if resource_type == "plurals":
-                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{escape(str(item['value']))}</item>")
+                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{_render_resource_value(item)}</item>")
             else:
-                rendered_items.append(f"        <item>{escape(str(item['value']))}</item>")
+                rendered_items.append(f"        <item>{_render_resource_value(item)}</item>")
         if rendered_items:
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
