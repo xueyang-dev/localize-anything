@@ -32,7 +32,7 @@ LEGACY_TEXT = "旧版专属译文_不得自动删除"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the v0.2.2 Android CDATA boundary preservation benchmark")
+    parser = argparse.ArgumentParser(description="Run the v0.2.2 Android resource comment round-trip benchmark")
     parser.add_argument("--work-root", type=Path, default=ROOT / "work")
     parser.add_argument("--report-dir", type=Path, default=ROOT)
     parser.add_argument("--keep-work", action="store_true")
@@ -65,6 +65,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
     escape_signature = _escape_signature_check(extraction["segments"], generated_segments)
     inline_markup = _inline_markup_check(extraction["segments"], generated_segments, staging)
     cdata = _cdata_check(extraction["segments"], generated_segments, source_path, Path(staging["staged_target"]))
+    comments = _comment_round_trip_check(source_path, Path(staging["staged_target"]))
 
     blind = _run_mode(work_root, "blind_benchmark", "blind")
     blind_leakage = _blind_leakage_check(blind["result"], target_path)
@@ -78,6 +79,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "escape_signature": escape_signature,
         "inline_markup": inline_markup,
         "cdata": cdata,
+        "comments": comments,
         "blind_leakage": blind_leakage,
         "maintenance_preservation": maintenance_preservation,
     }
@@ -87,7 +89,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
     status = "pass" if core_pass and not known_limitations else "partial" if core_pass else "fail"
 
     report = {
-        "schema": "localize-anything-v022-android-cdata-boundary-preservation",
+        "schema": "localize-anything-v022-android-resource-comment-round-trip",
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "status": status,
         "verdict": _verdict(status),
@@ -113,6 +115,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "escape_signature_check": escape_signature,
         "inline_markup_check": inline_markup,
         "cdata_check": cdata,
+        "comment_round_trip_check": comments,
         "escape_check_result": staging["escape_check"],
         "xml_entity_check_result": staging["xml_entity_check"],
         "inline_html_check_result": staging["inline_html_check"],
@@ -191,6 +194,15 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         key: by_key.get(key, {}).get("constraints", {}).get("cdata") is expected
         for key, expected in cdata_expected.items()
     }
+    comment_expected = {
+        "string:settings_title": "Settings screen",
+        "string-array:sort_options[0]": "Sort options shown in the queue screen",
+        "plurals:episode_count#one": "Number of downloaded episodes",
+    }
+    comment_checks = {
+        key: by_key.get(key, {}).get("context", {}).get("resource_comment") == expected
+        for key, expected in comment_expected.items()
+    }
     unsupported_inline_markup = [item for item in skipped if item["reason"] == "unsupported_inline_markup"]
     translatable_false = [item for item in skipped if item["reason"] == "translatable_false"]
     return {
@@ -201,6 +213,7 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
             and all(escape_checks.values())
             and all(markup_checks.values())
             and all(cdata_checks.values())
+            and all(comment_checks.values())
             and bool(unsupported_inline_markup)
             and bool(translatable_false)
         ),
@@ -213,6 +226,7 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         "escape_signature_extraction_check": {"pass": all(escape_checks.values()), "items": escape_checks},
         "markup_signature_extraction_check": {"pass": all(markup_checks.values()), "items": markup_checks},
         "cdata_signature_extraction_check": {"pass": all(cdata_checks.values()), "items": cdata_checks},
+        "resource_comment_extraction_check": {"pass": all(comment_checks.values()), "items": comment_checks},
         "unsupported_high_risk": {
             "unsupported_inline_markup": unsupported_inline_markup,
             "cdata_present_in_source": "<![CDATA[" in source_path.read_text(encoding="utf-8"),
@@ -285,7 +299,13 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
         by_key.get("string:html_cdata", {}).get("source") == "Tap <b>Learn more</b> to continue."
         and by_key.get("string:plain_cdata", {}).get("source") == "Use < and > safely in this message."
     )
-    comment_preserved = "Settings screen" in staged_text
+    source_comments = android._read_document(source_path)["comments"]  # noqa: SLF001 - benchmark probes adapter-observed comments.
+    staged_comments = android._read_document(staged_target)["comments"]  # noqa: SLF001 - benchmark probes adapter-observed comments.
+    string_comment_preserved = staged_comments.get("string:settings_title", {}).get("comment") == "Settings screen"
+    array_comment_preserved = staged_comments.get("string-array:sort_options", {}).get("comment") == "Sort options shown in the queue screen"
+    plurals_comment_preserved = staged_comments.get("plurals:episode_count", {}).get("comment") == "Number of downloaded episodes"
+    target_only_comment_preserved = staged_comments.get(LEGACY_RESOURCE_KEY, {}).get("comment") == "Legacy removed key preserved for owner review"
+    comments_preserved = string_comment_preserved and array_comment_preserved and plurals_comment_preserved and target_only_comment_preserved
     return {
         "pass": (
             parse_ok
@@ -304,6 +324,7 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
             and inline_markup_preserved
             and cdata_raw_preserved
             and cdata_semantic_preserved
+            and comments_preserved
             and LEGACY_TEXT in staged_text
             and f'name="{LEGACY_KEY}"' in staged_text
         ),
@@ -336,9 +357,15 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
             "cdata_sections": cdata_sections,
         },
         "comment_check": {
-            "pass": comment_preserved,
-            "status": "known_unsupported" if not comment_preserved else "pass",
-            "message": "resource comments are not preserved by the current rebuild path" if not comment_preserved else "resource comment preserved",
+            "pass": comments_preserved,
+            "status": "pass" if comments_preserved else "fail",
+            "message": "resource comments are preserved before corresponding staged resources",
+            "source_comment_count": len(source_comments),
+            "staged_comment_count": len(staged_comments),
+            "string_comment_preserved": string_comment_preserved,
+            "array_comment_preserved": array_comment_preserved,
+            "plurals_comment_preserved": plurals_comment_preserved,
+            "target_only_comment_preserved": target_only_comment_preserved,
         },
         "string_array_check": {"pass": array_items == ["最新优先", "最旧优先", "播放最多"], "items": array_items},
         "plurals_check": {"pass": list(plurals) == ["one", "other"] and all("%1$d" in value for value in plurals.values()), "items": plurals},
@@ -375,14 +402,6 @@ def _qa_check(source_path: Path, staged_target: Path) -> dict[str, Any]:
                 "message": "inline markup with attributes is reported as unsupported_or_skipped_resource",
             }
         )
-    known_unsupported_items.append(
-        {
-            "category": "comment_round_trip",
-            "severity": "warning",
-            "status": "known_unsupported",
-            "message": "resource comments are not preserved in staged output",
-        }
-    )
     return {
         "pass": (
             qa["summary"]["blocking_count"] == 0
@@ -573,6 +592,80 @@ def _cdata_check(
     }
 
 
+def _comment_round_trip_check(source_path: Path, staged_target: Path) -> dict[str, Any]:
+    source_doc = android._read_document(source_path)  # noqa: SLF001 - benchmark probes adapter-observed comments.
+    staged_doc = android._read_document(staged_target)  # noqa: SLF001 - benchmark probes adapter-observed comments.
+    source_comments = source_doc["comments"]
+    staged_comments = staged_doc["comments"]
+    string_comment = staged_comments.get("string:settings_title", {}).get("comment") == "Settings screen"
+    array_comment = staged_comments.get("string-array:sort_options", {}).get("comment") == "Sort options shown in the queue screen"
+    plurals_comment = staged_comments.get("plurals:episode_count", {}).get("comment") == "Number of downloaded episodes"
+    target_only_comment = staged_comments.get(LEGACY_RESOURCE_KEY, {}).get("comment") == "Legacy removed key preserved for owner review"
+    staged_text = staged_target.read_text(encoding="utf-8")
+
+    missing_target = staged_target.parent / "strings-comment-missing.xml"
+    missing_target.write_text(_drop_comment(staged_text, "Settings screen"), encoding="utf-8", newline="\n")
+    missing_qa = android.validate_pair(source_path, missing_target)
+
+    misattached_target = staged_target.parent / "strings-comment-misattached.xml"
+    misattached_target.write_text(_misattach_comment(staged_text, "Settings screen"), encoding="utf-8", newline="\n")
+    misattached_qa = android.validate_pair(source_path, misattached_target)
+
+    duplicate_target = staged_target.parent / "strings-comment-duplicate.xml"
+    duplicate_target.write_text(_duplicate_comment(staged_text, "Settings screen"), encoding="utf-8", newline="\n")
+    duplicate_qa = android.validate_pair(source_path, duplicate_target)
+
+    return {
+        "pass": (
+            len(source_comments) >= 3
+            and len(staged_comments) >= len(source_comments)
+            and string_comment
+            and array_comment
+            and plurals_comment
+            and target_only_comment
+            and "comment_missing" in _qa_categories(missing_qa)
+            and "comment_misattached" in _qa_categories(misattached_qa)
+            and "comment_duplicate" in _qa_categories(duplicate_qa)
+            and _xml_parse_ok(staged_target)
+        ),
+        "source_comment_count": len(source_comments),
+        "staged_comment_count": len(staged_comments),
+        "resource_comments_preserved": string_comment and array_comment and plurals_comment,
+        "string_comment_preserved": string_comment,
+        "array_comment_preserved": array_comment,
+        "plurals_comment_preserved": plurals_comment,
+        "target_only_comment_preserved": target_only_comment,
+        "missing_comment_issues": _count_categories([missing_qa], {"comment_missing"}),
+        "misattached_comment_issues": _count_categories([misattached_qa], {"comment_misattached"}),
+        "duplicate_comment_issues": _count_categories([duplicate_qa], {"comment_duplicate"}),
+        "staged_xml_parse": _xml_parse_ok(staged_target),
+        "negative_checks": [
+            {
+                "name": "comment_dropped",
+                "pass": "comment_missing" in _qa_categories(missing_qa),
+                "status": missing_qa["status"],
+                "categories": sorted(_qa_categories(missing_qa)),
+                "qa": missing_qa,
+            },
+            {
+                "name": "comment_misattached",
+                "pass": "comment_misattached" in _qa_categories(misattached_qa),
+                "status": misattached_qa["status"],
+                "categories": sorted(_qa_categories(misattached_qa)),
+                "qa": misattached_qa,
+            },
+            {
+                "name": "comment_duplicate",
+                "pass": "comment_duplicate" in _qa_categories(duplicate_qa),
+                "status": duplicate_qa["status"],
+                "categories": sorted(_qa_categories(duplicate_qa)),
+                "qa": duplicate_qa,
+            },
+        ],
+        "known_limitations": [],
+    }
+
+
 def _negative_generated_case(
     work_packet: dict[str, Any],
     generated_segments: list[dict[str, Any]],
@@ -732,6 +825,8 @@ def _failed_checks(checks: dict[str, Any]) -> list[str]:
         failures.append("inline markup check failed")
     if not checks["cdata"]["pass"]:
         failures.append("cdata check failed")
+    if not checks["comments"]["pass"]:
+        failures.append("comment round-trip check failed")
     if not checks["blind_leakage"]["pass"]:
         failures.append("blind leakage check failed")
     if not checks["maintenance_preservation"]["pass"]:
@@ -749,12 +844,11 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
                 "message": "Inline markup with attributes or unsupported tags is detected and reported, but not extracted or staged.",
             }
         )
-    if staging["comment_check"]["status"] == "known_unsupported":
         limitations.append(
             {
-                "id": "android_resource_comments_not_preserved",
+                "id": "android_complex_nested_markup_unsupported",
                 "severity": "known_unsupported",
-                "message": "Resource comments are not round-tripped by the current Android rebuild path.",
+                "message": "Complex nested inline markup remains outside the supported Android inline markup slice.",
             }
         )
     if qa["known_unsupported_items"]:
@@ -762,7 +856,7 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
             {
                 "id": "android_known_unsupported_qa_items",
                 "severity": "known_unsupported",
-                "message": "Benchmark-level QA records unsupported inline attributes and comment limitations.",
+                "message": "Benchmark-level QA records unsupported inline markup attributes.",
             }
         )
     return limitations
@@ -770,10 +864,10 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
 
 def _verdict(status: str) -> str:
     if status == "pass":
-        return "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: PASS"
+        return "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PASS"
     if status == "partial":
-        return "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: PARTIAL"
-    return "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: FAIL"
+        return "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PARTIAL"
+    return "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: FAIL"
 
 
 def _xml_parse_ok(path: Path) -> bool:
@@ -834,9 +928,23 @@ def _drop_cdata_boundaries(text: str) -> str:
     return pattern.sub(replace, text)
 
 
+def _drop_comment(text: str, comment: str) -> str:
+    return text.replace(f"    <!-- {comment} -->\n", "", 1)
+
+
+def _misattach_comment(text: str, comment: str) -> str:
+    without_comment = _drop_comment(text, comment)
+    return without_comment.replace('    <string name="app_name"', f"    <!-- {comment} -->\n    <string name=\"app_name\"", 1)
+
+
+def _duplicate_comment(text: str, comment: str) -> str:
+    marker = f"    <!-- {comment} -->\n"
+    return text.replace(marker, marker + marker, 1)
+
+
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
-        "# v0.2.2-D Android CDATA Boundary Preservation",
+        "# v0.2.2-E Android Resource Comment Round-Trip",
         "",
         f"- Status: `{report['status']}`",
         f"- Verdict: **{report['verdict']}**",
@@ -854,6 +962,7 @@ def render_report_markdown(report: dict[str, Any]) -> str:
         f"- Escape signatures: `{report['escape_signature_check']['pass']}`",
         f"- Inline markup: `{report['inline_markup_check']['pass']}`",
         f"- CDATA boundary: `{report['cdata_check']['pass']}`",
+        f"- Resource comments: `{report['comment_round_trip_check']['pass']}`",
         f"- Escapes: `{report['escape_check_result']['pass']}`",
         f"- XML entity: `{report['xml_entity_check_result']['pass']}`",
         f"- Inline HTML: `{report['inline_html_check_result']['status']}`",
@@ -910,6 +1019,26 @@ def render_report_markdown(report: dict[str, Any]) -> str:
             f"- Boundary missing issues: {cdata['boundary_missing_issues']}",
             f"- Staged XML parses: `{cdata['staged_xml_parse']}`",
             f"- Known limitations: `{len(cdata['known_limitations'])}`",
+            "",
+        ]
+    )
+    comments = report["comment_round_trip_check"]
+    lines.extend(
+        [
+            "## Resource Comment QA",
+            "",
+            f"- Pass: `{comments['pass']}`",
+            f"- Source comment count: {comments['source_comment_count']}",
+            f"- Staged comment count: {comments['staged_comment_count']}",
+            f"- Resource comments preserved: `{comments['resource_comments_preserved']}`",
+            f"- String comment preserved: `{comments['string_comment_preserved']}`",
+            f"- Array comment preserved: `{comments['array_comment_preserved']}`",
+            f"- Plurals comment preserved: `{comments['plurals_comment_preserved']}`",
+            f"- Target-only comment preserved: `{comments['target_only_comment_preserved']}`",
+            f"- Missing comment issues: {comments['missing_comment_issues']}",
+            f"- Misattached comment issues: {comments['misattached_comment_issues']}",
+            f"- Duplicate comment issues: {comments['duplicate_comment_issues']}",
+            f"- Known limitations: `{len(comments['known_limitations'])}`",
             "",
         ]
     )

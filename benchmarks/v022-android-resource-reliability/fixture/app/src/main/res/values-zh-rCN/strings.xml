@@ -20,5 +20,6 @@
         <item quantity="other">%1$d 集</item>
     </plurals>
     <string name="settings_title">设置</string>
+    <!-- Legacy removed key preserved for owner review -->
     <string name="legacy_removed_key">旧版专属译文_不得自动删除</string>
 </resources>

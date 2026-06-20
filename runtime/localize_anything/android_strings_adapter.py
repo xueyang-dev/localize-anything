@@ -48,6 +48,7 @@ def rebuild(
             if segment and "target" in segment:
                 attrs = _target_attributes(resource["attributes"])
                 attrs["name"] = resource["name"]
+                lines.extend(_render_resource_comments(resource, "    "))
                 lines.append(f"    <string {_format_attributes(attrs)}>{_render_segment_value(segment, cdata=bool(resource.get('cdata')))}</string>")
             index += 1
             continue
@@ -68,6 +69,7 @@ def rebuild(
         if rendered_items:
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
+            lines.extend(_render_resource_comments(resource, "    "))
             lines.append(f"    <{resource_type} {_format_attributes(attrs)}>")
             lines.extend(rendered_items)
             lines.append(f"    </{resource_type}>")
@@ -134,6 +136,7 @@ def validate_pair(source_path: Path, target_path: Path) -> dict[str, Any]:
                 skipped["name"],
             )
         )
+    items.extend(_comment_qa_items(source, target, target_path))
 
     source_resources = {item["key"]: item for item in source["resources"]}
     target_resources = {item["key"]: item for item in target["resources"]}
@@ -230,6 +233,7 @@ def is_android_strings_path(project_root: Path, path: Path) -> bool:
 def _read_document(path: Path) -> dict[str, Any]:
     raw_text = path.read_text(encoding="utf-8")
     cdata_names = _cdata_resource_names(raw_text)
+    resource_comments = _resource_comment_info(path)
     tree = ElementTree.parse(path)
     root = tree.getroot()
     if _tag(root.tag) != "resources":
@@ -254,6 +258,7 @@ def _read_document(path: Path) -> dict[str, Any]:
         if element.attrib.get("translatable") == "false":
             skipped.append({"tag": tag, "name": _container_key(tag, name), "reason": "translatable_false"})
             continue
+        comment_info = resource_comments.get(_container_key(tag, name), {})
         if tag == "string":
             cdata = name in cdata_names
             if list(element):
@@ -269,10 +274,11 @@ def _read_document(path: Path) -> dict[str, Any]:
                         dict(element.attrib),
                         markup_signature=inline["markup_signature"],
                         cdata=cdata,
+                        comment_info=comment_info,
                     )
                 )
                 continue
-            resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=cdata))
+            resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=cdata, comment_info=comment_info))
             continue
         item_index = 0
         for child in list(element):
@@ -289,11 +295,11 @@ def _read_document(path: Path) -> dict[str, Any]:
                     skipped.append({"tag": tag, "name": _item_key(tag, name, item_index, None), "reason": "missing_quantity"})
                     item_index += 1
                     continue
-                resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity))
+                resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
             else:
-                resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index))
+                resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index, comment_info=comment_info))
             item_index += 1
-    return {"resources": resources, "skipped": skipped, "duplicates": duplicates}
+    return {"resources": resources, "skipped": skipped, "duplicates": duplicates, "comments": resource_comments}
 
 
 def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[str, Any]:
@@ -303,6 +309,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
     escape_signature = extract_escape_signature(value)
     markup_signature = list(resource.get("markup_signature", []))
     cdata = bool(resource.get("cdata"))
+    resource_comment = str(resource.get("resource_comment", ""))
     return {
         "protocol_version": PROTOCOL_VERSION,
         "evidence_channels": ["adapter"],
@@ -320,6 +327,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
             "item_index": resource.get("item_index"),
             "quantity": resource.get("quantity"),
             "attributes": _target_attributes(resource["attributes"]),
+            "resource_comment": resource_comment,
         },
         "constraints": {
             "placeholders": _resource_placeholders(resource),
@@ -332,6 +340,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
         "markup_signature": markup_signature,
         "cdata": cdata,
         "cdata_signature": {"boundary": "cdata", "original_had_cdata": True} if cdata else {},
+        "resource_comment": resource_comment,
         "status": "new",
     }
 
@@ -361,6 +370,7 @@ def _target_only_resources(source_resources: list[dict[str, Any]], target_path: 
 def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
     raw_text = path.read_text(encoding="utf-8")
     cdata_names = _cdata_resource_names(raw_text)
+    resource_comments = _resource_comment_info(path)
     tree = ElementTree.parse(path)
     root = tree.getroot()
     if _tag(root.tag) != "resources":
@@ -373,10 +383,11 @@ def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
         name = element.attrib.get("name", "")
         if not name:
             continue
+        comment_info = resource_comments.get(_container_key(tag, name), {})
         if tag == "string":
             if list(element):
                 continue
-            resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=name in cdata_names))
+            resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=name in cdata_names, comment_info=comment_info))
             continue
         item_index = 0
         for child in list(element):
@@ -387,9 +398,9 @@ def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
             if tag == "plurals":
                 quantity = child.attrib.get("quantity", "")
                 if quantity:
-                    resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity))
+                    resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
             else:
-                resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index))
+                resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index, comment_info=comment_info))
             item_index += 1
     return resources
 
@@ -403,6 +414,7 @@ def _render_existing_resources(resources: list[dict[str, Any]]) -> list[str]:
         if resource_type == "string":
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
+            lines.extend(_render_resource_comments(resource, "    "))
             lines.append(f"    <string {_format_attributes(attrs)}>{_render_resource_value(resource)}</string>")
             index += 1
             continue
@@ -420,6 +432,7 @@ def _render_existing_resources(resources: list[dict[str, Any]]) -> list[str]:
         if rendered_items:
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
+            lines.extend(_render_resource_comments(resource, "    "))
             lines.append(f"    <{resource_type} {_format_attributes(attrs)}>")
             lines.extend(rendered_items)
             lines.append(f"    </{resource_type}>")
@@ -435,7 +448,10 @@ def _resource(
     quantity: str | None = None,
     markup_signature: list[dict[str, Any]] | None = None,
     cdata: bool = False,
+    comment_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    comment_entries = list((comment_info or {}).get("entries", []))
+    resource_comment = "\n".join(comment_entries).strip()
     return {
         "type": resource_type,
         "name": name,
@@ -445,6 +461,9 @@ def _resource(
         "quantity": quantity,
         "markup_signature": markup_signature or [],
         "cdata": cdata,
+        "resource_comment": resource_comment,
+        "comment_entries": comment_entries,
+        "comment_count": int((comment_info or {}).get("count", len(comment_entries))),
         "key": _item_key(resource_type, name, item_index, quantity),
     }
 
@@ -462,6 +481,32 @@ def _cdata_resource_names(raw_text: str) -> set[str]:
         if name_match:
             names.add(name_match.group("name"))
     return names
+
+
+def _resource_comment_info(path: Path) -> dict[str, dict[str, Any]]:
+    comments: dict[str, dict[str, Any]] = {}
+    pending: list[str] = []
+    for event, element in ElementTree.iterparse(path, events=("start", "comment")):
+        if event == "comment":
+            text = (element.text or "").strip()
+            if text:
+                pending.append(text)
+            continue
+        tag = _tag(str(element.tag))
+        if tag in ANDROID_STRING_TAGS:
+            name = element.attrib.get("name", "")
+            if name and pending:
+                entries = list(pending)
+                comments[_container_key(tag, name)] = {
+                    "entries": entries,
+                    "comment": "\n".join(entries),
+                    "count": len(entries),
+                }
+            pending = []
+            continue
+        if tag not in {"resources", "item"}:
+            pending = []
+    return comments
 
 
 def _extract_supported_inline_markup(element: ElementTree.Element) -> dict[str, Any] | None:
@@ -510,6 +555,14 @@ def _render_cdata_value(value: str) -> str:
     if "]]>" in value:
         raise ValueError("CDATA target contains unsafe terminator sequence: ]]>")
     return f"<![CDATA[{value}]]>"
+
+
+def _render_resource_comments(resource: dict[str, Any], indent: str) -> list[str]:
+    return [f"{indent}<!-- {_safe_comment_text(comment)} -->" for comment in resource.get("comment_entries", []) if str(comment).strip()]
+
+
+def _safe_comment_text(comment: str) -> str:
+    return str(comment).replace("--", "- -").strip()
 
 
 def _render_inline_markup_value(value: str) -> str:
@@ -717,6 +770,59 @@ def _cdata_qa_items(
                 segment_id,
             )
         )
+    return items
+
+
+def _comment_qa_items(source_document: dict[str, Any], target_document: dict[str, Any], target_path: Path) -> list[dict[str, Any]]:
+    source_comments: dict[str, dict[str, Any]] = source_document.get("comments", {})
+    target_comments: dict[str, dict[str, Any]] = target_document.get("comments", {})
+    items: list[dict[str, Any]] = []
+    for key, source_info in sorted(source_comments.items()):
+        expected = str(source_info.get("comment", "")).strip()
+        if not expected:
+            continue
+        target_info = target_comments.get(key)
+        actual = str((target_info or {}).get("comment", "")).strip()
+        if actual == expected:
+            continue
+        wrong_keys = [
+            target_key
+            for target_key, candidate in target_comments.items()
+            if target_key != key and str(candidate.get("comment", "")).strip() == expected
+        ]
+        if wrong_keys:
+            items.append(
+                _qa_item(
+                    "comment_misattached",
+                    "warning",
+                    f"Resource comment for {key} is attached to {', '.join(sorted(wrong_keys))}",
+                    target_path,
+                    key,
+                )
+            )
+        else:
+            items.append(
+                _qa_item(
+                    "comment_missing",
+                    "warning",
+                    f"Missing resource comment for {key}: {expected}",
+                    target_path,
+                    key,
+                )
+            )
+    for key, target_info in sorted(target_comments.items()):
+        entries = [str(entry).strip() for entry in target_info.get("entries", []) if str(entry).strip()]
+        source_count = int(source_comments.get(key, {}).get("count", 0))
+        if len(entries) != len(set(entries)) or (source_count and len(entries) > source_count):
+            items.append(
+                _qa_item(
+                    "comment_duplicate",
+                    "warning",
+                    f"Duplicate resource comment before {key}",
+                    target_path,
+                    key,
+                )
+            )
     return items
 
 

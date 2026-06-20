@@ -646,6 +646,81 @@ class AndroidStringsAdapterTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 stage_android_strings(source, generated, Path(directory), "zh-CN", project)
 
+    def test_android_resource_comment_metadata_extraction(self) -> None:
+        source = (
+            REPOSITORY_ROOT
+            / "benchmarks"
+            / "v022-android-resource-reliability"
+            / "fixture"
+            / "app"
+            / "src"
+            / "main"
+            / "res"
+            / "values"
+            / "strings.xml"
+        )
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        by_key = {segment["context"]["resource_key"]: segment for segment in segments}
+
+        self.assertEqual(by_key["string:settings_title"]["context"]["resource_comment"], "Settings screen")
+        self.assertEqual(
+            by_key["string-array:sort_options[0]"]["context"]["resource_comment"],
+            "Sort options shown in the queue screen",
+        )
+        self.assertEqual(
+            by_key["plurals:episode_count#one"]["context"]["resource_comment"],
+            "Number of downloaded episodes",
+        )
+        self.assertFalse(any(segment["source"] == "Settings screen" for segment in segments))
+
+    def test_android_resource_comments_round_trip_in_staging(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture"
+        source = project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        for segment in segments:
+            segment["target_locale"] = "zh-CN"
+            segment["target"] = segment["source"]
+            segment["status"] = "generated"
+
+        with tempfile.TemporaryDirectory() as directory:
+            staged = stage_android_strings(source, segments, Path(directory), "zh-CN", project, preserve_target_only=True)
+            staged_path = Path(staged["output"])
+            text = staged_path.read_text(encoding="utf-8")
+            self.assertLess(text.index("<!-- Settings screen -->"), text.index('name="settings_title"'))
+            self.assertLess(text.index("<!-- Sort options shown in the queue screen -->"), text.index('name="sort_options"'))
+            self.assertLess(text.index("<!-- Number of downloaded episodes -->"), text.index('name="episode_count"'))
+            self.assertLess(text.index("<!-- Legacy removed key preserved for owner review -->"), text.index('name="legacy_removed_key"'))
+            result = validate_android_strings(source, staged_path)
+            categories = {item["category"] for item in result["items"]}
+            self.assertNotIn("comment_missing", categories)
+            self.assertNotIn("comment_misattached", categories)
+
+    def test_android_comment_drift_validation(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture"
+        source = project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        for segment in segments:
+            segment["target_locale"] = "zh-CN"
+            segment["target"] = segment["source"]
+            segment["status"] = "generated"
+
+        with tempfile.TemporaryDirectory() as directory:
+            staged = stage_android_strings(source, segments, Path(directory), "zh-CN", project)
+            staged_path = Path(staged["output"])
+            text = staged_path.read_text(encoding="utf-8")
+
+            missing = Path(directory) / "missing-comment.xml"
+            missing.write_text(text.replace("    <!-- Settings screen -->\n", "", 1), encoding="utf-8")
+            missing_result = validate_android_strings(source, missing)
+            self.assertIn("comment_missing", {item["category"] for item in missing_result["items"]})
+
+            misattached = Path(directory) / "misattached-comment.xml"
+            moved = text.replace("    <!-- Settings screen -->\n", "", 1)
+            moved = moved.replace('    <string name="app_name"', '    <!-- Settings screen -->\n    <string name="app_name"', 1)
+            misattached.write_text(moved, encoding="utf-8")
+            misattached_result = validate_android_strings(source, misattached)
+            self.assertIn("comment_misattached", {item["category"] for item in misattached_result["items"]})
+
     def test_placeholder_mismatch_fails_android_strings(self) -> None:
         source = ANDROID_FIXTURE_ROOT / "app" / "src" / "main" / "res" / "values" / "strings.xml"
         segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
@@ -2446,7 +2521,7 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             report = benchmark.run_benchmark(root / "work", root / "report")
 
             self.assertEqual(report["status"], "partial", report["failed_checks"])
-            self.assertEqual(report["verdict"], "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: PARTIAL")
+            self.assertEqual(report["verdict"], "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PARTIAL")
             self.assertTrue((root / "report" / "report.json").is_file())
             self.assertTrue((root / "report" / "report.md").is_file())
             self.assertEqual(report["source_segment_count"], 17)
@@ -2457,8 +2532,9 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             self.assertTrue(report["maintenance_preservation_check_result"]["pass"])
             limitation_ids = {item["id"] for item in report["known_limitations"]}
             self.assertIn("android_inline_markup_attributes_unsupported", limitation_ids)
-            self.assertIn("android_resource_comments_not_preserved", limitation_ids)
+            self.assertIn("android_complex_nested_markup_unsupported", limitation_ids)
             self.assertNotIn("android_cdata_section_normalized", limitation_ids)
+            self.assertNotIn("android_resource_comments_not_preserved", limitation_ids)
             self.assertNotIn("android_escape_drift_qa_not_supported", limitation_ids)
             self.assertNotIn("android_inline_markup_skipped", limitation_ids)
 
@@ -2526,6 +2602,26 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             self.assertEqual(cdata["known_limitations"], [])
             self.assertTrue(report["cdata_check_result"]["pass"])
             self.assertEqual(report["cdata_check_result"]["status"], "pass")
+
+    def test_v022_android_resource_reliability_comments(self) -> None:
+        benchmark = _load_v022_android_resource_reliability_benchmark()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = benchmark.run_benchmark(root / "work", root / "report")
+
+            comments = report["comment_round_trip_check"]
+            self.assertTrue(comments["pass"], comments)
+            self.assertGreaterEqual(comments["source_comment_count"], 3)
+            self.assertGreaterEqual(comments["staged_comment_count"], comments["source_comment_count"])
+            self.assertTrue(comments["resource_comments_preserved"])
+            self.assertTrue(comments["string_comment_preserved"])
+            self.assertTrue(comments["array_comment_preserved"])
+            self.assertTrue(comments["plurals_comment_preserved"])
+            self.assertTrue(comments["target_only_comment_preserved"])
+            self.assertGreaterEqual(comments["missing_comment_issues"], 1)
+            self.assertGreaterEqual(comments["misattached_comment_issues"], 1)
+            self.assertGreaterEqual(comments["duplicate_comment_issues"], 1)
+            self.assertEqual(comments["known_limitations"], [])
 
 
 class SkillFilesTests(unittest.TestCase):
