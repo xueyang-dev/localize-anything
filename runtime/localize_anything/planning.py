@@ -26,8 +26,9 @@ def create_batch_plan(
     if max_segments < 1:
         raise ValueError("max_segments must be positive")
     operating_mode, reference_policy = resolve_mode_policy(operating_mode, reference_policy)
+    eligible_segments = [segment for segment in segments if is_generation_eligible(segment)]
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for segment in segments:
+    for segment in eligible_segments:
         groups[_content_unit(segment)].append(segment)
 
     batches: list[dict[str, Any]] = []
@@ -50,7 +51,7 @@ def create_batch_plan(
             batch_number += 1
 
     digest_input = json.dumps(
-        {"ids": [segment["segment_id"] for segment in segments], "targets": target_locales}, sort_keys=True
+        {"ids": [segment["segment_id"] for segment in eligible_segments], "targets": target_locales}, sort_keys=True
     ).encode("utf-8")
     return {
         "protocol_version": PROTOCOL_VERSION,
@@ -62,6 +63,12 @@ def create_batch_plan(
         "strategy": "content_unit_then_adapter_constraints",
         "batches": batches,
     }
+
+
+def is_generation_eligible(segment: dict[str, Any]) -> bool:
+    if segment.get("generation_eligible") is False or segment.get("owner_review_required") is True:
+        return False
+    return segment.get("status") not in {"owner_review_required", "review_only", "unsupported"}
 
 
 def _content_unit(segment: dict[str, Any]) -> str:

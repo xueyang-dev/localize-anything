@@ -8,6 +8,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .android_strings_adapter import validate_cdata_target, validate_escape_signatures, validate_markup_signatures
+from .planning import is_generation_eligible
 from .io_utils import read_json, read_jsonl, write_jsonl
 from .json_adapter import extract_placeholders
 
@@ -226,7 +227,9 @@ def render_generation_instructions(
 
 
 def validate_generated_segments(work_packet: dict[str, Any], generated_segments: list[dict[str, Any]]) -> dict[str, Any]:
-    expected = {segment["segment_id"]: segment for segment in work_packet.get("segments", [])}
+    packet_segments = list(work_packet.get("segments", []))
+    expected = {segment["segment_id"]: segment for segment in packet_segments if is_generation_eligible(segment)}
+    blocked = {segment["segment_id"]: segment for segment in packet_segments if not is_generation_eligible(segment)}
     generated = {str(segment.get("segment_id", "")): segment for segment in generated_segments if segment.get("segment_id")}
     items: list[dict[str, Any]] = []
 
@@ -236,10 +239,19 @@ def validate_generated_segments(work_packet: dict[str, Any], generated_segments:
     for segment in generated_segments:
         if not segment.get("segment_id"):
             items.append(_qa_item("missing_segment_id", "blocking", "Generated record is missing segment_id"))
+        elif segment.get("segment_id") in blocked:
+            items.append(
+                _qa_item(
+                    "owner_review_required_generation_forbidden",
+                    "blocking",
+                    f"Owner-review-required segment must not be sent through normal generation: {segment['segment_id']}",
+                    str(segment["segment_id"]),
+                )
+            )
 
     for segment_id in sorted(expected.keys() - generated.keys()):
         items.append(_qa_item("generation_coverage", "blocking", f"Missing generated segment: {segment_id}", segment_id))
-    for segment_id in sorted(generated.keys() - expected.keys()):
+    for segment_id in sorted(generated.keys() - expected.keys() - blocked.keys()):
         items.append(_qa_item("generation_coverage", "blocking", f"Unexpected generated segment: {segment_id}", segment_id))
 
     target_locale = work_packet["target_locale"]
@@ -415,7 +427,11 @@ def canonicalize_generated_response(
     parsed_records: list[dict[str, Any]],
     response_format: str,
 ) -> list[dict[str, Any]]:
-    expected = {segment["segment_id"]: segment for segment in work_packet.get("segments", [])}
+    expected = {
+        segment["segment_id"]: segment
+        for segment in work_packet.get("segments", [])
+        if is_generation_eligible(segment)
+    }
     target_locale = work_packet["target_locale"]
     canonical: list[dict[str, Any]] = []
     for record in parsed_records:

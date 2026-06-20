@@ -12,6 +12,10 @@
     <string name="formatting_example">Use <i>italic</i> or <u>underline</u> formatting.</string>
     <string name="unsupported_link">Open <a href="https://example.com">help</a>.</string>
     <string name="privacy_link">Read our <a href="https://example.com/privacy">privacy policy</a>.</string>
+    <string name="nested_markup">Tap <b><i>Learn more</i></b> now.</string>
+    <string name="font_markup">Tap <font color="#ff0000">warning</font>.</string>
+    <string name="styled_bold">Tap <b style="color:red">warning</b>.</string>
+    <string name="complex_link">Open <a href="https://example.com" title="Help">help</a>.</string>
     <string name="html_cdata"><![CDATA[Tap <b>Learn more</b> to continue.]]></string>
     <string name="plain_cdata"><![CDATA[Use < and > safely in this message.]]></string>
     <!-- Sort options shown in the queue screen -->
@@ -20,10 +24,27 @@
         <item>Oldest first</item>
         <item>Most played</item>
     </string-array>
+    <string-array name="rich_sort_options">
+        <item><b>Newest</b> first</item>
+        <item>Oldest <i>first</i></item>
+        <item>Read <a href="https://example.com/sort">sorting help</a></item>
+    </string-array>
+    <string-array name="complex_sort_options">
+        <item><b><i>Nested</i></b> option</item>
+        <item><font color="#ff0000">Danger</font> option</item>
+    </string-array>
     <!-- Number of downloaded episodes -->
     <plurals name="episode_count">
         <item quantity="one">%1$d episode</item>
         <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <plurals name="rich_episode_count">
+        <item quantity="one"><b>%1$d</b> episode</item>
+        <item quantity="other"><b>%1$d</b> episodes</item>
+    </plurals>
+    <plurals name="complex_episode_count">
+        <item quantity="one"><font color="#ff0000">%1$d</font> episode</item>
+        <item quantity="other"><b style="color:red">%1$d</b> episodes</item>
     </plurals>
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>

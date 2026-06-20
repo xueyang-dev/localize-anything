@@ -38,6 +38,15 @@ def rebuild(
 ) -> dict[str, Any]:
     document = _read_document(source_path)
     by_key = _targets_by_resource_key(translated_segments)
+    existing_by_key = (
+        {
+            resource["key"]: resource
+            for resource in _read_preservable_target_resources(preserve_target_only_from)
+        }
+        if preserve_target_only_from is not None and preserve_target_only_from.is_file()
+        else {}
+    )
+    preserved_review_required: list[str] = []
     lines = ['<?xml version="1.0" encoding="utf-8"?>', "<resources>"]
     index = 0
     resources = document["resources"]
@@ -45,6 +54,15 @@ def rebuild(
         resource = resources[index]
         resource_type = resource["type"]
         if resource_type == "string":
+            if _owner_review_required(resource):
+                preserved = existing_by_key.get(resource["key"], resource)
+                attrs = _target_attributes(preserved["attributes"])
+                attrs["name"] = resource["name"]
+                lines.extend(_render_resource_comments(preserved, "    "))
+                lines.append(f"    <string {_format_attributes(attrs)}>{_render_resource_value(preserved)}</string>")
+                preserved_review_required.append(resource["key"])
+                index += 1
+                continue
             segment = by_key.get(resource["key"])
             if segment and "target" in segment:
                 attrs = _target_attributes(resource["attributes"])
@@ -60,13 +78,19 @@ def rebuild(
             index += 1
         rendered_items = []
         for item in grouped:
-            segment = by_key.get(item["key"])
-            if not segment or "target" not in segment:
-                continue
-            if resource_type == "plurals":
-                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{_render_segment_value(segment)}</item>")
+            if _owner_review_required(item):
+                preserved = existing_by_key.get(item["key"], item)
+                rendered_value = _render_resource_value(preserved)
+                preserved_review_required.append(item["key"])
             else:
-                rendered_items.append(f"        <item>{_render_segment_value(segment)}</item>")
+                segment = by_key.get(item["key"])
+                if not segment or "target" not in segment:
+                    continue
+                rendered_value = _render_segment_value(segment)
+            if resource_type == "plurals":
+                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{rendered_value}</item>")
+            else:
+                rendered_items.append(f"        <item>{rendered_value}</item>")
         if rendered_items:
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
@@ -84,6 +108,8 @@ def rebuild(
     return {
         "preserved_target_only_count": len(preserved_target_only),
         "preserved_target_only_keys": [resource["key"] for resource in preserved_target_only],
+        "preserved_review_required_count": len(preserved_review_required),
+        "preserved_review_required_keys": preserved_review_required,
     }
 
 
@@ -128,15 +154,27 @@ def validate_pair(source_path: Path, target_path: Path) -> dict[str, Any]:
         items.append(_qa_item("duplicate_resource", "blocking", f"Duplicate target string resource: {duplicate}", target_path))
     for skipped in source["skipped"]:
         severity = "info" if skipped["reason"] == "translatable_false" else "warning"
+        category = str(skipped.get("category") or "unsupported_or_skipped_resource")
+        action = "Detected" if skipped.get("owner_review_required") else "Skipped"
         items.append(
             _qa_item(
-                "unsupported_or_skipped_resource",
+                category,
                 severity,
-                f"Skipped {skipped['tag']} resource {skipped['name']}: {skipped['reason']}",
+                f"{action} {skipped['tag']} resource {skipped['name']}: {skipped['reason']}",
                 source_path,
                 skipped["name"],
             )
         )
+        if skipped.get("owner_review_required"):
+            items.append(
+                _qa_item(
+                    "owner_review_required",
+                    "warning",
+                    f"Owner review required for unsupported Android markup: {skipped['name']}",
+                    source_path,
+                    skipped["name"],
+                )
+            )
     items.extend(_comment_qa_items(source, target, target_path))
 
     source_resources = {item["key"]: item for item in source["resources"]}
@@ -148,7 +186,11 @@ def validate_pair(source_path: Path, target_path: Path) -> dict[str, Any]:
     }
 
     for key in sorted(source_resources.keys() - target_resources.keys()):
-        items.append(_qa_item("translation_coverage", "warning", f"Missing target resource: {_resource_label(source_resources[key])}", target_path, key))
+        source_resource = source_resources[key]
+        if _owner_review_required(source_resource):
+            items.append(_qa_item("unsupported_markup_drift", "blocking", f"Target dropped owner-review-required markup resource: {_resource_label(source_resource)}", target_path, key))
+        else:
+            items.append(_qa_item("translation_coverage", "warning", f"Missing target resource: {_resource_label(source_resource)}", target_path, key))
     for key in sorted(target_resources.keys() - source_resources.keys()):
         category = "non_translatable_resource" if key in non_translatable else "unexpected_resource"
         label = _resource_label(target_resources[key])
@@ -172,6 +214,7 @@ def validate_pair(source_path: Path, target_path: Path) -> dict[str, Any]:
             items.append(_qa_item("empty_translation", "warning", f"Empty target resource: {_resource_label(target_resource)}", target_path, key))
         items.extend(_escape_qa_items(source_resource, target_resource, target_path, key))
         items.extend(_markup_qa_items(source_resource, target_resource, target_path, key))
+        items.extend(_unsupported_markup_qa_items(source_resource, target_resource, target_path, key))
         items.extend(_cdata_qa_items(source_resource, target_resource, target_path, key))
 
     blocking = sum(item["severity"] == "blocking" for item in items)
@@ -241,7 +284,7 @@ def _read_document(path: Path) -> dict[str, Any]:
         raise ValueError(f"Android strings file must have a <resources> root: {path}")
 
     resources: list[dict[str, Any]] = []
-    skipped: list[dict[str, str]] = []
+    skipped: list[dict[str, Any]] = []
     duplicates: list[str] = []
     seen_names: set[str] = set()
     for element in list(root):
@@ -265,7 +308,29 @@ def _read_document(path: Path) -> dict[str, Any]:
             if list(element):
                 inline = _extract_supported_inline_markup(element)
                 if inline is None:
-                    skipped.append({"tag": tag, "name": _container_key(tag, name), "reason": "unsupported_inline_markup"})
+                    markup_policy = _classify_unsupported_inline_markup(element)
+                    resource = _resource(
+                        "string",
+                        name,
+                        _serialize_element_inner(element),
+                        dict(element.attrib),
+                        cdata=cdata,
+                        comment_info=comment_info,
+                        markup_policy=markup_policy,
+                        markup_structure_signature=_markup_structure_signature(element),
+                        preserve_inline_xml=True,
+                    )
+                    resources.append(resource)
+                    skipped.append(
+                        {
+                            "tag": tag,
+                            "name": resource["key"],
+                            "reason": markup_policy["category"],
+                            "category": markup_policy["category"],
+                            "categories": markup_policy["categories"],
+                            "owner_review_required": True,
+                        }
+                    )
                     continue
                 resources.append(
                     _resource(
@@ -286,16 +351,53 @@ def _read_document(path: Path) -> dict[str, Any]:
             child_tag = _tag(child.tag)
             if child_tag != "item":
                 continue
-            if list(child):
-                skipped.append({"tag": tag, "name": _item_key(tag, name, item_index, child.attrib.get("quantity")), "reason": "inline_markup"})
-                item_index += 1
-                continue
+            quantity = child.attrib.get("quantity") if tag == "plurals" else None
             if tag == "plurals":
-                quantity = child.attrib.get("quantity", "")
                 if not quantity:
                     skipped.append({"tag": tag, "name": _item_key(tag, name, item_index, None), "reason": "missing_quantity"})
                     item_index += 1
                     continue
+            if list(child):
+                inline = _extract_supported_inline_markup(child)
+                if inline is not None:
+                    resources.append(
+                        _resource(
+                            tag,
+                            name,
+                            inline["value"],
+                            dict(element.attrib),
+                            item_index,
+                            quantity,
+                            markup_signature=inline["markup_signature"],
+                            comment_info=comment_info,
+                        )
+                    )
+                else:
+                    markup_policy = _classify_unsupported_inline_markup(child)
+                    resource = _resource(
+                        tag,
+                        name,
+                        _serialize_element_inner(child),
+                        dict(element.attrib),
+                        item_index,
+                        quantity,
+                        comment_info=comment_info,
+                        markup_policy=markup_policy,
+                        markup_structure_signature=_markup_structure_signature(child),
+                        preserve_inline_xml=True,
+                    )
+                    resources.append(resource)
+                    skipped.append(
+                        {
+                            "tag": tag,
+                            "name": resource["key"],
+                            "reason": markup_policy["category"],
+                            "category": markup_policy["category"],
+                            "categories": markup_policy["categories"],
+                            "owner_review_required": True,
+                        }
+                    )
+            elif tag == "plurals":
                 resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
             else:
                 resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index, comment_info=comment_info))
@@ -309,6 +411,8 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
     value = resource["value"]
     escape_signature = extract_escape_signature(value)
     markup_signature = list(resource.get("markup_signature", []))
+    markup_policy = dict(resource.get("markup_policy", {}))
+    owner_review_required = bool(markup_policy.get("owner_review_required"))
     cdata = bool(resource.get("cdata"))
     resource_comment = str(resource.get("resource_comment", ""))
     return {
@@ -329,6 +433,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
             "quantity": resource.get("quantity"),
             "attributes": _target_attributes(resource["attributes"]),
             "resource_comment": resource_comment,
+            "markup_policy": markup_policy,
         },
         "constraints": {
             "placeholders": _resource_placeholders(resource),
@@ -336,12 +441,17 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
             "markup_signature": markup_signature,
             "escape_signature": escape_signature,
             "cdata": cdata,
+            "markup_policy": markup_policy,
         },
         "escape_signature": escape_signature,
         "markup_signature": markup_signature,
         "cdata": cdata,
         "cdata_signature": {"boundary": "cdata", "original_had_cdata": True} if cdata else {},
         "resource_comment": resource_comment,
+        "generation_eligible": not owner_review_required,
+        "owner_review_required": owner_review_required,
+        "review_required_reasons": list(markup_policy.get("categories", [])),
+        "workflow_status": "owner_review_required" if owner_review_required else "generation_candidate",
         "status": "new",
     }
 
@@ -387,19 +497,82 @@ def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
         comment_info = resource_comments.get(_container_key(tag, name), {})
         if tag == "string":
             if list(element):
+                inline = _extract_supported_inline_markup(element)
+                if inline is not None:
+                    resources.append(
+                        _resource(
+                            "string",
+                            name,
+                            inline["value"],
+                            dict(element.attrib),
+                            markup_signature=inline["markup_signature"],
+                            cdata=name in cdata_names,
+                            comment_info=comment_info,
+                        )
+                    )
+                    continue
+                markup_policy = _classify_unsupported_inline_markup(element)
+                resources.append(
+                    _resource(
+                        "string",
+                        name,
+                        _serialize_element_inner(element),
+                        dict(element.attrib),
+                        cdata=name in cdata_names,
+                        comment_info=comment_info,
+                        markup_policy=markup_policy,
+                        markup_structure_signature=_markup_structure_signature(element),
+                        preserve_inline_xml=True,
+                    )
+                )
                 continue
             resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=name in cdata_names, comment_info=comment_info))
             continue
         item_index = 0
         for child in list(element):
             child_tag = _tag(child.tag)
-            if child_tag != "item" or list(child):
+            if child_tag != "item":
+                item_index += 1
+                continue
+            quantity = child.attrib.get("quantity") if tag == "plurals" else None
+            if tag == "plurals" and not quantity:
+                item_index += 1
+                continue
+            if list(child):
+                inline = _extract_supported_inline_markup(child)
+                if inline is not None:
+                    resources.append(
+                        _resource(
+                            tag,
+                            name,
+                            inline["value"],
+                            dict(element.attrib),
+                            item_index,
+                            quantity,
+                            markup_signature=inline["markup_signature"],
+                            comment_info=comment_info,
+                        )
+                    )
+                else:
+                    markup_policy = _classify_unsupported_inline_markup(child)
+                    resources.append(
+                        _resource(
+                            tag,
+                            name,
+                            _serialize_element_inner(child),
+                            dict(element.attrib),
+                            item_index,
+                            quantity,
+                            comment_info=comment_info,
+                            markup_policy=markup_policy,
+                            markup_structure_signature=_markup_structure_signature(child),
+                            preserve_inline_xml=True,
+                        )
+                    )
                 item_index += 1
                 continue
             if tag == "plurals":
-                quantity = child.attrib.get("quantity", "")
-                if quantity:
-                    resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
+                resources.append(_resource("plurals", name, child.text or "", dict(element.attrib), item_index, quantity, comment_info=comment_info))
             else:
                 resources.append(_resource("string-array", name, child.text or "", dict(element.attrib), item_index, comment_info=comment_info))
             item_index += 1
@@ -427,9 +600,9 @@ def _render_existing_resources(resources: list[dict[str, Any]]) -> list[str]:
         rendered_items = []
         for item in grouped:
             if resource_type == "plurals":
-                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{escape(str(item['value']))}</item>")
+                rendered_items.append(f"        <item quantity={quoteattr(item['quantity'])}>{_render_resource_value(item)}</item>")
             else:
-                rendered_items.append(f"        <item>{escape(str(item['value']))}</item>")
+                rendered_items.append(f"        <item>{_render_resource_value(item)}</item>")
         if rendered_items:
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
@@ -450,6 +623,9 @@ def _resource(
     markup_signature: list[dict[str, Any]] | None = None,
     cdata: bool = False,
     comment_info: dict[str, Any] | None = None,
+    markup_policy: dict[str, Any] | None = None,
+    markup_structure_signature: list[dict[str, Any]] | None = None,
+    preserve_inline_xml: bool = False,
 ) -> dict[str, Any]:
     comment_entries = list((comment_info or {}).get("entries", []))
     resource_comment = "\n".join(comment_entries).strip()
@@ -461,6 +637,9 @@ def _resource(
         "item_index": item_index,
         "quantity": quantity,
         "markup_signature": markup_signature or [],
+        "markup_policy": markup_policy or {},
+        "markup_structure_signature": markup_structure_signature or [],
+        "preserve_inline_xml": preserve_inline_xml,
         "cdata": cdata,
         "resource_comment": resource_comment,
         "comment_entries": comment_entries,
@@ -473,6 +652,11 @@ def _resource_placeholders(resource: dict[str, Any]) -> list[str]:
     if resource.get("attributes", {}).get("formatted") == "false":
         return []
     return extract_placeholders(str(resource.get("value", "")))
+
+
+def _owner_review_required(resource: dict[str, Any]) -> bool:
+    policy = resource.get("markup_policy", {})
+    return isinstance(policy, dict) and bool(policy.get("owner_review_required"))
 
 
 def _cdata_resource_names(raw_text: str) -> set[str]:
@@ -559,10 +743,80 @@ def _extract_supported_inline_markup(element: ElementTree.Element) -> dict[str, 
     return {"value": "".join(pieces), "markup_signature": signature}
 
 
+def _classify_unsupported_inline_markup(element: ElementTree.Element) -> dict[str, Any]:
+    categories: set[str] = set()
+
+    def visit(node: ElementTree.Element, depth: int) -> None:
+        tag = _tag(node.tag)
+        if depth > 1:
+            categories.add("complex_nested_markup")
+        if tag in SUPPORTED_INLINE_TAGS:
+            if node.attrib:
+                categories.add("unsupported_markup_attribute")
+        elif tag in ATTRIBUTE_TAGS:
+            if set(node.attrib) != ATTRIBUTE_TAGS[tag]:
+                categories.add("unsupported_markup_attribute")
+        else:
+            categories.add("unsupported_markup_tag")
+        for child in list(node):
+            visit(child, depth + 1)
+
+    for child in list(element):
+        visit(child, 1)
+    if not categories:
+        categories.add("unsupported_markup_tag")
+    ordered = [
+        category
+        for category in ("complex_nested_markup", "unsupported_markup_tag", "unsupported_markup_attribute")
+        if category in categories
+    ]
+    return {
+        "supported": False,
+        "generation_eligible": False,
+        "owner_review_required": True,
+        "category": ordered[0],
+        "categories": [*ordered, "unsupported_markup", "owner_review_required"],
+        "policy": "preserve_without_automatic_localization",
+    }
+
+
+def _markup_structure_signature(element: ElementTree.Element) -> list[dict[str, Any]]:
+    def signature(node: ElementTree.Element) -> dict[str, Any]:
+        return {
+            "tag": _tag(node.tag),
+            "attributes": dict(sorted(node.attrib.items())),
+            "children": [signature(child) for child in list(node)],
+        }
+
+    return [signature(child) for child in list(element)]
+
+
+def _serialize_element_inner(element: ElementTree.Element) -> str:
+    pieces = [escape(element.text or "")]
+    for child in list(element):
+        pieces.append(_serialize_inline_child(child))
+        pieces.append(escape(child.tail or ""))
+    return "".join(pieces)
+
+
+def _serialize_inline_child(element: ElementTree.Element) -> str:
+    tag = _tag(element.tag)
+    attrs = f" {_format_attributes(dict(element.attrib))}" if element.attrib else ""
+    inner = [escape(element.text or "")]
+    for child in list(element):
+        inner.append(_serialize_inline_child(child))
+        inner.append(escape(child.tail or ""))
+    return f"<{tag}{attrs}>{''.join(inner)}</{tag}>"
+
+
 def _render_resource_value(resource: dict[str, Any]) -> str:
     value = str(resource["value"])
     if resource.get("cdata"):
         return _render_cdata_value(value)
+    if resource.get("preserve_inline_xml"):
+        return value
+    if resource.get("markup_signature"):
+        return _render_inline_markup_value(value)
     return escape(value)
 
 
@@ -899,6 +1153,29 @@ def _markup_qa_items(
             )
         )
     return items
+
+
+def _unsupported_markup_qa_items(
+    source_resource: dict[str, Any],
+    target_resource: dict[str, Any],
+    target_path: Path,
+    segment_id: str,
+) -> list[dict[str, Any]]:
+    if not _owner_review_required(source_resource):
+        return []
+    expected = source_resource.get("markup_structure_signature", [])
+    actual = target_resource.get("markup_structure_signature", [])
+    if expected == actual:
+        return []
+    return [
+        _qa_item(
+            "unsupported_markup_drift",
+            "blocking",
+            f"Owner-review-required Android markup structure changed for {_resource_label(source_resource)}",
+            target_path,
+            segment_id,
+        )
+    ]
 
 
 def _analyze_inline_markup(text: str) -> dict[str, Any]:

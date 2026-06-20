@@ -8,6 +8,10 @@
     <string name="cant_sync">现在无法同步 "Favorites"。</string>
     <string name="multiline_help">第一行\n第二行\t缩进</string>
     <string name="terms">阅读并接受条款。</string>
+    <string name="nested_markup">点按 <b><i>了解更多</i></b>。</string>
+    <string name="font_markup">点按 <font color="#ff0000">警告</font>。</string>
+    <string name="styled_bold">点按 <b style="color:red">警告</b>。</string>
+    <string name="complex_link">打开<a href="https://example.com" title="Help">帮助</a>。</string>
     <string name="html_cdata"><![CDATA[点按 <b>了解更多</b> 以继续。]]></string>
     <string name="plain_cdata"><![CDATA[在这条消息中安全使用 < 和 >。]]></string>
     <string-array name="sort_options">
@@ -15,9 +19,26 @@
         <item>最旧优先</item>
         <item>播放最多</item>
     </string-array>
+    <string-array name="rich_sort_options">
+        <item><b>最新</b>优先</item>
+        <item>最旧<i>优先</i></item>
+        <item>阅读<a href="https://example.com/sort">排序帮助</a></item>
+    </string-array>
+    <string-array name="complex_sort_options">
+        <item><b><i>嵌套</i></b>选项</item>
+        <item><font color="#ff0000">危险</font>选项</item>
+    </string-array>
     <plurals name="episode_count">
         <item quantity="one">%1$d 集</item>
         <item quantity="other">%1$d 集</item>
+    </plurals>
+    <plurals name="rich_episode_count">
+        <item quantity="one"><b>%1$d</b> 集</item>
+        <item quantity="other"><b>%1$d</b> 集</item>
+    </plurals>
+    <plurals name="complex_episode_count">
+        <item quantity="one"><font color="#ff0000">%1$d</font> 集</item>
+        <item quantity="other"><b style="color:red">%1$d</b> 集</item>
     </plurals>
     <string name="settings_title">设置</string>
     <!-- Legacy removed key preserved for owner review -->

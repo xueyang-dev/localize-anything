@@ -12,6 +12,7 @@ from .ios_strings_adapter import extract_segments as extract_ios_segments
 from .ios_strings_adapter import target_resource_path as ios_target_resource_path
 from .json_adapter import extract_segments as extract_json_segments
 from .modes import mode_contract
+from .planning import is_generation_eligible
 from .structured_adapter import extract_segments as extract_structured_segments
 from .xcstrings_adapter import extract_segments as extract_xcstrings_segments
 from .xcstrings_adapter import target_resource_path as xcstrings_target_resource_path
@@ -63,6 +64,27 @@ def create_reference_plan(
     for segment in source_segments:
         identity = segment_identity(segment)
         existing = references_by_identity.get(identity)
+        if not is_generation_eligible(segment):
+            preserved_segment = dict(segment)
+            use_existing = (
+                operating_mode == "existing_locale_maintenance"
+                and reference_policy == "preserve_existing"
+                and existing is not None
+            )
+            preserved_segment["target_locale"] = target_locale
+            preserved_segment["target"] = str(existing.get("source") if use_existing else segment.get("source", ""))
+            preserved_segment["status"] = "new"
+            preserved_segment["workflow_status"] = "owner_review_required"
+            preserved_segment["owner_review_required"] = True
+            preserved_segment["generation_eligible"] = False
+            preserved_segment["preservation"] = {
+                "policy": "preserve_without_automatic_localization",
+                "reason": "unsupported_android_markup",
+                "source": "existing_target" if use_existing else "source_resource",
+            }
+            preserved.append(preserved_segment)
+            decisions.append(_decision(segment, identity, "owner_review_required", existing, "unsupported_android_markup"))
+            continue
         tm_candidates = _reviewed_tm_candidates(segment, identity, reviewed_tm_by_identity)
         tm = _matching_reviewed_tm(segment, tm_candidates)
         stale_tm = _stale_reviewed_tm(segment, tm_candidates)
