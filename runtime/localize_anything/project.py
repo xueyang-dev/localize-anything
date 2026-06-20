@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION, __version__
-from .android_strings_adapter import is_android_strings_path
+from .android_strings_adapter import android_resource_routing, is_android_strings_path
 from .ios_strings_adapter import is_ios_strings_path
 from .modes import resolve_mode_policy
 from .xcstrings_adapter import is_xcstrings_path
@@ -100,10 +100,12 @@ def inspect_project(project: Path) -> dict[str, Any]:
     for path in _iter_project_files(project, ignored_paths, skipped_paths):
         try:
             extension = path.suffix.lower()
+            adapter_metadata: dict[str, Any] = {}
             if is_xcstrings_path(project, path):
                 adapter = "core.xcstrings"
             elif is_android_strings_path(project, path):
                 adapter = "core.android-strings"
+                adapter_metadata = android_resource_routing(path, project)
             elif is_ios_strings_path(project, path):
                 adapter = "core.ios-strings"
             else:
@@ -140,17 +142,30 @@ def inspect_project(project: Path) -> dict[str, Any]:
                 "adapter": adapter,
                 "sha256": digest,
                 "size_bytes": size_bytes,
+                **adapter_metadata,
             }
         )
     adapter_counts: dict[str, int] = {}
     for item in files:
         adapter_counts[item["adapter"]] = adapter_counts.get(item["adapter"], 0) + 1
     assessment = assess_preflight(files)
+    android_generation_sources = [
+        item["path"]
+        for item in files
+        if item["adapter"] == "core.android-strings" and item.get("android_role") == "source_candidate"
+    ]
+    android_locale_references = [
+        item["path"]
+        for item in files
+        if item["adapter"] == "core.android-strings" and item.get("android_role") == "locale_reference"
+    ]
     return {
         "protocol_version": PROTOCOL_VERSION,
         "project_root": project.resolve().as_posix(),
         "supported_files": files,
         "adapter_counts": adapter_counts,
+        "android_generation_source_files": sorted(android_generation_sources),
+        "android_locale_reference_files": sorted(android_locale_references),
         "unprocessed_non_text_assets": unprocessed_assets,
         "scan_policy": scan_policy(),
         "ignored_path_count": len(ignored_paths),
@@ -180,6 +195,17 @@ def initialize_project(
     unknown_sources = sorted(set(source_files) - inventory_by_path.keys())
     if unknown_sources:
         raise ValueError(f"Confirmed source files were not found or are unsupported: {', '.join(unknown_sources)}")
+    invalid_android_sources = sorted(
+        path
+        for path in source_files
+        if inventory_by_path[path]["adapter"] == "core.android-strings"
+        and inventory_by_path[path].get("android_role") != "source_candidate"
+    )
+    if invalid_android_sources:
+        raise ValueError(
+            "Android locale references or uncertain qualifier paths cannot be source truth: "
+            + ", ".join(invalid_android_sources)
+        )
     operating_mode, reference_policy = resolve_mode_policy(operating_mode, reference_policy)
     confirmed_sources = [{**inventory_by_path[path], "role": "source_of_truth"} for path in source_files]
     config = {
