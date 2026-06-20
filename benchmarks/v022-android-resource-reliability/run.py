@@ -19,6 +19,7 @@ sys.path.insert(0, str(REPOSITORY))
 from runtime.localize_anything import android_strings_adapter as android  # noqa: E402
 from runtime.localize_anything.generation import validate_generated_segments  # noqa: E402
 from runtime.localize_anything.io_utils import read_json, read_jsonl, write_json, write_jsonl  # noqa: E402
+from runtime.localize_anything.planning import is_generation_eligible  # noqa: E402
 from runtime.localize_anything.run import run_localize  # noqa: E402
 
 
@@ -29,10 +30,16 @@ TARGET_FILE = "app/src/main/res/values-zh-rCN/strings.xml"
 LEGACY_KEY = "legacy_removed_key"
 LEGACY_RESOURCE_KEY = f"string:{LEGACY_KEY}"
 LEGACY_TEXT = "旧版专属译文_不得自动删除"
+COMPLEX_MARKUP_KEYS = {
+    "string:nested_markup",
+    "string:font_markup",
+    "string:styled_bold",
+    "string:complex_link",
+}
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the v0.2.2 Android resource comment round-trip benchmark")
+    parser = argparse.ArgumentParser(description="Run the v0.2.2 Android resource reliability benchmark")
     parser.add_argument("--work-root", type=Path, default=ROOT / "work")
     parser.add_argument("--report-dir", type=Path, default=ROOT)
     parser.add_argument("--keep-work", action="store_true")
@@ -71,6 +78,14 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
     blind_leakage = _blind_leakage_check(blind["result"], target_path)
     maintenance = _run_mode(work_root, "existing_locale_maintenance", "preserve_existing")
     maintenance_preservation = _maintenance_preservation_check(maintenance["result"])
+    complex_markup_policy = _complex_markup_policy_check(
+        extraction["segments"],
+        generated_segments,
+        staging,
+        blind["result"],
+        maintenance["result"],
+        target_path,
+    )
 
     checks = {
         "extraction": _strip_segments(extraction),
@@ -82,14 +97,15 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "comments": comments,
         "blind_leakage": blind_leakage,
         "maintenance_preservation": maintenance_preservation,
+        "complex_markup_policy": complex_markup_policy,
     }
     failed_checks = _failed_checks(checks)
     known_limitations = _known_limitations(extraction, staging, qa)
     core_pass = not failed_checks
-    status = "pass" if core_pass and not known_limitations else "partial" if core_pass else "fail"
+    status = "pass" if core_pass else "fail"
 
     report = {
-        "schema": "localize-anything-v022-android-resource-comment-round-trip",
+        "schema": "localize-anything-v022-android-complex-markup-boundary-policy",
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "status": status,
         "verdict": _verdict(status),
@@ -125,6 +141,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "target_only_preservation_check_result": staging["target_only_preservation_check"],
         "blind_leakage_check_result": blind_leakage,
         "maintenance_preservation_check_result": maintenance_preservation,
+        "complex_markup_policy_check": complex_markup_policy,
         "qa_check_result": qa,
         "known_limitations": known_limitations,
         "checks": checks,
@@ -205,7 +222,16 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         key: by_key.get(key, {}).get("context", {}).get("resource_comment") == expected
         for key, expected in comment_expected.items()
     }
-    unsupported_inline_markup = [item for item in skipped if item["reason"] == "unsupported_inline_markup"]
+    review_only = [segment for segment in segments if not is_generation_eligible(segment)]
+    review_by_key = {segment["context"]["resource_key"]: segment for segment in review_only}
+    complex_markup_checks = {
+        "nested": "complex_nested_markup" in review_by_key.get("string:nested_markup", {}).get("review_required_reasons", []),
+        "unsupported_tag": "unsupported_markup_tag" in review_by_key.get("string:font_markup", {}).get("review_required_reasons", []),
+        "styled_attribute": "unsupported_markup_attribute" in review_by_key.get("string:styled_bold", {}).get("review_required_reasons", []),
+        "link_attribute": "unsupported_markup_attribute" in review_by_key.get("string:complex_link", {}).get("review_required_reasons", []),
+        "owner_review_required": all(segment.get("owner_review_required") for segment in review_only),
+        "generation_excluded": all(segment.get("generation_eligible") is False for segment in review_only),
+    }
     translatable_false = [item for item in skipped if item["reason"] == "translatable_false"]
     return {
         "pass": (
@@ -216,20 +242,24 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
             and all(markup_checks.values())
             and all(cdata_checks.values())
             and all(comment_checks.values())
+            and set(review_by_key) == COMPLEX_MARKUP_KEYS
+            and all(complex_markup_checks.values())
             and bool(translatable_false)
         ),
         "segments": segments,
         "source_segment_count": len(segments),
         "extracted_segment_count": len(segments),
         "skipped_translatable_false_count": len(translatable_false),
+        "owner_review_required_count": len(review_only),
         "resource_types": resource_types,
         "placeholder_check": {"pass": all(placeholder_checks.values()), "items": placeholder_checks},
         "escape_signature_extraction_check": {"pass": all(escape_checks.values()), "items": escape_checks},
         "markup_signature_extraction_check": {"pass": all(markup_checks.values()), "items": markup_checks},
         "cdata_signature_extraction_check": {"pass": all(cdata_checks.values()), "items": cdata_checks},
         "resource_comment_extraction_check": {"pass": all(comment_checks.values()), "items": comment_checks},
+        "complex_markup_detection_check": {"pass": all(complex_markup_checks.values()), "items": complex_markup_checks},
         "unsupported_high_risk": {
-            "unsupported_inline_markup": unsupported_inline_markup,
+            "unsupported_inline_markup": [item for item in skipped if item.get("owner_review_required")],
             "cdata_present_in_source": "<![CDATA[" in source_path.read_text(encoding="utf-8"),
         },
         "skipped": skipped,
@@ -239,6 +269,8 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
 def _generated_segments(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     generated = []
     for segment in segments:
+        if not is_generation_eligible(segment):
+            continue
         item = dict(segment)
         key = str(item["context"]["resource_key"])
         item["target_locale"] = TARGET_LOCALE
@@ -307,6 +339,13 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
     plurals_comment_preserved = staged_comments.get("plurals:episode_count", {}).get("comment") == "Number of downloaded episodes"
     target_only_comment_preserved = staged_comments.get(LEGACY_RESOURCE_KEY, {}).get("comment") == "Legacy removed key preserved for owner review"
     comments_preserved = string_comment_preserved and array_comment_preserved and plurals_comment_preserved and target_only_comment_preserved
+    expected_complex = _resources_by_key(project_root / TARGET_FILE)
+    staged_complex = _resources_by_key(staged_target)
+    complex_markup_preserved = all(
+        staged_complex.get(key, {}).get("value") == expected_complex.get(key, {}).get("value")
+        and staged_complex.get(key, {}).get("markup_structure_signature") == expected_complex.get(key, {}).get("markup_structure_signature")
+        for key in COMPLEX_MARKUP_KEYS
+    )
     return {
         "pass": (
             parse_ok
@@ -326,6 +365,7 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
             and cdata_raw_preserved
             and cdata_semantic_preserved
             and comments_preserved
+            and complex_markup_preserved
             and LEGACY_TEXT in staged_text
             and f'name="{LEGACY_KEY}"' in staged_text
         ),
@@ -367,6 +407,11 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
             "array_comment_preserved": array_comment_preserved,
             "plurals_comment_preserved": plurals_comment_preserved,
             "target_only_comment_preserved": target_only_comment_preserved,
+        },
+        "complex_markup_preservation_check": {
+            "pass": complex_markup_preserved,
+            "preserved_keys": sorted(key for key in COMPLEX_MARKUP_KEYS if staged_complex.get(key, {}).get("value") == expected_complex.get(key, {}).get("value")),
+            "staged_xml_parse": parse_ok,
         },
         "string_array_check": {"pass": array_items == ["最新优先", "最旧优先", "播放最多"], "items": array_items},
         "plurals_check": {"pass": list(plurals) == ["one", "other"] and all("%1$d" in value for value in plurals.values()), "items": plurals},
@@ -424,7 +469,8 @@ def _qa_check(source_path: Path, staged_target: Path) -> dict[str, Any]:
 
 
 def _escape_signature_check(source_segments: list[dict[str, Any]], generated_segments: list[dict[str, Any]]) -> dict[str, Any]:
-    work_packet = {"target_locale": TARGET_LOCALE, "segments": source_segments}
+    normal_segments = _normal_generation_segments(source_segments)
+    work_packet = {"target_locale": TARGET_LOCALE, "segments": normal_segments}
     valid_qa = validate_generated_segments(work_packet, generated_segments)
     protected = _protected_escapes_detected(source_segments)
     negative_missing = _negative_generated_case(
@@ -457,7 +503,7 @@ def _escape_signature_check(source_segments: list[dict[str, Any]], generated_seg
             and negative_percent["pass"]
             and negative_malformed["pass"]
         ),
-        "checked_segments": sum(1 for segment in source_segments if segment.get("constraints", {}).get("escape_signature")),
+        "checked_segments": sum(1 for segment in normal_segments if segment.get("constraints", {}).get("escape_signature")),
         "protected_escapes_detected": protected,
         "valid_generated_qa_status": valid_qa["status"],
         "valid_generated_categories": sorted(valid_categories),
@@ -474,14 +520,15 @@ def _inline_markup_check(
     generated_segments: list[dict[str, Any]],
     staging: dict[str, Any],
 ) -> dict[str, Any]:
-    work_packet = {"target_locale": TARGET_LOCALE, "segments": source_segments}
+    normal_segments = _normal_generation_segments(source_segments)
+    work_packet = {"target_locale": TARGET_LOCALE, "segments": normal_segments}
     valid_qa = validate_generated_segments(work_packet, generated_segments)
     markup_segments = [
         segment
-        for segment in source_segments
+        for segment in normal_segments
         if segment.get("constraints", {}).get("markup_signature")
     ]
-    protected_tags = _protected_markup_tags(source_segments)
+    protected_tags = _protected_markup_tags(normal_segments)
     negative_missing = _negative_generated_case(
         work_packet,
         generated_segments,
@@ -565,10 +612,11 @@ def _cdata_check(
     source_path: Path,
     staged_target: Path,
 ) -> dict[str, Any]:
-    work_packet = {"target_locale": TARGET_LOCALE, "segments": source_segments}
+    normal_segments = _normal_generation_segments(source_segments)
+    work_packet = {"target_locale": TARGET_LOCALE, "segments": normal_segments}
     cdata_segments = [
         segment
-        for segment in source_segments
+        for segment in normal_segments
         if segment.get("constraints", {}).get("cdata")
     ]
     staged_text = staged_target.read_text(encoding="utf-8")
@@ -802,6 +850,132 @@ def _maintenance_preservation_check(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _complex_markup_policy_check(
+    source_segments: list[dict[str, Any]],
+    generated_segments: list[dict[str, Any]],
+    direct_staging: dict[str, Any],
+    blind_result: dict[str, Any],
+    maintenance_result: dict[str, Any],
+    existing_target_path: Path,
+) -> dict[str, Any]:
+    policy = _validate_complex_markup_segments(source_segments)
+    generated_keys = {segment.get("context", {}).get("resource_key") for segment in generated_segments}
+    packet_keys = _work_packet_resource_keys(Path(blind_result["artifacts"]["work_packets"]))
+    sent_keys = sorted(COMPLEX_MARKUP_KEYS & (generated_keys | packet_keys))
+
+    maintenance_staging = read_json(Path(maintenance_result["artifacts"]["staging_result"]))
+    maintenance_target = Path(maintenance_staging["outputs"][0]["output"])
+    existing = _resources_by_key(existing_target_path)
+    maintained = _resources_by_key(maintenance_target)
+    preserved_keys = sorted(
+        key
+        for key in COMPLEX_MARKUP_KEYS
+        if maintained.get(key, {}).get("value") == existing.get(key, {}).get("value")
+        and maintained.get(key, {}).get("markup_structure_signature") == existing.get(key, {}).get("markup_structure_signature")
+    )
+    direct_target = Path(direct_staging["staged_target"])
+    preserved_without_corruption = set(preserved_keys) == COMPLEX_MARKUP_KEYS
+    negative_checks = _complex_markup_negative_checks(source_segments)
+    passed = (
+        policy["pass"]
+        and not sent_keys
+        and preserved_without_corruption
+        and _xml_parse_ok(direct_target)
+        and _xml_parse_ok(maintenance_target)
+        and all(item["pass"] for item in negative_checks)
+    )
+    return {
+        "pass": passed,
+        "unsupported_markup_detected": policy["unsupported_markup_detected"],
+        "complex_nested_detected": policy["complex_nested_detected"],
+        "unsupported_attribute_detected": policy["unsupported_attribute_detected"],
+        "unsupported_tag_detected": policy["unsupported_tag_detected"],
+        "owner_review_required_count": policy["owner_review_required_count"],
+        "sent_to_normal_generation_count": len(sent_keys),
+        "sent_to_normal_generation_keys": sent_keys,
+        "preserved_without_corruption": preserved_without_corruption,
+        "preserved_existing_target_keys": preserved_keys,
+        "staged_xml_parse": _xml_parse_ok(direct_target) and _xml_parse_ok(maintenance_target),
+        "negative_checks": negative_checks,
+        "known_limitations": ["complex nested markup not automatically localized"],
+    }
+
+
+def _validate_complex_markup_segments(segments: list[dict[str, Any]]) -> dict[str, Any]:
+    by_key = {segment.get("context", {}).get("resource_key"): segment for segment in segments}
+    scoped = [by_key[key] for key in sorted(COMPLEX_MARKUP_KEYS) if key in by_key]
+    reasons = {key: set(by_key.get(key, {}).get("review_required_reasons", [])) for key in COMPLEX_MARKUP_KEYS}
+    sent = [segment for segment in scoped if is_generation_eligible(segment)]
+    owner_count = sum(bool(segment.get("owner_review_required")) for segment in scoped)
+    result = {
+        "unsupported_markup_detected": len(scoped) == len(COMPLEX_MARKUP_KEYS),
+        "complex_nested_detected": "complex_nested_markup" in reasons["string:nested_markup"],
+        "unsupported_attribute_detected": all(
+            "unsupported_markup_attribute" in reasons[key]
+            for key in ("string:styled_bold", "string:complex_link")
+        ),
+        "unsupported_tag_detected": "unsupported_markup_tag" in reasons["string:font_markup"],
+        "owner_review_required_count": owner_count,
+        "sent_to_normal_generation_count": len(sent),
+    }
+    result["pass"] = (
+        all(value for key, value in result.items() if key.endswith("_detected"))
+        and owner_count == len(COMPLEX_MARKUP_KEYS)
+        and not sent
+    )
+    return result
+
+
+def _complex_markup_negative_checks(source_segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cases = [
+        ("complex_nested_markup_treated_as_normal", "string:nested_markup", None),
+        ("unsupported_tag_sent_without_owner_review", "string:font_markup", None),
+        ("unsupported_attribute_silently_accepted", "string:styled_bold", []),
+    ]
+    checks: list[dict[str, Any]] = []
+    for name, resource_key, replacement_reasons in cases:
+        tampered = json.loads(json.dumps(source_segments))
+        for segment in tampered:
+            if segment.get("context", {}).get("resource_key") != resource_key:
+                continue
+            segment["generation_eligible"] = True
+            segment["owner_review_required"] = False
+            segment["status"] = "new"
+            if replacement_reasons is not None:
+                segment["review_required_reasons"] = replacement_reasons
+            break
+        result = _validate_complex_markup_segments(tampered)
+        checks.append(
+            {
+                "name": name,
+                "pass": not result["pass"] and result["sent_to_normal_generation_count"] > 0,
+                "policy_validation": result,
+            }
+        )
+    return checks
+
+
+def _work_packet_resource_keys(packet_dir: Path) -> set[str]:
+    keys: set[str] = set()
+    for path in sorted(packet_dir.glob("*.json")):
+        packet = read_json(path)
+        keys.update(
+            str(segment.get("context", {}).get("resource_key"))
+            for segment in packet.get("segments", [])
+            if segment.get("context", {}).get("resource_key")
+        )
+    return keys
+
+
+def _normal_generation_segments(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [segment for segment in segments if is_generation_eligible(segment)]
+
+
+def _resources_by_key(path: Path) -> dict[str, dict[str, Any]]:
+    document = android._read_document(path)  # noqa: SLF001 - benchmark compares adapter-observed preservation.
+    return {resource["key"]: resource for resource in document["resources"]}
+
+
 def validate_no_leakage(paths: list[str], forbidden_strings: list[str]) -> dict[str, Any]:
     matches: list[dict[str, str]] = []
     for value in paths:
@@ -864,6 +1038,8 @@ def _failed_checks(checks: dict[str, Any]) -> list[str]:
         failures.append("blind leakage check failed")
     if not checks["maintenance_preservation"]["pass"]:
         failures.append("maintenance preservation check failed")
+    if not checks["complex_markup_policy"]["pass"]:
+        failures.append("complex markup boundary policy check failed")
     return failures
 
 
@@ -872,16 +1048,9 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
     if extraction["unsupported_high_risk"]["unsupported_inline_markup"]:
         limitations.append(
             {
-                "id": "android_inline_markup_attributes_unsupported",
+                "id": "android_complex_markup_not_automatically_localized",
                 "severity": "known_unsupported",
-                "message": "Inline markup with attributes or unsupported tags is detected and reported, but not extracted or staged.",
-            }
-        )
-        limitations.append(
-            {
-                "id": "android_complex_nested_markup_unsupported",
-                "severity": "known_unsupported",
-                "message": "Complex nested inline markup remains outside the supported Android inline markup slice.",
+                "message": "Complex, unsupported-tag, and unsupported-attribute markup is preserved and requires owner review; it is not automatically localized.",
             }
         )
     if qa["known_unsupported_items"]:
@@ -897,10 +1066,10 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
 
 def _verdict(status: str) -> str:
     if status == "pass":
-        return "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PASS"
+        return "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: PASS"
     if status == "partial":
-        return "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PARTIAL"
-    return "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: FAIL"
+        return "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: PARTIAL"
+    return "V0.2.2-G ANDROID COMPLEX MARKUP BOUNDARY POLICY: FAIL"
 
 
 def _xml_parse_ok(path: Path) -> bool:
@@ -977,7 +1146,7 @@ def _duplicate_comment(text: str, comment: str) -> str:
 
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
-        "# v0.2.2-E Android Resource Comment Round-Trip",
+        "# v0.2.2-G Android Complex Markup Boundary Policy",
         "",
         f"- Status: `{report['status']}`",
         f"- Verdict: **{report['verdict']}**",
@@ -1005,6 +1174,7 @@ def render_report_markdown(report: dict[str, Any]) -> str:
         f"- Target-only preservation: `{report['target_only_preservation_check_result']['pass']}`",
         f"- Blind leakage: `{report['blind_leakage_check_result']['pass']}`",
         f"- Maintenance preservation: `{report['maintenance_preservation_check_result']['pass']}`",
+        f"- Complex markup boundary policy: `{report['complex_markup_policy_check']['pass']}`",
         f"- QA status: `{report['qa_check_result']['status']}`",
         "",
         "## Escape Signature QA",
@@ -1072,6 +1242,24 @@ def render_report_markdown(report: dict[str, Any]) -> str:
             f"- Misattached comment issues: {comments['misattached_comment_issues']}",
             f"- Duplicate comment issues: {comments['duplicate_comment_issues']}",
             f"- Known limitations: `{len(comments['known_limitations'])}`",
+            "",
+        ]
+    )
+    complex_markup = report["complex_markup_policy_check"]
+    lines.extend(
+        [
+            "## Complex Markup Boundary Policy",
+            "",
+            f"- Pass: `{complex_markup['pass']}`",
+            f"- Unsupported markup detected: `{complex_markup['unsupported_markup_detected']}`",
+            f"- Complex nested detected: `{complex_markup['complex_nested_detected']}`",
+            f"- Unsupported attribute detected: `{complex_markup['unsupported_attribute_detected']}`",
+            f"- Unsupported tag detected: `{complex_markup['unsupported_tag_detected']}`",
+            f"- Owner review required: {complex_markup['owner_review_required_count']}",
+            f"- Sent to normal generation: {complex_markup['sent_to_normal_generation_count']}",
+            f"- Preserved without corruption: `{complex_markup['preserved_without_corruption']}`",
+            f"- Staged XML parses: `{complex_markup['staged_xml_parse']}`",
+            f"- Known limitations: `{', '.join(complex_markup['known_limitations'])}`",
             "",
         ]
     )
