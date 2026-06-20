@@ -29,11 +29,8 @@ inspect -> preflight -> plan -> draft-request -> host-agent generation
         -> review import -> scoped sign-off -> apply dry-run
 ```
 
-See [Grill Decisions](docs/grill-decisions.md) for the canonical product
-decisions, plus [Architecture](docs/architecture.md),
-[Roadmap](docs/roadmap.md), and [Adapter Contract](docs/adapters.md).
-The completed release gates are mapped in
-[v0.1 Verification](docs/v0.1-verification.md).
+See [Architecture](docs/architecture.md) and
+[Adapter Contract](docs/adapters.md) for public documentation.
 
 ## Current Iteration
 
@@ -163,8 +160,7 @@ localize-anything deepseek-generate segments.jsonl \
   --generated-output generated.jsonl
 ```
 
-Proven with AntennaPod en-US→ja+ko (869 segments, 0 QA issues).
-See [test report](docs/test-antennapod-deepseek.md). Requires
+Proven with AntennaPod en-US→ja+ko (869 segments, 0 QA issues). Requires
 `DEEPSEEK_API_KEY` in environment.
 
 `agent-run` can also call the same direct HTTP provider path and continue to
