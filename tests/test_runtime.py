@@ -2197,6 +2197,36 @@ class V021ModeSystemBenchmarkTests(unittest.TestCase):
             self.assertFalse(obsolete["pass"])
             self.assertIn("dropped obsolete target-only key legacy_removed_key", obsolete["message"])
 
+    def test_multi_mode_staging_exposes_android_target_only_metadata(self) -> None:
+        benchmark = _load_v021_mode_system_benchmark()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = benchmark.run_benchmark(root / "work", root / "report")
+
+            for mode_name in ("existing_locale_maintenance", "rewrite_or_harmonization", "greenfield_localization", "blind_benchmark"):
+                mode = report["modes"][mode_name]
+                staging_path = Path(mode["artifacts"]["staging_result"])
+                self.assertTrue(staging_path.is_file(), f"missing staging result for {mode_name}")
+                staging = json.loads(staging_path.read_text(encoding="utf-8"))
+
+                for output in staging.get("outputs", []):
+                    self.assertIn("preserved_target_only_count", output, f"{mode_name} output missing preserved_target_only_count")
+                    self.assertIn("preserved_target_only_keys", output, f"{mode_name} output missing preserved_target_only_keys")
+                    self.assertIsInstance(output["preserved_target_only_count"], int)
+                    self.assertIsInstance(output["preserved_target_only_keys"], list)
+                    self.assertEqual(len(output["preserved_target_only_keys"]), output["preserved_target_only_count"])
+
+                if mode_name == "existing_locale_maintenance":
+                    out = staging["outputs"][0]
+                    self.assertGreater(out["preserved_target_only_count"], 0)
+                    self.assertIn("string:legacy_removed_key", out["preserved_target_only_keys"])
+                elif mode_name == "rewrite_or_harmonization":
+                    out = staging["outputs"][0]
+                    self.assertGreater(out["preserved_target_only_count"], 0)
+                elif mode_name in ("blind_benchmark", "greenfield_localization"):
+                    out = staging["outputs"][0]
+                    self.assertEqual(out["preserved_target_only_count"], 0)
+
 
 class SkillFilesTests(unittest.TestCase):
     def test_skill_metadata_and_progressive_disclosure_contract(self) -> None:
