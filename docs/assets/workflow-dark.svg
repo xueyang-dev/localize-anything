@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 180" width="900" height="180">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .box { fill: #1e293b; stroke: #475569; stroke-width: 1.5; rx: 6; }
+      .box-agent { fill: #1e3a5f; stroke: #3b82f6; }
+      .box-runtime { fill: #1e293b; stroke: #64748b; }
+      .box-staging { fill: #14532d; stroke: #22c55e; }
+      .box-qa { fill: #422006; stroke: #f59e0b; }
+      .label { fill: #e2e8f0; font-size: 11px; text-anchor: middle; }
+      .title { fill: #94a3b8; font-size: 10px; text-anchor: middle; font-weight: bold; }
+      .arrow { stroke: #475569; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .arrow-qa { stroke: #f59e0b; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+    </marker>
+    <marker id="arrowhead-qa" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#f59e0b"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="180" fill="#0f172a" rx="8"/>
+
+  <!-- Row 1: boxes -->
+  <rect x="15" y="60" width="86" height="36" class="box-agent"/>
+  <text x="58" y="75" class="title" fill="#60a5fa">Project</text>
+  <text x="58" y="88" class="label" fill="#60a5fa">Agent</text>
+
+  <rect x="115" y="60" width="86" height="36" class="box-runtime"/>
+  <text x="158" y="75" class="title">Extraction</text>
+  <text x="158" y="88" class="label">Runtime</text>
+
+  <rect x="215" y="60" width="86" height="36" class="box-runtime"/>
+  <text x="258" y="75" class="title">Context</text>
+  <text x="258" y="88" class="label">Loader</text>
+
+  <rect x="315" y="60" width="86" height="36" class="box-agent"/>
+  <text x="358" y="75" class="title" fill="#60a5fa">Generation</text>
+  <text x="358" y="88" class="label" fill="#60a5fa">Agent</text>
+
+  <rect x="415" y="60" width="86" height="36" class="box-qa"/>
+  <text x="458" y="75" class="title" fill="#fbbf24">Deterministic</text>
+  <text x="458" y="88" class="label" fill="#fbbf24">QA</text>
+
+  <rect x="515" y="60" width="86" height="36" class="box-staging"/>
+  <text x="558" y="75" class="title" fill="#4ade80">Staging</text>
+  <text x="558" y="88" class="label" fill="#4ade80">Directory</text>
+
+  <rect x="615" y="60" width="86" height="36" class="box-agent"/>
+  <text x="658" y="75" class="title" fill="#60a5fa">Review</text>
+  <text x="658" y="88" class="label" fill="#60a5fa">Agent</text>
+
+  <rect x="715" y="60" width="86" height="36" class="box-agent"/>
+  <text x="758" y="75" class="title" fill="#60a5fa">Delivery</text>
+  <text x="758" y="88" class="label" fill="#60a5fa">Agent</text>
+
+  <rect x="815" y="60" width="70" height="36" class="box-staging"/>
+  <text x="850" y="75" class="title" fill="#4ade80">Apply +</text>
+  <text x="850" y="88" class="label" fill="#4ade80">Backup</text>
+
+  <!-- Arrows row 1 -->
+  <line x1="101" y1="78" x2="113" y2="78" class="arrow"/>
+  <line x1="201" y1="78" x2="213" y2="78" class="arrow"/>
+  <line x1="301" y1="78" x2="313" y2="78" class="arrow"/>
+  <line x1="401" y1="78" x2="413" y2="78" class="arrow"/>
+  <line x1="501" y1="78" x2="513" y2="78" class="arrow"/>
+  <line x1="601" y1="78" x2="613" y2="78" class="arrow"/>
+  <line x1="701" y1="78" x2="713" y2="78" class="arrow"/>
+  <line x1="801" y1="78" x2="813" y2="78" class="arrow"/>
+
+  <!-- QA feedback loop -->
+  <path d="M 458 96 L 458 120 L 358 120 L 358 96" class="arrow-qa" fill="none" marker-end="url(#arrowhead-qa)"/>
+  <text x="408" y="132" fill="#f59e0b" font-size="9px" text-anchor="middle">problems? retry</text>
+
+  <!-- Mode/policy labels -->
+  <text x="15" y="15" fill="#475569" font-size="10px">Operating modes: greenfield | maintenance | rewrite | blind</text>
+  <text x="15" y="28" fill="#475569" font-size="10px">Reference policies: blind | style_only | tm_assisted | preserve_existing</text>
+
+  <!-- Source safety -->
+  <text x="15" y="160" fill="#22c55e" font-size="9px">🔒 Source files never mutated — staging first, apply with backups</text>
+  <text x="15" y="174" fill="#64748b" font-size="9px">All operations: deterministic QA → human review → scoped sign-off → run-id confirmation</text>
+</svg>

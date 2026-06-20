@@ -13,7 +13,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
   <img src="https://github.com/Hsueh0216/localize-anything/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <img src="https://img.shields.io/badge/state-experimental-orange" alt="State: experimental">
+  <img src="https://img.shields.io/badge/v0.2.1--benchmark-pass-success" alt="v0.2.1 benchmark: pass">
   <img src="https://img.shields.io/badge/QA-deterministic-green" alt="QA: deterministic">
   <img src="https://img.shields.io/badge/apply-staged%20first-blueviolet" alt="Apply: staged first">
 </p>
@@ -42,22 +42,9 @@ overwriting your source.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A[Project Agent]
-    B[Extraction Runtime]
-    C[Context Loader]
-    D[Generation Agent]
-    E[Deterministic QA]
-    F[Staging]
-    G[Review Agent]
-    H[Delivery Agent]
-    I[Apply with Backups]
-
-    A --> B --> C --> D --> E
-    E -- problems --> D
-    E --> F --> G --> H --> I
-```
+<p align="center">
+  <img src="docs/assets/workflow-dark.svg" alt="Localize Anything workflow: 9 steps from Project Agent to Apply with Backups" width="900">
+</p>
 
 1. **Project Agent** reads your source and existing translations
 2. **Extraction Runtime** produces stable, hash-keyed segments
@@ -80,6 +67,10 @@ flowchart LR
 | **Deterministic QA** | Placeholder parity, markup integrity, format compliance — checked programmatically, not by LLM. |
 | **Human review** | Segment-level sign-off. Reviewed translations are preserved in maintenance mode. |
 | **Project memory** | Translation memory persists between runs. Reviewed segments survive source changes. |
+
+<p align="center">
+  <img src="docs/assets/architecture-layers.svg" alt="Architecture layers: Protocol → Runtime → Agent → Adapters → Source/Delivery" width="640">
+</p>
 
 ## Quick start
 
@@ -191,6 +182,10 @@ Runner: `benchmarks/v021-mode-system/run.py`.
 
 ### AntennaPod DeepSeek Translation Test
 
+<p align="center">
+  <img src="docs/assets/benchmark-antennapod.svg" alt="AntennaPod en-US → ja+ko DeepSeek benchmark: 869 segments, 0 QA issues, BUILD SUCCESSFUL" width="640">
+</p>
+
 | Metric | Japanese (ja) | Korean (ko) |
 |--------|--------------|-------------|
 | Source | AntennaPod `develop` branch | same |
@@ -198,9 +193,9 @@ Runner: `benchmarks/v021-mode-system/run.py`.
 | Batches | 29 | 29 |
 | Model | `deepseek-chat` | `deepseek-chat` |
 | QA | 0 blocking, 0 warnings | 0 blocking, 0 warnings |
+| Build | `:app:assembleFreeDebug` ✓ | `:app:assembleFreeDebug` ✓ |
 
 Full pipeline: extract → batch → DeepSeek API → collect → stage → QA → deliver.
-Both locales compiled into AntennaPod successfully (`:app:assembleFreeDebug` passed).
 
 > **Note**: This is engineering and automated QA evidence, not a claim of
 > professional native-level localization quality. The AntennaPod test

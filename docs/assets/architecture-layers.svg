@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" width="640" height="280">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="640" height="280" fill="#0f172a" rx="8"/>
+
+  <!-- Layer 1: Protocol -->
+  <rect x="20" y="20" width="600" height="52" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+  <text x="40" y="42" fill="#60a5fa" font-size="13px" font-weight="bold">Localization Protocol</text>
+  <text x="40" y="58" fill="#94a3b8" font-size="10px">Portable schemas · lifecycle rules · adapter contracts · evidence chain · mode &amp; policy definitions</text>
+
+  <!-- Layer 2: Runtime -->
+  <rect x="20" y="82" width="600" height="52" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="1"/>
+  <text x="40" y="104" fill="#e2e8f0" font-size="13px" font-weight="bold">Reference Runtime (Python)</text>
+  <text x="40" y="120" fill="#94a3b8" font-size="10px">Extraction · QA · Staging · Apply · Protocol validation · Benchmark runner · CLI</text>
+
+  <!-- Layer 3: Agent -->
+  <rect x="20" y="144" width="320" height="52" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="40" y="166" fill="#fbbf24" font-size="13px" font-weight="bold">Agent Integration</text>
+  <text x="40" y="182" fill="#d97706" font-size="10px">Project Agent · Generation Agent · Review Agent · Delivery Agent</text>
+
+  <!-- Layer 4: Adapters -->
+  <rect x="360" y="144" width="260" height="52" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="380" y="166" fill="#4ade80" font-size="13px" font-weight="bold">Adapter Ecosystem</text>
+  <text x="380" y="182" fill="#15803d" font-size="10px">Android · iOS · XCStrings · JSON · Gettext · XLIFF · Tabular</text>
+
+  <!-- Layer 5: Source + Deliverable -->
+  <rect x="20" y="206" width="280" height="52" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="40" y="230" fill="#64748b" font-size="13px" font-weight="bold">Source Project</text>
+  <text x="40" y="246" fill="#475569" font-size="10px">res/values/strings.xml · Localizable.strings · *.po · *.json</text>
+
+  <rect x="320" y="206" width="300" height="52" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="340" y="230" fill="#64748b" font-size="13px" font-weight="bold">Delivery Package</text>
+  <text x="340" y="246" fill="#475569" font-size="10px">staging files · evidence · QA report · apply plan · backup manifests</text>
+
+  <!-- Arrows between layers -->
+  <line x1="320" y1="72" x2="320" y2="80" stroke="#3b82f6" stroke-width="1" marker-end="url(#a)"/>
+  <line x1="320" y1="134" x2="320" y2="142" stroke="#64748b" stroke-width="1"/>
+  <line x1="180" y1="196" x2="180" y2="204" stroke="#f59e0b" stroke-width="1"/>
+  <line x1="490" y1="196" x2="490" y2="204" stroke="#22c55e" stroke-width="1"/>
+
+  <defs>
+    <marker id="a" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <polygon points="0 0, 6 3, 0 6" fill="#3b82f6"/>
+    </marker>
+  </defs>
+</svg>

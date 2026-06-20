@@ -2,26 +2,24 @@
 
 Asset inventory for the Localize Anything documentation.
 
-## Current state
+## SVGs
 
-This directory currently contains no SVG/PNG assets.
-
-Diagrams in README.md and README.zh-CN.md use **Mermaid**
-(rendered by GitHub and most Markdown viewers), so no generated
-SVG files are needed.
-
-## Planned assets
-
-| File | Purpose | Status |
-|------|---------|--------|
-| `workflow-dark.svg` | Main localization workflow diagram | Not yet created |
-| `architecture-layers.svg` | Protocol → Runtime → Agent → Adapter layers | Not yet created |
-| `delivery-package.svg` | Delivery package structure | Not yet created |
-| `benchmark-antennapod.svg` | AntennaPod benchmark results visualization | Not yet created |
+| File | Purpose | Used in | Maintained |
+|------|---------|---------|------------|
+| `workflow-dark.svg` | Main localization workflow (9 steps + QA loop) | README.md, README.zh-CN.md | hand-edited |
+| `architecture-layers.svg` | Protocol → Runtime → Agent → Adapter layer stack | README.md | hand-edited |
+| `delivery-package.svg` | Delivery package structure and evidence chain | docs/delivery-package.svg | hand-edited |
+| `benchmark-antennapod.svg` | AntennaPod DeepSeek benchmark summary | README.md | hand-edited |
 
 ## Conventions
 
-- All assets should be editable by hand or via a documented toolchain
-- Prefer SVG over PNG for diagrams
-- Auto-generated assets (e.g., benchmark charts) should include their generation script path
-- Do not commit large (> 1 MB) binary assets without explicit review
+- All SVGs are dark-theme compatible (`#0f172a` background)
+- Editable by hand — no build step, no external toolchain dependency
+- Keep file sizes under 10 KB
+- Do not commit raster images > 1 MB
+
+## Adding new diagrams
+
+1. Create the SVG in this directory
+2. Reference it from the relevant markdown file using `![alt](docs/assets/filename.svg)`
+3. Update this README
