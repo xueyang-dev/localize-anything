@@ -11,6 +11,7 @@
     <string name="learn_more">Tap <b>Learn more</b> to continue.</string>
     <string name="formatting_example">Use <i>italic</i> or <u>underline</u> formatting.</string>
     <string name="unsupported_link">Open <a href="https://example.com">help</a>.</string>
+    <string name="privacy_link">Read our <a href="https://example.com/privacy">privacy policy</a>.</string>
     <string name="html_cdata"><![CDATA[Tap <b>Learn more</b> to continue.]]></string>
     <string name="plain_cdata"><![CDATA[Use < and > safely in this message.]]></string>
     <!-- Sort options shown in the queue screen -->

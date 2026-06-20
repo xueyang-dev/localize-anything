@@ -16,6 +16,7 @@ ANDROID_STRING_TAGS = {"string", "string-array", "plurals"}
 ESCAPE_SIGNATURE_ORDER = ("\\'", '"', "\\n", "\\t", "%%")
 VALID_BACKSLASH_ESCAPES = {"'", '"', "n", "t", "\\", "@", "?"}
 SUPPORTED_INLINE_TAGS = ("b", "i", "u")
+ATTRIBUTE_TAGS = {"a": {"href"}}  # tag → required-attrs set, attrs must match EXACTLY
 POSITIONAL_FORMAT_RE = re.compile(r"%\d+\$[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]")
 FORMAT_RE = re.compile(r"%[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]")
 INLINE_TAG_RE = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9:_-]*)([^>]*)>")
@@ -514,6 +515,30 @@ def _extract_supported_inline_markup(element: ElementTree.Element) -> dict[str, 
     signature: list[dict[str, Any]] = []
     for child in list(element):
         tag = _tag(child.tag)
+        if tag in ATTRIBUTE_TAGS:
+            required = ATTRIBUTE_TAGS[tag]
+            attrs = dict(child.attrib)
+            if set(attrs.keys()) != required or list(child):
+                return None
+            index = len(signature)
+            raw_open = "<" + tag + " " + " ".join(k + '="' + v + '"' for k, v in sorted(attrs.items())) + ">"
+            raw_close = "</" + tag + ">"
+            sig_item: dict[str, Any] = {
+                "type": "markup_tag",
+                "tag": tag,
+                "kind": "pair",
+                "index": index,
+                "attributes": dict(attrs),
+                "open": raw_open,
+                "close": raw_close,
+            }
+            signature.append(sig_item)
+            xml_open = "<" + tag + " " + " ".join(k + "=" + quoteattr(v) for k, v in sorted(attrs.items())) + ">"
+            pieces.append(xml_open)
+            pieces.append(child.text or "")
+            pieces.append(raw_close)
+            pieces.append(child.tail or "")
+            continue
         if tag not in SUPPORTED_INLINE_TAGS or child.attrib or list(child):
             return None
         index = len(signature)
@@ -572,7 +597,12 @@ def _render_inline_markup_value(value: str) -> str:
         rendered.append(escape(value[position : match.start()]))
         slash, tag, suffix = match.groups()
         token = match.group(0)
-        if tag in SUPPORTED_INLINE_TAGS and suffix == "" and token in {f"<{tag}>", f"</{tag}>"}:
+        if tag in ATTRIBUTE_TAGS and slash == "":
+            # Render attribute tag open
+            rendered.append(token)
+        elif tag in ATTRIBUTE_TAGS and slash != "":
+            rendered.append(token)
+        elif tag in SUPPORTED_INLINE_TAGS and suffix == "" and token in {f"<{tag}>", f"</{tag}>"}:
             rendered.append(token)
         else:
             rendered.append(escape(token))
@@ -653,10 +683,10 @@ def validate_markup_signatures(
 ) -> list[dict[str, Any]]:
     if not markup_signature:
         return []
+    issues = _validate_inline_attribute_signatures(target_text, markup_signature)
     expected_tags = [str(item.get("tag")) for item in markup_signature if item.get("kind") == "pair"]
     expected_counts = Counter(expected_tags)
     target = _analyze_inline_markup(target_text)
-    issues: list[dict[str, Any]] = []
     for token in target["unsupported_tokens"]:
         issues.append(
             {
@@ -694,16 +724,34 @@ def validate_markup_signatures(
                 "actual": actual,
             }
         )
-    if not missing and not target["malformed_tokens"] and target["open_sequence"] != expected_tags:
-        issues.append(
-            {
-                "category": "markup_order_drift",
-                "severity": "warning",
-                "message": f"Target changed Android inline markup order: expected={expected_tags}, actual={target['open_sequence']}",
-                "expected": expected_tags,
-                "actual": target["open_sequence"],
-            }
-        )
+    # Also check attribute-tag pairs
+    for item in markup_signature:
+        tag = str(item.get("tag", ""))
+        if tag in ATTRIBUTE_TAGS:
+            expected = expected_counts.get(tag, 0)
+            actual = target["pair_counts"].get(tag, 0)
+            if actual < expected:
+                issues.append(
+                    {
+                        "category": "markup_missing",
+                        "severity": "warning",
+                        "message": f"Target dropped required Android inline <{tag}> pair: expected at least {expected}, actual {actual}",
+                        "tag": tag,
+                        "expected": expected,
+                        "actual": actual,
+                    }
+                )
+    if not issues or all(item["severity"] != "blocking" for item in issues):
+        if not target["malformed_tokens"] and target["open_sequence"] != expected_tags:
+            issues.append(
+                {
+                    "category": "markup_order_drift",
+                    "severity": "warning",
+                    "message": f"Target changed Android inline markup order: expected={expected_tags}, actual={target['open_sequence']}",
+                    "expected": expected_tags,
+                    "actual": target["open_sequence"],
+                }
+            )
     return issues
 
 
@@ -865,7 +913,28 @@ def _analyze_inline_markup(text: str) -> dict[str, Any]:
             malformed_tokens.append(text[position : match.start()])
         slash, tag, suffix = match.groups()
         token = match.group(0)
-        if tag not in SUPPORTED_INLINE_TAGS or suffix != "" or token not in {f"<{tag}>", f"</{tag}>"}:
+        supported = tag in SUPPORTED_INLINE_TAGS or tag in ATTRIBUTE_TAGS
+        has_extra_attrs = bool(suffix.strip()) if tag in SUPPORTED_INLINE_TAGS else False
+        if tag in ATTRIBUTE_TAGS:
+            required = ATTRIBUTE_TAGS[tag]
+            if slash != "":
+                # Closing tag — skip attribute validation
+                pass
+            else:
+                raw_attrs = suffix.strip()
+                parsed_attrs = _parse_tag_attributes(raw_attrs)
+                if set(parsed_attrs.keys()) != required:
+                    unsupported_tokens.append(token)
+                    position = match.end()
+                    continue
+            has_extra_attrs = False
+            if tag not in ATTRIBUTE_TAGS or slash == "":
+                pass  # attribute order/form — still supported
+        if not supported or has_extra_attrs or (tag not in ATTRIBUTE_TAGS and suffix != ""):
+            unsupported_tokens.append(token)
+            position = match.end()
+            continue
+        if tag not in ATTRIBUTE_TAGS and token not in {f"<{tag}>", f"</{tag}>"}:
             unsupported_tokens.append(token)
             position = match.end()
             continue
@@ -888,6 +957,116 @@ def _analyze_inline_markup(text: str) -> dict[str, Any]:
         "open_sequence": open_sequence,
         "pair_counts": pair_counts,
     }
+
+
+def _parse_tag_attributes(attr_string: str) -> dict[str, str]:
+    """Parse HTML-style key="value" pairs from a tag suffix string."""
+    attrs: dict[str, str] = {}
+    pattern = re.compile(r"""(\S+)=("[^"]*"|'[^']*')""")
+    for match in pattern.finditer(attr_string):
+        key = match.group(1)
+        val = match.group(2)
+        val = val[1:-1]  # strip quotes
+        attrs[key] = val
+    return attrs
+
+
+def _validate_inline_attribute_signatures(
+    target_text: str, markup_signature: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Validate that attribute-tag href values are preserved exactly."""
+    issues: list[dict[str, Any]] = []
+    target_lower = target_text.lower()
+    for item in markup_signature:
+        tag = str(item.get("tag", ""))
+        if tag not in ATTRIBUTE_TAGS:
+            continue
+        attrs = item.get("attributes", {})
+        open_tag = str(item.get("open", ""))
+        close_tag = str(item.get("close", ""))
+        href_expected = attrs.get("href", "")
+        href_re = re.compile(r"""href\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
+        # Check required tag pair exists
+        open_prefix = "<" + tag
+        open_in_target = target_lower.find(open_prefix)
+        open_pos = target_lower.find(open_tag.lower())
+        close_pos = target_lower.find(close_tag.lower())
+        open_section = target_text[open_pos:open_pos + len(open_tag) + 50] if open_pos >= 0 else ""
+        href_match = href_re.search(open_section) if open_section else None
+        if open_pos == -1 or close_pos == -1:
+            if open_in_target != -1:
+                # Tag exists but attributes differ
+                href_section = target_text[open_in_target:open_in_target + 100]
+                href_check = href_re.search(href_section)
+                if not href_check:
+                    issues.append({
+                        "category": "markup_attribute_missing",
+                        "severity": "blocking",
+                        "message": f"Target <{tag}> tag is missing required href attribute",
+                        "tag": tag,
+                    })
+                elif href_check.group(1) != href_expected:
+                    issues.append({
+                        "category": "markup_url_drift",
+                        "severity": "blocking",
+                        "message": f"Target changed href URL: expected '...{href_expected[-20:]}', got '...{href_check.group(1)[-20:]}'",
+                        "tag": tag,
+                        "expected": href_expected,
+                        "actual": href_check.group(1),
+                    })
+                else:
+                    issues.append({
+                        "category": "markup_missing",
+                        "severity": "blocking",
+                        "message": f"Target dropped required Android inline <{tag}> pair with attributes: {open_tag}",
+                        "tag": tag,
+                    })
+            else:
+                issues.append({
+                    "category": "markup_missing",
+                    "severity": "blocking",
+                    "message": f"Target dropped required Android inline <{tag}> pair with attributes: {open_tag}",
+                    "tag": tag,
+                })
+            continue
+        if open_pos >= close_pos:
+            issues.append({
+                "category": "malformed_markup",
+                "severity": "blocking",
+                "message": f"Target has malformed <{tag}> pair: close before open",
+                "token": target_text[max(0, open_pos):min(len(target_text), close_pos + len(close_tag))],
+            })
+            continue
+        # Check href is preserved exactly (tag was found, verify attribute value)
+        update_section = target_text[open_pos:open_pos + len(open_tag) + 50]
+        update_match = href_re.search(update_section)
+        if not update_match:
+            issues.append({
+                "category": "markup_attribute_missing",
+                "severity": "blocking",
+                "message": f"Target <{tag}> tag is missing required href attribute",
+                "tag": tag,
+            })
+        elif href_match.group(1) != href_expected:
+            issues.append({
+                "category": "markup_url_drift",
+                "severity": "blocking",
+                "message": f"Target changed href URL: expected '...{href_expected[-20:]}', got '...{href_match.group(1)[-20:]}'",
+                "tag": tag,
+                "expected": href_expected,
+                "actual": href_match.group(1),
+            })
+        # Check no unsupported attributes introduced
+        extra_attr_re = re.compile(r'\b(on\w+|style|class|id)\s*=', re.IGNORECASE)
+        extra_attrs = extra_attr_re.findall(target_text)
+        if extra_attrs:
+            issues.append({
+                "category": "unsupported_markup",
+                "severity": "blocking",
+                "message": f"Target introduced unsupported attributes: {', '.join(sorted(set(a.lower() for a in extra_attrs)))}",
+                "attrs": extra_attrs,
+            })
+    return issues
 
 
 def _has_unparsed_markup_angle(text: str) -> bool:

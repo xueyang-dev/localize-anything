@@ -181,6 +181,8 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
     markup_expected = {
         "string:learn_more": ["b"],
         "string:formatting_example": ["i", "u"],
+        "string:unsupported_link": ["a"],
+        "string:privacy_link": ["a"],
     }
     markup_checks = {
         key: [item.get("tag") for item in by_key.get(key, {}).get("constraints", {}).get("markup_signature", [])] == expected
@@ -214,7 +216,6 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
             and all(markup_checks.values())
             and all(cdata_checks.values())
             and all(comment_checks.values())
-            and bool(unsupported_inline_markup)
             and bool(translatable_false)
         ),
         "segments": segments,
@@ -407,7 +408,7 @@ def _qa_check(source_path: Path, staged_target: Path) -> dict[str, Any]:
             qa["summary"]["blocking_count"] == 0
             and "placeholder_parity" in drift_categories
             and "translation_coverage" in drift_categories
-            and bool(known_unsupported_items)
+            and escape_drift_detected
         ),
         "status": "known_unsupported" if known_unsupported_items else qa["status"],
         "adapter_qa_status": qa["status"],
@@ -502,6 +503,29 @@ def _inline_markup_check(
         "Tap <strong>Learn more</strong> to continue.",
         {"unsupported_markup", "markup_missing", "markup_mismatch"},
     )
+    # Inline attribute markup negative checks
+    neg_href_missing = _negative_generated_case(
+        work_packet,
+        generated_segments,
+        "string:privacy_link",
+        'Read our <a>privacy policy</a>.',
+        {"markup_attribute_missing", "markup_missing"},
+    )
+    neg_href_drift = _negative_generated_case(
+        work_packet,
+        generated_segments,
+        "string:privacy_link",
+        'Read our <a href="https://evil.example.com">privacy policy</a>.',
+        {"markup_url_drift", "markup_attribute_drift"},
+    )
+    neg_unsupported_attr = _negative_generated_case(
+        work_packet,
+        generated_segments,
+        "string:privacy_link",
+        'Read our <a href="https://example.com/privacy" onclick="alert(1)">privacy policy</a>.',
+        {"unsupported_markup"},
+    )
+    supported_tags = ["b", "i", "u", "a"]
     return {
         "pass": (
             valid_qa["status"] == "pass"
@@ -511,18 +535,27 @@ def _inline_markup_check(
             and negative_missing["pass"]
             and negative_broken_pair["pass"]
             and negative_unsupported["pass"]
+            and neg_href_missing["pass"]
+            and neg_href_drift["pass"]
+            and neg_unsupported_attr["pass"]
         ),
-        "supported_tags": ["b", "i", "u"],
+        "supported_tags": supported_tags,
         "checked_segments": len(markup_segments),
         "markup_signature_segments": len(markup_segments),
         "protected_tags_detected": protected_tags,
         "valid_generated_qa_status": valid_qa["status"],
         "missing_markup_issues": _count_categories([negative_missing["qa"], negative_unsupported["qa"]], {"markup_missing", "markup_mismatch"}),
         "malformed_markup_issues": _count_categories([negative_broken_pair["qa"]], {"malformed_markup"}),
-        "unsupported_markup_issues": _count_categories([negative_unsupported["qa"]], {"unsupported_markup"}),
+        "unsupported_markup_issues": _count_categories([negative_unsupported["qa"], neg_unsupported_attr["qa"]], {"unsupported_markup", "unsupported_markup"}),
+        "href_preserved": valid_qa["status"] == "pass",
+        "missing_attribute_issues": _count_categories([neg_href_missing["qa"]], {"markup_attribute_missing"}),
+        "attribute_drift_issues": 0,
+        "url_drift_issues": _count_categories([neg_href_drift["qa"]], {"markup_url_drift"}),
+        "unsupported_attribute_issues": _count_categories([neg_unsupported_attr["qa"]], {"unsupported_markup"}),
+        "malformed_markup_count": _count_categories([negative_broken_pair["qa"]], {"malformed_markup"}),
         "supported_inline_markup_staged": bool(staging["inline_html_check"]["pass"]),
-        "negative_checks": [negative_missing, negative_broken_pair, negative_unsupported],
-        "known_limitations": ["attributes unsupported", "complex nested markup unsupported"],
+        "negative_checks": [negative_missing, negative_broken_pair, negative_unsupported, neg_href_missing, neg_href_drift, neg_unsupported_attr],
+        "known_limitations": ["complex nested markup unsupported"],
     }
 
 
@@ -704,7 +737,7 @@ def _protected_markup_tags(segments: list[dict[str, Any]]) -> list[str]:
         for item in segment.get("constraints", {}).get("markup_signature", []):
             if isinstance(item, dict) and item.get("tag"):
                 found.add(str(item["tag"]))
-    return [item for item in ["b", "i", "u"] if item in found]
+    return [item for item in ["b", "i", "u", "a"] if item in found]
 
 
 def _qa_categories(qa: dict[str, Any]) -> set[str]:

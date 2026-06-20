@@ -527,7 +527,7 @@ class AndroidStringsAdapterTests(unittest.TestCase):
             [item["tag"] for item in by_key["string:formatting_example"]["constraints"]["markup_signature"]],
             ["i", "u"],
         )
-        self.assertNotIn("string:unsupported_link", by_key)
+        self.assertIn("string:unsupported_link", by_key)
 
     def test_android_inline_markup_drift_validation(self) -> None:
         source = (
@@ -2520,19 +2520,18 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             root = Path(directory)
             report = benchmark.run_benchmark(root / "work", root / "report")
 
-            self.assertEqual(report["status"], "partial", report["failed_checks"])
-            self.assertEqual(report["verdict"], "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PARTIAL")
+            self.assertEqual(report["status"], "pass", report["failed_checks"])
+            self.assertEqual(report["verdict"], "V0.2.2-E ANDROID RESOURCE COMMENT ROUND-TRIP: PASS")
             self.assertTrue((root / "report" / "report.json").is_file())
             self.assertTrue((root / "report" / "report.md").is_file())
-            self.assertEqual(report["source_segment_count"], 17)
-            self.assertEqual(report["extracted_segment_count"], 17)
-            self.assertEqual(report["generated_segment_count"], 17)
+            self.assertEqual(report["source_segment_count"], 19)
+            self.assertEqual(report["extracted_segment_count"], 19)
+            self.assertEqual(report["generated_segment_count"], 19)
             self.assertEqual(report["skipped_translatable_false_count"], 1)
             self.assertTrue(report["blind_leakage_check_result"]["pass"])
             self.assertTrue(report["maintenance_preservation_check_result"]["pass"])
             limitation_ids = {item["id"] for item in report["known_limitations"]}
-            self.assertIn("android_inline_markup_attributes_unsupported", limitation_ids)
-            self.assertIn("android_complex_nested_markup_unsupported", limitation_ids)
+            self.assertNotIn("android_inline_markup_attributes_unsupported", limitation_ids)
             self.assertNotIn("android_cdata_section_normalized", limitation_ids)
             self.assertNotIn("android_resource_comments_not_preserved", limitation_ids)
             self.assertNotIn("android_escape_drift_qa_not_supported", limitation_ids)
@@ -2573,16 +2572,20 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
 
             inline = report["inline_markup_check"]
             self.assertTrue(inline["pass"], inline)
-            self.assertEqual(inline["supported_tags"], ["b", "i", "u"])
-            self.assertGreaterEqual(inline["checked_segments"], 2)
-            self.assertGreaterEqual(inline["markup_signature_segments"], 2)
+            self.assertIn("a", inline["supported_tags"])
+            self.assertIn("b", inline["supported_tags"])
+            self.assertGreaterEqual(inline["checked_segments"], 3)
+            self.assertGreaterEqual(inline["markup_signature_segments"], 3)
             self.assertTrue(inline["supported_inline_markup_staged"])
             self.assertIn("b", inline["protected_tags_detected"])
-            self.assertIn("i", inline["protected_tags_detected"])
-            self.assertIn("u", inline["protected_tags_detected"])
+            self.assertIn("a", inline["protected_tags_detected"])
+            self.assertTrue(inline["href_preserved"])
             self.assertGreaterEqual(inline["missing_markup_issues"], 1)
             self.assertGreaterEqual(inline["malformed_markup_issues"], 1)
             self.assertGreaterEqual(inline["unsupported_markup_issues"], 1)
+            self.assertGreaterEqual(inline["missing_attribute_issues"], 1)
+            self.assertGreaterEqual(inline["url_drift_issues"], 1)
+            self.assertGreaterEqual(inline["unsupported_attribute_issues"], 1)
             self.assertEqual(report["inline_html_check_result"]["status"], "pass")
 
     def test_v022_android_resource_reliability_cdata(self) -> None:
