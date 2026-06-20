@@ -9,6 +9,7 @@
     <string name="multiline_help">第一行\n第二行\t缩进</string>
     <string name="terms">阅读并接受条款。</string>
     <string name="html_cdata"><![CDATA[点按 <b>了解更多</b> 以继续。]]></string>
+    <string name="plain_cdata"><![CDATA[在这条消息中安全使用 < 和 >。]]></string>
     <string-array name="sort_options">
         <item>最新优先</item>
         <item>最旧优先</item>

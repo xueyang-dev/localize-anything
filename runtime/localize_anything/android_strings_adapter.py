@@ -19,6 +19,8 @@ SUPPORTED_INLINE_TAGS = ("b", "i", "u")
 POSITIONAL_FORMAT_RE = re.compile(r"%\d+\$[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]")
 FORMAT_RE = re.compile(r"%[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]")
 INLINE_TAG_RE = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9:_-]*)([^>]*)>")
+CDATA_STRING_RE = re.compile(r"<string\b(?P<attrs>[^>]*)>\s*<!\[CDATA\[", re.DOTALL)
+NAME_ATTR_RE = re.compile(r"\bname\s*=\s*(['\"])(?P<name>.*?)\1")
 
 
 def extract_segments(path: Path, source_locale: str, source_path: str | None = None) -> list[dict[str, Any]]:
@@ -46,7 +48,7 @@ def rebuild(
             if segment and "target" in segment:
                 attrs = _target_attributes(resource["attributes"])
                 attrs["name"] = resource["name"]
-                lines.append(f"    <string {_format_attributes(attrs)}>{_render_segment_value(segment)}</string>")
+                lines.append(f"    <string {_format_attributes(attrs)}>{_render_segment_value(segment, cdata=bool(resource.get('cdata')))}</string>")
             index += 1
             continue
 
@@ -166,6 +168,7 @@ def validate_pair(source_path: Path, target_path: Path) -> dict[str, Any]:
             items.append(_qa_item("empty_translation", "warning", f"Empty target resource: {_resource_label(target_resource)}", target_path, key))
         items.extend(_escape_qa_items(source_resource, target_resource, target_path, key))
         items.extend(_markup_qa_items(source_resource, target_resource, target_path, key))
+        items.extend(_cdata_qa_items(source_resource, target_resource, target_path, key))
 
     blocking = sum(item["severity"] == "blocking" for item in items)
     warnings = sum(item["severity"] == "warning" for item in items)
@@ -225,6 +228,8 @@ def is_android_strings_path(project_root: Path, path: Path) -> bool:
 
 
 def _read_document(path: Path) -> dict[str, Any]:
+    raw_text = path.read_text(encoding="utf-8")
+    cdata_names = _cdata_resource_names(raw_text)
     tree = ElementTree.parse(path)
     root = tree.getroot()
     if _tag(root.tag) != "resources":
@@ -250,6 +255,7 @@ def _read_document(path: Path) -> dict[str, Any]:
             skipped.append({"tag": tag, "name": _container_key(tag, name), "reason": "translatable_false"})
             continue
         if tag == "string":
+            cdata = name in cdata_names
             if list(element):
                 inline = _extract_supported_inline_markup(element)
                 if inline is None:
@@ -262,10 +268,11 @@ def _read_document(path: Path) -> dict[str, Any]:
                         inline["value"],
                         dict(element.attrib),
                         markup_signature=inline["markup_signature"],
+                        cdata=cdata,
                     )
                 )
                 continue
-            resources.append(_resource("string", name, element.text or "", dict(element.attrib)))
+            resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=cdata))
             continue
         item_index = 0
         for child in list(element):
@@ -295,6 +302,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
     value = resource["value"]
     escape_signature = extract_escape_signature(value)
     markup_signature = list(resource.get("markup_signature", []))
+    cdata = bool(resource.get("cdata"))
     return {
         "protocol_version": PROTOCOL_VERSION,
         "evidence_channels": ["adapter"],
@@ -318,9 +326,12 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
             "markup": markup_signature,
             "markup_signature": markup_signature,
             "escape_signature": escape_signature,
+            "cdata": cdata,
         },
         "escape_signature": escape_signature,
         "markup_signature": markup_signature,
+        "cdata": cdata,
+        "cdata_signature": {"boundary": "cdata", "original_had_cdata": True} if cdata else {},
         "status": "new",
     }
 
@@ -348,6 +359,8 @@ def _target_only_resources(source_resources: list[dict[str, Any]], target_path: 
 
 
 def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
+    raw_text = path.read_text(encoding="utf-8")
+    cdata_names = _cdata_resource_names(raw_text)
     tree = ElementTree.parse(path)
     root = tree.getroot()
     if _tag(root.tag) != "resources":
@@ -363,7 +376,7 @@ def _read_preservable_target_resources(path: Path) -> list[dict[str, Any]]:
         if tag == "string":
             if list(element):
                 continue
-            resources.append(_resource("string", name, element.text or "", dict(element.attrib)))
+            resources.append(_resource("string", name, element.text or "", dict(element.attrib), cdata=name in cdata_names))
             continue
         item_index = 0
         for child in list(element):
@@ -390,7 +403,7 @@ def _render_existing_resources(resources: list[dict[str, Any]]) -> list[str]:
         if resource_type == "string":
             attrs = _target_attributes(resource["attributes"])
             attrs["name"] = resource["name"]
-            lines.append(f"    <string {_format_attributes(attrs)}>{escape(str(resource['value']))}</string>")
+            lines.append(f"    <string {_format_attributes(attrs)}>{_render_resource_value(resource)}</string>")
             index += 1
             continue
 
@@ -421,6 +434,7 @@ def _resource(
     item_index: int | None = None,
     quantity: str | None = None,
     markup_signature: list[dict[str, Any]] | None = None,
+    cdata: bool = False,
 ) -> dict[str, Any]:
     return {
         "type": resource_type,
@@ -430,6 +444,7 @@ def _resource(
         "item_index": item_index,
         "quantity": quantity,
         "markup_signature": markup_signature or [],
+        "cdata": cdata,
         "key": _item_key(resource_type, name, item_index, quantity),
     }
 
@@ -438,6 +453,15 @@ def _resource_placeholders(resource: dict[str, Any]) -> list[str]:
     if resource.get("attributes", {}).get("formatted") == "false":
         return []
     return extract_placeholders(str(resource.get("value", "")))
+
+
+def _cdata_resource_names(raw_text: str) -> set[str]:
+    names: set[str] = set()
+    for match in CDATA_STRING_RE.finditer(raw_text):
+        name_match = NAME_ATTR_RE.search(match.group("attrs"))
+        if name_match:
+            names.add(name_match.group("name"))
+    return names
 
 
 def _extract_supported_inline_markup(element: ElementTree.Element) -> dict[str, Any] | None:
@@ -465,12 +489,27 @@ def _extract_supported_inline_markup(element: ElementTree.Element) -> dict[str, 
     return {"value": "".join(pieces), "markup_signature": signature}
 
 
-def _render_segment_value(segment: dict[str, Any]) -> str:
+def _render_resource_value(resource: dict[str, Any]) -> str:
+    value = str(resource["value"])
+    if resource.get("cdata"):
+        return _render_cdata_value(value)
+    return escape(value)
+
+
+def _render_segment_value(segment: dict[str, Any], *, cdata: bool = False) -> str:
     value = str(segment["target"])
+    if cdata:
+        return _render_cdata_value(value)
     constraints = segment.get("constraints", {})
     if isinstance(constraints, dict) and constraints.get("markup_signature"):
         return _render_inline_markup_value(value)
     return escape(value)
+
+
+def _render_cdata_value(value: str) -> str:
+    if "]]>" in value:
+        raise ValueError("CDATA target contains unsafe terminator sequence: ]]>")
+    return f"<![CDATA[{value}]]>"
 
 
 def _render_inline_markup_value(value: str) -> str:
@@ -615,6 +654,19 @@ def validate_markup_signatures(
     return issues
 
 
+def validate_cdata_target(target_text: str) -> list[dict[str, Any]]:
+    if "]]>" not in target_text:
+        return []
+    return [
+        {
+            "category": "cdata_terminator_unsafe",
+            "severity": "blocking",
+            "message": "CDATA target contains unsafe terminator sequence: ]]>",
+            "token": "]]>",
+        }
+    ]
+
+
 def _escape_qa_items(
     source_resource: dict[str, Any],
     target_resource: dict[str, Any],
@@ -629,6 +681,38 @@ def _escape_qa_items(
                 str(issue["category"]),
                 str(issue["severity"]),
                 str(issue["message"]),
+                target_path,
+                segment_id,
+            )
+        )
+    return items
+
+
+def _cdata_qa_items(
+    source_resource: dict[str, Any],
+    target_resource: dict[str, Any],
+    target_path: Path,
+    segment_id: str,
+) -> list[dict[str, Any]]:
+    if not source_resource.get("cdata"):
+        return []
+    items: list[dict[str, Any]] = []
+    for issue in validate_cdata_target(str(target_resource.get("value", ""))):
+        items.append(
+            _qa_item(
+                str(issue["category"]),
+                str(issue["severity"]),
+                str(issue["message"]),
+                target_path,
+                segment_id,
+            )
+        )
+    if not target_resource.get("cdata"):
+        items.append(
+            _qa_item(
+                "cdata_boundary_missing",
+                "warning",
+                f"Target normalized CDATA boundary for {_resource_label(source_resource)}",
                 target_path,
                 segment_id,
             )

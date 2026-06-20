@@ -581,6 +581,71 @@ class AndroidStringsAdapterTests(unittest.TestCase):
         categories = {item["category"] for item in unsupported_result["items"]}
         self.assertTrue({"unsupported_markup", "markup_missing"} <= categories)
 
+    def test_android_cdata_signature_extraction(self) -> None:
+        source = (
+            REPOSITORY_ROOT
+            / "benchmarks"
+            / "v022-android-resource-reliability"
+            / "fixture"
+            / "app"
+            / "src"
+            / "main"
+            / "res"
+            / "values"
+            / "strings.xml"
+        )
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        by_key = {segment["context"]["resource_key"]: segment for segment in segments}
+
+        self.assertTrue(by_key["string:html_cdata"]["constraints"]["cdata"])
+        self.assertTrue(by_key["string:plain_cdata"]["constraints"]["cdata"])
+        self.assertTrue(by_key["string:html_cdata"]["cdata"])
+        self.assertEqual(by_key["string:html_cdata"]["markup_signature"], [])
+        self.assertEqual(by_key["string:plain_cdata"]["source"], "Use < and > safely in this message.")
+        self.assertEqual(
+            by_key["string:html_cdata"]["cdata_signature"],
+            {"boundary": "cdata", "original_had_cdata": True},
+        )
+
+    def test_android_cdata_boundary_preserved_in_staging(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture"
+        source = project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        for segment in segments:
+            segment["target_locale"] = "zh-CN"
+            segment["target"] = segment["source"]
+            segment["status"] = "generated"
+
+        with tempfile.TemporaryDirectory() as directory:
+            staged = stage_android_strings(source, segments, Path(directory), "zh-CN", project)
+            staged_path = Path(staged["output"])
+            text = staged_path.read_text(encoding="utf-8")
+            self.assertIn('<string name="html_cdata"><![CDATA[Tap <b>Learn more</b> to continue.]]></string>', text)
+            self.assertIn('<string name="plain_cdata"><![CDATA[Use < and > safely in this message.]]></string>', text)
+            result = validate_android_strings(source, staged_path)
+            self.assertNotIn("cdata_boundary_missing", {item["category"] for item in result["items"]})
+
+    def test_android_cdata_terminator_rejected(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture"
+        source = project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+        segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
+        generated = []
+        for segment in segments:
+            item = dict(segment)
+            item["target_locale"] = "zh-CN"
+            item["target"] = "Unsafe ]]>" if item["context"]["resource_key"] == "string:plain_cdata" else item["source"]
+            item["status"] = "generated"
+            item["generation"] = {"provider": "synthetic"}
+            generated.append(item)
+        work_packet = {"target_locale": "zh-CN", "segments": segments}
+
+        result = validate_generated_segments(work_packet, generated)
+        self.assertEqual(result["status"], "fail")
+        self.assertIn("cdata_terminator_unsafe", {item["category"] for item in result["items"]})
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                stage_android_strings(source, generated, Path(directory), "zh-CN", project)
+
     def test_placeholder_mismatch_fails_android_strings(self) -> None:
         source = ANDROID_FIXTURE_ROOT / "app" / "src" / "main" / "res" / "values" / "strings.xml"
         segments = extract_android_segments(source, "en-US", "app/src/main/res/values/strings.xml")
@@ -2381,19 +2446,19 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             report = benchmark.run_benchmark(root / "work", root / "report")
 
             self.assertEqual(report["status"], "partial", report["failed_checks"])
-            self.assertEqual(report["verdict"], "V0.2.2-C ANDROID INLINE MARKUP PROTECTED SPANS: PARTIAL")
+            self.assertEqual(report["verdict"], "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: PARTIAL")
             self.assertTrue((root / "report" / "report.json").is_file())
             self.assertTrue((root / "report" / "report.md").is_file())
-            self.assertEqual(report["source_segment_count"], 16)
-            self.assertEqual(report["extracted_segment_count"], 16)
-            self.assertEqual(report["generated_segment_count"], 16)
+            self.assertEqual(report["source_segment_count"], 17)
+            self.assertEqual(report["extracted_segment_count"], 17)
+            self.assertEqual(report["generated_segment_count"], 17)
             self.assertEqual(report["skipped_translatable_false_count"], 1)
             self.assertTrue(report["blind_leakage_check_result"]["pass"])
             self.assertTrue(report["maintenance_preservation_check_result"]["pass"])
             limitation_ids = {item["id"] for item in report["known_limitations"]}
             self.assertIn("android_inline_markup_attributes_unsupported", limitation_ids)
-            self.assertIn("android_cdata_section_normalized", limitation_ids)
             self.assertIn("android_resource_comments_not_preserved", limitation_ids)
+            self.assertNotIn("android_cdata_section_normalized", limitation_ids)
             self.assertNotIn("android_escape_drift_qa_not_supported", limitation_ids)
             self.assertNotIn("android_inline_markup_skipped", limitation_ids)
 
@@ -2443,6 +2508,24 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             self.assertGreaterEqual(inline["malformed_markup_issues"], 1)
             self.assertGreaterEqual(inline["unsupported_markup_issues"], 1)
             self.assertEqual(report["inline_html_check_result"]["status"], "pass")
+
+    def test_v022_android_resource_reliability_cdata(self) -> None:
+        benchmark = _load_v022_android_resource_reliability_benchmark()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = benchmark.run_benchmark(root / "work", root / "report")
+
+            cdata = report["cdata_check"]
+            self.assertTrue(cdata["pass"], cdata)
+            self.assertEqual(cdata["cdata_segments"], 2)
+            self.assertTrue(cdata["cdata_boundary_preserved"])
+            self.assertTrue(cdata["staged_xml_parse"])
+            self.assertGreaterEqual(cdata["unsafe_terminator_issues"], 1)
+            self.assertGreaterEqual(cdata["boundary_missing_issues"], 1)
+            self.assertTrue(cdata["unsafe_staging_blocked"])
+            self.assertEqual(cdata["known_limitations"], [])
+            self.assertTrue(report["cdata_check_result"]["pass"])
+            self.assertEqual(report["cdata_check_result"]["status"], "pass")
 
 
 class SkillFilesTests(unittest.TestCase):

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
+from xml.sax.saxutils import escape
 
 
 ROOT = Path(__file__).resolve().parent
@@ -30,7 +32,7 @@ LEGACY_TEXT = "旧版专属译文_不得自动删除"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the v0.2.2 Android inline markup protected spans benchmark")
+    parser = argparse.ArgumentParser(description="Run the v0.2.2 Android CDATA boundary preservation benchmark")
     parser.add_argument("--work-root", type=Path, default=ROOT / "work")
     parser.add_argument("--report-dir", type=Path, default=ROOT)
     parser.add_argument("--keep-work", action="store_true")
@@ -62,6 +64,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
     qa = _qa_check(source_path, Path(staging["staged_target"]))
     escape_signature = _escape_signature_check(extraction["segments"], generated_segments)
     inline_markup = _inline_markup_check(extraction["segments"], generated_segments, staging)
+    cdata = _cdata_check(extraction["segments"], generated_segments, source_path, Path(staging["staged_target"]))
 
     blind = _run_mode(work_root, "blind_benchmark", "blind")
     blind_leakage = _blind_leakage_check(blind["result"], target_path)
@@ -74,6 +77,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "qa": qa,
         "escape_signature": escape_signature,
         "inline_markup": inline_markup,
+        "cdata": cdata,
         "blind_leakage": blind_leakage,
         "maintenance_preservation": maintenance_preservation,
     }
@@ -83,7 +87,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
     status = "pass" if core_pass and not known_limitations else "partial" if core_pass else "fail"
 
     report = {
-        "schema": "localize-anything-v022-android-inline-markup-protected-spans",
+        "schema": "localize-anything-v022-android-cdata-boundary-preservation",
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "status": status,
         "verdict": _verdict(status),
@@ -108,6 +112,7 @@ def run_benchmark(work_root: Path = ROOT / "work", report_dir: Path = ROOT, keep
         "placeholder_check_result": extraction["placeholder_check"],
         "escape_signature_check": escape_signature,
         "inline_markup_check": inline_markup,
+        "cdata_check": cdata,
         "escape_check_result": staging["escape_check"],
         "xml_entity_check_result": staging["xml_entity_check"],
         "inline_html_check_result": staging["inline_html_check"],
@@ -178,6 +183,14 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         key: [item.get("tag") for item in by_key.get(key, {}).get("constraints", {}).get("markup_signature", [])] == expected
         for key, expected in markup_expected.items()
     }
+    cdata_expected = {
+        "string:html_cdata": True,
+        "string:plain_cdata": True,
+    }
+    cdata_checks = {
+        key: by_key.get(key, {}).get("constraints", {}).get("cdata") is expected
+        for key, expected in cdata_expected.items()
+    }
     unsupported_inline_markup = [item for item in skipped if item["reason"] == "unsupported_inline_markup"]
     translatable_false = [item for item in skipped if item["reason"] == "translatable_false"]
     return {
@@ -187,6 +200,7 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
             and all(placeholder_checks.values())
             and all(escape_checks.values())
             and all(markup_checks.values())
+            and all(cdata_checks.values())
             and bool(unsupported_inline_markup)
             and bool(translatable_false)
         ),
@@ -198,6 +212,7 @@ def _extraction_check(source_path: Path) -> dict[str, Any]:
         "placeholder_check": {"pass": all(placeholder_checks.values()), "items": placeholder_checks},
         "escape_signature_extraction_check": {"pass": all(escape_checks.values()), "items": escape_checks},
         "markup_signature_extraction_check": {"pass": all(markup_checks.values()), "items": markup_checks},
+        "cdata_signature_extraction_check": {"pass": all(cdata_checks.values()), "items": cdata_checks},
         "unsupported_high_risk": {
             "unsupported_inline_markup": unsupported_inline_markup,
             "cdata_present_in_source": "<![CDATA[" in source_path.read_text(encoding="utf-8"),
@@ -231,6 +246,7 @@ def _target_for_key(key: str, source: str) -> str:
         "string:learn_more": "Tap <b>Learn more</b> to continue.",
         "string:formatting_example": "Use <i>italic</i> or <u>underline</u> formatting.",
         "string:html_cdata": "Tap <b>Learn more</b> to continue.",
+        "string:plain_cdata": "Use < and > safely in this message.",
         "string-array:sort_options[0]": "最新优先",
         "string-array:sort_options[1]": "最旧优先",
         "string-array:sort_options[2]": "播放最多",
@@ -263,8 +279,12 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
     learn_more_element = _find_named(root, "learn_more")
     formatting_element = _find_named(root, "formatting_example")
     inline_markup_preserved = _child_tags(learn_more_element) == ["b"] and _child_tags(formatting_element) == ["i", "u"]
-    cdata_raw_preserved = "<![CDATA[" in staged_text
-    cdata_semantic_preserved = by_key.get("string:html_cdata", {}).get("source") == "Tap <b>Learn more</b> to continue."
+    cdata_sections = _cdata_sections(staged_text)
+    cdata_raw_preserved = {"html_cdata", "plain_cdata"}.issubset(set(cdata_sections))
+    cdata_semantic_preserved = (
+        by_key.get("string:html_cdata", {}).get("source") == "Tap <b>Learn more</b> to continue."
+        and by_key.get("string:plain_cdata", {}).get("source") == "Use < and > safely in this message."
+    )
     comment_preserved = "Settings screen" in staged_text
     return {
         "pass": (
@@ -282,6 +302,8 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
             and plurals.get("one") == "%1$d 集"
             and plurals.get("other") == "%1$d 集"
             and inline_markup_preserved
+            and cdata_raw_preserved
+            and cdata_semantic_preserved
             and LEGACY_TEXT in staged_text
             and f'name="{LEGACY_KEY}"' in staged_text
         ),
@@ -306,11 +328,12 @@ def _staging_check(project_root: Path, source_path: Path, generated_segments: li
             "formatting_example_child_tags": _child_tags(formatting_element),
         },
         "cdata_check": {
-            "pass": cdata_semantic_preserved and not cdata_raw_preserved,
-            "status": "known_unsupported",
-            "message": "CDATA text is semantically preserved after XML parsing but the CDATA section is normalized to escaped text",
+            "pass": cdata_semantic_preserved and cdata_raw_preserved,
+            "status": "pass" if cdata_semantic_preserved and cdata_raw_preserved else "fail",
+            "message": "CDATA text and section boundaries are preserved for source CDATA resources",
             "raw_cdata_preserved": cdata_raw_preserved,
             "semantic_text_preserved": cdata_semantic_preserved,
+            "cdata_sections": cdata_sections,
         },
         "comment_check": {
             "pass": comment_preserved,
@@ -352,14 +375,6 @@ def _qa_check(source_path: Path, staged_target: Path) -> dict[str, Any]:
                 "message": "inline markup with attributes is reported as unsupported_or_skipped_resource",
             }
         )
-    known_unsupported_items.append(
-        {
-            "category": "cdata_round_trip",
-            "severity": "warning",
-            "status": "known_unsupported",
-            "message": "CDATA section boundaries are not preserved by the current ElementTree rebuild path",
-        }
-    )
     known_unsupported_items.append(
         {
             "category": "comment_round_trip",
@@ -489,6 +504,72 @@ def _inline_markup_check(
         "supported_inline_markup_staged": bool(staging["inline_html_check"]["pass"]),
         "negative_checks": [negative_missing, negative_broken_pair, negative_unsupported],
         "known_limitations": ["attributes unsupported", "complex nested markup unsupported"],
+    }
+
+
+def _cdata_check(
+    source_segments: list[dict[str, Any]],
+    generated_segments: list[dict[str, Any]],
+    source_path: Path,
+    staged_target: Path,
+) -> dict[str, Any]:
+    work_packet = {"target_locale": TARGET_LOCALE, "segments": source_segments}
+    cdata_segments = [
+        segment
+        for segment in source_segments
+        if segment.get("constraints", {}).get("cdata")
+    ]
+    staged_text = staged_target.read_text(encoding="utf-8")
+    cdata_sections = _cdata_sections(staged_text)
+    boundary_preserved = {"html_cdata", "plain_cdata"}.issubset(set(cdata_sections))
+    boundary_loss_target = staged_target.parent / "strings-cdata-boundary-loss.xml"
+    boundary_loss_target.write_text(_drop_cdata_boundaries(staged_text), encoding="utf-8", newline="\n")
+    boundary_loss_qa = android.validate_pair(source_path, boundary_loss_target)
+    unsafe_generated = [dict(segment) for segment in generated_segments]
+    for segment in unsafe_generated:
+        if segment.get("context", {}).get("resource_key") == "string:plain_cdata":
+            segment["target"] = "Unsafe ]]> terminator"
+            break
+    unsafe_qa = validate_generated_segments(work_packet, unsafe_generated)
+    try:
+        android.stage_rebuild(source_path, unsafe_generated, staged_target.parent / "unsafe-cdata-staging", TARGET_LOCALE, source_path.parents[5], preserve_target_only=True)
+        unsafe_stage_blocked = False
+    except ValueError as exc:
+        unsafe_stage_blocked = "]]>" in str(exc)
+    return {
+        "pass": (
+            len(cdata_segments) == 2
+            and boundary_preserved
+            and _xml_parse_ok(staged_target)
+            and "cdata_boundary_missing" in _qa_categories(boundary_loss_qa)
+            and "cdata_terminator_unsafe" in _qa_categories(unsafe_qa)
+            and unsafe_stage_blocked
+        ),
+        "cdata_segments": len(cdata_segments),
+        "cdata_boundary_preserved": boundary_preserved,
+        "unsafe_terminator_issues": _count_categories([unsafe_qa], {"cdata_terminator_unsafe"}),
+        "boundary_missing_issues": _count_categories([boundary_loss_qa], {"cdata_boundary_missing"}),
+        "staged_xml_parse": _xml_parse_ok(staged_target),
+        "cdata_sections": cdata_sections,
+        "unsafe_staging_blocked": unsafe_stage_blocked,
+        "negative_checks": [
+            {
+                "name": "cdata_boundary_dropped",
+                "pass": "cdata_boundary_missing" in _qa_categories(boundary_loss_qa),
+                "status": boundary_loss_qa["status"],
+                "categories": sorted(_qa_categories(boundary_loss_qa)),
+                "qa": boundary_loss_qa,
+            },
+            {
+                "name": "cdata_unsafe_terminator",
+                "pass": "cdata_terminator_unsafe" in _qa_categories(unsafe_qa) and unsafe_stage_blocked,
+                "status": unsafe_qa["status"],
+                "categories": sorted(_qa_categories(unsafe_qa)),
+                "staging_blocked": unsafe_stage_blocked,
+                "qa": unsafe_qa,
+            },
+        ],
+        "known_limitations": [],
     }
 
 
@@ -649,6 +730,8 @@ def _failed_checks(checks: dict[str, Any]) -> list[str]:
         failures.append("escape signature check failed")
     if not checks["inline_markup"]["pass"]:
         failures.append("inline markup check failed")
+    if not checks["cdata"]["pass"]:
+        failures.append("cdata check failed")
     if not checks["blind_leakage"]["pass"]:
         failures.append("blind leakage check failed")
     if not checks["maintenance_preservation"]["pass"]:
@@ -666,14 +749,6 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
                 "message": "Inline markup with attributes or unsupported tags is detected and reported, but not extracted or staged.",
             }
         )
-    if not staging["cdata_check"]["raw_cdata_preserved"]:
-        limitations.append(
-            {
-                "id": "android_cdata_section_normalized",
-                "severity": "known_unsupported",
-                "message": "CDATA semantic text parses after staging, but the CDATA section is normalized to escaped text.",
-            }
-        )
     if staging["comment_check"]["status"] == "known_unsupported":
         limitations.append(
             {
@@ -687,7 +762,7 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
             {
                 "id": "android_known_unsupported_qa_items",
                 "severity": "known_unsupported",
-                "message": "Benchmark-level QA records unsupported inline attributes, CDATA, and comment limitations.",
+                "message": "Benchmark-level QA records unsupported inline attributes and comment limitations.",
             }
         )
     return limitations
@@ -695,10 +770,10 @@ def _known_limitations(extraction: dict[str, Any], staging: dict[str, Any], qa: 
 
 def _verdict(status: str) -> str:
     if status == "pass":
-        return "V0.2.2-C ANDROID INLINE MARKUP PROTECTED SPANS: PASS"
+        return "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: PASS"
     if status == "partial":
-        return "V0.2.2-C ANDROID INLINE MARKUP PROTECTED SPANS: PARTIAL"
-    return "V0.2.2-C ANDROID INLINE MARKUP PROTECTED SPANS: FAIL"
+        return "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: PARTIAL"
+    return "V0.2.2-D ANDROID CDATA BOUNDARY PRESERVATION: FAIL"
 
 
 def _xml_parse_ok(path: Path) -> bool:
@@ -736,9 +811,32 @@ def _child_tags(element: ElementTree.Element | None) -> list[str]:
     return [str(child.tag).rsplit("}", 1)[-1] for child in list(element)]
 
 
+def _cdata_sections(text: str) -> list[str]:
+    sections: list[str] = []
+    pattern = re.compile(r"<string\b(?P<attrs>[^>]*)>\s*<!\[CDATA\[.*?\]\]>\s*</string>", re.DOTALL)
+    name_pattern = re.compile(r'\bname="(?P<name>[^"]+)"')
+    for match in pattern.finditer(text):
+        name_match = name_pattern.search(match.group("attrs"))
+        if name_match:
+            sections.append(name_match.group("name"))
+    return sections
+
+
+def _drop_cdata_boundaries(text: str) -> str:
+    pattern = re.compile(
+        r"(?P<open><string\b(?P<attrs>[^>]*)>)\s*<!\[CDATA\[(?P<value>.*?)\]\]>\s*(?P<close></string>)",
+        re.DOTALL,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        return f"{match.group('open')}{escape(match.group('value'))}{match.group('close')}"
+
+    return pattern.sub(replace, text)
+
+
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
-        "# v0.2.2-C Android Inline Markup Protected Spans",
+        "# v0.2.2-D Android CDATA Boundary Preservation",
         "",
         f"- Status: `{report['status']}`",
         f"- Verdict: **{report['verdict']}**",
@@ -755,6 +853,7 @@ def render_report_markdown(report: dict[str, Any]) -> str:
         f"- Placeholders: `{report['placeholder_check_result']['pass']}`",
         f"- Escape signatures: `{report['escape_signature_check']['pass']}`",
         f"- Inline markup: `{report['inline_markup_check']['pass']}`",
+        f"- CDATA boundary: `{report['cdata_check']['pass']}`",
         f"- Escapes: `{report['escape_check_result']['pass']}`",
         f"- XML entity: `{report['xml_entity_check_result']['pass']}`",
         f"- Inline HTML: `{report['inline_html_check_result']['status']}`",
@@ -796,6 +895,21 @@ def render_report_markdown(report: dict[str, Any]) -> str:
             f"- Unsupported markup issues: {inline['unsupported_markup_issues']}",
             f"- Supported inline markup staged: `{inline['supported_inline_markup_staged']}`",
             f"- Known limitations: `{', '.join(inline['known_limitations'])}`",
+            "",
+        ]
+    )
+    cdata = report["cdata_check"]
+    lines.extend(
+        [
+            "## CDATA Boundary QA",
+            "",
+            f"- Pass: `{cdata['pass']}`",
+            f"- CDATA segments: {cdata['cdata_segments']}",
+            f"- Boundary preserved: `{cdata['cdata_boundary_preserved']}`",
+            f"- Unsafe terminator issues: {cdata['unsafe_terminator_issues']}",
+            f"- Boundary missing issues: {cdata['boundary_missing_issues']}",
+            f"- Staged XML parses: `{cdata['staged_xml_parse']}`",
+            f"- Known limitations: `{len(cdata['known_limitations'])}`",
             "",
         ]
     )
