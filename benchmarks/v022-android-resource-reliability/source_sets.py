@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 REPOSITORY = ROOT.parents[1]
 sys.path.insert(0, str(REPOSITORY))
 
-from runtime.localize_anything.android_strings_adapter import extract_segments, target_resource_path  # noqa: E402
+from runtime.localize_anything.android_strings_adapter import android_resource_routing, extract_segments, target_resource_path  # noqa: E402
 from runtime.localize_anything.io_utils import read_json, read_jsonl, write_json, write_jsonl  # noqa: E402
 from runtime.localize_anything.project import file_sha256, initialize_project, inspect_project  # noqa: E402
 from runtime.localize_anything.reference import segment_identity  # noqa: E402
@@ -23,14 +23,18 @@ from runtime.localize_anything.run import run_localize  # noqa: E402
 SOURCE_LOCALE = "en-US"
 TARGET_LOCALE = "zh-CN"
 FIXTURE = ROOT / "fixture-source-sets"
-GENERATION_SOURCE_FILES = [
+GENERATION_SOURCE_FILES = sorted([
     "app/src/debug/res/values/strings.xml",
     "app/src/free/res/values/strings.xml",
     "app/src/main/res/values-land/strings.xml",
+    "app/src/main/res/values-mcc310-mnc004-land/strings.xml",
+    "app/src/main/res/values-mcc310-mnc004/strings.xml",
+    "app/src/main/res/values-mcc310-night/strings.xml",
+    "app/src/main/res/values-mcc310/strings.xml",
     "app/src/main/res/values-night/strings.xml",
     "app/src/main/res/values-sw600dp/strings.xml",
     "app/src/main/res/values/strings.xml",
-]
+])
 LOCALE_REFERENCE_FILES = [
     "app/src/main/res/values-es/strings.xml",
     "app/src/main/res/values-fr/strings.xml",
@@ -40,6 +44,10 @@ TARGET_PATHS = {
     "app/src/debug/res/values/strings.xml": "app/src/debug/res/values-zh-rCN/strings.xml",
     "app/src/free/res/values/strings.xml": "app/src/free/res/values-zh-rCN/strings.xml",
     "app/src/main/res/values-land/strings.xml": "app/src/main/res/values-zh-rCN-land/strings.xml",
+    "app/src/main/res/values-mcc310-mnc004-land/strings.xml": "app/src/main/res/values-mcc310-mnc004-zh-rCN-land/strings.xml",
+    "app/src/main/res/values-mcc310-mnc004/strings.xml": "app/src/main/res/values-mcc310-mnc004-zh-rCN/strings.xml",
+    "app/src/main/res/values-mcc310-night/strings.xml": "app/src/main/res/values-mcc310-zh-rCN-night/strings.xml",
+    "app/src/main/res/values-mcc310/strings.xml": "app/src/main/res/values-mcc310-zh-rCN/strings.xml",
     "app/src/main/res/values-night/strings.xml": "app/src/main/res/values-zh-rCN-night/strings.xml",
     "app/src/main/res/values-sw600dp/strings.xml": "app/src/main/res/values-zh-rCN-sw600dp/strings.xml",
     "app/src/main/res/values/strings.xml": "app/src/main/res/values-zh-rCN/strings.xml",
@@ -282,6 +290,39 @@ def _negative_checks() -> list[dict[str, Any]]:
     collapsed_source_set["app/src/free/res/values/strings.xml"] = "app/src/main/res/values-zh-rCN/strings.xml"
     source_set = _validate_policy(GENERATION_SOURCE_FILES, collapsed_source_set)
     cases.append({"name": "source_set_target_path_collapsed", "pass": not source_set["pass"], "validation": source_set})
+
+    wrong_mcc = dict(TARGET_PATHS)
+    wrong_mcc["app/src/main/res/values-mcc310/strings.xml"] = "app/src/main/res/values-zh-rCN-mcc310/strings.xml"
+    mcc = _validate_policy(GENERATION_SOURCE_FILES, wrong_mcc)
+    cases.append({"name": "mcc_staged_after_locale", "pass": not mcc["pass"], "validation": mcc})
+
+    wrong_mcc_mnc_land = dict(TARGET_PATHS)
+    wrong_mcc_mnc_land["app/src/main/res/values-mcc310-mnc004-land/strings.xml"] = (
+        "app/src/main/res/values-zh-rCN-mcc310-mnc004-land/strings.xml"
+    )
+    mcc_mnc_land = _validate_policy(GENERATION_SOURCE_FILES, wrong_mcc_mnc_land)
+    cases.append({"name": "mcc_mnc_land_staged_after_locale", "pass": not mcc_mnc_land["pass"], "validation": mcc_mnc_land})
+
+    invalid_path = Path("app/src/main/res/values-zh-rCN-mcc310/strings.xml")
+    invalid_routing = android_resource_routing(invalid_path, target_locale=TARGET_LOCALE)
+    invalid_rejected = False
+    try:
+        target_resource_path(invalid_path, TARGET_LOCALE)
+    except ValueError:
+        invalid_rejected = True
+    cases.append({
+        "name": "invalid_locale_order_selected_as_source",
+        "pass": (
+            invalid_routing["android_role"] != "source_candidate"
+            and bool(invalid_routing["warnings"])
+            and invalid_rejected
+        ),
+        "validation": {
+            "android_role": invalid_routing["android_role"],
+            "warnings": invalid_routing["warnings"],
+            "target_path_rejected": invalid_rejected,
+        },
+    })
     return cases
 
 

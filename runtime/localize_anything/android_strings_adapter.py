@@ -130,7 +130,7 @@ def stage_rebuild(
     preserve_target_only: bool = False,
 ) -> dict[str, Any]:
     routing = android_resource_routing(source_path, project_root, target_locale)
-    relative = Path(str(routing["target_resource_path"]))
+    relative = target_resource_path(source_path, target_locale, project_root)
     output = staging_dir / relative
     existing_target = project_root / relative if preserve_target_only and project_root is not None else None
     rebuild_result = rebuild(source_path, translated_segments, output, existing_target)
@@ -283,10 +283,20 @@ def android_resource_routing(
     role = "locale_reference" if locale else "owner_review_required" if warnings else "source_candidate"
     target_res_dir: str | None = None
     target_path: str | None = None
-    if target_locale:
-        target_res_dir = "values-" + locale_to_resource_qualifier(target_locale)
-        if non_locale:
-            target_res_dir += "-" + "-".join(non_locale)
+    if target_locale and role == "source_candidate":
+        network_qualifiers = [
+            qualifier
+            for qualifier in non_locale
+            if re.fullmatch(r"mcc\d{3}|mnc\d{1,3}", qualifier.lower())
+        ]
+        later_qualifiers = [qualifier for qualifier in non_locale if qualifier not in network_qualifiers]
+        target_tokens = [
+            "values",
+            *network_qualifiers,
+            locale_to_resource_qualifier(target_locale),
+            *later_qualifiers,
+        ]
+        target_res_dir = "-".join(target_tokens)
         target_parts = list(parts)
         target_parts[res_dir_index] = target_res_dir
         target_path = Path(*target_parts).as_posix()
@@ -311,6 +321,9 @@ def _parse_android_values_qualifiers(res_dir: str) -> tuple[str | None, list[str
     locale: str | None = None
     non_locale: list[str] = []
     warnings: list[str] = []
+    ordered_qualifiers: list[tuple[tuple[int, int], str]] = []
+    seen_order_keys: set[tuple[int, int]] = set()
+    seen_mcc = False
     index = 0
     while index < len(tokens):
         token = tokens[index]
@@ -321,14 +334,30 @@ def _parse_android_values_qualifiers(res_dir: str) -> tuple[str | None, list[str
             region = tokens[index + 1] if index + 1 < len(tokens) and re.fullmatch(r"r[A-Z]{2}|r\d{3}", tokens[index + 1]) else None
             candidate = token if region is None else f"{token}-{region}"
             locale = candidate if locale is None else locale
-            if non_locale:
-                warnings.append(f"locale qualifier appears after non-locale qualifiers in {res_dir}")
+            ordered_qualifiers.append(((2, 0), candidate))
             index += 2 if region else 1
             continue
         non_locale.append(token)
-        if not _is_known_android_non_locale_qualifier(lower):
+        order_key = _android_qualifier_order_key(lower)
+        if order_key is None:
             warnings.append(f"unrecognized Android resource qualifier '{token}' in {res_dir}")
+        else:
+            if order_key == (1, 1) and not seen_mcc:
+                warnings.append(f"MNC qualifier requires a preceding MCC qualifier in {res_dir}")
+            if order_key == (1, 0):
+                seen_mcc = True
+            if order_key in seen_order_keys:
+                warnings.append(f"duplicate Android qualifier category '{token}' in {res_dir}")
+            seen_order_keys.add(order_key)
+            ordered_qualifiers.append((order_key, token))
         index += 1
+
+    for previous, current in zip(ordered_qualifiers, ordered_qualifiers[1:]):
+        if previous[0] > current[0]:
+            warnings.append(
+                f"Android qualifiers are out of canonical order in {res_dir}: "
+                f"'{previous[1]}' must not precede '{current[1]}'"
+            )
     return locale, non_locale, warnings
 
 
@@ -342,13 +371,47 @@ def _is_android_locale_token(token: str) -> bool:
 
 
 def _is_known_android_non_locale_qualifier(token: str) -> bool:
-    if token in ANDROID_NON_LOCALE_QUALIFIERS:
-        return True
-    patterns = (
-        r"mcc\d{3}", r"mnc\d{1,3}", r"sw\d+dp", r"w\d+dp", r"h\d+dp", r"v\d+",
-        r"\d+x\d+", r"\d+dpi", r"(?:l|m|h|xh|xxh|xxxh)dpi", r"anydpi", r"nodpi",
+    return _android_qualifier_order_key(token) is not None
+
+
+def _android_qualifier_order_key(token: str) -> tuple[int, int] | None:
+    """Return Android's canonical qualifier precedence for a non-locale token."""
+    if re.fullmatch(r"mcc\d{3}", token):
+        return (1, 0)
+    if re.fullmatch(r"mnc\d{1,3}", token):
+        return (1, 1)
+    exact_groups = (
+        (3, {"ldltr", "ldrtl"}),
+        (7, {"small", "normal", "large", "xlarge"}),
+        (8, {"long", "notlong"}),
+        (9, {"round", "notround"}),
+        (10, {"widecg", "nowidecg"}),
+        (11, {"highdr", "lowdr"}),
+        (12, {"port", "land"}),
+        (13, {"car", "desk", "television", "appliance", "watch", "vrheadset"}),
+        (14, {"night", "notnight"}),
+        (15, {"ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi", "anydpi", "nodpi"}),
+        (16, {"finger", "notouch"}),
+        (17, {"keysexposed", "keyshidden", "keyssoft"}),
+        (18, {"nokeys", "qwerty", "12key"}),
+        (19, {"navexposed", "navhidden"}),
+        (20, {"nonav", "dpad", "trackball", "wheel"}),
     )
-    return any(re.fullmatch(pattern, token) for pattern in patterns)
+    for rank, values in exact_groups:
+        if token in values:
+            return (rank, 0)
+    patterns = (
+        (4, r"sw\d+dp"),
+        (5, r"w\d+dp"),
+        (6, r"h\d+dp"),
+        (15, r"\d+dpi"),
+        (21, r"\d+x\d+"),
+        (22, r"v\d+"),
+    )
+    for rank, pattern in patterns:
+        if re.fullmatch(pattern, token):
+            return (rank, 0)
+    return None
 
 
 def locale_to_resource_qualifier(locale: str) -> str:

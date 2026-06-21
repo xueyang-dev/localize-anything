@@ -416,6 +416,10 @@ class AndroidStringsAdapterTests(unittest.TestCase):
             "app/src/main/res/values-night/strings.xml": "app/src/main/res/values-zh-rCN-night/strings.xml",
             "app/src/main/res/values-land/strings.xml": "app/src/main/res/values-zh-rCN-land/strings.xml",
             "app/src/main/res/values-sw600dp/strings.xml": "app/src/main/res/values-zh-rCN-sw600dp/strings.xml",
+            "app/src/main/res/values-mcc310/strings.xml": "app/src/main/res/values-mcc310-zh-rCN/strings.xml",
+            "app/src/main/res/values-mcc310-mnc004/strings.xml": "app/src/main/res/values-mcc310-mnc004-zh-rCN/strings.xml",
+            "app/src/main/res/values-mcc310-night/strings.xml": "app/src/main/res/values-mcc310-zh-rCN-night/strings.xml",
+            "app/src/main/res/values-mcc310-mnc004-land/strings.xml": "app/src/main/res/values-mcc310-mnc004-zh-rCN-land/strings.xml",
             "app/src/debug/res/values/strings.xml": "app/src/debug/res/values-zh-rCN/strings.xml",
             "app/src/free/res/values/strings.xml": "app/src/free/res/values-zh-rCN/strings.xml",
         }
@@ -433,6 +437,21 @@ class AndroidStringsAdapterTests(unittest.TestCase):
         self.assertEqual(android_resource_routing(locale_reference, project)["android_role"], "locale_reference")
         with self.assertRaises(ValueError):
             target_resource_path(locale_reference, "zh-CN", project)
+
+        invalid_order = Path("app/src/main/res/values-zh-rCN-mcc310/strings.xml")
+        invalid_routing = android_resource_routing(invalid_order, target_locale="zh-CN")
+        self.assertEqual(invalid_routing["android_role"], "locale_reference")
+        self.assertTrue(invalid_routing["warnings"])
+        self.assertIsNone(invalid_routing["target_resource_path"])
+        with self.assertRaises(ValueError):
+            target_resource_path(invalid_order, "zh-CN")
+
+        unknown_order = Path("app/src/main/res/values-night-land/strings.xml")
+        unknown_routing = android_resource_routing(unknown_order, target_locale="zh-CN")
+        self.assertEqual(unknown_routing["android_role"], "owner_review_required")
+        self.assertTrue(unknown_routing["warnings"])
+        with self.assertRaises(ValueError):
+            target_resource_path(unknown_order, "zh-CN")
 
     def test_android_staging_preserves_target_only_resources_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
