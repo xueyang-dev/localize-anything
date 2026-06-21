@@ -6,6 +6,8 @@ The goal is not to claim full production localization of these projects. The goa
 
 Provider-backed translation and destructive apply are not covered unless explicitly stated.
 
+Generated outputs and external source projects are not committed as part of this evidence.
+
 ## Status Definitions
 
 - `PASS — inspect`: read-only inspection completed and produced evidence.
@@ -48,6 +50,7 @@ Provider-backed translation and destructive apply are not covered unless explici
 ## Follow-up Work
 
 - Track the Tusky malformed `<a>` blocker in a GitHub issue.
+- Related issue: https://github.com/xueyang-dev/localize-anything/issues/20
 - Consider Fossify File Manager as the first controlled provider-backed test candidate, only with explicit approval.
 - Continue to treat provider-backed runs and apply as separate safety milestones.
 - Consider Windows/WSL helper usability polish if it affects real users.
