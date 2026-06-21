@@ -215,6 +215,9 @@ structures, known limitations, and explicit non-goals.
 
 Full pipeline: extract → batch → DeepSeek API → collect → stage → QA → deliver.
 
+Reproduce a public-safe external-project check with the
+[AntennaPod Android smoke-test guide](docs/antennapod-smoke-test.md).
+
 ## Concepts
 
 ### Operating modes
