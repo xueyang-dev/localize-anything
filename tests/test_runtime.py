@@ -1423,6 +1423,88 @@ class ProjectTests(unittest.TestCase):
                 ["zh-CN"],
             )
 
+    def test_inspect_summary_cli_writes_json_markdown_and_is_read_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "android-project"
+            shutil.copytree(REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture", project)
+            output_dir = root / "inspect-output"
+            emitted = root / "emitted-summary.json"
+            before = {
+                path.relative_to(project).as_posix(): path.read_bytes()
+                for path in project.rglob("*")
+                if path.is_file()
+            }
+
+            exit_code = cli_main(
+                [
+                    "inspect",
+                    "--project",
+                    project.as_posix(),
+                    "--output-dir",
+                    output_dir.as_posix(),
+                    "--output",
+                    emitted.as_posix(),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            after = {
+                path.relative_to(project).as_posix(): path.read_bytes()
+                for path in project.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(before, after)
+            self.assertFalse((project / ".localize-anything").exists())
+            summary = read_json(output_dir / "inspect-summary.json")
+            emitted_summary = read_json(emitted)
+            markdown = (output_dir / "inspect-summary.md").read_text(encoding="utf-8")
+            self.assertEqual(summary, emitted_summary)
+            self.assertTrue(summary["read_only"])
+            self.assertEqual(summary["detected_project_type"], "android")
+            self.assertEqual(summary["primary_adapter"], "core.android-strings")
+            self.assertEqual(summary["android"]["resource_types"]["string"], 35)
+            self.assertEqual(summary["android"]["resource_types"]["string-array"], 6)
+            self.assertEqual(summary["android"]["resource_types"]["plurals"], 6)
+            self.assertIn("app/src/main/res/values/strings.xml", summary["android"]["generation_source_files"])
+            self.assertIn("zh-rCN", summary["android"]["existing_target_locales"])
+            self.assertFalse(summary["risk_review_metadata"]["available"])
+            self.assertIn("Inspect is read-only", markdown)
+
+    def test_inspect_summary_reports_android_source_sets_and_qualifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "source-set-project"
+            shutil.copytree(REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets", project)
+            output_dir = root / "summary"
+            emitted = root / "emitted-summary.json"
+
+            exit_code = cli_main(
+                [
+                    "inspect",
+                    project.as_posix(),
+                    "--output-dir",
+                    output_dir.as_posix(),
+                    "--output",
+                    emitted.as_posix(),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            summary = read_json(output_dir / "inspect-summary.json")
+            self.assertEqual(summary["android"]["source_sets"], ["debug", "free", "main"])
+            self.assertIn("night", summary["android"]["qualifiers"])
+            self.assertIn("mcc310", summary["android"]["qualifiers"])
+            self.assertEqual(
+                summary["android"]["target_locale_files"],
+                [
+                    "app/src/main/res/values-es/strings.xml",
+                    "app/src/main/res/values-fr/strings.xml",
+                    "app/src/main/res/values-zh-rCN/strings.xml",
+                ],
+            )
+            self.assertIsNotNone(summary["output_directory"])
+
     def test_ios_strings_are_detected_as_platform_resources(self) -> None:
         source_files = ["App/en.lproj/Localizable.strings", "App/en.lproj/Localizable.stringsdict"]
         with tempfile.TemporaryDirectory() as directory:
