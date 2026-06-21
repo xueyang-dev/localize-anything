@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Destructive account action -->
+    <string name="delete_account_button">Delete account</string>
+    <string name="delete_account_warning">This action cannot be undone.</string>
+    <!-- Password  -->
+    <string name="reset_password_title">Reset password</string>
+    <string name="two_factor_code_message">Enter your verification code.</string>
+    <!-- Location permission request -->
+    <string name="allow_location_permission">Allow location access</string>
+    <!-- Privacy policy with link markup -->
+    <string name="privacy_policy_link">Read our <a href="https://example.com/privacy">privacy policy</a>.</string>
+    <!-- Legal consent checkbox -->
+    <string name="accept_terms_checkbox">I agree to the Terms of Service.</string>
+    <!-- Purchase / payment -->
+    <string name="purchase_subscription_button">Subscribe for %1$s/month</string>
+    <string name="billing_error">Payment failed. Please update your billing method.</string>
+    <!-- Generic low-risk resources -->
+    <string name="generic_title">Library</string>
+    <string name="playlist_name">My playlist</string>
+    <!-- Destructive action with comment -->
+    <!-- Destructive account action -->
+    <string name="confirm_remove_device">Remove this device</string>
+    <!-- Legal consent shown during onboarding -->
+    <string name="onboarding_consent">I consent to data processing.</string>
+</resources>

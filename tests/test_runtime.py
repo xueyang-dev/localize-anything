@@ -17,6 +17,7 @@ from xml.etree import ElementTree
 from runtime.localize_anything.acceptance import create_acceptance
 from runtime.localize_anything.agent import run_agent
 from runtime.localize_anything.android_app_test import run_android_app_test
+from runtime.localize_anything.android_strings_adapter import android_resource_routing
 from runtime.localize_anything.android_strings_adapter import extract_segments as extract_android_segments
 from runtime.localize_anything.android_strings_adapter import rebuild as rebuild_android_strings
 from runtime.localize_anything.android_strings_adapter import stage_rebuild as stage_android_strings
@@ -407,6 +408,50 @@ class AndroidStringsAdapterTests(unittest.TestCase):
             self.assertEqual(staged["destination"], "app/src/main/res/values-zh-rCN/strings.xml")
             self.assertTrue(staged_path.is_file())
             self.assertEqual(validate_android_strings(source, staged_path)["status"], "pass")
+
+    def test_android_qualifier_target_path_mapping(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets"
+        expected = {
+            "app/src/main/res/values/strings.xml": "app/src/main/res/values-zh-rCN/strings.xml",
+            "app/src/main/res/values-night/strings.xml": "app/src/main/res/values-zh-rCN-night/strings.xml",
+            "app/src/main/res/values-land/strings.xml": "app/src/main/res/values-zh-rCN-land/strings.xml",
+            "app/src/main/res/values-sw600dp/strings.xml": "app/src/main/res/values-zh-rCN-sw600dp/strings.xml",
+            "app/src/main/res/values-mcc310/strings.xml": "app/src/main/res/values-mcc310-zh-rCN/strings.xml",
+            "app/src/main/res/values-mcc310-mnc004/strings.xml": "app/src/main/res/values-mcc310-mnc004-zh-rCN/strings.xml",
+            "app/src/main/res/values-mcc310-night/strings.xml": "app/src/main/res/values-mcc310-zh-rCN-night/strings.xml",
+            "app/src/main/res/values-mcc310-mnc004-land/strings.xml": "app/src/main/res/values-mcc310-mnc004-zh-rCN-land/strings.xml",
+            "app/src/debug/res/values/strings.xml": "app/src/debug/res/values-zh-rCN/strings.xml",
+            "app/src/free/res/values/strings.xml": "app/src/free/res/values-zh-rCN/strings.xml",
+        }
+        for source_file, target_file in expected.items():
+            with self.subTest(source_file=source_file):
+                source = project / source_file
+                routing = android_resource_routing(source, project, "zh-CN")
+                self.assertEqual(target_resource_path(source, "zh-CN", project).as_posix(), target_file)
+                self.assertEqual(routing["target_resource_path"], target_file)
+                self.assertEqual(routing["warnings"], [])
+                segments = extract_android_segments(source, "en-US", source_file)
+                self.assertTrue(all(segment["context"]["android_source_set"] in {"main", "debug", "free"} for segment in segments))
+
+        locale_reference = project / "app/src/main/res/values-zh-rCN/strings.xml"
+        self.assertEqual(android_resource_routing(locale_reference, project)["android_role"], "locale_reference")
+        with self.assertRaises(ValueError):
+            target_resource_path(locale_reference, "zh-CN", project)
+
+        invalid_order = Path("app/src/main/res/values-zh-rCN-mcc310/strings.xml")
+        invalid_routing = android_resource_routing(invalid_order, target_locale="zh-CN")
+        self.assertEqual(invalid_routing["android_role"], "locale_reference")
+        self.assertTrue(invalid_routing["warnings"])
+        self.assertIsNone(invalid_routing["target_resource_path"])
+        with self.assertRaises(ValueError):
+            target_resource_path(invalid_order, "zh-CN")
+
+        unknown_order = Path("app/src/main/res/values-night-land/strings.xml")
+        unknown_routing = android_resource_routing(unknown_order, target_locale="zh-CN")
+        self.assertEqual(unknown_routing["android_role"], "owner_review_required")
+        self.assertTrue(unknown_routing["warnings"])
+        with self.assertRaises(ValueError):
+            target_resource_path(unknown_order, "zh-CN")
 
     def test_android_staging_preserves_target_only_resources_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1339,6 +1384,44 @@ class ProjectTests(unittest.TestCase):
 
             result = initialize_project(project, "en-US", [source_file], ["zh-CN"])
             self.assertEqual(result["manifest"]["source_material"][0]["adapter"], "core.android-strings")
+
+    def test_android_source_set_detection_excludes_locale_dirs(self) -> None:
+        project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets"
+        inspection = inspect_project(project)
+        self.assertEqual(
+            inspection["android_generation_source_files"],
+            [
+                "app/src/debug/res/values/strings.xml",
+                "app/src/free/res/values/strings.xml",
+                "app/src/main/res/values-land/strings.xml",
+                "app/src/main/res/values-mcc310-mnc004-land/strings.xml",
+                "app/src/main/res/values-mcc310-mnc004/strings.xml",
+                "app/src/main/res/values-mcc310-night/strings.xml",
+                "app/src/main/res/values-mcc310/strings.xml",
+                "app/src/main/res/values-night/strings.xml",
+                "app/src/main/res/values-sw600dp/strings.xml",
+                "app/src/main/res/values/strings.xml",
+            ],
+        )
+        self.assertEqual(
+            inspection["android_locale_reference_files"],
+            [
+                "app/src/main/res/values-es/strings.xml",
+                "app/src/main/res/values-fr/strings.xml",
+                "app/src/main/res/values-zh-rCN/strings.xml",
+            ],
+        )
+        by_path = {item["path"]: item for item in inspection["supported_files"]}
+        self.assertEqual(by_path["app/src/main/res/values-night/strings.xml"]["android_qualifiers"]["non_locale"], ["night"])
+        self.assertEqual(by_path["app/src/debug/res/values/strings.xml"]["android_source_set"], "debug")
+        self.assertEqual(by_path["app/src/main/res/values-zh-rCN/strings.xml"]["android_role"], "locale_reference")
+        with self.assertRaises(ValueError):
+            initialize_project(
+                project,
+                "en-US",
+                ["app/src/main/res/values-zh-rCN/strings.xml"],
+                ["zh-CN"],
+            )
 
     def test_ios_strings_are_detected_as_platform_resources(self) -> None:
         source_files = ["App/en.lproj/Localizable.strings", "App/en.lproj/Localizable.stringsdict"]
@@ -2619,6 +2702,26 @@ class V021ModeSystemBenchmarkTests(unittest.TestCase):
 
 
 class V022AndroidResourceReliabilityTests(unittest.TestCase):
+    def test_v022_android_resource_reliability_source_sets(self) -> None:
+        benchmark = _load_v022_android_source_set_benchmark()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = benchmark.run_benchmark(root / "work", root / "report")
+
+            self.assertEqual(report["status"], "pass", report["failed_checks"])
+            self.assertEqual(report["verdict"], "V0.2.2-I ANDROID SOURCE-SET / QUALIFIER DETECTION POLICY: PASS")
+            check = report["source_set_qualifier_check"]
+            self.assertEqual(check["source_files_detected"], 10)
+            self.assertEqual(check["locale_reference_files_detected"], 3)
+            self.assertTrue(check["source_set_metadata_present"])
+            self.assertTrue(check["qualifier_metadata_present"])
+            self.assertTrue(check["target_path_mapping_pass"])
+            self.assertTrue(check["blind_reference_leakage_pass"])
+            self.assertTrue(check["maintenance_existing_target_behavior_pass"])
+            self.assertTrue(check["source_files_unchanged"])
+            self.assertEqual(check["warnings"], [])
+            self.assertTrue(all(item["pass"] for item in check["negative_checks"]))
+
     def test_v022_android_resource_reliability_fixture_runs(self) -> None:
         benchmark = _load_v022_android_resource_reliability_benchmark()
         with tempfile.TemporaryDirectory() as directory:
@@ -2841,6 +2944,16 @@ def _load_v022_android_resource_reliability_benchmark():
     return module
 
 
+def _load_v022_android_source_set_benchmark():
+    path = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "source_sets.py"
+    spec = importlib.util.spec_from_file_location("v022_android_source_set_benchmark", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load benchmark module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _write_minimal_xlsx(path: Path) -> None:
     shared = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="6" uniqueCount="5">
@@ -2871,5 +2984,195 @@ def _write_minimal_xlsx(path: Path) -> None:
         archive.writestr("xl/worksheets/sheet1.xml", sheet)
 
 
+class TestV022AndroidRiskClassification(unittest.TestCase):
+    """V0.2.2-J Android UI role / high-risk context classification baseline."""
+
+    def setUp(self) -> None:
+        self.temp = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.temp, ignore_errors=True)
+
+    def _write_fixture(self, content: str) -> Path:
+        res_dir = self.temp / "res" / "values"
+        res_dir.mkdir(parents=True)
+        path = res_dir / "strings.xml"
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def _extract(self, path: Path) -> list[dict[str, Any]]:
+        from runtime.localize_anything.android_strings_adapter import extract_segments
+        return extract_segments(path, "en-US", "res/values/strings.xml")
+
+    def test_android_ui_risk_classification_destructive_action(self) -> None:
+        content = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Destructive account action -->
+    <string name="delete_account_button">Delete account</string>
+    <string name="delete_account_warning">This action cannot be undone.</string>
+    <string name="confirm_remove_device">Remove this device</string>
+</resources>"""
+        path = self._write_fixture(content)
+        segments = self._extract(path)
+        by_key = {s["context"]["resource_key"]: s for s in segments}
+
+        # Delete account button: both name and text contain "delete" → critical
+        seg = by_key["string:delete_account_button"]
+        self.assertIn("destructive_action", seg["ui_risk_classification"]["ui_role"])
+        self.assertEqual(seg["ui_risk_classification"]["risk_level"], "critical")
+        self.assertEqual(seg["ui_risk_classification"]["review_priority"], "owner_review_required")
+        self.assertTrue(len(seg["ui_risk_classification"]["classification_evidence"]) > 0)
+        self.assertIn("resource_name_pattern", seg["ui_risk_classification"]["classification_evidence"])
+        self.assertIn("source_text_pattern", seg["ui_risk_classification"]["classification_evidence"])
+        self.assertNotIn("placeholder_or_markup_protected", seg["ui_risk_classification"]["classification_evidence"])
+
+        # Delete account warning: text matches destructive but name doesn't → high
+        seg2 = by_key["string:delete_account_warning"]
+        self.assertIn("destructive_action", seg2["ui_risk_classification"]["ui_role"])
+        self.assertEqual(seg2["ui_risk_classification"]["risk_level"], "high")
+
+        # Confirm remove device: name "remove" matches, text "Remove this device" also matches → critical
+        seg3 = by_key["string:confirm_remove_device"]
+        self.assertIn("destructive_action", seg3["ui_risk_classification"]["ui_role"])
+        self.assertIn(seg3["ui_risk_classification"]["risk_level"], ("high", "critical"))
+        review = seg3["ui_risk_classification"]["review_priority"]
+        self.assertIn(review, ("review_recommended", "owner_review_required"))
+
+    def test_android_ui_risk_classification_legal_and_payment(self) -> None:
+        content = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accept_terms_checkbox">I agree to the Terms of Service.</string>
+    <string name="onboarding_consent">I consent to data processing.</string>
+    <string name="purchase_subscription_button">Subscribe for %1$s/month</string>
+    <string name="privacy_policy_link">Read our <a href="https://example.com/privacy">privacy policy</a>.</string>
+    <string name="billing_error">Payment failed. Please update your billing method.</string>
+</resources>"""
+        path = self._write_fixture(content)
+        segments = self._extract(path)
+        by_key = {s["context"]["resource_key"]: s for s in segments}
+
+        # accept_terms_checkbox: legal, high, at least review_recommended
+        seg = by_key["string:accept_terms_checkbox"]
+        self.assertIn("legal", seg["ui_risk_classification"]["ui_role"])
+        self.assertEqual(seg["ui_risk_classification"]["risk_level"], "high")
+        self.assertIn(seg["ui_risk_classification"]["review_priority"],
+                      ("review_recommended", "owner_review_required"))
+
+        # onboarding_consent: legal, high, at least owner_review_required
+        seg2 = by_key["string:onboarding_consent"]
+        self.assertIn("legal", seg2["ui_risk_classification"]["ui_role"])
+        self.assertEqual(seg2["ui_risk_classification"]["risk_level"], "high")
+        self.assertEqual(seg2["ui_risk_classification"]["review_priority"], "owner_review_required")
+
+        # purchase_subscription_button: payment, high
+        seg3 = by_key["string:purchase_subscription_button"]
+        self.assertIn("payment", seg3["ui_risk_classification"]["ui_role"])
+        self.assertEqual(seg3["ui_risk_classification"]["risk_level"], "high")
+        self.assertIn(seg3["ui_risk_classification"]["review_priority"],
+                      ("review_recommended", "owner_review_required"))
+        self.assertIn("placeholder_or_markup_protected", seg3["ui_risk_classification"]["classification_evidence"])
+
+        # privacy_policy_link: privacy, high
+        seg4 = by_key["string:privacy_policy_link"]
+        self.assertIn("privacy", seg4["ui_risk_classification"]["ui_role"])
+        self.assertEqual(seg4["ui_risk_classification"]["risk_level"], "high")
+        self.assertIn("placeholder_or_markup_protected", seg4["ui_risk_classification"]["classification_evidence"])
+
+        # billing_error: error+payment, high
+        seg5 = by_key["string:billing_error"]
+        roles = seg5["ui_risk_classification"]["ui_role"]
+        self.assertTrue({"error", "payment"} & set(roles))
+        self.assertEqual(seg5["ui_risk_classification"]["risk_level"], "high")
+
+    def test_android_ui_risk_classification_avoids_generic_false_positive(self) -> None:
+        content = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="generic_title">Library</string>
+    <string name="playlist_name">My playlist</string>
+    <string name="settings_title">Settings</string>
+</resources>"""
+        path = self._write_fixture(content)
+        segments = self._extract(path)
+        by_key = {s["context"]["resource_key"]: s for s in segments}
+
+        risky_roles = {"destructive_action", "legal", "payment", "auth", "privacy", "permission"}
+        for key, safe_levels in [
+            ("string:generic_title", {"low", "medium"}),
+            ("string:playlist_name", {"low", "medium"}),
+            ("string:settings_title", {"low", "medium"}),
+        ]:
+            seg = by_key[key]
+            cls = seg["ui_risk_classification"]
+            overlap = set(cls.get("ui_role", [])) & risky_roles
+            self.assertEqual(len(overlap), 0,
+                             f"{key} should not have risky roles, got {overlap}")
+            self.assertIn(cls["risk_level"], safe_levels,
+                          f"{key} risk_level={cls['risk_level']}, expected {safe_levels}")
+            self.assertNotIn("placeholder_or_markup_protected", cls["classification_evidence"])
+
+    def test_v022_android_resource_reliability_risk_classification(self) -> None:
+        """Full benchmark fixture smoke test: high-risk classified, generics not."""
+        content = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Destructive account action -->
+    <string name="delete_account_button">Delete account</string>
+    <string name="delete_account_warning">This action cannot be undone.</string>
+    <string name="reset_password_title">Reset password</string>
+    <string name="two_factor_code_message">Enter your verification code.</string>
+    <string name="allow_location_permission">Allow location access</string>
+    <string name="privacy_policy_link">Read our <a href="https://example.com/privacy">privacy policy</a>.</string>
+    <string name="accept_terms_checkbox">I agree to the Terms of Service.</string>
+    <string name="purchase_subscription_button">Subscribe for %1$s/month</string>
+    <string name="billing_error">Payment failed. Please update your billing method.</string>
+    <string name="generic_title">Library</string>
+    <string name="playlist_name">My playlist</string>
+    <!-- Destructive account action -->
+    <string name="confirm_remove_device">Remove this device</string>
+    <!-- Legal consent shown during onboarding -->
+    <string name="onboarding_consent">I consent to data processing.</string>
+</resources>"""
+        path = self._write_fixture(content)
+        segments = self._extract(path)
+        by_key = {s["context"]["resource_key"]: s for s in segments}
+
+        # Negative check 1: destructive action not high risk → fail closed
+        seg = by_key["string:delete_account_button"]
+        self.assertIn(seg["ui_risk_classification"]["risk_level"], ("high", "critical"),
+                      "destructive_account_button MUST be high or critical")
+        self.assertNotEqual(seg["ui_risk_classification"]["review_priority"], "normal",
+                            "destructive_account_button MUST NOT be normal priority")
+
+        # Negative check 2: legal consent missing review priority → fail closed
+        seg = by_key["string:accept_terms_checkbox"]
+        self.assertIn(seg["ui_risk_classification"]["review_priority"],
+                      ("review_recommended", "owner_review_required"),
+                      "accept_terms_checkbox MUST be review_recommended or higher")
+
+        seg2 = by_key["string:onboarding_consent"]
+        self.assertIn(seg2["ui_risk_classification"]["review_priority"],
+                      ("review_recommended", "owner_review_required"),
+                      "onboarding_consent MUST be review_recommended or higher")
+
+        # Negative check 3: generic title overclassified → fail closed
+        for key in ("string:generic_title", "string:playlist_name"):
+            seg = by_key[key]
+            self.assertNotIn(seg["ui_risk_classification"]["risk_level"], ("high", "critical"),
+                             f"{key} MUST NOT be high/critical")
+
+        # Negative check 4: payment placeholder not review recommended → fail closed
+        seg = by_key["string:purchase_subscription_button"]
+        self.assertIn(seg["ui_risk_classification"]["review_priority"],
+                      ("review_recommended", "owner_review_required"),
+                      "purchase_subscription_button MUST be review_recommended or higher")
+
+        # Verify all non-low-risk classified segments have evidence
+        for seg in segments:
+            cls = seg["ui_risk_classification"]
+            if cls["risk_level"] != "low":
+                self.assertTrue(len(cls["classification_evidence"]) > 0,
+                                f"{seg['context']['resource_key']} risk={cls['risk_level']} missing classification_evidence")
+
+
 if __name__ == "__main__":
     unittest.main()
+

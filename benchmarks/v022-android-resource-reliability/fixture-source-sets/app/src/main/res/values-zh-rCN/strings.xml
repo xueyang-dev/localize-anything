@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="main_title">已有主标题</string>
+    <string name="legacy_target_only">旧版目标专属文本</string>
+</resources>

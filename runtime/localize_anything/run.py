@@ -342,9 +342,28 @@ def _select_source_files(inspection: dict[str, Any], source_locale: str, source_
         unsupported_adapters = sorted({inventory[path]["adapter"] for path in normalized if inventory[path]["adapter"] not in EXTRACTORS})
         if unsupported_adapters:
             raise ValueError(f"localize-run cannot extract adapters yet: {', '.join(unsupported_adapters)}")
+        excluded_android = sorted(
+            path
+            for path in normalized
+            if inventory[path]["adapter"] == "core.android-strings"
+            and inventory[path].get("android_role") != "source_candidate"
+        )
+        if excluded_android:
+            raise ValueError(
+                "Android locale references or uncertain qualifier paths cannot be source truth: "
+                + ", ".join(excluded_android)
+            )
         return normalized
 
-    candidates = [item for item in inspection["supported_files"] if item["adapter"] in EXTRACTORS]
+    candidates = [
+        item
+        for item in inspection["supported_files"]
+        if item["adapter"] in EXTRACTORS
+        and not (
+            item["adapter"] == "core.android-strings"
+            and item.get("android_role") != "source_candidate"
+        )
+    ]
     if not candidates:
         raise ValueError("No source files supported by localize-run were found")
     locale_matches = [item["path"] for item in candidates if _matches_source_locale(item, source_locale)]
@@ -357,7 +376,7 @@ def _matches_source_locale(item: dict[str, Any], source_locale: str) -> bool:
     tokens = _locale_tokens(source_locale)
     adapter = item["adapter"]
     if adapter == "core.android-strings":
-        return "/res/values/" in f"/{lower_path}" or any(f"/values-{token}/" in f"/{lower_path}/" for token in tokens)
+        return item.get("android_role") == "source_candidate"
     if adapter == "core.ios-strings":
         return any(f"/{token}.lproj/" in f"/{lower_path}/" for token in tokens)
     if adapter == "core.xcstrings":
@@ -611,6 +630,8 @@ def _routing_evidence(inspection: dict[str, Any], selected_source_files: list[st
         "adapter_counts": inspection.get("adapter_counts", {}),
         "selected_source_files": selected_source_files,
         "supported_file_count": len(inspection.get("supported_files", [])),
+        "android_generation_source_files": inspection.get("android_generation_source_files", []),
+        "android_locale_reference_files": inspection.get("android_locale_reference_files", []),
         "unprocessed_non_text_asset_count": len(inspection.get("unprocessed_non_text_assets", [])),
         "scan_policy": inspection.get("scan_policy", {}),
         "ignored_path_count": inspection.get("ignored_path_count", 0),

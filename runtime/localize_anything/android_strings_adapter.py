@@ -10,6 +10,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from . import PROTOCOL_VERSION
 from .json_adapter import extract_placeholders, source_hash
+from .risk_classifier import classify_segment
 
 
 ANDROID_STRING_TAGS = {"string", "string-array", "plurals"}
@@ -17,6 +18,13 @@ ESCAPE_SIGNATURE_ORDER = ("\\'", '"', "\\n", "\\t", "%%")
 VALID_BACKSLASH_ESCAPES = {"'", '"', "n", "t", "\\", "@", "?"}
 SUPPORTED_INLINE_TAGS = ("b", "i", "u")
 ATTRIBUTE_TAGS = {"a": {"href"}}  # tag → required-attrs set, attrs must match EXACTLY
+ANDROID_NON_LOCALE_QUALIFIERS = {
+    "car", "desk", "land", "night", "normal", "notlong", "notnight", "notround",
+    "port", "round", "small", "television", "watch", "widecg", "nowidecg", "highdr",
+    "lowdr", "large", "long", "xlarge", "ldltr", "ldrtl", "appliance", "vrheadset",
+    "finger", "notouch", "keysexposed", "keyshidden", "keyssoft", "nokeys", "qwerty",
+    "12key", "navexposed", "navhidden", "nonav", "dpad", "trackball", "wheel",
+}
 POSITIONAL_FORMAT_RE = re.compile(r"%\d+\$[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]")
 FORMAT_RE = re.compile(r"%[#0 +\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]")
 INLINE_TAG_RE = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9:_-]*)([^>]*)>")
@@ -121,6 +129,7 @@ def stage_rebuild(
     project_root: Path | None = None,
     preserve_target_only: bool = False,
 ) -> dict[str, Any]:
+    routing = android_resource_routing(source_path, project_root, target_locale)
     relative = target_resource_path(source_path, target_locale, project_root)
     output = staging_dir / relative
     existing_target = project_root / relative if preserve_target_only and project_root is not None else None
@@ -133,6 +142,12 @@ def stage_rebuild(
         "output": output.as_posix(),
         "destination": relative.as_posix(),
         "written": True,
+        "android_source_set": routing["android_source_set"],
+        "android_res_dir": routing["android_res_dir"],
+        "android_qualifiers": routing["android_qualifiers"],
+        "target_res_dir": routing["target_res_dir"],
+        "target_resource_path": routing["target_resource_path"],
+        "routing_warnings": routing["warnings"],
         **rebuild_result,
     }
 
@@ -230,22 +245,173 @@ def validate_pair(source_path: Path, target_path: Path) -> dict[str, Any]:
 
 
 def target_resource_path(source_path: Path, target_locale: str, project_root: Path | None = None) -> Path:
+    routing = android_resource_routing(source_path, project_root, target_locale)
+    if routing["android_role"] == "locale_reference":
+        raise ValueError(f"Android locale resource cannot be used as source truth: {source_path}")
+    if routing["warnings"]:
+        raise ValueError(f"Android qualifier routing requires owner review: {'; '.join(routing['warnings'])}")
+    return Path(str(routing["target_resource_path"]))
+
+
+def android_resource_routing(
+    path: Path,
+    project_root: Path | None = None,
+    target_locale: str | None = None,
+) -> dict[str, Any]:
     if project_root is not None:
         try:
-            relative = source_path.resolve().relative_to(project_root.resolve())
+            relative = path.resolve().relative_to(project_root.resolve())
         except ValueError as exc:
-            raise ValueError(f"Android source is not inside project root: {source_path}") from exc
-    elif source_path.is_absolute():
-        raise ValueError("project_root is required when source_path is absolute")
+            raise ValueError(f"Android resource is not inside project root: {path}") from exc
+    elif path.is_absolute():
+        raise ValueError("project_root is required when path is absolute")
     else:
-        relative = source_path
+        relative = path
 
     parts = list(relative.parts)
-    for index, part in enumerate(parts):
-        if part == "values" and index > 0 and parts[index - 1] == "res":
-            parts[index] = f"values-{locale_to_resource_qualifier(target_locale)}"
-            return Path(*parts)
-    raise ValueError(f"Android strings source must be under res/values: {source_path}")
+    if len(parts) < 3 or parts[-3] != "res" or not parts[-2].startswith("values"):
+        raise ValueError(f"Android strings source must be under a res/values* directory: {path}")
+    res_index = len(parts) - 3
+    res_dir_index = len(parts) - 2
+    res_dir = parts[res_dir_index]
+    source_set = "unknown"
+    for index, part in enumerate(parts[:res_index]):
+        if part == "src" and index + 1 < res_index:
+            source_set = parts[index + 1]
+
+    locale, non_locale, warnings = _parse_android_values_qualifiers(res_dir)
+    role = "locale_reference" if locale else "owner_review_required" if warnings else "source_candidate"
+    target_res_dir: str | None = None
+    target_path: str | None = None
+    if target_locale and role == "source_candidate":
+        network_qualifiers = [
+            qualifier
+            for qualifier in non_locale
+            if re.fullmatch(r"mcc\d{3}|mnc\d{1,3}", qualifier.lower())
+        ]
+        later_qualifiers = [qualifier for qualifier in non_locale if qualifier not in network_qualifiers]
+        target_tokens = [
+            "values",
+            *network_qualifiers,
+            locale_to_resource_qualifier(target_locale),
+            *later_qualifiers,
+        ]
+        target_res_dir = "-".join(target_tokens)
+        target_parts = list(parts)
+        target_parts[res_dir_index] = target_res_dir
+        target_path = Path(*target_parts).as_posix()
+    return {
+        "android_source_set": source_set,
+        "android_res_dir": res_dir,
+        "android_qualifiers": {"locale": locale, "non_locale": non_locale},
+        "android_role": role,
+        "target_res_dir": target_res_dir,
+        "target_resource_path": target_path,
+        "warnings": warnings,
+        "owner_review_required": bool(warnings),
+    }
+
+
+def _parse_android_values_qualifiers(res_dir: str) -> tuple[str | None, list[str], list[str]]:
+    if res_dir == "values":
+        return None, [], []
+    if not res_dir.startswith("values-"):
+        return None, [], [f"unsupported Android values directory: {res_dir}"]
+    tokens = [token for token in res_dir[len("values-") :].split("-") if token]
+    locale: str | None = None
+    non_locale: list[str] = []
+    warnings: list[str] = []
+    ordered_qualifiers: list[tuple[tuple[int, int], str]] = []
+    seen_order_keys: set[tuple[int, int]] = set()
+    seen_mcc = False
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        lower = token.lower()
+        if _is_android_locale_token(token):
+            if locale is not None:
+                warnings.append(f"multiple locale qualifiers in {res_dir}")
+            region = tokens[index + 1] if index + 1 < len(tokens) and re.fullmatch(r"r[A-Z]{2}|r\d{3}", tokens[index + 1]) else None
+            candidate = token if region is None else f"{token}-{region}"
+            locale = candidate if locale is None else locale
+            ordered_qualifiers.append(((2, 0), candidate))
+            index += 2 if region else 1
+            continue
+        non_locale.append(token)
+        order_key = _android_qualifier_order_key(lower)
+        if order_key is None:
+            warnings.append(f"unrecognized Android resource qualifier '{token}' in {res_dir}")
+        else:
+            if order_key == (1, 1) and not seen_mcc:
+                warnings.append(f"MNC qualifier requires a preceding MCC qualifier in {res_dir}")
+            if order_key == (1, 0):
+                seen_mcc = True
+            if order_key in seen_order_keys:
+                warnings.append(f"duplicate Android qualifier category '{token}' in {res_dir}")
+            seen_order_keys.add(order_key)
+            ordered_qualifiers.append((order_key, token))
+        index += 1
+
+    for previous, current in zip(ordered_qualifiers, ordered_qualifiers[1:]):
+        if previous[0] > current[0]:
+            warnings.append(
+                f"Android qualifiers are out of canonical order in {res_dir}: "
+                f"'{previous[1]}' must not precede '{current[1]}'"
+            )
+    return locale, non_locale, warnings
+
+
+def _is_android_locale_token(token: str) -> bool:
+    lower = token.lower()
+    if lower.startswith("b+"):
+        return True
+    if lower in ANDROID_NON_LOCALE_QUALIFIERS:
+        return False
+    return bool(re.fullmatch(r"[a-z]{2,3}", lower))
+
+
+def _is_known_android_non_locale_qualifier(token: str) -> bool:
+    return _android_qualifier_order_key(token) is not None
+
+
+def _android_qualifier_order_key(token: str) -> tuple[int, int] | None:
+    """Return Android's canonical qualifier precedence for a non-locale token."""
+    if re.fullmatch(r"mcc\d{3}", token):
+        return (1, 0)
+    if re.fullmatch(r"mnc\d{1,3}", token):
+        return (1, 1)
+    exact_groups = (
+        (3, {"ldltr", "ldrtl"}),
+        (7, {"small", "normal", "large", "xlarge"}),
+        (8, {"long", "notlong"}),
+        (9, {"round", "notround"}),
+        (10, {"widecg", "nowidecg"}),
+        (11, {"highdr", "lowdr"}),
+        (12, {"port", "land"}),
+        (13, {"car", "desk", "television", "appliance", "watch", "vrheadset"}),
+        (14, {"night", "notnight"}),
+        (15, {"ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi", "anydpi", "nodpi"}),
+        (16, {"finger", "notouch"}),
+        (17, {"keysexposed", "keyshidden", "keyssoft"}),
+        (18, {"nokeys", "qwerty", "12key"}),
+        (19, {"navexposed", "navhidden"}),
+        (20, {"nonav", "dpad", "trackball", "wheel"}),
+    )
+    for rank, values in exact_groups:
+        if token in values:
+            return (rank, 0)
+    patterns = (
+        (4, r"sw\d+dp"),
+        (5, r"w\d+dp"),
+        (6, r"h\d+dp"),
+        (15, r"\d+dpi"),
+        (21, r"\d+x\d+"),
+        (22, r"v\d+"),
+    )
+    for rank, pattern in patterns:
+        if re.fullmatch(pattern, token):
+            return (rank, 0)
+    return None
 
 
 def locale_to_resource_qualifier(locale: str) -> str:
@@ -415,6 +581,22 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
     owner_review_required = bool(markup_policy.get("owner_review_required"))
     cdata = bool(resource.get("cdata"))
     resource_comment = str(resource.get("resource_comment", ""))
+    routing = android_resource_routing(Path(logical_path))
+    placeholders = _resource_placeholders(resource)
+    classification = classify_segment(
+        {
+            **resource,
+            "placeholder_signature": placeholders,
+            "escape_signature": escape_signature,
+            "constraints": {
+                "placeholders": placeholders,
+                "escape_signature": escape_signature,
+                "markup_signature": markup_signature,
+                "cdata": cdata,
+                "markup_policy": markup_policy,
+            },
+        }
+    )
     return {
         "protocol_version": PROTOCOL_VERSION,
         "evidence_channels": ["adapter"],
@@ -434,9 +616,12 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
             "attributes": _target_attributes(resource["attributes"]),
             "resource_comment": resource_comment,
             "markup_policy": markup_policy,
+            "android_source_set": routing["android_source_set"],
+            "android_res_dir": routing["android_res_dir"],
+            "android_qualifiers": routing["android_qualifiers"],
         },
         "constraints": {
-            "placeholders": _resource_placeholders(resource),
+            "placeholders": placeholders,
             "markup": markup_signature,
             "markup_signature": markup_signature,
             "escape_signature": escape_signature,
@@ -448,6 +633,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
         "cdata": cdata,
         "cdata_signature": {"boundary": "cdata", "original_had_cdata": True} if cdata else {},
         "resource_comment": resource_comment,
+        "ui_risk_classification": classification,
         "generation_eligible": not owner_review_required,
         "owner_review_required": owner_review_required,
         "review_required_reasons": list(markup_policy.get("categories", [])),
