@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## v0.3.0 - Real-Project Workflow Hardening
+
+### Added
+
+- Add read-only inspect summaries with JSON and Markdown outputs.
+- Document the inspect-summary workflow for real-project source detection.
+- Add refreshed AntennaPod disposable-clone smoke-test evidence for the
+  v0.3.0 pre-release workflow.
+
+### Changed
+
+- Improve CLI help so `inspect` is clearly read-only and `localize-run` is
+  clearly non-apply.
+- Refuse `inspect --output-dir` paths inside the inspected source project.
+- Improve the AntennaPod smoke-test helper output by reporting raw inspection
+  and compact inspect-summary artifact paths.
+- Normalize shell helper line endings for Bash compatibility.
+- Bump package/runtime version metadata to `0.3.0`.
+
+### Fixed
+
+- Harden generated-segment markup validation so generic markup constraint lists
+  do not enter the Android inline-markup validator.
+
+### Notes
+
+- `PROTOCOL_VERSION` remains `0.1`.
+- This release does not validate provider-backed AntennaPod translation.
+- This release does not validate destructive apply against AntennaPod.
+- Known limitations remain: no full HTML parser, no layout/drawable/asset
+  localization, no Gradle editing, and no APK decompilation.
+
 ## v0.2.5 — Public Readiness and Smoke Test Evidence
 
 ### Changed
