@@ -44,9 +44,16 @@ planning/
 # Generated benchmark reports and local run outputs
 
 benchmarks/**/work/
+benchmarks/**/work-source-sets/
 benchmarks/**/runs/
 benchmarks/**/report.json
 benchmarks/**/report.md
+benchmarks/**/source-set-report.json
+benchmarks/**/source-set-report.md
+benchmarks/**/v022-final-report.json
+benchmarks/**/v022-final-report.md
+benchmarks/**/risk-classification-report.json
+benchmarks/**/risk-classification-report.md
 benchmarks/**/__pycache__/
 
 # Local agent / experiment scratch files
