@@ -61,6 +61,8 @@ generation, or review artifact creation has run.
 
 By default, `inspect` writes nothing to the source project. When `--output-dir`
 is provided, only the requested summary files are written to that directory.
+`inspect --output-dir` refuses paths inside the inspected source project so
+summary artifacts do not get mixed into a real checkout.
 
 Use an output directory outside real project checkouts when collecting evidence
 for public smoke tests:

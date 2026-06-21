@@ -5,7 +5,9 @@ import gettext
 import http.client
 import importlib.util
 import io
+import contextlib
 import shutil
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -1504,6 +1506,54 @@ class ProjectTests(unittest.TestCase):
                 ],
             )
             self.assertIsNotNone(summary["output_directory"])
+
+    def test_inspect_summary_rejects_output_dir_inside_source_project(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "android-project"
+            shutil.copytree(REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture", project)
+            output_dir = project / "inspect-output"
+
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                exit_code = cli_main(
+                    [
+                        "inspect",
+                        "--project",
+                        project.as_posix(),
+                        "--output-dir",
+                        output_dir.as_posix(),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 2)
+            self.assertFalse(output_dir.exists())
+            self.assertIn("must be outside the source project", stderr.getvalue())
+
+    def test_cli_help_describes_inspect_read_only_and_localize_run_no_apply(self) -> None:
+        inspect_stdout = io.StringIO()
+        with contextlib.redirect_stdout(inspect_stdout), self.assertRaises(SystemExit) as inspect_exit:
+            cli_main(["inspect", "--help"])
+        self.assertEqual(inspect_exit.exception.code, 0)
+        self.assertIn("Read-only project inspection", inspect_stdout.getvalue())
+
+        run_stdout = io.StringIO()
+        with contextlib.redirect_stdout(run_stdout), self.assertRaises(SystemExit) as run_exit:
+            cli_main(["localize-run", "--help"])
+        self.assertEqual(run_exit.exception.code, 0)
+        self.assertIn("does not call apply-delivery", run_stdout.getvalue())
+
+    def test_smoke_antennapod_helper_has_valid_bash_syntax(self) -> None:
+        bash = shutil.which("bash")
+        if bash is None:
+            self.skipTest("bash is not available")
+        result = subprocess.run(
+            [bash, "-n", "scripts/smoke-antennapod.sh"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_ios_strings_are_detected_as_platform_resources(self) -> None:
         source_files = ["App/en.lproj/Localizable.strings", "App/en.lproj/Localizable.stringsdict"]

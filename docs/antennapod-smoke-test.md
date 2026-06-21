@@ -34,6 +34,18 @@ The current CLI provides `inspect` and `localize-run`. It does not provide
 commands named `detect` or general-purpose `inventory`; do not use those names
 in automation.
 
+On Windows, run the shell helper with Git for Windows Bash when WSL does not
+have the same Python environment as the Localize Anything checkout:
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/smoke-antennapod.sh `
+  "$tmpdir/AntennaPod" `
+  "$tmpdir/localize-anything-evidence"
+```
+
+The repository keeps `*.sh` files LF-normalized so the helper can be syntax
+checked and run consistently from Bash.
+
 ## Clone and pin AntennaPod
 
 From outside this repository:
@@ -60,23 +72,31 @@ scripts/smoke-antennapod.sh \
   "$tmpdir/localize-anything-evidence"
 ```
 
-The helper records both repository commits, writes `inspection.json`, validates
-the Localize Anything protocol and contracts, and checks that AntennaPod's Git
-status did not change. It does not run generation, staging, apply, or any
-network translation provider.
+The helper records both repository commits, writes `inspection.json`, writes
+`inspect-summary/inspect-summary.json` and
+`inspect-summary/inspect-summary.md`, validates the Localize Anything protocol
+and contracts, and checks that AntennaPod's Git status did not change. It does
+not run generation, staging, apply, or any network translation provider.
 
 The equivalent inspection command is:
 
 ```bash
 python -m runtime.localize_anything inspect \
-  "$tmpdir/AntennaPod" \
+  --project "$tmpdir/AntennaPod" \
   --output "$tmpdir/localize-anything-evidence/inspection.json"
+
+python -m runtime.localize_anything inspect \
+  --project "$tmpdir/AntennaPod" \
+  --output-dir "$tmpdir/localize-anything-evidence/inspect-summary"
 ```
 
 `inspection.json` includes `android_generation_source_files`,
 `android_locale_reference_files`, and per-file routing metadata such as
 `android_source_set`, `android_res_dir`, and `android_qualifiers`. These fields
-are the source-detection and routing inventory for this smoke test.
+are the source-detection and routing inventory for this smoke test. The compact
+inspect summary adds Markdown-readable evidence for project type, adapter
+counts, Android resource type counts, source sets, qualifiers, target-locale
+references, and read-only boundaries.
 
 ## Isolated full pipeline
 

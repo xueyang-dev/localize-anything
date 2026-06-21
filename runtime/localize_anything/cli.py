@@ -37,7 +37,7 @@ from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import rebuild as rebuild_po
 from .gettext_adapter import validate_pair as validate_po_pair
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
-from .inspect_summary import build_inspect_summary, write_inspect_summary
+from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
 from .ios_strings_adapter import stage_rebuild as stage_ios_strings
@@ -89,7 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    inspect_parser = subparsers.add_parser("inspect", help="Discover files supported by alpha adapters")
+    inspect_parser = subparsers.add_parser(
+        "inspect",
+        help="Read-only discovery of files supported by alpha adapters",
+        description="Read-only project inspection. Does not generate, stage, or apply translations.",
+    )
     inspect_parser.add_argument("project", type=Path, nargs="?")
     inspect_parser.add_argument("--project", dest="project_option", type=Path, help="Project path to inspect")
     inspect_parser.add_argument("--output", type=Path, help="Write JSON output to this file instead of stdout")
@@ -447,6 +451,11 @@ def build_parser() -> argparse.ArgumentParser:
     localize_run_parser = subparsers.add_parser(
         "localize-run",
         help="Run preflight, extract, plan, generation handoff, staging, package, and dashboard",
+        description=(
+            "Run the non-apply localization workflow: preflight, extraction, planning, generation handoff "
+            "or provided drafts, staging, packaging, and dashboard creation. This command does not call "
+            "apply-delivery or overwrite source files."
+        ),
     )
     localize_run_parser.add_argument("project", type=Path)
     localize_run_parser.add_argument("--source-locale", required=True)
@@ -621,6 +630,7 @@ def main(argv: list[str] | None = None) -> int:
             project = _resolve_inspect_project(args.project, args.project_option)
             result = inspect_project(project)
             if args.output_dir:
+                validate_inspect_output_directory(project, args.output_dir)
                 summary = build_inspect_summary(result, output_directory=args.output_dir)
                 summary["artifacts"] = write_inspect_summary(args.output_dir, summary)
                 return _emit_json(summary, args.output)

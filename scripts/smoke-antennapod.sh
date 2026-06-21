@@ -63,16 +63,22 @@ before_status="$(git -C "$PROJECT_PATH" status --porcelain --untracked-files=all
 
 echo "Project: $PROJECT_PATH"
 echo "Output: $OUT_DIR"
+echo "Mode: read-only inspection only; no generation, staging, provider call, or apply command is run."
 echo "+ git -C PROJECT rev-parse HEAD"
 git -C "$PROJECT_PATH" rev-parse HEAD | tee "$OUT_DIR/antennapod-commit.txt"
 echo "+ git -C LOCALIZE_ANYTHING rev-parse HEAD"
 git -C "$REPO_ROOT" rev-parse HEAD | tee "$OUT_DIR/localize-anything-commit.txt"
 
 cd "$REPO_ROOT"
-echo "+ $PYTHON_BIN -m runtime.localize_anything inspect PROJECT --output OUTPUT/inspection.json"
+echo "+ $PYTHON_BIN -m runtime.localize_anything inspect --project PROJECT --output OUTPUT/inspection.json"
 "$PYTHON_BIN" -m runtime.localize_anything inspect \
-  "$PROJECT_PATH" \
+  --project "$PROJECT_PATH" \
   --output "$OUT_DIR/inspection.json"
+echo "+ $PYTHON_BIN -m runtime.localize_anything inspect --project PROJECT --output-dir OUTPUT/inspect-summary"
+"$PYTHON_BIN" -m runtime.localize_anything inspect \
+  --project "$PROJECT_PATH" \
+  --output-dir "$OUT_DIR/inspect-summary" \
+  --output "$OUT_DIR/inspect-summary.json"
 echo "+ $PYTHON_BIN -m runtime.localize_anything validate-protocol"
 "$PYTHON_BIN" -m runtime.localize_anything validate-protocol > "$OUT_DIR/protocol-validation.json"
 echo "+ $PYTHON_BIN -m runtime.localize_anything validate-contracts"
@@ -85,4 +91,8 @@ if [[ "$before_status" != "$after_status" ]]; then
   exit 1
 fi
 
-echo "Read-only inspection completed. Full pipeline steps remain manual; see docs/antennapod-smoke-test.md."
+echo "Read-only inspection completed."
+echo "Raw inspection JSON: $OUT_DIR/inspection.json"
+echo "Inspect summary JSON: $OUT_DIR/inspect-summary/inspect-summary.json"
+echo "Inspect summary Markdown: $OUT_DIR/inspect-summary/inspect-summary.md"
+echo "Full pipeline steps remain manual; see docs/antennapod-smoke-test.md."

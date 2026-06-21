@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import os
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -57,6 +58,20 @@ def write_inspect_summary(output_directory: Path, summary: dict[str, Any]) -> di
     write_json(json_path, summary)
     markdown_path.write_text(render_inspect_summary_markdown(summary), encoding="utf-8", newline="\n")
     return summary["artifacts"]
+
+
+def validate_inspect_output_directory(project_root: Path, output_directory: Path) -> None:
+    project_root = project_root.resolve()
+    output_directory = output_directory.resolve()
+    try:
+        common = Path(os.path.commonpath([project_root, output_directory]))
+    except ValueError:
+        return
+    if common == project_root:
+        raise ValueError(
+            "inspect --output-dir must be outside the source project. "
+            "Use a temporary evidence directory to keep inspection read-only."
+        )
 
 
 def render_inspect_summary_markdown(summary: dict[str, Any]) -> str:
