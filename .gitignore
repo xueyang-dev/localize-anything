@@ -54,6 +54,8 @@ benchmarks/**/v022-final-report.json
 benchmarks/**/v022-final-report.md
 benchmarks/**/risk-classification-report.json
 benchmarks/**/risk-classification-report.md
+benchmarks/v022-android-resource-reliability/*report*.json
+benchmarks/v022-android-resource-reliability/*report*.md
 benchmarks/**/__pycache__/
 
 # Local agent / experiment scratch files

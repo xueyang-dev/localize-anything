@@ -1,8 +1,8 @@
 # Localize Anything
 
 <p align="center">
-  <strong>Agent-native localization infrastructure for real source projects.</strong><br>
-  <em>LLMs can translate strings. Localize Anything makes localization deliverable.</em>
+  <strong>An agent-native localization framework for real source projects.</strong><br>
+  <em>Safely extract, translate, review, and apply localized resources.</em>
 </p>
 
 <p align="center">
@@ -22,8 +22,9 @@
 
 ## Why Localize Anything?
 
-Most localization tools focus on _editing translations_. Localize Anything focuses on
-_delivering them safely_.
+Localize Anything is an agent-native localization framework for safely extracting,
+translating, reviewing, and applying localized resources. Most localization tools
+focus on _editing translations_; Localize Anything focuses on _delivering them safely_.
 
 It is not a translation engine. It is the infrastructure layer that sits between
 your source project, an LLM (or human translator), and the final deliverable —
@@ -97,7 +98,10 @@ python -m runtime.localize_anything localize-run \
   --run-id maintenance-001 \
   --synthetic-draft
 
-# Run the v0.2.1 mode-system benchmark
+# Run the release regression benchmarks
+python benchmarks/v022-android-resource-reliability/run.py
+python benchmarks/v022-android-resource-reliability/source_sets.py
+python benchmarks/v022-android-resource-reliability/risk_classification.py
 python benchmarks/v021-mode-system/run.py
 ```
 
@@ -158,7 +162,7 @@ Review Agent → scoped sign-off → Delivery Decision → Apply Plan → Apply 
 - **Apply Plan**: lists every file operation (create / replace / unchanged / conflict)
 - **Apply**: executes only after owner confirms the run ID; creates backups for replacements
 
-Slient overwrite is never allowed.
+Silent overwrite is never allowed.
 
 ## Benchmarks and evidence
 
@@ -182,14 +186,16 @@ Runner: `benchmarks/v021-mode-system/run.py`.
 
 ### v0.2.3 Android resource reliability
 
-Localize Anything v0.2.3 extends Android string-resource handling with
-deterministic support for placeholders, escaped percent, inline markup
-(`<b>`, `<i>`, `<u>`, `<a href>`), CDATA boundaries, XML comment round-trip,
-string-array and plural resource types, source-set and resource-qualifier
-routing, maintenance-mode preservation, and deterministic review-risk
-classification metadata. It also preserves canonical Android qualifier order,
-including MCC/MNC before the target locale, and guarantees that structural risk
-evidence is emitted only for structure actually present in the segment.
+Localize Anything v0.2.3 includes Android string-resource handling for:
+
+- `string`, `string-array`, and `plurals`
+- placeholders, escaped percent signs, and Android escapes such as `\n`, `\t`, `\'`, and `\"`
+- inline `<b>`, `<i>`, `<u>`, and simple `<a href="...">` markup
+- CDATA boundaries and XML comments before resources
+- source sets and canonically ordered resource qualifiers
+- blind benchmark and existing-locale maintenance modes
+- target-only obsolete resource preservation
+- deterministic review-risk metadata with truthful structural evidence
 
 See [Android Support in v0.2.3](docs/android-v0.2.3-support.md) for the
 current support boundary, known limitations, and explicit non-goals.

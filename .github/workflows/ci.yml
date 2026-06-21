@@ -24,3 +24,9 @@ jobs:
       - run: python -m runtime.localize_anything validate-protocol
       - run: python -m runtime.localize_anything validate-contracts
       - run: python -m unittest discover -s tests -v
+      - name: Run regression benchmarks
+        run: |
+          python benchmarks/v022-android-resource-reliability/run.py
+          python benchmarks/v022-android-resource-reliability/source_sets.py
+          python benchmarks/v022-android-resource-reliability/risk_classification.py
+          python benchmarks/v021-mode-system/run.py
