@@ -1,0 +1,93 @@
+name: Bug report
+description: Report a reproducible problem in Localize Anything
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please provide a minimal, public-safe reproduction.
+
+        **Do not upload secrets, proprietary source code, private translations, API keys, credentials, or customer data unless you intentionally want them public.**
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.2.4 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform / OS
+      placeholder: Ubuntu 24.04, macOS 15, Windows 11
+    validations:
+      required: true
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version
+      placeholder: Python 3.12.4
+    validations:
+      required: true
+  - type: input
+    id: project_type
+    attributes:
+      label: Input project type
+      description: For example, Android resources, xcstrings, JSON, or XLIFF.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: Remove secrets and private data before pasting logs.
+      render: shell
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal fixture / reproduction
+      description: Link or paste the smallest public-safe fixture and exact reproduction steps.
+    validations:
+      required: true
+  - type: dropdown
+    id: generated_artifacts
+    attributes:
+      label: Are generated reports or benchmark work directories attached?
+      options:
+        - "No"
+        - "Yes, and I reviewed them for sensitive data"
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy_confirmation
+    attributes:
+      label: Security / private data warning
+      options:
+        - label: I have removed secrets, proprietary source code, private translations, API keys, credentials, and customer data.
+          required: true

@@ -1,0 +1,76 @@
+name: Feature request
+description: Propose a concrete, safety-aware improvement
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests should include concrete fixtures, expected safety behavior, and review requirements. Do not include private or proprietary data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete limitation or workflow problem are you encountering?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the expected behavior, including fail-closed behavior where relevant.
+    validations:
+      required: true
+  - type: input
+    id: target_platform
+    attributes:
+      label: Target platform / adapter
+      placeholder: Android, xcstrings, XLIFF, core.android-strings
+    validations:
+      required: true
+  - type: input
+    id: resource_format
+    attributes:
+      label: Resource format
+      placeholder: strings.xml, .xcstrings, XLIFF 2.0
+    validations:
+      required: true
+  - type: textarea
+    id: safety_review
+    attributes:
+      label: Safety / review concerns
+      description: Explain preservation, validation, staging, owner-review, and corruption risks.
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Example fixture
+      description: Provide a minimal public-safe input and the expected staged output or QA result.
+    validations:
+      required: true
+  - type: textarea
+    id: existing_support
+    attributes:
+      label: Why existing support is insufficient
+    validations:
+      required: true
+  - type: dropdown
+    id: support_level
+    attributes:
+      label: Desired support level
+      options:
+        - Stable support
+        - Experimental support
+        - Unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willingness to contribute tests / fixtures
+      options:
+        - Yes
+        - Maybe, with guidance
+        - No
+    validations:
+      required: true
