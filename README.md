@@ -1,93 +1,91 @@
 # Localize Anything
 
 <p align="center">
-  <strong>Agent-native localization infrastructure for real source projects.</strong><br>
-  <em>LLMs can translate strings. Localize Anything makes localization deliverable.</em>
+  <strong>面向真实代码库、支持智能体协作的软件本地化工程框架。</strong><br>
+  <em>大模型可以生成译文；Localize Anything 负责让译文安全、可审查地进入交付流程。</em>
 </p>
 
 <p align="center">
-  <a href="#localize-anything">English</a> ·
-  <a href="README.zh-CN.md">简体中文</a>
+  <a href="#localize-anything">简体中文</a> ·
+  <a href="README.en.md">English</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
-  <img src="https://github.com/xueyang-dev/localize-anything/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <a href="https://github.com/xueyang-dev/localize-anything/releases/tag/v0.2.4"><img src="https://img.shields.io/badge/release-v0.2.4-blue" alt="Release: v0.2.4"></a>
-  <img src="https://img.shields.io/badge/QA-deterministic-green" alt="QA: deterministic">
-  <img src="https://img.shields.io/badge/apply-staged%20first-blueviolet" alt="Apply: staged first">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="许可证：MIT">
+  <img src="https://github.com/xueyang-dev/localize-anything/actions/workflows/ci.yml/badge.svg" alt="持续集成状态">
+  <a href="https://github.com/xueyang-dev/localize-anything/releases/tag/v0.2.4"><img src="https://img.shields.io/badge/release-v0.2.4-blue" alt="当前版本：v0.2.4"></a>
+  <img src="https://img.shields.io/badge/QA-deterministic-green" alt="质量检查：确定性规则">
+  <img src="https://img.shields.io/badge/apply-staged%20first-blueviolet" alt="应用策略：先暂存，后写入">
 </p>
 
-Localize Anything is an agent-native localization framework for developers and
-localization teams working with real source projects. It turns model- or
-human-generated translations into a safe, reviewable, and reproducible delivery
-workflow: extract content, generate drafts through agents or providers, validate
-structure deterministically, stage output, review it, and apply changes only
-after explicit run-id confirmation.
+Localize Anything 面向需要在真实代码库中开展本地化工作的开发者和本地化团队。
+它不是简单的翻译脚本，而是一套可追踪、可审查、可复现的交付流程：先提取待翻译内容，
+再由智能体（Agent）、模型服务或人工生成译文；随后使用确定性规则校验结构，将结果暂存
+供人工审核；只有在明确确认运行 ID 后，才会把变更写入项目。
 
-## Status
+## 当前状态
 
-**Current release:** [v0.2.4 — Release Hygiene and CI Benchmark Coverage](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.2.4)
+**当前公开版本：** [v0.2.4 — Release Hygiene and CI Benchmark Coverage](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.2.4)
 
-v0.2.4 adds release hygiene and runs the full regression benchmark suite in CI
-on Python 3.11 and 3.12. It does not add localization features; the current
-Android capability boundary remains documented by the v0.2.3 reliability
-release. See the [changelog](CHANGELOG.md) and [release checklist](docs/release-checklist.md).
+v0.2.4 主要完善发布流程，并将完整的回归基准测试纳入 Python 3.11 和 3.12 的持续集成
+流程。本版本未新增本地化功能；Android 功能范围仍以 v0.2.3 的支持说明为准。详见
+[变更记录](CHANGELOG.md)和[发布检查清单](docs/release-checklist.md)。
 
-Verified engineering evidence:
+已经验证的工程结果：
 
-- v0.2.4 CI benchmark coverage on Python 3.11 and 3.12: pass
-- v0.2.3 Android resource reliability regressions: pass
-- v0.2.1 mode-system benchmark: pass
-- AntennaPod DeepSeek test: 869 segments in each of 2 locales, 0 deterministic QA issues, both builds successful
+- Python 3.11 和 3.12 的 CI 均会运行完整的回归基准测试，并且检查通过
+- v0.2.3 Android 资源可靠性回归检查通过
+- v0.2.1 运行模式基准检查通过
+- AntennaPod DeepSeek 实测覆盖日语、韩语两个目标语言，每种语言 869 个文本段；确定性
+  QA 未发现问题，两个语言版本均编译成功
 
-These results demonstrate pipeline and structural correctness. They are not a
-claim of native-level translation quality.
+这些结果证明的是流程与结构检查的正确性，不等同于对译文质量的人工评价，也不表示
+生成结果可以免审查直接上线。
 
-## Why this exists
+## 为什么需要它
 
-An LLM can produce plausible strings. A real localization delivery must also
-protect placeholders and markup, preserve reviewed work, track evidence, surface
-conflicts, and avoid damaging the source project.
+大模型可以生成读起来合理的文本，但真正的软件本地化交付还需要处理许多工程问题：
+保护占位符和标记、保留已经审核的译文、记录处理证据、暴露冲突，并确保工具不会意外
+破坏代码库。
 
-Localize Anything is the missing engineering layer between a source project, an
-LLM or human translator, and the final deliverable. The runtime handles
-deterministic work; agents and providers handle semantic work.
+Localize Anything 为代码库、智能体或人工译者与最终交付物之间提供工程保障。
+运行时负责可由程序确定完成的工作，例如结构校验、暂存、冲突检查和变更应用；智能体与
+翻译服务负责语义生成，人工审核负责最终判断。
 
-## What Localize Anything does
+## 工作流程
 
-**Extract → Generate → QA → Stage → Review → Apply**
+**提取 → 生成 → 校验 → 暂存 → 审核 → 应用**
 
-- Extracts translatable content from real project formats
-- Plans what to generate and what to preserve based on operating mode
-- Generates drafts through host agents or direct providers, with scoped context
-- Validates placeholders, markup, escapes, keys, and file structure programmatically
-- Stages output outside the source project for review
-- Packages manifests, QA evidence, review state, and an apply plan
-- Applies only after explicit run-id confirmation, with backups
+- 从真实项目支持的资源格式中提取可翻译内容
+- 根据运行模式决定哪些内容需要生成、哪些内容必须保留
+- 通过宿主智能体或模型服务生成初稿，并严格限定可见上下文
+- 使用程序检查占位符、标记、转义符、资源键和文件结构
+- 在代码库之外暂存输出，供人工检查
+- 打包清单、QA 证据、审核状态和应用计划
+- 只有在明确确认运行 ID 后才应用变更，并在替换文件前创建备份
 
 <p align="center">
-  <img src="docs/assets/workflow-dark.svg" alt="Localize Anything workflow: 9 steps from Project Agent to Apply with Backups" width="900">
+  <img src="docs/assets/workflow-dark.svg" alt="Localize Anything 工作流：从项目智能体到备份后应用的九个步骤" width="900">
 </p>
 
-## Core guarantees
+## 安全保证
 
-| Guarantee | Enforcement |
-|-----------|-------------|
-| **Staging first** | Generated files are written to an isolated staging directory, not the source project. |
-| **Deterministic QA** | Placeholder parity, markup integrity, escapes, keys, and format rules are checked in code. |
-| **No silent overwrite** | Conflicts block apply until they are resolved. |
-| **Confirmed apply** | Apply requires a matching `--confirm-run-id`; replaced files are backed up. |
-| **Source mutation detection** | SHA-256 checks detect unexpected changes during a run. |
-| **Maintenance preservation** | Reviewed unchanged translations and Android target-only resources are preserved in verified maintenance workflows. |
-| **Reference isolation** | Blind benchmarks keep existing translations out of generation-facing artifacts. |
-| **Reviewable delivery** | Manifests, QA results, sign-off scope, and file operations remain inspectable. |
+| 保证 | 实现方式 |
+|------|----------|
+| **先暂存，后写入** | 生成文件写入隔离的暂存目录，不直接修改代码库中的文件。 |
+| **确定性质量检查** | 使用程序检查占位符一致性、标记完整性、转义符、资源键和格式规则。 |
+| **不静默覆盖** | 出现冲突时阻止应用，直到问题得到处理。 |
+| **确认后应用** | 必须提供匹配的 `--confirm-run-id`；替换文件前会创建备份。 |
+| **源文件变更检测** | 使用 SHA-256 检测运行期间出现的意外修改。 |
+| **维护模式保留** | 在经过验证的维护流程中，保留未发生变化的已审核译文，以及仅存在于 Android 目标语言文件中的资源。 |
+| **参考译文隔离** | 盲测模式不会让已有译文进入生成环节所使用的文件。 |
+| **交付过程可审查** | 清单、QA 结果、审核确认范围和文件操作均可检查。 |
 
-See [Security](docs/security.md) for the complete safety architecture.
+完整的安全设计见[安全说明](docs/security.md)。
 
-## Quick start
+## 快速开始
 
-### From source
+### 从源码安装
 
 ```bash
 git clone https://github.com/xueyang-dev/localize-anything.git
@@ -98,7 +96,7 @@ python -m pip install -e ".[yaml]"
 python -m unittest discover -s tests -v
 ```
 
-### Try the regression benchmarks
+### 运行回归基准
 
 ```bash
 python benchmarks/v022-android-resource-reliability/run.py
@@ -107,16 +105,16 @@ python benchmarks/v022-android-resource-reliability/risk_classification.py
 python benchmarks/v021-mode-system/run.py
 ```
 
-### Inspect a real project
+### 检查真实项目
 
 ```bash
 localize-anything inspect /path/to/project
 ```
 
-## Example workflow
+## 示例
 
-Create a staged Japanese greenfield delivery from an Android source file using
-synthetic drafts, without calling an external model:
+下面的命令使用合成草稿，为 Android 源语言文件创建一份日语全新本地化的暂存交付包。
+整个过程不会调用外部模型：
 
 ```bash
 localize-anything localize-run /path/to/project \
@@ -129,152 +127,150 @@ localize-anything localize-run /path/to/project \
   --synthetic-draft
 ```
 
-The run produces staged files and delivery evidence. Writing into the project is
-a separate, dry-run-planned action that requires explicit run-id confirmation.
+这次运行只会生成暂存文件和交付证据，不会直接写入项目。应用变更是一个独立步骤：
+必须先检查预演计划，再明确确认对应的运行 ID。
 
-## Current support
+## 支持范围
 
-### Implemented core adapters
+### 已实现的通用适配器
 
-These adapters are marked `implemented` in their manifests:
+以下适配器在清单文件中标记为 `implemented`：
 
-- JSON locale files
-- YAML and TOML
-- CSV, TSV, and XLSX
-- Markdown and HTML text extraction/rebuild; code, attributes, and
-  `script`/`style`/`svg` content remain untouched
-- SRT and WebVTT
-- XLIFF 1.2 and 2.x
+- JSON 本地化文件
+- YAML 和 TOML
+- CSV、TSV 和 XLSX
+- Markdown 和 HTML 文本的提取与重建；代码、属性以及 `script`、`style`、`svg`
+  中的内容保持不变
+- SRT 和 WebVTT
+- XLIFF 1.2 和 2.x
 - GNU gettext PO/POT
 
-### Experimental platform adapters
+### 实验性平台适配器
 
 - Android `strings.xml`
-- iOS `.strings` and `.stringsdict`
-- Xcode `.xcstrings` String Catalogs
+- iOS `.strings` 和 `.stringsdict`
+- Xcode `.xcstrings` 字符串目录
 
-See the [Adapter Contract](docs/adapters.md) for adapter IDs, preservation rules,
-and the full format boundary.
+适配器 ID、内容保留规则和完整的格式边界见[适配器契约](docs/adapters.md)。
 
-## Evidence
+## 工程证据
 
-### v0.2.1 mode-system benchmark
+### v0.2.1 运行模式基准
 
-| Mode | Reference policy | Result |
-|------|------------------|--------|
-| `blind_benchmark` | `blind` | pass — no leakage to generation artifacts |
-| `greenfield_localization` | `style_only` | pass |
-| `existing_locale_maintenance` | `preserve_existing` | pass — 10 preserved, 2 generated |
-| `rewrite_or_harmonization` | `tm_assisted` | pass |
+| 运行模式 | 参考策略 | 结果 |
+|----------|----------|------|
+| `blind_benchmark` | `blind` | 通过——已有译文不会泄漏到生成文件中 |
+| `greenfield_localization` | `style_only` | 通过 |
+| `existing_locale_maintenance` | `preserve_existing` | 通过——保留 10 个文本段，生成 2 个文本段 |
+| `rewrite_or_harmonization` | `tm_assisted` | 通过 |
 
-The synthetic Android fixture contains 12 source segments and 10 existing
-`zh-CN` translations. The benchmark also verifies target-only key protection
-and unchanged source hashes. Run it with
-`python benchmarks/v021-mode-system/run.py`.
+合成 Android 测试项目包含 12 个源语言文本段和 10 个已有的 `zh-CN` 译文。基准测试
+同时验证：仅存在于目标语言中的资源不会被删除，源码文件的哈希值不会发生变化。运行命令：
 
-### v0.2.4 release hygiene and CI coverage
-
-v0.2.4 adds no localization features. It validates the unit tests, protocol,
-adapter contracts, compilation, and all four public regression runners in CI on
-Python 3.11 and 3.12.
-
-### v0.2.3 Android resource reliability
-
-The experimental Android adapter covers:
-
-- `string`, `string-array`, and `plurals`
-- placeholders, escaped percent signs, and Android escapes such as `\n`, `\t`,
-  `\'`, and `\"`
-- inline `<b>`, `<i>`, and `<u>` tags, plus simple `<a href="...">` links
-- CDATA boundaries and XML comments before resources
-- separate source sets and canonical resource qualifier routing, including
-  MCC/MNC ordering
-- blind reference isolation and existing-locale maintenance behavior
-- target-only obsolete resource preservation and fail-closed routing
-- unsupported complex markup preservation with `owner_review_required`
-- deterministic review-risk metadata for prioritization, not semantic
-  translation quality scoring
-
-See [Android Support in v0.2.3](docs/android-v0.2.3-support.md) for supported
-structures, known limitations, and explicit non-goals.
-
-### AntennaPod DeepSeek test
-
-<p align="center">
-  <img src="docs/assets/benchmark-antennapod.svg" alt="AntennaPod en-US to Japanese and Korean DeepSeek benchmark: 869 segments, 0 QA issues, builds successful" width="640">
-</p>
-
-| Metric | Japanese (`ja`) | Korean (`ko`) |
-|--------|-----------------|---------------|
-| Source | AntennaPod `develop` branch | same |
-| Segments | 869 | 869 |
-| Batches | 29 | 29 |
-| Model | `deepseek-chat` | `deepseek-chat` |
-| Deterministic QA | 0 blocking, 0 warnings | 0 blocking, 0 warnings |
-| Build | `:app:assembleFreeDebug` ✓ | `:app:assembleFreeDebug` ✓ |
-
-Full pipeline: extract → batch → DeepSeek API → collect → stage → QA → deliver.
-
-Reproduce a public-safe external-project check with the
-[AntennaPod Android smoke-test guide](docs/antennapod-smoke-test.md).
-
-## Concepts
-
-### Operating modes
-
-| Mode | Intended use | Reference policy |
-|------|--------------|------------------|
-| `greenfield_localization` | Add a new locale | `style_only` |
-| `existing_locale_maintenance` | Maintain reviewed translations | `preserve_existing` |
-| `rewrite_or_harmonization` | Intentionally rewrite or align style | `tm_assisted` |
-| `blind_benchmark` | Evaluate without translation leakage | `blind` |
-
-### Project memory
-
-Localize Anything persists reviewed translation memory, session history, and
-project configuration under `.localize-anything/`. In maintenance mode, reviewed
-translations with unchanged source hashes survive subsequent runs without
-retranslation or churn.
-
-### Review and delivery
-
-```text
-Review Agent → scoped sign-off → Delivery Decision → Apply Plan → Apply with backups
+```bash
+python benchmarks/v021-mode-system/run.py
 ```
 
-Human acceptance is segment-scoped. The apply plan lists each create, replace,
-unchanged, or conflicting operation before any source file is written.
+### v0.2.4 发布流程与 CI 覆盖
+
+v0.2.4 未新增本地化功能。CI 会在 Python 3.11 和 3.12 上运行单元测试、协议验证、
+适配器契约验证、编译检查，以及全部四个公开的回归基准测试脚本。
+
+### v0.2.3 Android 资源可靠性
+
+实验性 Android 适配器目前覆盖：
+
+- `string`、`string-array` 和 `plurals`
+- 占位符、转义百分号，以及 `\n`、`\t`、`\'`、`\"` 等 Android 转义符
+- `<b>`、`<i>`、`<u>` 内联标记，以及只包含 `href` 属性的简单 `<a>` 链接
+- CDATA 边界和资源前的 XML 注释
+- 相互独立的源集（source set），以及符合 Android 顺序要求的资源限定符路由，
+  包括 MCC/MNC 限定符
+- 盲测模式下的参考译文隔离，以及现有语言维护模式
+- 保留仅存在于目标语言文件中的旧资源；无法安全判断路径时会停止处理，不会猜测
+- 对不支持的复杂标记保持原样，并标记为 `owner_review_required`
+- 用于安排审核优先级的确定性风险元数据；这不是语义层面的译文质量评分
+
+具体支持的结构、已知限制和明确排除的能力见
+[v0.2.3 Android 支持说明](docs/android-v0.2.3-support.md)。
+
+### AntennaPod DeepSeek 实测
 
 <p align="center">
-  <img src="docs/assets/architecture-layers.svg" alt="Architecture layers: Protocol, Runtime, Agent, Adapters, Source and Delivery" width="640">
+  <img src="docs/assets/benchmark-antennapod.svg" alt="AntennaPod 英语到日语和韩语 DeepSeek 基准：每种语言 869 个文本段，确定性 QA 未发现问题，编译成功" width="640">
 </p>
 
-## What it is not
+| 指标 | 日语（`ja`） | 韩语（`ko`） |
+|------|---------------|---------------|
+| 源项目 | AntennaPod `develop` 分支 | 同左 |
+| 文本段 | 869 | 869 |
+| 批次 | 29 | 29 |
+| 模型 | `deepseek-chat` | `deepseek-chat` |
+| 确定性 QA | 0 个阻断问题，0 个警告 | 0 个阻断问题，0 个警告 |
+| 编译 | `:app:assembleFreeDebug` ✓ | `:app:assembleFreeDebug` ✓ |
 
-Localize Anything is not:
+完整流程：提取 → 分批 → DeepSeek API → 汇总 → 暂存 → QA → 打包交付。
 
-- a prompt collection
-- a generic machine translation wrapper
-- a finished enterprise translation management system
-- a full HTML parser or automatic localizer for arbitrary nested markup
-- a layout, drawable, or asset localizer; Gradle editor; or APK decompiler
-- a semantic translation quality scorer
-- an APK or IPA repackaging tool
-- a replacement for qualified human review
-- a tool that silently rewrites a source project
-- a claim that LLM output is production-ready without evidence
+如需在单独克隆的 AntennaPod 项目上复现这套检查流程，请参阅
+[AntennaPod Android 冒烟测试指南](docs/antennapod-smoke-test.md)。
 
-## Repository layout
+## 核心概念
+
+### 运行模式
+
+| 运行模式 | 适用场景 | 参考策略 |
+|----------|----------|----------|
+| `greenfield_localization` | 为项目新增目标语言 | `style_only` |
+| `existing_locale_maintenance` | 维护已经审核的现有译文 | `preserve_existing` |
+| `rewrite_or_harmonization` | 明确重写译文或统一表达风格 | `tm_assisted` |
+| `blind_benchmark` | 在已有译文完全隔离的条件下进行评估 | `blind` |
+
+### 项目记忆
+
+Localize Anything 会在 `.localize-anything/` 目录中保存已经审核的翻译记忆、运行历史和
+项目配置。在现有语言维护模式下，只要源文本哈希没有变化，已经审核的译文就会在后续
+运行中继续保留，不会被重复翻译，也不会产生无意义的改动。
+
+### 审核与交付
 
 ```text
-protocol/         Portable schemas and lifecycle specification
-runtime/          Reference runtime (Python)
-adapters/         Adapter manifests and entrypoints
-benchmarks/       Public benchmark fixtures and runners
-tests/            Runtime unit and integration tests
-docs/             Public documentation
+审核智能体 → 按范围审核确认 → 交付决策 → 应用计划 → 备份后应用
 ```
 
-## License
+人工验收以文本段为单位。真正写入源码文件前，应用计划会列出每一项新建、替换、保持
+不变或发生冲突的文件操作。
 
-MIT — see [LICENSE](LICENSE).
+<p align="center">
+  <img src="docs/assets/architecture-layers.svg" alt="Localize Anything 架构分层：协议、运行时、智能体、适配器、源文件与交付" width="640">
+</p>
+
+## 不在支持范围内的能力
+
+Localize Anything 目前不是：
+
+- 提示词合集
+- 通用机器翻译接口的简单封装
+- 成熟的企业级翻译管理系统（TMS）
+- 完整的 HTML 解析器，也不能自动处理任意嵌套标记
+- Android layout、drawable、asset 的本地化工具
+- Gradle 编辑器或 APK 反编译工具
+- 语义层面的译文质量评分工具
+- APK 或 IPA 重新打包工具
+- 专业人工审核的替代品
+- 会在没有确认的情况下改写代码库的工具
+- 对“大模型输出无需证据即可直接上线”的承诺
+
+## 仓库结构
+
+```text
+protocol/         可移植的协议结构定义和生命周期规范
+runtime/          Python 参考运行时
+adapters/         适配器清单和入口
+benchmarks/       公开的基准测试项目和运行脚本
+tests/            运行时单元测试和集成测试
+docs/             公开文档
+```
+
+## 许可证
+
+本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。

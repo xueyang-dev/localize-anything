@@ -6,7 +6,7 @@ Asset inventory for the Localize Anything documentation.
 
 | File | Purpose | Used in | Maintained |
 |------|---------|---------|------------|
-| `workflow-dark.svg` | Main localization workflow (9 steps + QA loop) | README.md, README.zh-CN.md | hand-edited |
+| `workflow-dark.svg` | Main localization workflow (9 steps + QA loop) | README.md, README.en.md | hand-edited |
 | `architecture-layers.svg` | Protocol → Runtime → Agent → Adapter layer stack | README.md | hand-edited |
 | `delivery-package.svg` | Delivery package structure and evidence chain | docs/delivery-package.svg | hand-edited |
 | `benchmark-antennapod.svg` | AntennaPod DeepSeek benchmark summary | README.md | hand-edited |
