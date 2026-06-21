@@ -3020,6 +3020,7 @@ class TestV022AndroidRiskClassification(unittest.TestCase):
         self.assertTrue(len(seg["ui_risk_classification"]["classification_evidence"]) > 0)
         self.assertIn("resource_name_pattern", seg["ui_risk_classification"]["classification_evidence"])
         self.assertIn("source_text_pattern", seg["ui_risk_classification"]["classification_evidence"])
+        self.assertNotIn("placeholder_or_markup_protected", seg["ui_risk_classification"]["classification_evidence"])
 
         # Delete account warning: text matches destructive but name doesn't → high
         seg2 = by_key["string:delete_account_warning"]
@@ -3065,11 +3066,13 @@ class TestV022AndroidRiskClassification(unittest.TestCase):
         self.assertEqual(seg3["ui_risk_classification"]["risk_level"], "high")
         self.assertIn(seg3["ui_risk_classification"]["review_priority"],
                       ("review_recommended", "owner_review_required"))
+        self.assertIn("placeholder_or_markup_protected", seg3["ui_risk_classification"]["classification_evidence"])
 
         # privacy_policy_link: privacy, high
         seg4 = by_key["string:privacy_policy_link"]
         self.assertIn("privacy", seg4["ui_risk_classification"]["ui_role"])
         self.assertEqual(seg4["ui_risk_classification"]["risk_level"], "high")
+        self.assertIn("placeholder_or_markup_protected", seg4["ui_risk_classification"]["classification_evidence"])
 
         # billing_error: error+payment, high
         seg5 = by_key["string:billing_error"]
@@ -3101,6 +3104,7 @@ class TestV022AndroidRiskClassification(unittest.TestCase):
                              f"{key} should not have risky roles, got {overlap}")
             self.assertIn(cls["risk_level"], safe_levels,
                           f"{key} risk_level={cls['risk_level']}, expected {safe_levels}")
+            self.assertNotIn("placeholder_or_markup_protected", cls["classification_evidence"])
 
     def test_v022_android_resource_reliability_risk_classification(self) -> None:
         """Full benchmark fixture smoke test: high-risk classified, generics not."""

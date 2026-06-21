@@ -582,7 +582,21 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
     cdata = bool(resource.get("cdata"))
     resource_comment = str(resource.get("resource_comment", ""))
     routing = android_resource_routing(Path(logical_path))
-    classification = classify_segment(resource)
+    placeholders = _resource_placeholders(resource)
+    classification = classify_segment(
+        {
+            **resource,
+            "placeholder_signature": placeholders,
+            "escape_signature": escape_signature,
+            "constraints": {
+                "placeholders": placeholders,
+                "escape_signature": escape_signature,
+                "markup_signature": markup_signature,
+                "cdata": cdata,
+                "markup_policy": markup_policy,
+            },
+        }
+    )
     return {
         "protocol_version": PROTOCOL_VERSION,
         "evidence_channels": ["adapter"],
@@ -607,7 +621,7 @@ def _segment(logical_path: str, locale: str, resource: dict[str, Any]) -> dict[s
             "android_qualifiers": routing["android_qualifiers"],
         },
         "constraints": {
-            "placeholders": _resource_placeholders(resource),
+            "placeholders": placeholders,
             "markup": markup_signature,
             "markup_signature": markup_signature,
             "escape_signature": escape_signature,

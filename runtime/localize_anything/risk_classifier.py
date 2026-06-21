@@ -1,9 +1,8 @@
 """
 Deterministic UI role / risk classification for Android string resources.
 
-Classifies extracted Android segments based on deterministic evidence:
-resource name, text, comments, type, source set, qualifier, and existing
-structural metadata (owner_review_required, markup_signature, etc.).
+Classifies extracted Android segments based on deterministic resource-name and
+source-text patterns, plus actual protected structural metadata.
 
 Does NOT perform semantic translation scoring or call an LLM.
 """
@@ -111,12 +110,10 @@ def classify_segment(resource: dict[str, Any]) -> dict[str, Any]:
     """
     name = str(resource.get("name", "")).lower()
     text = str(resource.get("value", "")).lower()
-    resource_type = str(resource.get("type", "string"))
-    comment = str(resource.get("resource_comment", "")).lower()
     markup_policy = resource.get("markup_policy", {}) or {}
     markup_signature = resource.get("markup_signature") or []
-    cdata = bool(resource.get("cdata"))
     owner_review_required = bool(markup_policy.get("owner_review_required"))
+    protected_structure = _has_protected_structure(resource)
 
     ui_roles: list[str] = []
     risk_level = "low"
@@ -246,8 +243,8 @@ def classify_segment(resource: dict[str, Any]) -> dict[str, Any]:
             risk_level = "high"
         review_priority = _escalate_priority(review_priority, "review_recommended")
 
-    # Check for protected placeholders in high-risk text
-    if risk_level in ("high", "critical"):
+    # Structural evidence is emitted only when protected structure is present.
+    if protected_structure:
         evidence.append("placeholder_or_markup_protected")
 
     # ── Fallback ─────────────────────────────────────────────────────────────
@@ -269,3 +266,39 @@ def _escalate_priority(current: str, target: str) -> str:
     """Escalate review priority only if target is higher."""
     order = {"normal": 0, "review_recommended": 1, "owner_review_required": 2}
     return target if order.get(target, 0) > order.get(current, 0) else current
+
+
+def _has_protected_structure(resource: dict[str, Any]) -> bool:
+    """Return whether classification input contains real protected structure."""
+    constraints = resource.get("constraints")
+    constraints = constraints if isinstance(constraints, dict) else {}
+    markup_policy = resource.get("markup_policy")
+    markup_policy = markup_policy if isinstance(markup_policy, dict) else {}
+    constraint_policy = constraints.get("markup_policy")
+    constraint_policy = constraint_policy if isinstance(constraint_policy, dict) else {}
+
+    collection_fields = (
+        resource.get("placeholder_signature"),
+        resource.get("escape_signature"),
+        resource.get("markup_signature"),
+        resource.get("markup_structure_signature"),
+        resource.get("protected_spans"),
+        constraints.get("placeholders"),
+        constraints.get("placeholder_signature"),
+        constraints.get("escape_signature"),
+        constraints.get("markup"),
+        constraints.get("markup_signature"),
+        constraints.get("protected_spans"),
+    )
+    if any(bool(value) for value in collection_fields):
+        return True
+    if bool(resource.get("cdata")) or bool(constraints.get("cdata")):
+        return True
+    if bool(resource.get("preserve_inline_xml")):
+        return True
+    return bool(
+        markup_policy.get("owner_review_required")
+        or markup_policy.get("categories")
+        or constraint_policy.get("owner_review_required")
+        or constraint_policy.get("categories")
+    )

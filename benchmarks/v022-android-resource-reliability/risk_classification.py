@@ -52,6 +52,7 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
             "risk_level": "critical",
             "review_priority": "owner_review_required",
             "evidence_present": True,
+            "protected_evidence": False,
         },
         "string:delete_account_warning": {
             "ui_role": "destructive_action",
@@ -82,6 +83,7 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
             "risk_level": "high",
             "review_priority_min": "review_recommended",
             "evidence_present": True,
+            "protected_evidence": True,
         },
         "string:accept_terms_checkbox": {
             "ui_role": "legal",
@@ -94,6 +96,7 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
             "risk_level": "high",
             "review_priority_min": "review_recommended",
             "evidence_present": True,
+            "protected_evidence": True,
         },
         "string:billing_error": {
             "ui_role_any": {"error", "payment"},
@@ -191,6 +194,21 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
             if not ev_match:
                 failures.append(f"EVIDENCE_MISSING: {key}")
 
+        if "protected_evidence" in expected:
+            actual_protected = "placeholder_or_markup_protected" in cls.get("classification_evidence", [])
+            protected_match = actual_protected == expected["protected_evidence"]
+            checks.append({
+                "check": "protected_evidence",
+                "expected": expected["protected_evidence"],
+                "actual": actual_protected,
+                "pass": protected_match,
+            })
+            if not protected_match:
+                failures.append(
+                    f"PROTECTED_EVIDENCE_MISMATCH: {key} expected {expected['protected_evidence']}, "
+                    f"got {actual_protected}"
+                )
+
         all_pass = all(c.get("pass", False) for c in checks)
         results.append({
             "resource_key": key,
@@ -224,6 +242,9 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
         if "not_risk_levels" in not_expected:
             if cls.get("risk_level") in not_expected["not_risk_levels"]:
                 issues.append(f"unexpected_risk_level: {cls.get('risk_level')}")
+
+        if "placeholder_or_markup_protected" in cls.get("classification_evidence", []) and not _has_protected_structure(segment):
+            issues.append("false_protected_structure_evidence")
 
         pass_neg = not issues
         if not pass_neg:
@@ -270,9 +291,23 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
         if s["ui_risk_classification"].get("classification_evidence")
     )
 
+    structural_evidence_issues = []
+    for segment in classified_segments:
+        cls = segment["ui_risk_classification"]
+        evidence_present = "placeholder_or_markup_protected" in cls.get("classification_evidence", [])
+        protected_structure_present = _has_protected_structure(segment)
+        if evidence_present != protected_structure_present:
+            structural_evidence_issues.append({
+                "resource_key": segment.get("context", {}).get("resource_key"),
+                "protected_structure_present": protected_structure_present,
+                "protected_evidence_present": evidence_present,
+            })
+    if structural_evidence_issues:
+        failures.append("STRUCTURAL_EVIDENCE_TRUTHFULNESS_FAILED")
+
     all_expectations_pass = all(r["pass"] for r in results)
     all_negatives_pass = all(r["pass"] for r in negative_results)
-    status = "pass" if (all_expectations_pass and all_negatives_pass) else "fail"
+    status = "pass" if (all_expectations_pass and all_negatives_pass and not structural_evidence_issues) else "fail"
 
     # ── Example records ─────────────────────────────────────────────────
     examples = []
@@ -305,6 +340,8 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
             "false_negative_checks_pass": all_expectations_pass,
             "false_positive_checks_pass": all_negatives_pass,
             "evidence_present": evidence_count > 0,
+            "structural_evidence_truthful": not structural_evidence_issues,
+            "structural_evidence_issues": structural_evidence_issues,
             "examples": examples,
         },
         "results": results,
@@ -314,6 +351,33 @@ def run_benchmark(report_dir: Path = ROOT) -> dict[str, Any]:
 
     write_json(report_dir / "risk-classification-report.json", report)
     return report
+
+
+def _has_protected_structure(segment: dict[str, Any]) -> bool:
+    constraints = segment.get("constraints")
+    constraints = constraints if isinstance(constraints, dict) else {}
+    policy = constraints.get("markup_policy")
+    policy = policy if isinstance(policy, dict) else {}
+    collection_fields = (
+        segment.get("placeholder_signature"),
+        segment.get("escape_signature"),
+        segment.get("markup_signature"),
+        segment.get("protected_spans"),
+        constraints.get("placeholders"),
+        constraints.get("placeholder_signature"),
+        constraints.get("escape_signature"),
+        constraints.get("markup"),
+        constraints.get("markup_signature"),
+        constraints.get("protected_spans"),
+    )
+    return bool(
+        any(bool(value) for value in collection_fields)
+        or segment.get("cdata")
+        or constraints.get("cdata")
+        or segment.get("owner_review_required")
+        or policy.get("owner_review_required")
+        or policy.get("categories")
+    )
 
 
 if __name__ == "__main__":
