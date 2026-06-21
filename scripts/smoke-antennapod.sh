@@ -38,8 +38,7 @@ fi
 if [[ -z "$OUT_DIR" ]]; then
   OUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/localize-anything-antennapod.XXXXXX")"
 else
-  mkdir -p "$OUT_DIR"
-  OUT_DIR="$(cd "$OUT_DIR" && pwd -P)"
+  OUT_DIR="$("$PYTHON_BIN" -c 'import os, sys; print(os.path.realpath(os.path.abspath(sys.argv[1])))' "$OUT_DIR")"
 fi
 
 case "$OUT_DIR/" in
@@ -60,7 +59,7 @@ esac
 
 mkdir -p "$OUT_DIR"
 
-before_status="$(git -C "$PROJECT_PATH" status --porcelain --untracked-files=no)"
+before_status="$(git -C "$PROJECT_PATH" status --porcelain --untracked-files=all)"
 
 echo "Project: $PROJECT_PATH"
 echo "Output: $OUT_DIR"
@@ -79,9 +78,9 @@ echo "+ $PYTHON_BIN -m runtime.localize_anything validate-protocol"
 echo "+ $PYTHON_BIN -m runtime.localize_anything validate-contracts"
 "$PYTHON_BIN" -m runtime.localize_anything validate-contracts > "$OUT_DIR/contract-validation.json"
 
-after_status="$(git -C "$PROJECT_PATH" status --porcelain --untracked-files=no)"
+after_status="$(git -C "$PROJECT_PATH" status --porcelain --untracked-files=all)"
 if [[ "$before_status" != "$after_status" ]]; then
-  echo "Tracked project status changed during read-only inspection." >&2
+  echo "Project Git status changed during read-only inspection." >&2
   diff <(printf '%s\n' "$before_status") <(printf '%s\n' "$after_status") || true
   exit 1
 fi

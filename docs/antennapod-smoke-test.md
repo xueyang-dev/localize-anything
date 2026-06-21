@@ -61,9 +61,9 @@ scripts/smoke-antennapod.sh \
 ```
 
 The helper records both repository commits, writes `inspection.json`, validates
-the Localize Anything protocol and contracts, and checks that AntennaPod's
-tracked-file status did not change. It does not run generation, staging, apply,
-or any network translation provider.
+the Localize Anything protocol and contracts, and checks that AntennaPod's Git
+status did not change. It does not run generation, staging, apply, or any
+network translation provider.
 
 The equivalent inspection command is:
 
@@ -85,6 +85,10 @@ state under `.localize-anything/` in the target checkout. Run it only against
 the disposable AntennaPod clone. The command below uses synthetic drafts, keeps
 delivery outputs outside AntennaPod, selects blind mode, and never invokes an
 apply command:
+
+The full pipeline was not executed against AntennaPod as part of this
+documentation PR. Running and reviewing the command below is the manual smoke
+test, not evidence claimed by this document.
 
 ```bash
 evidence="$tmpdir/localize-anything-evidence"
