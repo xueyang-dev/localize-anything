@@ -1394,6 +1394,10 @@ class ProjectTests(unittest.TestCase):
                 "app/src/debug/res/values/strings.xml",
                 "app/src/free/res/values/strings.xml",
                 "app/src/main/res/values-land/strings.xml",
+                "app/src/main/res/values-mcc310-mnc004-land/strings.xml",
+                "app/src/main/res/values-mcc310-mnc004/strings.xml",
+                "app/src/main/res/values-mcc310-night/strings.xml",
+                "app/src/main/res/values-mcc310/strings.xml",
                 "app/src/main/res/values-night/strings.xml",
                 "app/src/main/res/values-sw600dp/strings.xml",
                 "app/src/main/res/values/strings.xml",
@@ -2707,7 +2711,7 @@ class V022AndroidResourceReliabilityTests(unittest.TestCase):
             self.assertEqual(report["status"], "pass", report["failed_checks"])
             self.assertEqual(report["verdict"], "V0.2.2-I ANDROID SOURCE-SET / QUALIFIER DETECTION POLICY: PASS")
             check = report["source_set_qualifier_check"]
-            self.assertEqual(check["source_files_detected"], 6)
+            self.assertEqual(check["source_files_detected"], 10)
             self.assertEqual(check["locale_reference_files_detected"], 3)
             self.assertTrue(check["source_set_metadata_present"])
             self.assertTrue(check["qualifier_metadata_present"])
