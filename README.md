@@ -13,25 +13,32 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
   <img src="https://github.com/Hsueh0216/localize-anything/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <a href="https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.3"><img src="https://img.shields.io/badge/release-v0.2.3-blue" alt="Release: v0.2.3"></a>
+  <a href="https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.4"><img src="https://img.shields.io/badge/release-v0.2.4-blue" alt="Release: v0.2.4"></a>
   <img src="https://img.shields.io/badge/QA-deterministic-green" alt="QA: deterministic">
   <img src="https://img.shields.io/badge/apply-staged%20first-blueviolet" alt="Apply: staged first">
 </p>
 
-Localize Anything turns model- or human-generated translations into a safe,
-reviewable, and reproducible delivery workflow. It extracts translatable
-content, generates target-locale drafts through agents or providers, validates
-structure deterministically, stages output safely, and applies changes only
-after explicit review and run-id confirmation.
+Localize Anything is an agent-native localization framework for developers and
+localization teams working with real source projects. It turns model- or
+human-generated translations into a safe, reviewable, and reproducible delivery
+workflow: extract content, generate drafts through agents or providers, validate
+structure deterministically, stage output, review it, and apply changes only
+after explicit run-id confirmation.
 
 ## Status
 
-**Current release:** [v0.2.3 — Android Resource Reliability Fixes](https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.3)
+**Current release:** [v0.2.4 — Release Hygiene and CI Benchmark Coverage](https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.4)
+
+v0.2.4 adds release hygiene and runs the full regression benchmark suite in CI
+on Python 3.11 and 3.12. It does not add localization features; the current
+Android capability boundary remains documented by the v0.2.3 reliability
+release. See the [changelog](CHANGELOG.md) and [release checklist](docs/release-checklist.md).
 
 Verified engineering evidence:
 
-- v0.2.1 mode-system benchmark: pass
+- v0.2.4 CI benchmark coverage on Python 3.11 and 3.12: pass
 - v0.2.3 Android resource reliability regressions: pass
+- v0.2.1 mode-system benchmark: pass
 - AntennaPod DeepSeek test: 869 segments in each of 2 locales, 0 deterministic QA issues, both builds successful
 
 These results demonstrate pipeline and structural correctness. They are not a
@@ -72,7 +79,7 @@ deterministic work; agents and providers handle semantic work.
 | **No silent overwrite** | Conflicts block apply until they are resolved. |
 | **Confirmed apply** | Apply requires a matching `--confirm-run-id`; replaced files are backed up. |
 | **Source mutation detection** | SHA-256 checks detect unexpected changes during a run. |
-| **Maintenance preservation** | Reviewed unchanged translations and target-only keys are preserved. |
+| **Maintenance preservation** | Reviewed unchanged translations and Android target-only resources are preserved in verified maintenance workflows. |
 | **Reference isolation** | Blind benchmarks keep existing translations out of generation-facing artifacts. |
 | **Reviewable delivery** | Manifests, QA results, sign-off scope, and file operations remain inspectable. |
 
@@ -108,7 +115,7 @@ localize-anything inspect /path/to/project
 
 ## Example workflow
 
-Create a staged Japanese maintenance delivery from an Android source file using
+Create a staged Japanese greenfield delivery from an Android source file using
 synthetic drafts, without calling an external model:
 
 ```bash
@@ -116,9 +123,9 @@ localize-anything localize-run /path/to/project \
   --source-locale en-US \
   --target-locale ja \
   --source-file app/src/main/res/values/strings.xml \
-  --operating-mode existing_locale_maintenance \
-  --reference-policy preserve_existing \
-  --run-id maintenance-001 \
+  --operating-mode greenfield_localization \
+  --reference-policy style_only \
+  --run-id greenfield-001 \
   --synthetic-draft
 ```
 
@@ -127,19 +134,22 @@ a separate, dry-run-planned action that requires explicit run-id confirmation.
 
 ## Current support
 
-### Stable
+### Implemented core adapters
 
-- Android `strings.xml` — strings, arrays, plurals, source sets, and locale qualifiers
+These adapters are marked `implemented` in their manifests:
+
 - JSON locale files
 - YAML and TOML
 - CSV, TSV, and XLSX
-- Markdown and HTML
+- Markdown and HTML text extraction/rebuild; code, attributes, and
+  `script`/`style`/`svg` content remain untouched
 - SRT and WebVTT
 - XLIFF 1.2 and 2.x
 - GNU gettext PO/POT
 
-### Experimental
+### Experimental platform adapters
 
+- Android `strings.xml`
 - iOS `.strings` and `.stringsdict`
 - Xcode `.xcstrings` String Catalogs
 
@@ -162,16 +172,28 @@ The synthetic Android fixture contains 12 source segments and 10 existing
 and unchanged source hashes. Run it with
 `python benchmarks/v021-mode-system/run.py`.
 
+### v0.2.4 release hygiene and CI coverage
+
+v0.2.4 adds no localization features. It validates the unit tests, protocol,
+adapter contracts, compilation, and all four public regression runners in CI on
+Python 3.11 and 3.12.
+
 ### v0.2.3 Android resource reliability
 
-The Android adapter covers:
+The experimental Android adapter covers:
 
 - `string`, `string-array`, and `plurals`
-- placeholders, escaped percent signs, and Android escapes
-- supported inline markup, simple links, CDATA, and XML comments
-- separate Android source sets and canonical locale qualifier ordering
-- target-only resource preservation and fail-closed routing
-- deterministic review-risk metadata with truthful structural evidence
+- placeholders, escaped percent signs, and Android escapes such as `\n`, `\t`,
+  `\'`, and `\"`
+- inline `<b>`, `<i>`, and `<u>` tags, plus simple `<a href="...">` links
+- CDATA boundaries and XML comments before resources
+- separate source sets and canonical resource qualifier routing, including
+  MCC/MNC ordering
+- blind reference isolation and existing-locale maintenance behavior
+- target-only obsolete resource preservation and fail-closed routing
+- unsupported complex markup preservation with `owner_review_required`
+- deterministic review-risk metadata for prioritization, not semantic
+  translation quality scoring
 
 See [Android Support in v0.2.3](docs/android-v0.2.3-support.md) for supported
 structures, known limitations, and explicit non-goals.
@@ -206,7 +228,7 @@ Full pipeline: extract → batch → DeepSeek API → collect → stage → QA �
 
 ### Project memory
 
-Localize Anything persists approved translation memory, session history, and
+Localize Anything persists reviewed translation memory, session history, and
 project configuration under `.localize-anything/`. In maintenance mode, reviewed
 translations with unchanged source hashes survive subsequent runs without
 retranslation or churn.
@@ -230,6 +252,10 @@ Localize Anything is not:
 
 - a prompt collection
 - a generic machine translation wrapper
+- a finished enterprise translation management system
+- a full HTML parser or automatic localizer for arbitrary nested markup
+- a layout, drawable, or asset localizer; Gradle editor; or APK decompiler
+- a semantic translation quality scorer
 - an APK or IPA repackaging tool
 - a replacement for qualified human review
 - a tool that silently rewrites a source project

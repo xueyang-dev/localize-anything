@@ -13,23 +13,29 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
   <img src="https://github.com/Hsueh0216/localize-anything/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <a href="https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.3"><img src="https://img.shields.io/badge/release-v0.2.3-blue" alt="Release: v0.2.3"></a>
+  <a href="https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.4"><img src="https://img.shields.io/badge/release-v0.2.4-blue" alt="Release: v0.2.4"></a>
   <img src="https://img.shields.io/badge/QA-deterministic-green" alt="QA: deterministic">
   <img src="https://img.shields.io/badge/apply-staged%20first-blueviolet" alt="Apply: staged first">
 </p>
 
-Localize Anything 把模型或人工生成的译文变成安全、可审查、可复现的交付流程。
-它负责提取可翻译内容，通过智能体或服务商生成目标语言草稿，以确定性规则验证结构，
-将结果安全暂存，并且只在明确审核和 run ID 确认后应用变更。
+Localize Anything 是面向真实源码项目开发者与本地化团队的智能体原生本地化框架。
+它把模型或人工生成的译文变成安全、可审查、可复现的交付流程：提取内容，通过智能体
+或服务商生成草稿，以确定性规则验证结构，暂存并审核输出，最后只在明确确认 run ID 后
+应用变更。
 
 ## 当前状态
 
-**当前发布版：** [v0.2.3 — Android Resource Reliability Fixes](https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.3)
+**当前发布版：** [v0.2.4 — Release Hygiene and CI Benchmark Coverage](https://github.com/Hsueh0216/localize-anything/releases/tag/v0.2.4)
+
+v0.2.4 改进发布卫生，并在 Python 3.11 与 3.12 的 CI 中运行完整回归基准套件；
+它没有新增本地化功能。当前 Android 能力边界仍由 v0.2.3 可靠性版本定义。
+详见[变更记录](CHANGELOG.md)与[发布检查清单](docs/release-checklist.md)。
 
 已验证的工程证据：
 
-- v0.2.1 模式系统基准：通过
+- v0.2.4 在 Python 3.11 与 3.12 上的 CI 基准覆盖：通过
 - v0.2.3 Android 资源可靠性回归：通过
+- v0.2.1 模式系统基准：通过
 - AntennaPod DeepSeek 实测：2 个目标语言各 869 段，确定性 QA 问题为 0，两个版本均编译成功
 
 这些结果证明的是流程与结构正确性，并不代表母语级译文质量。
@@ -67,8 +73,8 @@ Runtime 负责确定性工作，智能体与服务商负责语义工作。
 | **禁止静默覆盖** | 冲突会阻断应用，直到问题得到解决。 |
 | **确认后应用** | 应用要求匹配的 `--confirm-run-id`，被替换的文件会先备份。 |
 | **源码变更检测** | SHA-256 检查会发现运行期间的意外变化。 |
-| **维护模式保留** | 已审核且未变化的译文与仅目标侧键会被保留。 |
-| **参考内容隔离** | 盲测不会让已有译文进入面向生成的工件。 |
+| **维护模式保留** | 在已验证的维护流程中，已审核且未变化的译文与 Android 仅目标侧资源会被保留。 |
+| **盲参考隔离** | 盲测不会让已有译文进入面向生成的工件。 |
 | **交付可审查** | 清单、QA 结果、签字范围与文件操作始终可检查。 |
 
 完整安全架构见 [安全文档](docs/security.md)。
@@ -103,16 +109,16 @@ localize-anything inspect /path/to/project
 
 ## 示例工作流
 
-使用合成草稿，从 Android 源语言文件创建日语维护交付；整个过程不会调用外部模型：
+使用合成草稿，从 Android 源语言文件创建日语全新本地化交付；整个过程不会调用外部模型：
 
 ```bash
 localize-anything localize-run /path/to/project \
   --source-locale en-US \
   --target-locale ja \
   --source-file app/src/main/res/values/strings.xml \
-  --operating-mode existing_locale_maintenance \
-  --reference-policy preserve_existing \
-  --run-id maintenance-001 \
+  --operating-mode greenfield_localization \
+  --reference-policy style_only \
+  --run-id greenfield-001 \
   --synthetic-draft
 ```
 
@@ -121,19 +127,22 @@ localize-anything localize-run /path/to/project \
 
 ## 当前支持
 
-### 稳定
+### 已实现的核心适配器
 
-- Android `strings.xml`：字符串、数组、复数、source set 与语言区域限定符
+以下适配器在 manifest 中标记为 `implemented`：
+
 - JSON 语言文件
 - YAML 与 TOML
 - CSV、TSV 与 XLSX
-- Markdown 与 HTML
+- Markdown 与 HTML 文本提取和重建；代码、属性以及 `script`、`style`、`svg`
+  内容保持不动
 - SRT 与 WebVTT
 - XLIFF 1.2 与 2.x
 - GNU gettext PO/POT
 
-### 实验性
+### 实验性平台适配器
 
+- Android `strings.xml`
 - iOS `.strings` 与 `.stringsdict`
 - Xcode `.xcstrings` String Catalog
 
@@ -154,16 +163,24 @@ localize-anything localize-run /path/to/project \
 基准还验证了仅目标侧键保护和源码哈希不变性。运行命令：
 `python benchmarks/v021-mode-system/run.py`。
 
+### v0.2.4 发布卫生与 CI 覆盖
+
+v0.2.4 没有新增本地化功能。CI 在 Python 3.11 与 3.12 上验证单元测试、协议、
+适配器契约、编译检查与全部 4 个公开回归 runner。
+
 ### v0.2.3 Android 资源可靠性
 
-Android 适配器覆盖：
+实验性 Android 适配器覆盖：
 
 - `string`、`string-array` 与 `plurals`
-- 占位符、转义百分号与 Android 转义符
-- 支持的内联标记、简单链接、CDATA 与 XML 注释
-- 相互独立的 Android source set 与规范的语言区域限定符顺序
-- 仅目标侧资源保护与失败时关闭的路由策略
-- 带真实结构证据的确定性审核风险元数据
+- 占位符、转义百分号，以及 `\n`、`\t`、`\'`、`\"` 等 Android 转义符
+- `<b>`、`<i>`、`<u>` 内联标记与简单的 `<a href="...">` 链接
+- CDATA 边界与资源前的 XML 注释
+- 相互独立的 source set 与规范的资源限定符路由，包括 MCC/MNC 顺序
+- 盲参考隔离与已有语言维护模式
+- 仅目标侧过期资源保护与失败时关闭的路由策略
+- 对不支持的复杂标记保持原样，并标记为 `owner_review_required`（项目所有者审核）
+- 用于确定审核优先级的确定性风险元数据，而不是语义译文质量评分
 
 支持结构、已知限制与明确的非目标见
 [v0.2.3 Android 支持边界](docs/android-v0.2.3-support.md)。
@@ -198,8 +215,9 @@ Android 适配器覆盖：
 
 ### 项目记忆
 
-Localize Anything 在 `.localize-anything/` 下保存已批准的翻译记忆、会话历史和项目配置。
-在维护模式中，源文本哈希未变化的已审核译文会跨运行保留，不会重复翻译或产生无意义改动。
+Localize Anything 在 `.localize-anything/` 下保存已审核的翻译记忆、会话历史和项目配置。
+在已有语言维护模式中，源文本哈希未变化的已审核译文会跨运行保留，不会重复翻译或
+产生无意义改动。
 
 ### 审核与交付
 
@@ -220,6 +238,10 @@ Localize Anything 不是：
 
 - prompt 合集
 - 通用机器翻译包装器
+- 成熟的企业级翻译管理系统（TMS）
+- 完整 HTML 解析器或任意嵌套标记的自动本地化工具
+- layout、drawable 或 asset 本地化工具、Gradle 编辑器或 APK 反编译器
+- 语义译文质量评分器
 - APK 或 IPA 重打包工具
 - 专业人工审校的替代品
 - 会静默改写源码项目的工具
