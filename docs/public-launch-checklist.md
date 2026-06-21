@@ -75,4 +75,3 @@ Avoid claims of:
 - [ ] Confirm issue templates and `CONTRIBUTING.md` exist.
 - [ ] Confirm the AntennaPod smoke-test guide is linked.
 - [ ] Confirm no private roadmap or internal planning documents are tracked.
-

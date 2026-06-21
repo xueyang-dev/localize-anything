@@ -16,6 +16,10 @@ The project currently focuses on Android string resources and includes:
 - review-risk metadata for high-risk UI strings;
 - a real-project smoke-test guide using AntennaPod.
 
+The Android platform adapter remains experimental. Its supported structures and
+known limitations are documented in
+[Android Support in v0.2.3](android-v0.2.3-support.md).
+
 The goal is not to “translate everything automatically.” The goal is to produce
 traceable, reviewable localization delivery artifacts that developers can
 inspect before applying changes.
@@ -38,6 +42,9 @@ https://github.com/xueyang-dev/localize-anything
 - deterministic QA 和 CI 回归基准；
 - 高风险 UI 文本的 review-risk metadata；
 - 基于 AntennaPod 的真实项目 smoke test 指南。
+
+Android 平台适配器目前仍处于 experimental 阶段；已支持的结构和已知限制见
+[v0.2.3 Android 支持边界](android-v0.2.3-support.md)。
 
 这个项目的目标不是取代人工审查，而是让 Agent 参与本地化时更安全、更可追踪、更适合开发者 review。
 
@@ -62,4 +69,3 @@ Chinese:
 - production-safe operation without review
 - complete Android app localization
 - full HTML, layout, drawable, or asset support
-
