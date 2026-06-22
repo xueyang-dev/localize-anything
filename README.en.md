@@ -13,7 +13,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
   <img src="https://github.com/xueyang-dev/localize-anything/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <a href="https://github.com/xueyang-dev/localize-anything/releases/tag/v0.2.4"><img src="https://img.shields.io/badge/release-v0.2.4-blue" alt="Release: v0.2.4"></a>
+  <a href="https://github.com/xueyang-dev/localize-anything/releases/tag/v0.3.1"><img src="https://img.shields.io/badge/release-v0.3.1-blue" alt="Release: v0.3.1"></a>
   <img src="https://img.shields.io/badge/QA-deterministic-green" alt="QA: deterministic">
   <img src="https://img.shields.io/badge/apply-staged%20first-blueviolet" alt="Apply: staged first">
 </p>
@@ -27,16 +27,24 @@ after explicit run-id confirmation.
 
 ## Status
 
-**Current release:** [v0.2.4 — Release Hygiene and CI Benchmark Coverage](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.2.4)
+**Current release:** [v0.3.1 — Provider Path Hygiene Fix](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.3.1)
 
-v0.2.4 adds release hygiene and runs the full regression benchmark suite in CI
-on Python 3.11 and 3.12. It does not add localization features; the current
-Android capability boundary remains documented by the v0.2.3 reliability
-release. See the [changelog](CHANGELOG.md) and [release checklist](docs/release-checklist.md).
+v0.3.1 is a fix-forward release that removes a hardcoded private DeepSeek
+provider env-file path and keeps provider credentials explicit. v0.3.0 hardened
+real-project workflows with read-only inspect summaries and refreshed
+disposable-clone smoke evidence. These releases do not expand localization
+feature boundaries; the current Android capability boundary remains documented
+by the v0.2.3 reliability release. See the [changelog](CHANGELOG.md),
+[v0.3.1 release audit](docs/v0.3.1-release-audit.md), and
+[real-project stress matrix](docs/android-real-project-stress-matrix.md).
 
 Verified engineering evidence:
 
-- v0.2.4 CI benchmark coverage on Python 3.11 and 3.12: pass
+- v0.3.1 clean release audit: pass
+- Runtime private-path hygiene scan: pass
+- Unit tests, protocol validation, adapter contracts, compile checks, and public regression runners: pass
+- Disposable AntennaPod read-only inspect and smoke helper: pass with no tracked source mutation
+- Android real-project stress matrix: inspect/synthetic evidence recorded for AntennaPod, NewPipe, Tusky, and Fossify File Manager
 - v0.2.3 Android resource reliability regressions: pass
 - v0.2.1 mode-system benchmark: pass
 - AntennaPod DeepSeek test: 869 segments in each of 2 locales, 0 deterministic QA issues, both builds successful
@@ -172,11 +180,26 @@ The synthetic Android fixture contains 12 source segments and 10 existing
 and unchanged source hashes. Run it with
 `python benchmarks/v021-mode-system/run.py`.
 
-### v0.2.4 release hygiene and CI coverage
+### v0.3.1 release audit and path hygiene
 
-v0.2.4 adds no localization features. It validates the unit tests, protocol,
-adapter contracts, compilation, and all four public regression runners in CI on
-Python 3.11 and 3.12.
+v0.3.1 removes a hardcoded private DeepSeek provider env-file path and requires
+provider credentials through explicit environment configuration. The release
+audit passed unit tests, protocol validation, adapter contracts, compile checks,
+and the public regression runners. It also verified that runtime code contains
+no checked private local path patterns.
+
+See [v0.3.1 Release Audit](docs/v0.3.1-release-audit.md).
+
+### v0.3.0 real-project workflow hardening
+
+v0.3.0 adds read-only inspect summaries and refreshed disposable-clone
+AntennaPod smoke evidence. The workflow evidence focuses on source mutation
+safety, inspect-summary artifacts, scoped synthetic drafts, and reviewable
+delivery artifacts. It does not claim provider-backed translation quality,
+destructive apply safety, or full production localization of external projects.
+
+See [AntennaPod v0.3.0 smoke results](docs/antennapod-smoke-test-results-v0.3.0.md)
+and the [Android real-project stress matrix](docs/android-real-project-stress-matrix.md).
 
 ### v0.2.3 Android resource reliability
 

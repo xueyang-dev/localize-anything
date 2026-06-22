@@ -386,18 +386,3 @@ def _next_actions(status: str, decision: dict[str, Any], qa: dict[str, Any]) -> 
             "Use a real LLM/provider generated output before making translation quality claims.",
         ]
     return ["Inspect the localized app copy before reusing the generated language resource."]
-
-
-def inspect_android_app_test_report(path: Path) -> dict[str, Any]:
-    report = read_json(path)
-    project = Path(report["android"]["app_copy"])
-    inspection = inspect_project(project)
-    return {
-        "protocol_version": PROTOCOL_VERSION,
-        "status": report.get("status"),
-        "run_id": report.get("run_id"),
-        "app_copy": project.as_posix(),
-        "adapter_counts": inspection.get("adapter_counts", {}),
-        "summary": report.get("summary", {}),
-        "artifacts": report.get("artifacts", {}),
-    }
