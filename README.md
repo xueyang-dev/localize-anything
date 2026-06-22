@@ -1,6 +1,10 @@
 # Localize Anything
 
 <p align="center">
+  <img src="docs/assets/logo-localize-anything.png" alt="Localize Anything 项目 Logo" width="180">
+</p>
+
+<p align="center">
   <strong>面向真实代码库、支持智能体协作的软件本地化工程框架。</strong><br>
   <em>大模型可以生成译文；Localize Anything 负责让译文安全、可审查地进入交付流程。</em>
 </p>

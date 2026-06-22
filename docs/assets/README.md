@@ -11,6 +11,12 @@ Asset inventory for the Localize Anything documentation.
 | `delivery-package.svg` | Delivery package structure and evidence chain | docs/delivery-package.svg | hand-edited |
 | `benchmark-antennapod.svg` | AntennaPod DeepSeek benchmark summary | README.md | hand-edited |
 
+## Raster images
+
+| File | Purpose | Used in | Maintained |
+|------|---------|---------|------------|
+| `logo-localize-anything.png` | Project logo | README.md, README.en.md | generated asset |
+
 ## Conventions
 
 - All SVGs are dark-theme compatible (`#0f172a` background)

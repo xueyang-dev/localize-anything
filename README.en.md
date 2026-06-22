@@ -1,6 +1,10 @@
 # Localize Anything
 
 <p align="center">
+  <img src="docs/assets/logo-localize-anything.png" alt="Localize Anything logo" width="180">
+</p>
+
+<p align="center">
   <strong>Agent-native localization infrastructure for real source projects.</strong><br>
   <em>LLMs can translate strings. Localize Anything makes localization deliverable.</em>
 </p>
