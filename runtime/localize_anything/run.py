@@ -605,6 +605,7 @@ def _summary(
 
 
 def _write_run_summary(summary: dict[str, Any], run_dir: Path, inspection: dict[str, Any]) -> dict[str, Any]:
+    _attach_android_coverage(summary, inspection)
     write_json(run_dir / "run-summary.json", summary)
     record_project_session(
         Path(summary["project"]["root"]),
@@ -625,6 +626,36 @@ def _write_run_summary(summary: dict[str, Any], run_dir: Path, inspection: dict[
     return summary
 
 
+def _attach_android_coverage(summary: dict[str, Any], inspection: dict[str, Any]) -> None:
+    coverage = inspection.get("android_coverage") or {}
+    if not coverage:
+        return
+    selected = set(summary.get("source_files", []))
+    android_sources = set(inspection.get("android_generation_source_files", []))
+    selected_android_sources = sorted(selected & android_sources)
+    if not selected_android_sources:
+        return
+    counts = coverage.get("app_source_string_counts", {})
+    selected_app_source_strings = sum(int(counts.get(path, 0)) for path in selected_android_sources)
+    run_coverage = {
+        **coverage,
+        "selected_source_files": selected_android_sources,
+        "selected_app_source_strings": selected_app_source_strings,
+    }
+    summary["android_coverage"] = run_coverage
+    summary.setdefault("summary", {})["android_coverage"] = {
+        "coverage_mode": run_coverage.get("coverage_mode"),
+        "selected_app_source_strings": selected_app_source_strings,
+        "merged_dependency_strings_detected": run_coverage.get("merged_dependency_strings_detected", 0),
+        "merged_dependency_strings_included": run_coverage.get("merged_dependency_strings_included", False),
+        "visible_ui_coverage_warning": run_coverage.get("visible_ui_coverage_warning", False),
+    }
+    warnings = summary.setdefault("warnings", [])
+    for warning in run_coverage.get("warnings", []):
+        if warning not in warnings:
+            warnings.append(warning)
+
+
 def _routing_evidence(inspection: dict[str, Any], selected_source_files: list[str]) -> dict[str, Any]:
     return {
         "adapter_counts": inspection.get("adapter_counts", {}),
@@ -632,6 +663,7 @@ def _routing_evidence(inspection: dict[str, Any], selected_source_files: list[st
         "supported_file_count": len(inspection.get("supported_files", [])),
         "android_generation_source_files": inspection.get("android_generation_source_files", []),
         "android_locale_reference_files": inspection.get("android_locale_reference_files", []),
+        "android_coverage": inspection.get("android_coverage", {}),
         "unprocessed_non_text_asset_count": len(inspection.get("unprocessed_non_text_assets", [])),
         "scan_policy": inspection.get("scan_policy", {}),
         "ignored_path_count": inspection.get("ignored_path_count", 0),

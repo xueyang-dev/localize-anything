@@ -21,7 +21,7 @@ def build_inspect_summary(
     supported_files = inspection.get("supported_files", [])
     adapter_counts = dict(sorted(inspection.get("adapter_counts", {}).items()))
     android_files = [item for item in supported_files if item.get("adapter") == "core.android-strings"]
-    android_summary = _android_summary(Path(inspection["project_root"]), android_files)
+    android_summary = _android_summary(Path(inspection["project_root"]), android_files, inspection.get("android_coverage", {}))
     return {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-inspect-summary-v1",
@@ -115,6 +115,19 @@ def render_inspect_summary_markdown(summary: dict[str, Any]) -> str:
             lines.append("- Warnings:")
             for warning in android["warnings"]:
                 lines.append(f"  - `{warning.get('path')}`: {warning.get('message')}")
+        coverage = android.get("coverage", {})
+        if coverage:
+            lines.append("- Coverage model:")
+            lines.append(f"  - coverage mode: `{coverage.get('coverage_mode')}`")
+            lines.append(f"  - app source strings: {coverage.get('app_source_strings', 0)}")
+            lines.append(
+                "  - merged dependency strings detected: "
+                f"{coverage.get('merged_dependency_strings_detected', 0)}"
+            )
+            lines.append(
+                "  - visible UI coverage warning: "
+                f"{str(coverage.get('visible_ui_coverage_warning', False)).lower()}"
+            )
     else:
         lines.append("- No Android string resources detected.")
     lines.extend(["", "## Risk And Review Metadata", ""])
@@ -176,7 +189,7 @@ def _primary_adapter(adapter_counts: dict[str, int]) -> str | None:
     return sorted(adapter_counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
-def _android_summary(project_root: Path, android_files: list[dict[str, Any]]) -> dict[str, Any]:
+def _android_summary(project_root: Path, android_files: list[dict[str, Any]], android_coverage: dict[str, Any]) -> dict[str, Any]:
     resource_types: Counter[str] = Counter({resource_type: 0 for resource_type in ANDROID_RESOURCE_TYPES})
     warnings: list[dict[str, str]] = []
     for item in android_files:
@@ -200,6 +213,7 @@ def _android_summary(project_root: Path, android_files: list[dict[str, Any]]) ->
         "target_locale_files": sorted(item["path"] for item in android_files if item.get("android_role") == "locale_reference"),
         "owner_review_required_files": sorted(item["path"] for item in android_files if item.get("owner_review_required")),
         "warnings": warnings,
+        "coverage": android_coverage,
     }
 
 
@@ -233,4 +247,6 @@ def _summary_warnings(inspection: dict[str, Any], android_summary: dict[str, Any
         warnings.append("some Android resource files require owner review before generation")
     if android_summary.get("warnings"):
         warnings.append("Android routing or resource counting warnings were reported")
+    for warning in android_summary.get("coverage", {}).get("warnings", []):
+        warnings.append(warning)
     return warnings

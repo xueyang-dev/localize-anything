@@ -7,6 +7,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 from . import PROTOCOL_VERSION, __version__
 from .android_strings_adapter import android_resource_routing, is_android_strings_path
@@ -81,6 +82,12 @@ IGNORED_DIRECTORY_NAMES = {
 }
 IGNORED_DIRECTORY_PREFIXES = ("localize-run-",)
 IGNORED_FILE_GLOBS = ("*.class", "*.o", "*.pyc")
+ANDROID_RESOURCE_TAGS = {"string", "string-array", "plurals"}
+ANDROID_VISIBLE_UI_COVERAGE_WARNING = (
+    "Android source-only localization may not cover all visible UI strings. "
+    "Gradle merged dependency resources were detected but not included. "
+    "Strings from dependencies may remain in the source language unless an explicit merged-resource workflow is used."
+)
 
 
 def file_sha256(path: Path) -> str:
@@ -159,6 +166,7 @@ def inspect_project(project: Path) -> dict[str, Any]:
         for item in files
         if item["adapter"] == "core.android-strings" and item.get("android_role") == "locale_reference"
     ]
+    android_coverage = _android_coverage(project, files)
     return {
         "protocol_version": PROTOCOL_VERSION,
         "project_root": project.resolve().as_posix(),
@@ -166,6 +174,7 @@ def inspect_project(project: Path) -> dict[str, Any]:
         "adapter_counts": adapter_counts,
         "android_generation_source_files": sorted(android_generation_sources),
         "android_locale_reference_files": sorted(android_locale_references),
+        "android_coverage": android_coverage,
         "unprocessed_non_text_assets": unprocessed_assets,
         "scan_policy": scan_policy(),
         "ignored_path_count": len(ignored_paths),
@@ -277,6 +286,100 @@ def initialize_project(
     }
     _write_json(state / "delivery-manifest.json", manifest)
     return {"state_directory": state.as_posix(), "inventory": inventory, "manifest": manifest}
+
+
+def _android_coverage(project: Path, files: list[dict[str, Any]]) -> dict[str, Any]:
+    android_sources = [
+        item
+        for item in files
+        if item.get("adapter") == "core.android-strings" and item.get("android_role") == "source_candidate"
+    ]
+    source_keys: set[str] = set()
+    source_counts: dict[str, int] = {}
+    categories = {
+        "app_source_resources": {"file_count": 0, "string_count": 0},
+        "build_variant_resources": {"file_count": 0, "string_count": 0},
+        "merged_dependency_resources": {"file_count": 0, "string_count": 0},
+        "non_resource_runtime_text": {
+            "included": False,
+            "examples": ["Alarms", "Documents", "DCIM"],
+            "note": "Device folders, OS labels, server text, WebView content, image text, and runtime content are outside Android resource-file localization.",
+        },
+    }
+    parse_warnings: list[dict[str, str]] = []
+    for item in android_sources:
+        relative = item["path"]
+        keys, warnings = _android_resource_unit_keys(project / relative)
+        source_counts[relative] = len(keys)
+        source_keys.update(keys)
+        category = "app_source_resources" if item.get("android_source_set") == "main" else "build_variant_resources"
+        categories[category]["file_count"] += 1
+        categories[category]["string_count"] += len(keys)
+        parse_warnings.extend({"path": relative, "message": warning} for warning in warnings)
+
+    merged_files = []
+    merged_dependency_keys: set[str] = set()
+    for path in _discover_android_merged_values(project):
+        keys, warnings = _android_resource_unit_keys(path)
+        dependency_keys = keys - source_keys
+        merged_dependency_keys.update(dependency_keys)
+        relative = _relative_project_path(project, path)
+        merged_files.append(
+            {
+                "path": relative,
+                "resource_units": len(keys),
+                "dependency_resource_units": len(dependency_keys),
+            }
+        )
+        parse_warnings.extend({"path": relative, "message": warning} for warning in warnings)
+
+    categories["merged_dependency_resources"]["file_count"] = len(merged_files)
+    categories["merged_dependency_resources"]["string_count"] = len(merged_dependency_keys)
+    visible_warning = bool(merged_dependency_keys and android_sources)
+    return {
+        "schema": "localize-anything-android-coverage-v1",
+        "coverage_mode": "source-only",
+        "app_source_strings": sum(source_counts.values()),
+        "app_source_files": sorted(source_counts),
+        "app_source_string_counts": dict(sorted(source_counts.items())),
+        "merged_dependency_strings_detected": len(merged_dependency_keys),
+        "merged_dependency_strings_included": False,
+        "merged_resource_files": merged_files,
+        "categories": categories,
+        "visible_ui_coverage_warning": visible_warning,
+        "warnings": [ANDROID_VISIBLE_UI_COVERAGE_WARNING] if visible_warning else [],
+        "parse_warnings": parse_warnings,
+    }
+
+
+def _discover_android_merged_values(project: Path) -> list[Path]:
+    return sorted(project.glob("*/build/intermediates/incremental/*/merge*Resources/merged.dir/values/values.xml"))
+
+
+def _android_resource_unit_keys(path: Path) -> tuple[set[str], list[str]]:
+    try:
+        root = ElementTree.fromstring(path.read_text(encoding="utf-8"))
+    except (OSError, ElementTree.ParseError) as exc:
+        return set(), [f"resource coverage counts unavailable: {exc.__class__.__name__}"]
+    keys: set[str] = set()
+    for element in root:
+        tag = _xml_local_name(element.tag)
+        if tag not in ANDROID_RESOURCE_TAGS:
+            continue
+        name = element.attrib.get("name", "")
+        if not name or element.attrib.get("translatable") == "false":
+            continue
+        if tag == "string":
+            keys.add(f"string:{name}")
+            continue
+        for index, child in enumerate([child for child in list(element) if _xml_local_name(child.tag) == "item"]):
+            quantity = child.attrib.get("quantity") if tag == "plurals" else index
+            keys.add(f"{tag}:{name}:{quantity}")
+    return keys, []
+
+
+def _xml_local_name(tag: str) -> str:
+    return tag.split("}", 1)[-1]
 
 
 def scan_policy() -> dict[str, Any]:
