@@ -17,6 +17,6 @@ Gradle merged resources may include dependency strings that are visible in the a
 
 Device folders such as `Alarms`, `Documents`, and `DCIM` are runtime filesystem content, not Android string resources. Server-provided strings, WebView content, image text, Compose hardcoded strings, layout hardcoded strings, and OS strings are also outside this resource workflow.
 
-Merged dependency overlay support should remain explicit and experimental. It should not become a default source-only behavior because merged resources are build intermediates and variant-specific.
+Merged dependency overlay support should remain explicit and experimental. It should not become a default source-only behavior because merged resources are build intermediates and variant-specific. See `docs/android-merged-resource-overlay.md` for the opt-in overlay workflow.
 
 Apply/write-back is out of scope for this coverage model. This document only explains detection and reporting.

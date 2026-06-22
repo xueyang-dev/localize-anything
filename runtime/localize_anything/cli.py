@@ -469,6 +469,25 @@ def build_parser() -> argparse.ArgumentParser:
     localize_run_parser.add_argument("--generated-dir", type=Path)
     localize_run_parser.add_argument("--generated", type=Path)
     localize_run_parser.add_argument("--synthetic-draft", action="store_true")
+    localize_run_parser.add_argument(
+        "--include-android-merged-resources",
+        action="store_true",
+        help="Explicitly include Gradle merged Android resources as an app-owned dependency overlay",
+    )
+    localize_run_parser.add_argument(
+        "--android-merged-resources",
+        type=Path,
+        help="Merged Android values.xml file or directory to use with --include-android-merged-resources",
+    )
+    localize_run_parser.add_argument(
+        "--android-build-variant",
+        help="Build variant whose Gradle merged resources should be discovered, such as fossDebug",
+    )
+    localize_run_parser.add_argument(
+        "--android-overlay-output-name",
+        default="localize_anything_overlay.xml",
+        help="App-owned overlay XML file name for merged dependency resources",
+    )
     localize_run_parser.add_argument("--workflow-depth", default="ask", choices=["ask", "fast", "standard", "high_assurance"])
     localize_run_parser.add_argument("--preflight-mode", default="auto", choices=["auto", "light", "full", "layered", "skip_deep"])
     localize_run_parser.add_argument("--privacy-mode", default="standard")
@@ -594,7 +613,10 @@ def build_parser() -> argparse.ArgumentParser:
     apply_parser.add_argument("--markdown-output", type=Path)
     apply_parser.add_argument("--output", type=Path)
 
-    execute_apply_parser = subparsers.add_parser("apply-delivery", help="Apply a delivery after explicit run-id confirmation")
+    execute_apply_parser = subparsers.add_parser(
+        "apply-delivery",
+        help="Apply a delivery after explicit run-id confirmation and clean-git safety checks",
+    )
     execute_apply_parser.add_argument("delivery_dir", type=Path)
     execute_apply_parser.add_argument("project", type=Path)
     execute_apply_parser.add_argument("--confirm-run-id", required=True)
@@ -980,6 +1002,10 @@ def main(argv: list[str] | None = None) -> int:
                 args.status,
                 args.operating_mode,
                 args.reference_policy,
+                args.include_android_merged_resources,
+                args.android_merged_resources,
+                args.android_build_variant,
+                args.android_overlay_output_name,
             )
             _emit_json(result, args.output)
             return 1 if result["status"] == "generation_failed" else 0

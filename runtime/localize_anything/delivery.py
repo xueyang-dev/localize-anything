@@ -22,6 +22,7 @@ def package_delivery(
     qa_result_paths: list[Path] | None = None,
     requested_status: str = "draft_package",
     run_id: str | None = None,
+    output_metadata: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     state_dir = state_dir.resolve()
     staging_dir = staging_dir.resolve()
@@ -66,21 +67,23 @@ def package_delivery(
         for asset in CANONICAL_ASSETS:
             shutil.copy2(state_dir / asset, temporary / asset)
         outputs: list[dict[str, Any]] = []
+        output_metadata = output_metadata or {}
         for staged in staged_files:
             relative = staged.relative_to(staging_dir)
             packaged = temporary / "files" / relative
             packaged.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(staged, packaged)
             project_destination = project_root / relative
-            outputs.append(
-                {
-                    "package_path": (Path("files") / relative).as_posix(),
-                    "destination": relative.as_posix(),
-                    "sha256": sha256_file(packaged),
-                    "size_bytes": packaged.stat().st_size,
-                    "destination_base_sha256": sha256_file(project_destination) if project_destination.is_file() else None,
-                }
-            )
+            destination_key = relative.as_posix()
+            record = {
+                "package_path": (Path("files") / relative).as_posix(),
+                "destination": destination_key,
+                "sha256": sha256_file(packaged),
+                "size_bytes": packaged.stat().st_size,
+                "destination_base_sha256": sha256_file(project_destination) if project_destination.is_file() else None,
+            }
+            record.update(output_metadata.get(destination_key, {}))
+            outputs.append(record)
 
         unprocessed_assets = current.get("unprocessed_non_text_assets", [])
         qa_report = render_qa_report(qa, requested_status, unprocessed_assets)

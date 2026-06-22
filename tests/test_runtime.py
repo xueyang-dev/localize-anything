@@ -1628,6 +1628,8 @@ class ProjectTests(unittest.TestCase):
             cli_main(["localize-run", "--help"])
         self.assertEqual(run_exit.exception.code, 0)
         self.assertIn("does not call apply-delivery", run_stdout.getvalue())
+        self.assertIn("--include-android-merged-resources", run_stdout.getvalue())
+        self.assertIn("--android-merged-resources", run_stdout.getvalue())
         self.assertNotIn("--apply-to-project", run_stdout.getvalue())
         self.assertNotIn("--apply-confirm-run-id", run_stdout.getvalue())
 
@@ -1636,6 +1638,13 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("Gradle merged resources", doc)
         self.assertIn("Alarms", doc)
         self.assertIn("Apply/write-back is out of scope", doc)
+
+    def test_android_merged_resource_overlay_doc_records_explicit_boundaries(self) -> None:
+        doc = (REPOSITORY_ROOT / "docs" / "android-merged-resource-overlay.md").read_text(encoding="utf-8")
+        self.assertIn("defaults to source-only Android localization", doc)
+        self.assertIn("--include-android-merged-resources", doc)
+        self.assertIn("does not modify the source project during `localize-run`", doc)
+        self.assertIn("not a claim of full Android app localization", doc)
 
     def test_smoke_antennapod_helper_has_valid_bash_syntax(self) -> None:
         bash = shutil.which("bash")
@@ -1954,6 +1963,118 @@ class LocalizeRunTests(unittest.TestCase):
             self.assertEqual(result["summary"]["android_coverage"]["merged_dependency_strings_detected"], 2)
             self.assertTrue(result["summary"]["android_coverage"]["visible_ui_coverage_warning"])
             self.assertTrue(any("source-only localization may not cover" in warning for warning in result["warnings"]))
+
+    def test_android_merged_resources_overlay_is_explicit_and_app_owned(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "android-project"
+            shutil.copytree(ANDROID_FIXTURE_ROOT, project)
+            debug_source = project / "app" / "src" / "debug" / "res" / "values" / "strings.xml"
+            debug_source.parent.mkdir(parents=True)
+            debug_source.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="debug_label">Debug</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            target_existing = project / "app" / "src" / "main" / "res" / "values-th" / "strings.xml"
+            target_existing.parent.mkdir(parents=True)
+            target_existing.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="already_translated">Existing target</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            merged = project / "merged" / "values.xml"
+            merged.parent.mkdir(parents=True)
+            merged.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">App duplicate</string>
+    <string name="already_translated">Existing target duplicate</string>
+    <string name="files_tab">Files</string>
+    <string name="skip_dependency" translatable="false">Do not translate</string>
+    <string-array name="sort_options">
+        <item>Name</item>
+        <item>Date</item>
+    </string-array>
+    <plurals name="item_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <color name="brand_color">#ffffff</color>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            before_app_sources = {
+                path.relative_to(project).as_posix(): path.read_bytes()
+                for path in (project / "app" / "src").rglob("*")
+                if path.is_file()
+            }
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["th"],
+                source_files=[
+                    "app/src/debug/res/values/strings.xml",
+                    "app/src/main/res/values/strings.xml",
+                ],
+                output_root=root / "out",
+                run_id="android-overlay-001",
+                max_segments=40,
+                synthetic_draft=True,
+                include_android_merged_resources=True,
+                android_merged_resources=merged,
+                android_build_variant="debug",
+            )
+
+            after_app_sources = {
+                path.relative_to(project).as_posix(): path.read_bytes()
+                for path in (project / "app" / "src").rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(result["status"], "draft_package_created")
+            self.assertEqual(before_app_sources, after_app_sources)
+            self.assertFalse((project / "app" / "src" / "main" / "res" / "values-th" / "localize_anything_overlay.xml").exists())
+            coverage = result["summary"]["android_coverage"]
+            self.assertEqual(coverage["coverage_mode"], "source-plus-merged-overlay")
+            self.assertFalse(coverage["visible_ui_coverage_warning"])
+            self.assertEqual(coverage["merged_dependency_strings_included"], 5)
+            overlay = result["android_merged_overlay"]
+            self.assertEqual(overlay["destination"], "app/src/main/res/values-th/localize_anything_overlay.xml")
+            self.assertEqual(overlay["merged_dependency_resources_excluded"]["app_owned_duplicate"], 1)
+            self.assertEqual(overlay["merged_dependency_resources_excluded"]["target_locale_existing"], 1)
+            self.assertEqual(overlay["merged_dependency_resources_excluded"]["translatable_false"], 1)
+            self.assertEqual(overlay["merged_dependency_resources_excluded"]["unsupported_type"], 1)
+
+            delivery = Path(result["artifacts"]["delivery_directory"])
+            packaged_overlay = delivery / "files" / "app" / "src" / "main" / "res" / "values-th" / "localize_anything_overlay.xml"
+            self.assertTrue(packaged_overlay.is_file())
+            overlay_text = packaged_overlay.read_text(encoding="utf-8")
+            self.assertIn('name="files_tab"', overlay_text)
+            self.assertIn('name="sort_options"', overlay_text)
+            self.assertIn('name="item_count"', overlay_text)
+            self.assertNotIn("app_name", overlay_text)
+            self.assertNotIn("already_translated", overlay_text)
+            self.assertNotIn("skip_dependency", overlay_text)
+            self.assertNotIn("brand_color", overlay_text)
+            manifest = read_json(delivery / "delivery-manifest.json")
+            overlay_outputs = [
+                output
+                for output in manifest["outputs"]
+                if output.get("source_category") == "merged_dependency_overlay"
+            ]
+            self.assertEqual(len(overlay_outputs), 1)
+            self.assertEqual(overlay_outputs[0]["destination"], "app/src/main/res/values-th/localize_anything_overlay.xml")
+            self.assertEqual(overlay_outputs[0]["apply_safety"]["requires_explicit_run_id"], True)
+            self.assertEqual(overlay_outputs[0]["apply_safety"]["requires_clean_git_tree"], True)
+            self.assertNotIn(str(root), json.dumps(overlay_outputs[0]))
 
     def test_blind_benchmark_hides_target_references_from_generation_packets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -2802,6 +2923,98 @@ class DeliveryLifecycleTests(unittest.TestCase):
             self.assertEqual(json.loads((locales / "zh-CN.json").read_text(encoding="utf-8")), json.loads(expected.read_text(encoding="utf-8")))
             backup = project / ".localize-anything" / "backups" / "apply-run-001" / "locales" / "zh-CN.json"
             self.assertEqual(backup.read_text(encoding="utf-8"), '{"old": true}\n')
+
+    def test_android_overlay_apply_requires_clean_git_tree_and_locale_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            project.mkdir()
+            subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True, text=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=project, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=project, check=True)
+            source_file = project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+            source_file.parent.mkdir(parents=True)
+            source_file.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sample</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            initialized = initialize_project(project, "en-US", ["app/src/main/res/values/strings.xml"], ["th"])
+            state = Path(initialized["state_directory"])
+            subprocess.run(["git", "add", "."], cwd=project, check=True)
+            subprocess.run(["git", "commit", "-m", "baseline"], cwd=project, check=True, capture_output=True, text=True)
+
+            staging = root / "staging"
+            overlay = staging / "app" / "src" / "main" / "res" / "values-th" / "localize_anything_overlay.xml"
+            overlay.parent.mkdir(parents=True)
+            overlay.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="files_tab">ไฟล์</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            packaged = package_delivery(
+                state,
+                staging,
+                root / "deliveries",
+                [],
+                "draft_package",
+                "overlay-apply-001",
+                {
+                    "app/src/main/res/values-th/localize_anything_overlay.xml": {
+                        "source_category": "merged_dependency_overlay",
+                        "apply_safety": {
+                            "requires_explicit_run_id": True,
+                            "requires_clean_git_tree": True,
+                            "destination_policy": "android_target_locale_resource_file",
+                        },
+                    }
+                },
+            )
+            delivery = Path(packaged["delivery_directory"])
+            subprocess.run(["git", "add", "."], cwd=project, check=True)
+            subprocess.run(["git", "commit", "-m", "package overlay"], cwd=project, check=True, capture_output=True, text=True)
+            dirty_file = project / "README.md"
+            dirty_file.write_text("dirty\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "clean git tree"):
+                execute_apply(delivery, project, "overlay-apply-001")
+            dirty_file.unlink()
+
+            result = execute_apply(delivery, project, "overlay-apply-001")
+            self.assertEqual(result["summary"]["created"], 1)
+            written = project / "app" / "src" / "main" / "res" / "values-th" / "localize_anything_overlay.xml"
+            self.assertTrue(written.is_file())
+            self.assertIn("values-th/localize_anything_overlay.xml", result["post_apply_git_diff"])
+
+            unsafe_staging = root / "unsafe-staging"
+            unsafe = unsafe_staging / "app" / "src" / "main" / "res" / "values" / "localize_anything_overlay.xml"
+            unsafe.parent.mkdir(parents=True)
+            unsafe.write_text(overlay.read_text(encoding="utf-8"), encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=project, check=True)
+            subprocess.run(["git", "commit", "-m", "apply overlay"], cwd=project, check=True, capture_output=True, text=True)
+            unsafe_packaged = package_delivery(
+                state,
+                unsafe_staging,
+                root / "unsafe-deliveries",
+                [],
+                "draft_package",
+                "unsafe-overlay-apply-001",
+                {
+                    "app/src/main/res/values/localize_anything_overlay.xml": {
+                        "source_category": "merged_dependency_overlay",
+                        "apply_safety": {"requires_explicit_run_id": True},
+                    }
+                },
+            )
+            subprocess.run(["git", "add", "."], cwd=project, check=True)
+            subprocess.run(["git", "commit", "-m", "package unsafe overlay"], cwd=project, check=True, capture_output=True, text=True)
+            with self.assertRaisesRegex(ValueError, "locale values directory"):
+                execute_apply(Path(unsafe_packaged["delivery_directory"]), project, "unsafe-overlay-apply-001")
 
 
 class ProtocolFilesTests(unittest.TestCase):

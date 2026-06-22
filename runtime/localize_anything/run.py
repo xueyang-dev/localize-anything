@@ -5,6 +5,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import PROTOCOL_VERSION
+from .android_merged_overlay import (
+    SOURCE_CATEGORY as ANDROID_MERGED_OVERLAY_CATEGORY,
+    create_overlay_plan,
+    overlay_output_metadata,
+    stage_overlay,
+)
 from .android_strings_adapter import extract_segments as extract_android_strings
 from .android_strings_adapter import validate_pair as validate_android_strings
 from .apply import create_apply_plan, render_apply_plan_markdown
@@ -86,6 +92,10 @@ def run_localize(
     delivery_status: str = "draft_package",
     operating_mode: str | None = None,
     reference_policy: str | None = None,
+    include_android_merged_resources: bool = False,
+    android_merged_resources: Path | None = None,
+    android_build_variant: str | None = None,
+    android_overlay_output_name: str = "localize_anything_overlay.xml",
 ) -> dict[str, Any]:
     if len(target_locales) != 1:
         raise ValueError("localize-run currently accepts exactly one target locale per run")
@@ -123,6 +133,19 @@ def run_localize(
     segments = _extract_all(project_root, inspection, selected_files, source_locale)
     if not segments:
         raise ValueError("Selected source files did not produce any translatable segments")
+    overlay_plan: dict[str, Any] | None = None
+    if include_android_merged_resources:
+        overlay_plan = create_overlay_plan(
+            project_root,
+            selected_files,
+            segments,
+            source_locale,
+            target_locale,
+            android_merged_resources,
+            android_build_variant,
+            android_overlay_output_name,
+        )
+        segments.extend(overlay_plan["segments"])
     segments_path = run_dir / "segments.jsonl"
     write_jsonl(segments_path, segments)
 
@@ -138,6 +161,8 @@ def run_localize(
         operating_mode,
         reference_policy,
     )
+    if overlay_plan:
+        reference_plan.setdefault("android_merged_overlay", _overlay_report(overlay_plan))
     reference_plan_path = run_dir / "reference-plan.json"
     write_json(reference_plan_path, reference_plan)
 
@@ -190,6 +215,7 @@ def run_localize(
             reference_summary=reference_plan["summary"],
             prompt_manifest_path=prompt_manifest_path,
             generation_readme_path=generation_readme_path,
+            android_overlay_plan=overlay_plan,
         )
         return _write_run_summary(summary, run_dir, inspection)
 
@@ -230,6 +256,7 @@ def run_localize(
             collect_path=collect_path,
             generated_path=generated_path,
             generation_status=collect_result["status"],
+            android_overlay_plan=overlay_plan,
         )
         return _write_run_summary(summary, run_dir, inspection)
 
@@ -254,19 +281,33 @@ def run_localize(
 
     staging_dir = run_dir / "staging"
     preserve_target_only = operating_mode in {"existing_locale_maintenance", "rewrite_or_harmonization"}
+    non_overlay_delivery_segments = [
+        segment
+        for segment in delivery_segments
+        if segment.get("context", {}).get("source_category") != ANDROID_MERGED_OVERLAY_CATEGORY
+    ]
     staging_result = stage_generated(
         project_root,
-        delivery_segments,
+        non_overlay_delivery_segments,
         staging_dir,
         source_locale,
         target_locale,
         selected_files,
         preserve_target_only=preserve_target_only,
     )
+    output_metadata: dict[str, dict[str, Any]] = {}
+    overlay_output: dict[str, Any] | None = None
+    if overlay_plan:
+        overlay_output, overlay_qa_path = stage_overlay(overlay_plan, generated_segments, staging_dir, run_dir)
+        staging_result["outputs"].append(overlay_output)
+        staging_result["summary"]["output_count"] = len(staging_result["outputs"])
+        staging_result["summary"]["merged_overlay_output_count"] = 1
+        staging_result["android_merged_overlay"] = _overlay_report(overlay_plan, overlay_output)
+        output_metadata[overlay_output["destination"]] = overlay_output_metadata(overlay_plan)
     staging_path = run_dir / "staging-result.json"
     write_json(staging_path, staging_result)
     qa_paths = _validate_staged_outputs(project_root, staging_result, target_locale, run_dir / "qa")
-    packaged = package_delivery(state_dir, staging_dir, run_dir / "deliveries", qa_paths, delivery_status, run_id)
+    packaged = package_delivery(state_dir, staging_dir, run_dir / "deliveries", qa_paths, delivery_status, run_id, output_metadata)
     delivery_dir = Path(packaged["delivery_directory"])
     apply_plan = create_apply_plan(delivery_dir, project_root)
     apply_plan_path = run_dir / "apply-plan.json"
@@ -328,6 +369,8 @@ def run_localize(
         qa_status=dashboard["summary"]["qa_status"],
         blocking_count=dashboard["summary"]["blocking_count"],
         warning_count=dashboard["summary"]["warning_count"],
+        android_overlay_plan=overlay_plan,
+        android_overlay_output=overlay_output,
     )
     return _write_run_summary(summary, run_dir, inspection)
 
@@ -452,7 +495,8 @@ def _validate_staged_outputs(project_root: Path, staging_result: dict[str, Any],
     qa_paths: list[Path] = []
     for index, output in enumerate(staging_result.get("outputs", []), 1):
         adapter = output["adapter"]
-        source = project_root / output["source"]
+        source_value = Path(str(output.get("validation_source") or output["source"]))
+        source = source_value if source_value.is_absolute() else project_root / source_value
         target = Path(output["output"])
         if not target.is_absolute():
             target = Path(staging_result["staging_dir"]) / output["destination"]
@@ -528,6 +572,8 @@ def _summary(
     operating_mode: str = DEFAULT_OPERATING_MODE,
     reference_policy: str = DEFAULT_REFERENCE_POLICY_BY_MODE[DEFAULT_OPERATING_MODE],
     reference_summary: dict[str, Any] | None = None,
+    android_overlay_plan: dict[str, Any] | None = None,
+    android_overlay_output: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     artifacts: dict[str, str] = {
         "run_directory": run_dir.as_posix(),
@@ -564,7 +610,7 @@ def _summary(
         if value is not None:
             artifacts[key] = value.as_posix()
 
-    return {
+    summary = {
         "protocol_version": PROTOCOL_VERSION,
         "evidence_channels": ["runtime"],
         "run_id": run_id,
@@ -602,6 +648,9 @@ def _summary(
         "artifacts": artifacts,
         "next_actions": _next_actions(status),
     }
+    if android_overlay_plan:
+        summary["android_merged_overlay"] = _overlay_report(android_overlay_plan, android_overlay_output)
+    return summary
 
 
 def _write_run_summary(summary: dict[str, Any], run_dir: Path, inspection: dict[str, Any]) -> dict[str, Any]:
@@ -654,6 +703,41 @@ def _attach_android_coverage(summary: dict[str, Any], inspection: dict[str, Any]
     for warning in run_coverage.get("warnings", []):
         if warning not in warnings:
             warnings.append(warning)
+    overlay = summary.get("android_merged_overlay")
+    if overlay:
+        merged = {
+            **run_coverage,
+            **overlay,
+            "coverage_mode": "source-plus-merged-overlay",
+            "merged_dependency_strings_included": overlay.get("merged_dependency_resources_included", 0),
+            "visible_ui_coverage_warning": False,
+        }
+        summary["android_coverage"] = merged
+        summary.setdefault("summary", {})["android_coverage"] = {
+            "coverage_mode": "source-plus-merged-overlay",
+            "selected_app_source_strings": selected_app_source_strings,
+            "merged_dependency_strings_detected": overlay.get("merged_dependency_resources_detected", 0),
+            "merged_dependency_strings_included": overlay.get("merged_dependency_resources_included", 0),
+            "visible_ui_coverage_warning": False,
+            "overlay_files_created": overlay.get("overlay_files_created", 0),
+        }
+        summary["warnings"] = [warning for warning in summary.get("warnings", []) if "source-only localization" not in warning]
+
+
+def _overlay_report(overlay_plan: dict[str, Any], output: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "coverage_mode": "source-plus-merged-overlay",
+        "source_category": ANDROID_MERGED_OVERLAY_CATEGORY,
+        "merged_dependency_resources_detected": overlay_plan.get("merged_dependency_resources_detected", 0),
+        "merged_dependency_resources_included": overlay_plan.get("merged_dependency_resources_included", 0),
+        "merged_dependency_resources_excluded": overlay_plan.get("merged_dependency_resources_excluded", {}),
+        "destination": overlay_plan.get("destination"),
+        "overlay_files_created": 1 if output else 0,
+        "overlay_outputs": [output["destination"]] if output else [],
+        "visible_ui_coverage_warning": False,
+        "residual_text_categories": overlay_plan.get("residual_text_categories", []),
+        "build_variant": overlay_plan.get("build_variant"),
+    }
 
 
 def _routing_evidence(inspection: dict[str, Any], selected_source_files: list[str]) -> dict[str, Any]:

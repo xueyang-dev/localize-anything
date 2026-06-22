@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -42,6 +43,8 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
                 "destination_sha256": current_hash,
                 "destination_base_sha256": base_hash,
                 "backup_required": action in {"replace", "conflict"},
+                "source_category": output.get("source_category"),
+                "apply_safety": output.get("apply_safety", {}),
             }
         )
     summary = {action: sum(item["action"] == action for item in operations) for action in ("create", "replace", "unchanged", "conflict")}
@@ -118,6 +121,9 @@ def execute_apply(
         raise ValueError("confirm_run_id must match the delivery run_id")
     if plan["blocked_by_conflicts"]:
         raise ValueError("Apply is blocked by destination conflicts; create a fresh plan after resolving them")
+    dirty = _git_status_short(project_root)
+    if dirty:
+        raise ValueError("Apply requires a clean git tree before writing files")
 
     delivery_dir = delivery_dir.resolve()
     project_root = project_root.resolve()
@@ -136,6 +142,7 @@ def execute_apply(
             continue
         if action not in {"create", "replace"}:
             raise ValueError(f"Unsupported apply action: {action}")
+        _validate_apply_destination(operation)
         if action == "replace" and destination.exists():
             backup = backup_root / destination_path
             backup.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +167,7 @@ def execute_apply(
         "operations": executed,
         "summary": summary,
         "backup_root": backup_root.as_posix(),
+        "post_apply_git_diff": _git_diff_stat(project_root),
     }
 
 
@@ -168,6 +176,48 @@ def _safe_relative(value: str, label: str) -> PurePosixPath:
     if not value or path.is_absolute() or ".." in path.parts:
         raise ValueError(f"Unsafe {label}: {value!r}")
     return path
+
+
+def _validate_apply_destination(operation: dict[str, Any]) -> None:
+    if operation.get("source_category") != "merged_dependency_overlay":
+        return
+    destination = PurePosixPath(str(operation.get("destination", "")))
+    parts = destination.parts
+    if destination.suffix != ".xml" or len(parts) < 4:
+        raise ValueError(f"Unsafe Android overlay destination: {destination.as_posix()}")
+    if parts[-3] != "res" or not parts[-2].startswith("values-"):
+        raise ValueError(f"Android overlay apply must target a locale values directory: {destination.as_posix()}")
+
+
+def _git_status_short(project_root: Path) -> list[str]:
+    if not (project_root / ".git").exists():
+        return []
+    result = subprocess.run(
+        ["git", "-C", str(project_root), "status", "--short", "--untracked-files=all"],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _git_diff_stat(project_root: Path) -> str:
+    if not (project_root / ".git").exists():
+        return ""
+    status = _git_status_short(project_root)
+    result = subprocess.run(
+        ["git", "-C", str(project_root), "diff", "--stat"],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    parts = []
+    if status:
+        parts.extend(status)
+    diff = result.stdout.strip()
+    if diff:
+        parts.append(diff)
+    return "\n".join(parts)
 
 
 def _is_relative_to(path: Path, base: Path) -> bool:
