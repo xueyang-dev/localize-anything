@@ -1413,6 +1413,38 @@ class ProjectTests(unittest.TestCase):
             result = initialize_project(project, "en-US", [source_file], ["zh-CN"])
             self.assertEqual(result["manifest"]["source_material"][0]["adapter"], "core.android-strings")
 
+    def test_android_coverage_counts_source_and_merged_dependency_resources_separately(self) -> None:
+        source_file = "app/src/main/res/values/strings.xml"
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "android-project"
+            shutil.copytree(ANDROID_FIXTURE_ROOT, project)
+            merged = project / "app" / "build" / "intermediates" / "incremental" / "debug" / "mergeDebugResources" / "merged.dir" / "values" / "values.xml"
+            merged.parent.mkdir(parents=True)
+            merged.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sample App</string>
+    <string name="sort_by">Sort by</string>
+    <string name="storage">Storage</string>
+    <string name="internal_debug" translatable="false">Do not translate</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+
+            inspection = inspect_project(project)
+            coverage = inspection["android_coverage"]
+
+            self.assertEqual(coverage["coverage_mode"], "source-only")
+            self.assertEqual(coverage["app_source_strings"], 8)
+            self.assertEqual(coverage["app_source_string_counts"][source_file], 8)
+            self.assertEqual(coverage["merged_dependency_strings_detected"], 2)
+            self.assertFalse(coverage["merged_dependency_strings_included"])
+            self.assertTrue(coverage["visible_ui_coverage_warning"])
+            self.assertEqual(coverage["categories"]["app_source_resources"]["string_count"], 8)
+            self.assertEqual(coverage["categories"]["merged_dependency_resources"]["string_count"], 2)
+            self.assertEqual(coverage["categories"]["non_resource_runtime_text"]["included"], False)
+
     def test_android_source_set_detection_excludes_locale_dirs(self) -> None:
         project = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets"
         inspection = inspect_project(project)
@@ -1499,6 +1531,34 @@ class ProjectTests(unittest.TestCase):
             self.assertFalse(summary["risk_review_metadata"]["available"])
             self.assertIn("Inspect is read-only", markdown)
 
+    def test_inspect_summary_warns_when_merged_dependency_resources_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "android-project"
+            shutil.copytree(ANDROID_FIXTURE_ROOT, project)
+            merged = project / "app" / "build" / "intermediates" / "incremental" / "debug" / "mergeDebugResources" / "merged.dir" / "values" / "values.xml"
+            merged.parent.mkdir(parents=True)
+            merged.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sample App</string>
+    <string name="files_tab">Files</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            output_dir = root / "inspect-output"
+
+            exit_code = cli_main(["inspect", project.as_posix(), "--output-dir", output_dir.as_posix()])
+
+            self.assertEqual(exit_code, 0)
+            summary = read_json(output_dir / "inspect-summary.json")
+            markdown = (output_dir / "inspect-summary.md").read_text(encoding="utf-8")
+            self.assertEqual(summary["android"]["coverage"]["merged_dependency_strings_detected"], 1)
+            self.assertTrue(summary["android"]["coverage"]["visible_ui_coverage_warning"])
+            self.assertTrue(any("source-only localization may not cover" in warning for warning in summary["warnings"]))
+            self.assertIn("merged dependency strings detected: 1", markdown)
+
     def test_inspect_summary_reports_android_source_sets_and_qualifiers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1568,6 +1628,14 @@ class ProjectTests(unittest.TestCase):
             cli_main(["localize-run", "--help"])
         self.assertEqual(run_exit.exception.code, 0)
         self.assertIn("does not call apply-delivery", run_stdout.getvalue())
+        self.assertNotIn("--apply-to-project", run_stdout.getvalue())
+        self.assertNotIn("--apply-confirm-run-id", run_stdout.getvalue())
+
+    def test_android_coverage_model_doc_records_runtime_text_boundary(self) -> None:
+        doc = (REPOSITORY_ROOT / "docs" / "android-coverage-model.md").read_text(encoding="utf-8")
+        self.assertIn("Gradle merged resources", doc)
+        self.assertIn("Alarms", doc)
+        self.assertIn("Apply/write-back is out of scope", doc)
 
     def test_smoke_antennapod_helper_has_valid_bash_syntax(self) -> None:
         bash = shutil.which("bash")
@@ -1840,6 +1908,52 @@ class LocalizeRunTests(unittest.TestCase):
                 Path(result["artifacts"]["delivery_decision_markdown"]).read_text(encoding="utf-8"),
             )
             self.assertIn("Translation Review Sheet", Path(result["artifacts"]["review_sheet_markdown"]).read_text(encoding="utf-8"))
+
+    def test_android_localize_run_reports_merged_dependency_warning_without_overlay_or_source_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "android-project"
+            shutil.copytree(ANDROID_FIXTURE_ROOT, project)
+            merged = project / "app" / "build" / "intermediates" / "incremental" / "debug" / "mergeDebugResources" / "merged.dir" / "values" / "values.xml"
+            merged.parent.mkdir(parents=True)
+            merged.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sample App</string>
+    <string name="sort_by">Sort by</string>
+    <string name="storage">Storage</string>
+</resources>
+""",
+                encoding="utf-8",
+            )
+            before_app_sources = {
+                path.relative_to(project).as_posix(): path.read_bytes()
+                for path in (project / "app" / "src").rglob("*")
+                if path.is_file()
+            }
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                output_root=root / "out",
+                run_id="android-coverage-diagnosis-001",
+                max_segments=20,
+                synthetic_draft=True,
+            )
+
+            after_app_sources = {
+                path.relative_to(project).as_posix(): path.read_bytes()
+                for path in (project / "app" / "src").rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(result["status"], "draft_package_created")
+            self.assertEqual(before_app_sources, after_app_sources)
+            self.assertFalse(list((project / "app" / "src").rglob("localize_anything_overlay*.xml")))
+            self.assertEqual(result["summary"]["android_coverage"]["coverage_mode"], "source-only")
+            self.assertEqual(result["summary"]["android_coverage"]["merged_dependency_strings_detected"], 2)
+            self.assertTrue(result["summary"]["android_coverage"]["visible_ui_coverage_warning"])
+            self.assertTrue(any("source-only localization may not cover" in warning for warning in result["warnings"]))
 
     def test_blind_benchmark_hides_target_references_from_generation_packets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
