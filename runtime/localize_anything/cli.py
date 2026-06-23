@@ -1008,7 +1008,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.android_overlay_output_name,
             )
             _emit_json(result, args.output)
-            return 1 if result["status"] == "generation_failed" else 0
+            return 1 if result["status"] in {"generation_failed", "provider_generation_failed"} else 0
         if args.command == "agent-run":
             provider_headers = {}
             if args.api_key_env:

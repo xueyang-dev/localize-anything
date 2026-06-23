@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -20,6 +22,12 @@ DEEPSEEK_ENV_FILE_VARS = (
 SOURCE_FILES = [  # key source files to load for context
     (Path(__file__).resolve().parent.parent.parent.parent / "test02-antennapod/source/res/values/strings.xml"),
 ]
+
+
+class ProviderGenerationError(RuntimeError):
+    def __init__(self, kind: str, message: str) -> None:
+        super().__init__(message)
+        self.kind = kind
 
 
 def _get_api_key() -> str:
@@ -73,7 +81,10 @@ def translate_batch_deepseek(
     Returns:
         Generated segments with target translations
     """
-    api_key = _get_api_key()
+    try:
+        api_key = _get_api_key()
+    except RuntimeError as exc:
+        raise ProviderGenerationError("provider_configuration_error", str(exc)) from exc
     locale_names = {"ja": "日本語", "ko": "한국어", "zh-CN": "简体中文", "fr": "Français", "de": "Deutsch"}
 
     # Build translation prompt
@@ -141,13 +152,16 @@ def translate_batch_deepseek(
         with urllib.request.urlopen(request, timeout=120) as response:
             body = json.loads(response.read().decode("utf-8-sig"))
     except Exception as e:
-        # Fallback: return source with prefix
-        fallback = _fallback_translations(segments, target_locale)
-        fallback[0]["_deepseek_error"] = str(e)
-        return fallback
+        raise ProviderGenerationError(
+            _provider_error_kind(e),
+            f"DeepSeek provider generation failed: {type(e).__name__}: {e}",
+        ) from e
 
     # Parse DeepSeek response
-    content = body["choices"][0]["message"]["content"]
+    try:
+        content = body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ProviderGenerationError("malformed_provider_response", "DeepSeek response did not contain message content.") from exc
 
     # Extract JSON from response (handle markdown code blocks)
     if "```json" in content:
@@ -157,8 +171,8 @@ def translate_batch_deepseek(
 
     try:
         translations = json.loads(content)
-    except json.JSONDecodeError:
-        return _fallback_translations(segments, target_locale)
+    except json.JSONDecodeError as exc:
+        raise ProviderGenerationError("malformed_provider_response", "DeepSeek response content was not valid JSON.") from exc
 
     # Handle both array and object response formats
     if isinstance(translations, dict):
@@ -181,6 +195,15 @@ def translate_batch_deepseek(
                 ttarget = t.get("target", "")
                 if tid and ttarget:
                     translation_map[tid] = ttarget
+    else:
+        raise ProviderGenerationError("malformed_provider_response", "DeepSeek response did not contain translations.")
+
+    missing = [str(seg.get("segment_id", "")) for seg in segments if str(seg.get("segment_id", "")) not in translation_map]
+    if missing:
+        raise ProviderGenerationError(
+            "malformed_provider_response",
+            f"DeepSeek response omitted {len(missing)} segment(s); first missing segment: {missing[0]}",
+        )
 
     # Generate segment records
     generated = []
@@ -189,7 +212,7 @@ def translate_batch_deepseek(
         source = seg.get("source", "")
         placeholders = [str(p) for p in seg.get("constraints", {}).get("placeholders", [])]
 
-        target = translation_map.get(seg_id) or _fallback_single(source, target_locale)
+        target = translation_map[seg_id]
 
         # Placeholder parity: ensure target preserves all source placeholders
         target = _fix_placeholder_parity(target, placeholders, source)
@@ -207,6 +230,23 @@ def translate_batch_deepseek(
         generated.append(record)
 
     return generated
+
+
+def _provider_error_kind(exc: Exception) -> str:
+    message = str(exc)
+    if isinstance(exc, ssl.SSLCertVerificationError) or "CERTIFICATE_VERIFY_FAILED" in message:
+        return "ssl_certificate_error"
+    if isinstance(exc, urllib.error.HTTPError):
+        if exc.code in {401, 403}:
+            return "authentication_error"
+        if exc.code == 429:
+            return "rate_limit"
+        return "http_error"
+    if isinstance(exc, urllib.error.URLError):
+        return "network_error"
+    if isinstance(exc, json.JSONDecodeError):
+        return "malformed_provider_response"
+    return "provider_generation_error"
 
 
 def _fix_placeholder_parity(
@@ -236,28 +276,6 @@ def _fix_placeholder_parity(
     return target
 
 
-def _fallback_single(source: str, target_locale: str) -> str:
-    return f"[{target_locale}] {source}"
-
-
-def _fallback_translations(
-    segments: list[dict[str, Any]], target_locale: str
-) -> list[dict[str, Any]]:
-    generated = []
-    for seg in segments:
-        record = dict(seg)
-        record["target_locale"] = target_locale
-        record["target"] = _fallback_single(seg.get("source", ""), target_locale)
-        record["status"] = "generated"
-        record["generation"] = {
-            "provider": "deepseek-fallback",
-            "quality_claim": "none",
-            "purpose": "fallback",
-        }
-        generated.append(record)
-    return generated
-
-
 def generate_deepseek_batch_file(
     segments_path: Path,
     generated_output: Path,
@@ -267,7 +285,12 @@ def generate_deepseek_batch_file(
 ) -> dict[str, Any]:
     """Read segments from JSONL, translate via DeepSeek, write generated JSONL."""
     segments = read_jsonl(segments_path)
-    generated = translate_batch_deepseek(segments, target_locale, source_locale, model)
+    try:
+        generated = translate_batch_deepseek(segments, target_locale, source_locale, model)
+    except ProviderGenerationError as exc:
+        if generated_output.exists() and generated_output.is_file():
+            generated_output.unlink()
+        return _deepseek_failure_result(segments_path, generated_output, target_locale, model, exc)
     write_jsonl(generated_output, generated)
 
     placeholder_mismatches = []
@@ -286,6 +309,13 @@ def generate_deepseek_batch_file(
         "generated_output": generated_output.as_posix(),
         "target_locale": target_locale,
         "provider": "deepseek",
+        "provider_requested": "deepseek",
+        "provider_actual": "deepseek",
+        "provider_status": "passed",
+        "provider_generated_segments": len(generated),
+        "synthetic_fallback_segments": 0,
+        "quality_claim": "llm_draft",
+        "apply_allowed": True,
         "model": model,
         "summary": {
             "segment_count": len(segments),
@@ -300,5 +330,50 @@ def generate_deepseek_batch_file(
                 "segment_id": sid,
             }
             for sid in placeholder_mismatches
+        ],
+    }
+
+
+def _deepseek_failure_result(
+    segments_path: Path,
+    generated_output: Path,
+    target_locale: str,
+    model: str,
+    exc: ProviderGenerationError,
+) -> dict[str, Any]:
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "evidence_channels": ["runtime", "deepseek"],
+        "status": "fail",
+        "input_segments": segments_path.as_posix(),
+        "generated_output": generated_output.as_posix(),
+        "target_locale": target_locale,
+        "provider": "deepseek",
+        "provider_requested": "deepseek",
+        "provider_actual": "none",
+        "provider_status": "failed",
+        "provider_error_kind": exc.kind,
+        "provider_generated_segments": 0,
+        "synthetic_fallback_segments": 0,
+        "quality_claim": "none",
+        "apply_allowed": False,
+        "model": model,
+        "summary": {
+            "segment_count": len(read_jsonl(segments_path)),
+            "generated_segment_count": 0,
+            "placeholder_mismatch_count": 0,
+            "blocking_count": 1,
+            "warning_count": 0,
+        },
+        "items": [
+            {
+                "channel": "runtime",
+                "category": exc.kind,
+                "severity": "blocking",
+                "message": str(exc),
+                "checked_by": "runtime",
+                "coverage": "complete",
+                "confidence": "deterministic",
+            }
         ],
     }

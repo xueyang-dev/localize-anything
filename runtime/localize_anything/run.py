@@ -261,6 +261,8 @@ def run_localize(
         return _write_run_summary(summary, run_dir, inspection)
 
     generated_segments = read_jsonl(generated_path)
+    generation_metadata = _generation_delivery_metadata(generation_mode, generated_segments)
+    provider_failed = generation_metadata.get("provider_status") == "failed"
     delivery_segments = [*generated_segments, *preserved_segments]
     review_markdown_path = run_dir / "review-sheet.md"
     review_csv_path = run_dir / "review-sheet.csv"
@@ -307,7 +309,16 @@ def run_localize(
     staging_path = run_dir / "staging-result.json"
     write_json(staging_path, staging_result)
     qa_paths = _validate_staged_outputs(project_root, staging_result, target_locale, run_dir / "qa")
-    packaged = package_delivery(state_dir, staging_dir, run_dir / "deliveries", qa_paths, delivery_status, run_id, output_metadata)
+    packaged = package_delivery(
+        state_dir,
+        staging_dir,
+        run_dir / "deliveries",
+        qa_paths,
+        "blocked" if provider_failed else delivery_status,
+        run_id,
+        output_metadata,
+        generation_metadata,
+    )
     delivery_dir = Path(packaged["delivery_directory"])
     apply_plan = create_apply_plan(delivery_dir, project_root)
     apply_plan_path = run_dir / "apply-plan.json"
@@ -331,7 +342,7 @@ def run_localize(
 
     summary = _summary(
         run_id,
-        "draft_package_created",
+        "provider_generation_failed" if provider_failed else "draft_package_created",
         project_root,
         source_locale,
         target_locale,
@@ -352,6 +363,7 @@ def run_localize(
         collect_path=collect_path,
         generated_path=generated_path,
         generation_status=collect_result["status"],
+        generation_metadata=generation_metadata,
         review_sheet_path=review_sheet_path,
         review_markdown_path=review_markdown_path,
         review_csv_path=review_csv_path,
@@ -491,6 +503,71 @@ def _write_batches_from_combined(generated: Path, handoff: dict[str, Any]) -> No
         write_jsonl(Path(batch["generated"]), [record for record in records if str(record.get("segment_id")) in batch_ids])
 
 
+def _generation_delivery_metadata(generation_mode: str, generated_segments: list[dict[str, Any]]) -> dict[str, Any]:
+    segment_count = len(generated_segments)
+    fallback_segments = [
+        segment
+        for segment in generated_segments
+        if _is_synthetic_fallback_generation(segment.get("generation", {}))
+    ]
+    if fallback_segments:
+        first_generation = fallback_segments[0].get("generation", {})
+        provider = str(first_generation.get("provider") or "")
+        return {
+            "provider_requested": "deepseek" if provider.startswith("deepseek") else provider or "provider",
+            "provider_actual": "synthetic_fallback",
+            "provider_status": "failed",
+            "provider_error_kind": str(first_generation.get("provider_error_kind") or "provider_fallback_output"),
+            "provider_generated_segments": 0,
+            "synthetic_fallback_segments": len(fallback_segments),
+            "quality_claim": "none",
+            "apply_allowed": False,
+        }
+
+    if generation_mode == "synthetic_draft":
+        return {
+            "provider_requested": "synthetic",
+            "provider_actual": "synthetic",
+            "provider_status": "synthetic_test",
+            "provider_generated_segments": 0,
+            "synthetic_fallback_segments": 0,
+            "synthetic_segments": segment_count,
+            "quality_claim": "none",
+            "apply_allowed": True,
+        }
+
+    providers = sorted(
+        {
+            str(segment.get("generation", {}).get("provider") or "generated_input")
+            for segment in generated_segments
+        }
+    )
+    quality_claims = sorted(
+        {
+            str(segment.get("generation", {}).get("quality_claim") or "unspecified")
+            for segment in generated_segments
+        }
+    )
+    provider = providers[0] if len(providers) == 1 else "mixed"
+    quality_claim = quality_claims[0] if len(quality_claims) == 1 else "mixed"
+    return {
+        "provider_requested": provider,
+        "provider_actual": provider,
+        "provider_status": "passed",
+        "provider_generated_segments": segment_count,
+        "synthetic_fallback_segments": 0,
+        "quality_claim": quality_claim,
+        "apply_allowed": True,
+    }
+
+
+def _is_synthetic_fallback_generation(generation: object) -> bool:
+    if not isinstance(generation, dict):
+        return False
+    provider = str(generation.get("provider") or "")
+    return provider in {"deepseek-fallback", "synthetic_fallback"} or generation.get("purpose") == "fallback"
+
+
 def _validate_staged_outputs(project_root: Path, staging_result: dict[str, Any], target_locale: str, qa_dir: Path) -> list[Path]:
     qa_paths: list[Path] = []
     for index, output in enumerate(staging_result.get("outputs", []), 1):
@@ -574,6 +651,7 @@ def _summary(
     reference_summary: dict[str, Any] | None = None,
     android_overlay_plan: dict[str, Any] | None = None,
     android_overlay_output: dict[str, Any] | None = None,
+    generation_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     artifacts: dict[str, str] = {
         "run_directory": run_dir.as_posix(),
@@ -634,6 +712,7 @@ def _summary(
             "mode": generation_mode,
             "status": generation_status or "pending",
             "provider_agnostic": True,
+            **(generation_metadata or {}),
         },
         "summary": {
             "source_file_count": len(source_files),
@@ -766,6 +845,8 @@ def _next_actions(status: str) -> list[str]:
         ]
     if status == "generation_failed":
         return ["Fix generated batch coverage, source integrity, locale, status, or placeholder issues before staging."]
+    if status == "provider_generation_failed":
+        return ["Fix provider generation and rerun without synthetic fallback output before applying delivery artifacts."]
     return [
         "Review the staged localized files and dashboard.",
         "Run plan-apply, then apply-delivery --confirm-run-id only after the project owner approves overwriting project files.",

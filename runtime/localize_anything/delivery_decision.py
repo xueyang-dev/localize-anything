@@ -71,6 +71,17 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     localization = _localization_summary(reference_plan)
     for decision in _localization_decisions(reference_plan, len(decisions)):
         decisions.append(decision)
+    if apply_plan.get("blocked_by_provider_status"):
+        decisions.append(
+            {
+                "id": f"apply-{len(decisions) + 1:04d}",
+                "type": "provider_generation_status",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Rerun provider generation successfully before applying delivery files.",
+                "evidence": {"reason": apply_plan.get("provider_apply_block_reason")},
+            }
+        )
 
     status = _status(decisions)
     return {

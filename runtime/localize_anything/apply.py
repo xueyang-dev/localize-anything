@@ -13,6 +13,7 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
     delivery_dir = delivery_dir.resolve()
     project_root = project_root.resolve()
     manifest = read_json(delivery_dir / "delivery-manifest.json")
+    generation_block_reason = _provider_apply_block_reason(manifest.get("generation", {}))
     operations: list[dict[str, Any]] = []
     for output in manifest.get("outputs", []):
         package_path = _safe_relative(str(output.get("package_path", "")), "package_path")
@@ -57,6 +58,8 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
         "summary": summary,
         "requires_confirmation": any(item["action"] in {"create", "replace"} for item in operations),
         "blocked_by_conflicts": summary["conflict"] > 0,
+        "blocked_by_provider_status": bool(generation_block_reason),
+        "provider_apply_block_reason": generation_block_reason,
         "rollback": {"backup_required_for": [item["destination"] for item in operations if item["backup_required"]]},
     }
 
@@ -75,10 +78,20 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
         f"- Conflicts: {summary.get('conflict', 0)}",
         f"- Requires confirmation: `{bool(plan.get('requires_confirmation'))}`",
         f"- Blocked by conflicts: `{bool(plan.get('blocked_by_conflicts'))}`",
+        f"- Blocked by provider status: `{bool(plan.get('blocked_by_provider_status'))}`",
         "",
         "## Operations",
         "",
     ]
+    if plan.get("blocked_by_provider_status"):
+        lines.extend(
+            [
+                "## Provider Status Block",
+                "",
+                str(plan.get("provider_apply_block_reason")),
+                "",
+            ]
+        )
     operations = plan.get("operations", [])
     if not operations:
         lines.append("No file operations are planned.")
@@ -119,6 +132,8 @@ def execute_apply(
     plan = create_apply_plan(delivery_dir, project_root)
     if confirm_run_id != plan["run_id"]:
         raise ValueError("confirm_run_id must match the delivery run_id")
+    if plan.get("blocked_by_provider_status"):
+        raise ValueError(f"Apply is blocked by provider generation status: {plan.get('provider_apply_block_reason')}")
     if plan["blocked_by_conflicts"]:
         raise ValueError("Apply is blocked by destination conflicts; create a fresh plan after resolving them")
     dirty = _git_status_short(project_root)
@@ -176,6 +191,20 @@ def _safe_relative(value: str, label: str) -> PurePosixPath:
     if not value or path.is_absolute() or ".." in path.parts:
         raise ValueError(f"Unsafe {label}: {value!r}")
     return path
+
+
+def _provider_apply_block_reason(generation: dict[str, Any]) -> str | None:
+    if not isinstance(generation, dict):
+        return None
+    if generation.get("apply_allowed") is False:
+        return "delivery generation metadata does not allow apply"
+    if generation.get("provider_status") == "failed":
+        return "provider generation failed"
+    if generation.get("provider_actual") == "synthetic_fallback":
+        return "synthetic fallback output is not provider-backed translation"
+    if generation.get("quality_claim") == "none" and generation.get("provider_requested") not in {None, "", "none", "synthetic"}:
+        return "provider-backed translation did not complete"
+    return None
 
 
 def _validate_apply_destination(operation: dict[str, Any]) -> None:

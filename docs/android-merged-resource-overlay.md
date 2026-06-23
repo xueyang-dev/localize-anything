@@ -16,6 +16,13 @@ Merged dependency resource coverage is an explicit, variant-specific workflow:
 
 The workflow does not modify the source project during `localize-run`.
 
+Provider-backed overlay validation requires a successful real provider call. If
+a provider fails because of SSL, authentication, network, rate limit,
+configuration, or malformed response errors, the run must be treated as
+provider-failed. Synthetic fallback output only proves coverage, packaging,
+build, and apply mechanics; it does not prove translation quality or provider
+success.
+
 ## What Gets Included
 
 The overlay excludes resources already owned by the app source files selected for the run. It also excludes keys already present in the target locale resource directory, `translatable="false"` entries, unsupported resource types, and resources that require owner review for unsafe markup or placeholder structure.
@@ -27,6 +34,10 @@ Included overlay resources preserve Android string, string-array, and plurals st
 This workflow is not a claim of full Android app localization. It does not cover runtime filesystem labels, OS strings, server-provided strings, WebView content, image text, Compose hardcoded strings, layout hardcoded strings, Gradle editing, APK decompilation, or provider translation quality.
 
 The generated overlay is a delivery artifact until an explicit apply step is run. `apply-delivery` requires the matching run id, refuses dirty git trees, and only allows merged-resource overlay outputs to target a locale `values-*` resource directory.
+
+Delivery packages created from provider-failed synthetic fallback output are
+marked with no quality claim and are not apply-allowed by default. Rerun the
+provider step successfully before applying overlay delivery files.
 
 ## Follow-up Scope
 

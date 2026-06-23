@@ -23,6 +23,7 @@ def package_delivery(
     requested_status: str = "draft_package",
     run_id: str | None = None,
     output_metadata: dict[str, dict[str, Any]] | None = None,
+    generation_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     state_dir = state_dir.resolve()
     staging_dir = staging_dir.resolve()
@@ -103,6 +104,7 @@ def package_delivery(
             "source_material": current.get("source_material", []),
             "unprocessed_non_text_assets": unprocessed_assets,
             "outputs": outputs,
+            "generation": generation_metadata or _default_generation_metadata(),
             "assets": {
                 "context": "localization-context.md",
                 "glossary": "glossary.csv",
@@ -135,6 +137,18 @@ def package_delivery(
         shutil.rmtree(temporary, ignore_errors=True)
         raise
     return {"delivery_directory": destination.as_posix(), "manifest": manifest}
+
+
+def _default_generation_metadata() -> dict[str, Any]:
+    return {
+        "provider_requested": "none",
+        "provider_actual": "none",
+        "provider_status": "not_applicable",
+        "provider_generated_segments": 0,
+        "synthetic_fallback_segments": 0,
+        "quality_claim": "not_applicable",
+        "apply_allowed": True,
+    }
 
 
 def aggregate_qa(paths: list[Path]) -> dict[str, Any]:

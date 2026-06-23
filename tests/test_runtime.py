@@ -9,6 +9,7 @@ import contextlib
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import tempfile
 import threading
@@ -33,7 +34,7 @@ from runtime.localize_anything.contracts import validate_adapter_tree
 from runtime.localize_anything.dashboard import build_delivery_dashboard, render_dashboard_markdown
 from runtime.localize_anything.delivery import package_delivery
 from runtime.localize_anything.delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
-from runtime.localize_anything.deepseek_provider import _get_api_key
+from runtime.localize_anything.deepseek_provider import _get_api_key, generate_deepseek_batch_file
 from runtime.localize_anything.generation import (
     collect_generated_handoff,
     create_draft_request,
@@ -1897,6 +1898,11 @@ class LocalizeRunTests(unittest.TestCase):
             self.assertEqual(result["summary"]["output_count"], 1)
             self.assertEqual(result["summary"]["qa_status"], "pass")
             delivery = Path(result["artifacts"]["delivery_directory"])
+            manifest = read_json(delivery / "delivery-manifest.json")
+            self.assertEqual(manifest["generation"]["provider_actual"], "synthetic")
+            self.assertEqual(manifest["generation"]["provider_status"], "synthetic_test")
+            self.assertTrue(manifest["generation"]["apply_allowed"])
+            self.assertFalse(read_json(Path(result["artifacts"]["apply_plan"]))["blocked_by_provider_status"])
             packaged_target = delivery / "files" / "locales" / "zh-CN.json"
             self.assertTrue(packaged_target.is_file())
             self.assertEqual(validate_pair(source, packaged_target)["status"], "pass")
@@ -1963,6 +1969,55 @@ class LocalizeRunTests(unittest.TestCase):
             self.assertEqual(result["summary"]["android_coverage"]["merged_dependency_strings_detected"], 2)
             self.assertTrue(result["summary"]["android_coverage"]["visible_ui_coverage_warning"])
             self.assertTrue(any("source-only localization may not cover" in warning for warning in result["warnings"]))
+
+    def test_provider_failed_fallback_delivery_is_not_apply_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+            source = project / "locales" / "en-US.json"
+            generated_path = root / "deepseek-fallback.jsonl"
+            generated = []
+            for segment in extract_segments(source, "en-US", "locales/en-US.json"):
+                record = dict(segment)
+                record["target_locale"] = "zh-CN"
+                record["target"] = f"[zh-CN] {segment['source']}"
+                record["status"] = "generated"
+                record["generation"] = {
+                    "provider": "deepseek-fallback",
+                    "provider_error_kind": "ssl_certificate_error",
+                    "quality_claim": "none",
+                    "purpose": "fallback",
+                }
+                generated.append(record)
+            write_jsonl(generated_path, generated)
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                source_files=["locales/en-US.json"],
+                output_root=root / "out",
+                run_id="provider-fallback-001",
+                max_segments=10,
+                generated=generated_path,
+            )
+
+            self.assertEqual(result["status"], "provider_generation_failed")
+            self.assertEqual(result["generation"]["provider_requested"], "deepseek")
+            self.assertEqual(result["generation"]["provider_actual"], "synthetic_fallback")
+            self.assertEqual(result["generation"]["provider_status"], "failed")
+            self.assertEqual(result["generation"]["provider_generated_segments"], 0)
+            self.assertEqual(result["generation"]["synthetic_fallback_segments"], len(generated))
+            self.assertFalse(result["generation"]["apply_allowed"])
+            delivery = Path(result["artifacts"]["delivery_directory"])
+            manifest = read_json(delivery / "delivery-manifest.json")
+            self.assertEqual(manifest["delivery_status"], "blocked")
+            self.assertFalse(manifest["generation"]["apply_allowed"])
+            plan = create_apply_plan(delivery, project)
+            self.assertTrue(plan["blocked_by_provider_status"])
+            with self.assertRaisesRegex(ValueError, "provider generation status"):
+                execute_apply(delivery, project, "provider-fallback-001")
 
     def test_android_merged_resources_overlay_is_explicit_and_app_owned(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -2598,6 +2653,37 @@ class ProviderPathHygieneTests(unittest.TestCase):
                 clear=True,
             ):
                 self.assertEqual(_get_api_key(), "test-key")
+
+    def test_deepseek_ssl_failure_does_not_write_synthetic_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            segments_path = root / "segments.jsonl"
+            generated_path = root / "generated.jsonl"
+            write_jsonl(
+                segments_path,
+                [
+                    {
+                        "segment_id": "s1",
+                        "source": "Search",
+                        "source_locale": "en-US",
+                        "constraints": {},
+                    }
+                ],
+            )
+            with mock.patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-key"}, clear=True), mock.patch(
+                "runtime.localize_anything.deepseek_provider.urllib.request.urlopen",
+                side_effect=ssl.SSLCertVerificationError("CERTIFICATE_VERIFY_FAILED"),
+            ):
+                result = generate_deepseek_batch_file(segments_path, generated_path, "th")
+
+            self.assertEqual(result["status"], "fail")
+            self.assertEqual(result["provider_status"], "failed")
+            self.assertEqual(result["provider_error_kind"], "ssl_certificate_error")
+            self.assertEqual(result["provider_generated_segments"], 0)
+            self.assertEqual(result["synthetic_fallback_segments"], 0)
+            self.assertEqual(result["quality_claim"], "none")
+            self.assertFalse(result["apply_allowed"])
+            self.assertFalse(generated_path.exists())
 
 
 class WorkbenchUITests(unittest.TestCase):

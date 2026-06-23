@@ -21,6 +21,7 @@ def build_delivery_dashboard(delivery_dir: Path) -> dict[str, Any]:
     ]
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
+    generation = manifest.get("generation", {})
     next_actions = _next_actions(manifest, qa, outputs, unprocessed_assets)
     return {
         "protocol_version": PROTOCOL_VERSION,
@@ -36,6 +37,7 @@ def build_delivery_dashboard(delivery_dir: Path) -> dict[str, Any]:
             "unprocessed_asset_count": len(unprocessed_assets),
         },
         "qa": qa,
+        "generation": generation,
         "unprocessed_non_text_assets": unprocessed_assets,
         "next_actions": next_actions,
     }
@@ -93,7 +95,10 @@ def _next_actions(
         actions.append("Run deterministic and agent QA before marking the package review-ready.")
     else:
         actions.append("Review generated target text and QA warnings before applying to the source project.")
-    if outputs:
+    generation = manifest.get("generation", {})
+    if outputs and generation.get("apply_allowed") is False:
+        actions.append("Do not apply this delivery; provider generation failed or produced fallback-only output.")
+    elif outputs:
         actions.append("Run `plan-apply` to inspect create/replace/conflict operations.")
         actions.append("Use `apply-delivery --confirm-run-id <run_id>` only after the project owner approves the plan.")
     if unprocessed_assets:
