@@ -47,6 +47,8 @@ from .subtitle_adapter import extract_segments as extract_subtitle_segments
 from .subtitle_adapter import validate_pair as validate_subtitle_pair
 from .tabular_adapter import extract_segments as extract_tabular_segments
 from .tabular_adapter import validate_pair as validate_tabular_pair
+from .word_adapter import extract_segments as extract_word_segments
+from .word_adapter import validate_pair as validate_word_pair
 from .xcstrings_adapter import extract_segments as extract_xcstrings
 from .xcstrings_adapter import validate_pair as validate_xcstrings
 from .xliff_adapter import extract_segments as extract_xliff_segments
@@ -64,6 +66,7 @@ EXTRACTORS: dict[str, Extractor] = {
     "core.markup": extract_markup_segments,
     "core.subtitles": extract_subtitle_segments,
     "core.tabular": extract_tabular_segments,
+    "core.word-document": extract_word_segments,
     "core.yaml-toml": lambda path, source_locale, source_path: extract_structured_segments(
         path, source_locale, source_path, _structured_format(path)
     ),
@@ -591,6 +594,8 @@ def _validate_staged_outputs(project_root: Path, staging_result: dict[str, Any],
             qa = validate_subtitle_pair(source, target)
         elif adapter == "core.tabular":
             qa = validate_tabular_pair(source, target)
+        elif adapter == "core.word-document":
+            qa = validate_word_pair(source, target)
         elif adapter == "core.xcstrings":
             qa = validate_xcstrings(source, target, target_locale)
         elif adapter == "core.xliff":

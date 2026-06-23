@@ -13,6 +13,7 @@ from .project import inspect_project
 from .structured_adapter import rebuild as rebuild_structured
 from .subtitle_adapter import rebuild as rebuild_subtitles
 from .tabular_adapter import rebuild as rebuild_tabular
+from .word_adapter import rebuild as rebuild_word
 from .xcstrings_adapter import stage_rebuild as stage_xcstrings
 from .xliff_adapter import rebuild as rebuild_xliff
 
@@ -96,6 +97,8 @@ def _stage_one(
         rebuild_structured(source_path, segments, output, _structured_format(source_path))
     elif adapter == "core.tabular":
         rebuild_tabular(source_path, segments, output)
+    elif adapter == "core.word-document":
+        rebuild_word(source_path, segments, output)
     elif adapter == "core.markup":
         rebuild_markup(source_path, segments, output)
     elif adapter == "core.subtitles":

@@ -32,6 +32,7 @@ Core adapters follow the same contract as third-party adapters. They receive no 
 | `core.yaml-toml` | YAML/TOML | `extract_and_rebuild` | keys, comments, scalar style where safe, placeholders |
 | `core.tabular` | CSV/TSV/XLSX | `full_round_trip` | table coordinates, keys, formulas/non-text cells, placeholders |
 | `core.markup` | Markdown/HTML | `extract_and_rebuild` | code, tags, link destinations, attributes, placeholders |
+| `core.word-document` | DOCX/DOTX/DOCM/DOTM | `extract_and_rebuild` | OpenXML package entries, relationships, styles, run and paragraph non-font properties, target-locale fonts, macros, placeholders |
 | `core.subtitles` | SRT/WebVTT | `full_round_trip` | cue identity, timing, inline tags, placeholders |
 | `core.xliff` | XLIFF 1.2/2.x | `full_round_trip` | unit IDs, source units, inline tags, placeholders |
 | `core.android-strings` | Android `strings.xml` | `extract_and_rebuild` | string, string-array, plurals, resource names, `translatable="false"`, `formatted="false"`, placeholders, target resource path |
@@ -52,6 +53,20 @@ translatable cell are localized at all of their workbook occurrences.
 Markdown fenced or indented code and HTML `script`, `style`, `code`, `pre`, and
 `svg` content remain untouched. v0.1 does not localize HTML attributes or image
 alt text. Markup QA protects link destinations, entities, tags, and placeholders.
+
+Word OpenXML support is an experimental v0.3 document slice. It handles
+`.docx`, `.dotx`, `.docm`, and `.dotm` packages with Python standard-library
+ZIP/XML parsing, translating visible WordprocessingML and DrawingML text in
+body, tables, headers, footers, notes, comments, text boxes, charts, and
+diagrams where the XML is safely editable. It preserves non-text package parts,
+relationships, styles, paragraph properties, run properties other than the font
+family, and VBA macro bytes without executing macros. Localized runs normalize
+the font family by target locale, for example English uses Arial and Simplified
+Chinese uses Microsoft YaHei, while size, bold/italic, spacing, relationships,
+and non-text resources remain protected by deterministic QA. Legacy binary
+`.doc`, encrypted documents, embedded object content, and image text are not
+localized and must be reported as unsupported or unchecked instead of silently
+claimed as complete coverage.
 
 Subtitle QA does not perform rendered line-length or reading-speed review; the
 agent and human QA channels must record those checks when required.

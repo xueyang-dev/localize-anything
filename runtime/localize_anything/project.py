@@ -34,7 +34,19 @@ KNOWN_EXTENSIONS = {
     ".xliff": "core.xliff",
     ".po": "core.gettext-po",
     ".pot": "core.gettext-po",
+    ".docx": "core.word-document",
+    ".dotx": "core.word-document",
+    ".docm": "core.word-document",
+    ".dotm": "core.word-document",
     ".cfg": "scenario.wesnoth",
+}
+
+UNSUPPORTED_EXTENSIONS = {
+    ".doc": {
+        "asset_type": "legacy_word_document",
+        "status": "unsupported",
+        "required_action": "convert_to_openxml_docx_before_localization",
+    },
 }
 
 NON_TEXT_EXTENSIONS = {
@@ -129,6 +141,17 @@ def inspect_project(project: Path) -> dict[str, Any]:
             )
             continue
         if not adapter:
+            unsupported = UNSUPPORTED_EXTENSIONS.get(extension)
+            if unsupported:
+                unprocessed_assets.append(
+                    {
+                        "path": _relative_project_path(project, path),
+                        "extension": extension,
+                        "size_bytes": size_bytes,
+                        **unsupported,
+                    }
+                )
+                continue
             asset_type = NON_TEXT_EXTENSIONS.get(extension)
             if asset_type:
                 unprocessed_assets.append(

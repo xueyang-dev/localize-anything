@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
+import uuid
 import webbrowser
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import gettempdir
 from typing import Any
 from urllib.parse import urlparse
@@ -18,6 +21,9 @@ from .project import inspect_project, load_session_index
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 MAX_ARTIFACT_BYTES = 1_000_000
+MAX_IMPORT_FILE_BYTES = 25_000_000
+MAX_IMPORT_TOTAL_BYTES = 100_000_000
+MAX_IMPORT_FILES = 500
 
 
 @dataclass
@@ -104,6 +110,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/sessions":
                     self._handle_sessions(payload)
                     return
+                if parsed.path == "/api/import-files":
+                    self._handle_import_files(payload)
+                    return
                 if parsed.path == "/api/agent-run":
                     self._handle_agent_run(payload)
                     return
@@ -124,6 +133,25 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             project = _required_path(payload, "project")
             state.add_allowed_root(project)
             self._send_json({"status": "pass", "session_index": load_session_index(project)})
+
+        def _handle_import_files(self, payload: dict[str, Any]) -> None:
+            project = _write_imported_files(payload.get("files"))
+            state.add_allowed_root(project)
+            inspection = inspect_project(project)
+            source_files = [
+                item["path"]
+                for item in inspection.get("supported_files", [])
+                if item.get("adapter") == "core.word-document"
+            ]
+            self._send_json(
+                {
+                    "status": "pass",
+                    "project": project.as_posix(),
+                    "routing": _routing_view(inspection),
+                    "inspection": inspection,
+                    "source_files": source_files,
+                }
+            )
 
         def _handle_agent_run(self, payload: dict[str, Any]) -> None:
             project = _required_path(payload, "project")
@@ -226,6 +254,45 @@ def _source_files(value: Any) -> list[str] | None:
         raise ValueError("source_files must be a string or list")
     cleaned = [item.replace("\\", "/") for item in items if item]
     return cleaned or None
+
+
+def _write_imported_files(value: Any) -> Path:
+    if not isinstance(value, list) or not value:
+        raise ValueError("files must be a non-empty list")
+    if len(value) > MAX_IMPORT_FILES:
+        raise ValueError(f"Too many imported files; limit is {MAX_IMPORT_FILES}")
+    root = Path(gettempdir()) / "localize-anything-imports" / f"import-{uuid.uuid4().hex[:12]}"
+    root.mkdir(parents=True, exist_ok=False)
+    total = 0
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("Each imported file must be an object")
+        relative = _safe_import_relative_path(str(item.get("relative_path") or item.get("name") or ""))
+        encoded = str(item.get("content_base64") or "")
+        try:
+            data = base64.b64decode(encoded, validate=True)
+        except binascii.Error as exc:
+            raise ValueError(f"Invalid base64 content for {relative.as_posix()}") from exc
+        if len(data) > MAX_IMPORT_FILE_BYTES:
+            raise ValueError(f"Imported file is too large: {relative.as_posix()}")
+        total += len(data)
+        if total > MAX_IMPORT_TOTAL_BYTES:
+            raise ValueError("Imported files exceed the total size limit")
+        destination = root / Path(*relative.parts)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+    return root
+
+
+def _safe_import_relative_path(value: str) -> PurePosixPath:
+    normalized = value.replace("\\", "/").strip()
+    path = PurePosixPath(normalized)
+    if not normalized or path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"Unsafe imported file path: {value!r}")
+    parts = tuple(part for part in path.parts if part not in {"", "."})
+    if not parts:
+        raise ValueError(f"Unsafe imported file path: {value!r}")
+    return PurePosixPath(*parts)
 
 
 def _optional_string(value: Any) -> str | None:
@@ -339,6 +406,27 @@ WORKBENCH_HTML = r"""<!doctype html>
       grid-template-columns: 1fr;
       gap: 8px;
       margin-top: 16px;
+    }
+    .file-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .dropzone {
+      border: 1px dashed #9aa8b5;
+      border-radius: 8px;
+      background: #fbfbfc;
+      color: var(--muted);
+      padding: 12px;
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+    }
+    .dropzone.dragging {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eef6ff;
     }
     button {
       border: 1px solid #a9b7c6;
@@ -468,6 +556,12 @@ WORKBENCH_HTML = r"""<!doctype html>
     <aside>
       <label for="project">Project Path</label>
       <input id="project" placeholder="C:\path\to\project">
+      <label>Import Word Files</label>
+      <div class="dropzone" id="dropzone">Drop Word files or a folder here.</div>
+      <div class="file-actions">
+        <input id="filePicker" type="file" multiple accept=".docx,.dotx,.docm,.dotm,.doc">
+        <input id="folderPicker" type="file" multiple webkitdirectory directory>
+      </div>
       <div class="row">
         <div>
           <label for="sourceLocale">Source Locale</label>
@@ -553,6 +647,75 @@ WORKBENCH_HTML = r"""<!doctype html>
         run_id: $("runId").value.trim(),
         max_segments: Number($("maxSegments").value || 80)
       };
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || "").split(",", 2)[1] || "");
+        reader.onerror = () => reject(reader.error || new Error("Could not read file"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function importSelectedFiles(fileList) {
+      return importFileItems(Array.from(fileList || []).map((file) => ({
+        file,
+        relative_path: file.webkitRelativePath || file.name
+      })));
+    }
+
+    async function importFileItems(items) {
+      if (!items.length) return;
+      await runBusy(async () => {
+        const payloadFiles = [];
+        for (const item of items) {
+          payloadFiles.push({
+            relative_path: item.relative_path,
+            content_base64: await fileToBase64(item.file)
+          });
+        }
+        const data = await postJson("/api/import-files", {files: payloadFiles});
+        $("project").value = data.project;
+        $("sourceFiles").value = (data.source_files || []).join("\n");
+        renderRouting(data.routing);
+        setStatus(`Imported ${payloadFiles.length} file(s).`, "pass");
+      });
+    }
+
+    async function droppedFileItems(dataTransfer) {
+      const transferItems = Array.from(dataTransfer.items || []);
+      if (!transferItems.length || !transferItems[0].webkitGetAsEntry) {
+        return Array.from(dataTransfer.files || []).map((file) => ({file, relative_path: file.name}));
+      }
+      const collected = [];
+      for (const item of transferItems) {
+        const entry = item.webkitGetAsEntry();
+        if (entry) collected.push(...await traverseEntry(entry, ""));
+      }
+      return collected;
+    }
+
+    async function traverseEntry(entry, prefix) {
+      if (entry.isFile) {
+        return await new Promise((resolve, reject) => {
+          entry.file(
+            (file) => resolve([{file, relative_path: prefix + file.name}]),
+            reject
+          );
+        });
+      }
+      if (!entry.isDirectory) return [];
+      const reader = entry.createReader();
+      const result = [];
+      while (true) {
+        const entries = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+        if (!entries.length) break;
+        for (const child of entries) {
+          result.push(...await traverseEntry(child, prefix + entry.name + "/"));
+        }
+      }
+      return result;
     }
 
     function setBusy(value) {
@@ -687,6 +850,19 @@ WORKBENCH_HTML = r"""<!doctype html>
       .then((response) => response.json())
       .then((data) => $("health").textContent = data.status + " / " + data.version)
       .catch(() => $("health").textContent = "offline");
+
+    $("filePicker").addEventListener("change", (event) => importSelectedFiles(event.target.files));
+    $("folderPicker").addEventListener("change", (event) => importSelectedFiles(event.target.files));
+    $("dropzone").addEventListener("dragover", (event) => {
+      event.preventDefault();
+      $("dropzone").classList.add("dragging");
+    });
+    $("dropzone").addEventListener("dragleave", () => $("dropzone").classList.remove("dragging"));
+    $("dropzone").addEventListener("drop", async (event) => {
+      event.preventDefault();
+      $("dropzone").classList.remove("dragging");
+      importFileItems(await droppedFileItems(event.dataTransfer));
+    });
   </script>
 </body>
 </html>

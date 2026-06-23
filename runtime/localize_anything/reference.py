@@ -14,6 +14,7 @@ from .json_adapter import extract_segments as extract_json_segments
 from .modes import mode_contract
 from .planning import is_generation_eligible
 from .structured_adapter import extract_segments as extract_structured_segments
+from .word_adapter import extract_segments as extract_word_segments
 from .xcstrings_adapter import extract_segments as extract_xcstrings_segments
 from .xcstrings_adapter import target_resource_path as xcstrings_target_resource_path
 
@@ -24,6 +25,7 @@ TARGET_EXTRACTORS: dict[str, Extractor] = {
     "core.android-strings": extract_android_segments,
     "core.ios-strings": extract_ios_segments,
     "core.json-locale": extract_json_segments,
+    "core.word-document": extract_word_segments,
     "core.yaml-toml": lambda path, locale, source_path: extract_structured_segments(path, locale, source_path, _structured_format(path)),
     "core.xcstrings": extract_xcstrings_segments,
 }
@@ -220,6 +222,8 @@ def _target_path(project_root: Path, source_file: str, adapter: str, source_loca
         return project_root / ios_target_resource_path(source_path, target_locale, project_root)
     if adapter == "core.xcstrings":
         return project_root / xcstrings_target_resource_path(source_path, project_root)
+    if adapter == "core.word-document":
+        return project_root / _append_locale_to_filename(Path(source_file), target_locale)
     if adapter in {"core.json-locale", "core.yaml-toml"}:
         relative = _replace_locale_in_path(Path(source_file), source_locale, target_locale)
         return project_root / relative
@@ -237,6 +241,10 @@ def _replace_locale_in_path(path: Path, source_locale: str, target_locale: str) 
                 parts[index] = re.sub(re.escape(token), replacement, part, flags=re.IGNORECASE)
                 return Path(*parts)
     return path.with_name(f"{target_locale}{path.suffix}")
+
+
+def _append_locale_to_filename(path: Path, target_locale: str) -> Path:
+    return path.with_name(f"{path.stem}.{target_locale}{path.suffix}")
 
 
 def _locale_tokens(locale: str) -> list[str]:

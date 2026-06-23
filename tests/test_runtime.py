@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import gettext
 import http.client
@@ -76,6 +77,8 @@ from runtime.localize_anything.subtitle_adapter import rebuild as rebuild_subtit
 from runtime.localize_anything.tabular_adapter import extract_segments as extract_tabular_segments
 from runtime.localize_anything.tabular_adapter import rebuild as rebuild_tabular, validate_pair as validate_tabular_pair
 from runtime.localize_anything.ui import create_ui_server
+from runtime.localize_anything.word_adapter import extract_segments as extract_word_segments
+from runtime.localize_anything.word_adapter import rebuild as rebuild_word, validate_pair as validate_word_pair
 from runtime.localize_anything.wesnoth_adapter import extract_segments as extract_wesnoth_segments
 from runtime.localize_anything.wesnoth_adapter import enrich_segments, inventory as wesnoth_inventory, validate_source
 from runtime.localize_anything.xcstrings_adapter import extract_segments as extract_xcstrings_segments
@@ -325,6 +328,156 @@ class MarkupAdapterTests(unittest.TestCase):
             rebuild_markup(source, segments, output)
             self.assertIn('const message = "Do not translate"', output.read_text(encoding="utf-8"))
             self.assertEqual(validate_markup_pair(source, output)["status"], "pass")
+
+
+class WordDocumentAdapterTests(unittest.TestCase):
+    def test_docx_extract_rebuild_and_validate_visible_parts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "report.docx"
+            _write_minimal_docx(source)
+
+            segments = extract_word_segments(source, "en-US", "docs/report.docx")
+            for segment in segments:
+                assert_protocol_schema(self, "segment", segment)
+            self.assertTrue(
+                {
+                    "Hello, {name}!",
+                    "Table total: {total}",
+                    "Header title",
+                    "Footer note",
+                    "Footnote body",
+                    "Reviewer comment",
+                    "Box text",
+                    "Chart title",
+                }.issubset({segment["source"] for segment in segments})
+            )
+            for segment in segments:
+                segment["target_locale"] = "zh-CN"
+                segment["target"] = f"[zh-CN] {segment['source']}"
+                segment["status"] = "generated"
+
+            output = root / "report.zh-CN.docx"
+            rebuild_word(source, segments, output)
+            self.assertEqual(validate_word_pair(source, output)["status"], "pass")
+            rebuilt = extract_word_segments(output, "zh-CN", "docs/report.docx")
+            self.assertIn("[zh-CN] Hello, {name}!", {segment["source"] for segment in rebuilt})
+            with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
+                self.assertEqual(before.read("word/styles.xml"), after.read("word/styles.xml"))
+                self.assertEqual(before.read("word/_rels/document.xml.rels"), after.read("word/_rels/document.xml.rels"))
+                document = ElementTree.fromstring(after.read("word/document.xml"))
+                w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                fonts = document.findall(f".//{{{w_ns}}}rFonts")
+                self.assertTrue(fonts)
+                self.assertTrue(
+                    all(
+                        font.get(f"{{{w_ns}}}{name}") == "Microsoft YaHei"
+                        for font in fonts
+                        for name in ("ascii", "hAnsi", "eastAsia", "cs")
+                    )
+                )
+
+    def test_rebuild_applies_english_font_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "report.docx"
+            _write_minimal_docx(source)
+            segments = extract_word_segments(source, "zh-CN", "docs/report.docx")
+            for segment in segments:
+                segment["target_locale"] = "en-US"
+                segment["target"] = f"[en-US] {segment['source']}"
+                segment["status"] = "generated"
+            output = root / "report.en-US.docx"
+            rebuild_word(source, segments, output)
+            self.assertEqual(validate_word_pair(source, output)["status"], "pass")
+            with zipfile.ZipFile(output) as archive:
+                document = ElementTree.fromstring(archive.read("word/document.xml"))
+                w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                fonts = document.findall(f".//{{{w_ns}}}rFonts")
+                self.assertTrue(fonts)
+                self.assertTrue(
+                    all(
+                        font.get(f"{{{w_ns}}}{name}") == "Arial"
+                        for font in fonts
+                        for name in ("ascii", "hAnsi", "eastAsia", "cs")
+                    )
+                )
+                chart = ElementTree.fromstring(archive.read("word/charts/chart1.xml"))
+                a_ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
+                typefaces = {node.get("typeface") for node in chart.findall(f".//{{{a_ns}}}latin")}
+                self.assertEqual(typefaces, {"Arial"})
+
+    def test_mixed_style_runs_are_split_and_styles_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "mixed.docx"
+            _write_minimal_docx(source, mixed_styles=True)
+            segments = extract_word_segments(source, "en-US", "docs/mixed.docx")
+            by_source = {segment["source"]: segment for segment in segments}
+            self.assertIn("Bold text", by_source)
+            self.assertIn("Italic text", by_source)
+            for segment in segments:
+                segment["target_locale"] = "zh-CN"
+                segment["target"] = f"[zh-CN] {segment['source']}"
+                segment["status"] = "generated"
+            output = root / "mixed.zh-CN.docx"
+            rebuild_word(source, segments, output)
+            self.assertEqual(validate_word_pair(source, output)["status"], "pass")
+
+    def test_docm_macro_bytes_are_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "macro.docm"
+            _write_minimal_docx(source, include_macro=True)
+            segments = extract_word_segments(source, "en-US", "docs/macro.docm")
+            for segment in segments:
+                segment["target_locale"] = "zh-CN"
+                segment["target"] = f"[zh-CN] {segment['source']}"
+                segment["status"] = "generated"
+            output = root / "macro.zh-CN.docm"
+            rebuild_word(source, segments, output)
+            with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
+                self.assertEqual(before.read("word/vbaProject.bin"), after.read("word/vbaProject.bin"))
+            self.assertEqual(validate_word_pair(source, output)["status"], "pass")
+
+    def test_legacy_doc_and_malformed_docx_are_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            project.mkdir()
+            (project / "legacy.doc").write_bytes(b"legacy")
+            inspection = inspect_project(project)
+            self.assertEqual(inspection["unprocessed_non_text_assets"][0]["status"], "unsupported")
+            self.assertEqual(inspection["unprocessed_non_text_assets"][0]["required_action"], "convert_to_openxml_docx_before_localization")
+
+            broken = root / "broken.docx"
+            broken.write_bytes(b"not a zip")
+            result = validate_word_pair(broken, broken)
+            self.assertEqual(result["status"], "fail")
+            self.assertTrue(any(item["category"] == "parse" for item in result["items"]))
+
+    def test_stage_and_localize_run_route_word_documents(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            source = project / "docs" / "report.docx"
+            source.parent.mkdir(parents=True)
+            _write_minimal_docx(source)
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                ["docs/report.docx"],
+                root / "out",
+                "word-run-001",
+                synthetic_draft=True,
+            )
+            self.assertEqual(result["status"], "draft_package_created")
+            self.assertEqual(result["summary"]["qa_status"], "pass")
+            staging = read_json(Path(result["artifacts"]["staging_result"]))
+            self.assertEqual(staging["outputs"][0]["adapter"], "core.word-document")
+            self.assertEqual(staging["outputs"][0]["destination"], "docs/report.zh-CN.docx")
+            self.assertTrue((Path(staging["staging_dir"]) / "docs" / "report.zh-CN.docx").is_file())
 
 
 class SubtitleAdapterTests(unittest.TestCase):
@@ -2744,6 +2897,53 @@ class WorkbenchUITests(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=2)
 
+    def test_ui_import_files_creates_temp_project_and_rejects_unsafe_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "upload.docx"
+            _write_minimal_docx(source)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/import-files",
+                    {
+                        "files": [
+                            {
+                                "relative_path": "docs/upload.docx",
+                                "content_base64": base64.b64encode(source.read_bytes()).decode("ascii"),
+                            }
+                        ]
+                    },
+                )
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["status"], "pass")
+                imported_project = Path(payload["project"])
+                self.assertTrue((imported_project / "docs" / "upload.docx").is_file())
+                self.assertEqual(payload["routing"]["adapter_counts"], {"core.word-document": 1})
+                self.assertEqual(payload["source_files"], ["docs/upload.docx"])
+                home_status, home = _http_get(host, port, "/")
+                self.assertEqual(home_status, 200)
+                self.assertIn("dropzone", home)
+                self.assertIn("folderPicker", home)
+
+                unsafe_status, unsafe = _http_post_json(
+                    host,
+                    port,
+                    "/api/import-files",
+                    {"files": [{"relative_path": "../escape.docx", "content_base64": ""}]},
+                )
+                self.assertEqual(unsafe_status, 400)
+                self.assertEqual(unsafe["status"], "fail")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
 
 class UnifiedStagingTests(unittest.TestCase):
     def test_stage_generated_routes_multiple_adapters_to_staging(self) -> None:
@@ -3572,6 +3772,88 @@ def _load_v022_android_source_set_benchmark():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _write_minimal_docx(path: Path, include_macro: bool = False, mixed_styles: bool = False) -> None:
+    mixed = """
+    <w:p>
+      <w:r><w:rPr><w:b/></w:rPr><w:t>Bold text</w:t></w:r>
+      <w:r><w:rPr><w:i/></w:rPr><w:t>Italic text</w:t></w:r>
+    </w:p>
+""" if mixed_styles else ""
+    document = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    <w:p><w:r><w:t>Hello, {{name}}!</w:t></w:r></w:p>
+    <w:tbl><w:tr><w:tc><w:p><w:r><w:t>Table total: {{total}}</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+    <w:p><w:r><w:drawing><w:txbxContent><w:p><w:r><w:t>Box text</w:t></w:r></w:p></w:txbxContent></w:drawing></w:r></w:p>
+    {mixed}
+  </w:body>
+</w:document>
+"""
+    header = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p><w:r><w:t>Header title</w:t></w:r></w:p>
+</w:hdr>
+"""
+    footer = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p><w:r><w:t>Footer note</w:t></w:r></w:p>
+</w:ftr>
+"""
+    footnotes = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:footnote w:id="1"><w:p><w:r><w:t>Footnote body</w:t></w:r></w:p></w:footnote>
+</w:footnotes>
+"""
+    comments = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:comment w:id="0"><w:p><w:r><w:t>Reviewer comment</w:t></w:r></w:p></w:comment>
+</w:comments>
+"""
+    chart = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <c:chart><c:title><c:tx><c:rich><a:p><a:r><a:t>Chart title</a:t></a:r></a:p></c:rich></c:tx></c:title></c:chart>
+</c:chartSpace>
+"""
+    styles = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+</w:styles>
+"""
+    rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>
+"""
+    document_rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+  <Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
+</Relationships>
+"""
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="bin" ContentType="application/vnd.ms-office.vbaProject"/>
+</Types>
+"""
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("_rels/.rels", rels)
+        archive.writestr("word/document.xml", document)
+        archive.writestr("word/_rels/document.xml.rels", document_rels)
+        archive.writestr("word/header1.xml", header)
+        archive.writestr("word/footer1.xml", footer)
+        archive.writestr("word/footnotes.xml", footnotes)
+        archive.writestr("word/comments.xml", comments)
+        archive.writestr("word/charts/chart1.xml", chart)
+        archive.writestr("word/styles.xml", styles)
+        if include_macro:
+            archive.writestr("word/vbaProject.bin", b"fake-vba-project")
 
 
 def _write_minimal_xlsx(path: Path) -> None:

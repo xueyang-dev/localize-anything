@@ -68,6 +68,9 @@ from .subtitle_adapter import validate_pair as validate_subtitle_pair
 from .tabular_adapter import extract_segments as extract_tabular_segments
 from .tabular_adapter import rebuild as rebuild_tabular
 from .tabular_adapter import validate_pair as validate_tabular_pair
+from .word_adapter import extract_segments as extract_word_segments
+from .word_adapter import rebuild as rebuild_word
+from .word_adapter import validate_pair as validate_word_pair
 from .wesnoth_adapter import extract_segments as extract_wesnoth_segments
 from .wesnoth_adapter import enrich_segments as enrich_wesnoth_segments
 from .wesnoth_adapter import inventory as inventory_wesnoth
@@ -183,6 +186,22 @@ def build_parser() -> argparse.ArgumentParser:
     validate_tabular_parser.add_argument("source", type=Path)
     validate_tabular_parser.add_argument("target", type=Path)
     validate_tabular_parser.add_argument("--output", type=Path)
+
+    extract_word_parser = subparsers.add_parser("extract-word", help="Extract visible Word OpenXML text")
+    extract_word_parser.add_argument("source", type=Path)
+    extract_word_parser.add_argument("--source-locale", required=True)
+    extract_word_parser.add_argument("--source-path")
+    extract_word_parser.add_argument("--output", type=Path)
+
+    rebuild_word_parser = subparsers.add_parser("rebuild-word", help="Rebuild Word OpenXML from translated segments")
+    rebuild_word_parser.add_argument("source", type=Path)
+    rebuild_word_parser.add_argument("translations", type=Path)
+    rebuild_word_parser.add_argument("--output", type=Path, required=True)
+
+    validate_word_parser = subparsers.add_parser("validate-word", help="Validate Word OpenXML structure, styles, and placeholders")
+    validate_word_parser.add_argument("source", type=Path)
+    validate_word_parser.add_argument("target", type=Path)
+    validate_word_parser.add_argument("--output", type=Path)
 
     extract_markup_parser = subparsers.add_parser("extract-markup", help="Extract visible Markdown or HTML text")
     extract_markup_parser.add_argument("source", type=Path)
@@ -727,6 +746,20 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "validate-tabular":
             result = validate_tabular_pair(args.source, args.target)
+            _emit_json(result, args.output)
+            return 0 if result["status"] in {"pass", "pass_with_warnings"} else 1
+        if args.command == "extract-word":
+            records = extract_word_segments(args.source, args.source_locale, args.source_path)
+            if args.output:
+                write_jsonl(args.output, records)
+            else:
+                sys.stdout.write("".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records))
+            return 0
+        if args.command == "rebuild-word":
+            rebuild_word(args.source, read_jsonl(args.translations), args.output)
+            return 0
+        if args.command == "validate-word":
+            result = validate_word_pair(args.source, args.target)
             _emit_json(result, args.output)
             return 0 if result["status"] in {"pass", "pass_with_warnings"} else 1
         if args.command == "extract-markup":
