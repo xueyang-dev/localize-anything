@@ -19,7 +19,7 @@
 <p align="center">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue" />
   <img alt="CI" src="https://github.com/xueyang-dev/localize-anything/actions/workflows/ci.yml/badge.svg" />
-  <img alt="Release: v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-blue" />
+  <img alt="Release: v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-blue" />
   <img alt="QA: deterministic" src="https://img.shields.io/badge/QA-deterministic-green" />
   <img alt="Apply: staged first" src="https://img.shields.io/badge/apply-staged%20first-blueviolet" />
 </p>
@@ -41,14 +41,15 @@ Use Localize Anything when you need to:
 
 ## Status
 
-**Current release:** [v0.4.0 — Word Document Localization](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.4.0)
+**Current release:** [v0.4.1 — Workbench UI Wiring](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.4.1)
 
-v0.4.0 adds high-fidelity Word OpenXML localization for `.docx`, `.dotx`, `.docm`, and `.dotm` files, plus Workbench file/folder import for dragging Word documents into the existing staging and delivery workflow. Word output normalizes localized run fonts by target locale, for example English uses Arial and Simplified Chinese uses Microsoft YaHei, while deterministic QA protects package structure, relationships, styles, non-text resources, non-font run properties, paragraph properties, placeholders, and macro bytes.
+v0.4.1 refines the Workbench WebUI: it removes copied macOS window controls, connects localization mode selection to the agent `operating_mode` and `reference_policy`, adds a `/api/sessions`-backed sessions panel, and shows inline validation before backend calls when the project path, target locale, or responses directory is missing.
 
-This release also adds explicit opt-in Android merged dependency resource overlay generation for projects that need dependency-provided Android resources localized. Legacy binary `.doc` files, image text, embedded objects, and provider-backed translation quality remain outside the deterministic coverage claim.
+The v0.4.0 Word OpenXML localization and explicit opt-in Android merged dependency resource overlay remain the current feature baseline. Legacy binary `.doc` files, image text, embedded objects, and provider-backed translation quality remain outside the deterministic coverage claim.
 
 Verified engineering evidence includes:
 
+- v0.4.1 Workbench UI state, mode forwarding, sessions endpoint, and inline validation: pass;
 - v0.4.0 Word adapter extract/rebuild/validate coverage: pass;
 - Word `.docm` macro-byte preservation: pass;
 - Workbench file/folder import API and UI smoke tests: pass;

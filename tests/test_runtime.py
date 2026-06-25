@@ -1804,10 +1804,19 @@ class ProjectTests(unittest.TestCase):
         bash = shutil.which("bash")
         if bash is None:
             self.skipTest("bash is not available")
+        probe = subprocess.run(
+            [bash, "-lc", "true"],
+            capture_output=True,
+            check=False,
+        )
+        if probe.returncode != 0:
+            self.skipTest("bash is present but not runnable")
         result = subprocess.run(
             [bash, "-n", "scripts/smoke-antennapod.sh"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -2873,11 +2882,15 @@ class WorkbenchUITests(unittest.TestCase):
                         "run_id": "ui-agent-001",
                         "max_segments": 2,
                         "synthetic_draft": True,
+                        "operating_mode": "blind_benchmark",
+                        "reference_policy": "blind",
                     },
                 )
                 self.assertEqual(run_status, 200)
                 result = run_payload["agent_result"]
                 self.assertEqual(result["status"], "draft_package_created")
+                self.assertEqual(result["project"]["operating_mode"], "blind_benchmark")
+                self.assertEqual(result["project"]["reference_policy"], "blind")
                 self.assertEqual(result["reflection"]["qa_status"], "pass")
 
                 sessions_status, sessions_payload = _http_post_json(host, port, "/api/sessions", {"project": project.as_posix()})

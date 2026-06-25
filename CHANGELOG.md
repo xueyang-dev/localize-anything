@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## v0.4.1 - Workbench UI Wiring
+
+### Changed
+
+- Refine the Workbench WebUI into a practical app shell without copied macOS
+  window controls.
+- Wire the Workbench localization mode selector to the agent
+  `operating_mode` and `reference_policy` backend parameters.
+- Add a sessions panel backed by `/api/sessions` so prior agent runs can be
+  loaded from the WebUI.
+- Add inline WebUI validation for missing project paths, missing target
+  locales, and missing response directories before backend calls are made.
+
+### Fixed
+
+- Pass Workbench `operating_mode` and `reference_policy` values through
+  `/api/agent-run` into the runtime agent.
+- Skip the bash-only AntennaPod helper syntax test when Windows exposes a WSL
+  `bash.exe` launcher but no runnable Linux distribution is installed.
+
+### Notes
+
+- `PROTOCOL_VERSION` remains `0.1`.
+
 ## v0.4.0 - Word Document Localization
 
 ### Added
