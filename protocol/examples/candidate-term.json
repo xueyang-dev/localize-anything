@@ -1,0 +1,36 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-candidate-term-v1",
+  "candidate_id": "termcand-001",
+  "source_term": "Delete account",
+  "target_term": "",
+  "term_type": "ui_term",
+  "status": "needs_review",
+  "risk_level": "critical",
+  "review_priority": "owner_review_required",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "occurrence_count": 1,
+  "occurrences": [
+    {
+      "segment_id": "android:app/src/main/res/values/strings.xml#delete",
+      "source_path": "app/src/main/res/values/strings.xml",
+      "source": "Delete account",
+      "resource_key": "string:delete_account_button"
+    }
+  ],
+  "evidence": [
+    {
+      "type": "android_high_risk_ui_term",
+      "segment_id": "android:app/src/main/res/values/strings.xml#delete",
+      "source_path": "app/src/main/res/values/strings.xml"
+    }
+  ],
+  "matches": {
+    "term_registry": [],
+    "term_decisions": [],
+    "forbidden_translations": []
+  },
+  "conflicts": [],
+  "suggested_action": "review_in_workbench"
+}

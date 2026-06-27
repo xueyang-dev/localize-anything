@@ -20,6 +20,11 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   `term-decision` record per line; `term-registry.csv` and
   `forbidden-translations.csv` provide deterministic runtime inputs for hard
   terminology constraints.
+- Termbase preflight artifacts record deterministic candidate terminology before
+  generation: `candidate-terms.jsonl`, `termbase-preflight-report.json`,
+  `term-review-queue.json`, and `term-review-decisions.jsonl`. The queue is a
+  Workbench/API-first review surface; spreadsheet export is optional future
+  convenience, not the primary workflow.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -31,6 +36,10 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   term-registry entries, forbidden translations, structural rules, and future
   claim constraints. Blind benchmark mode hides target-language term registry
   and translation-memory content from generation-facing packets.
+- Work packets may include `memory.terminology_review` from the termbase
+  preflight report. If unreviewed high-risk terms or conflicts remain, the
+  packet must expose incomplete terminology assurance instead of implying full
+  term safety.
 - Draft requests turn a work packet into provider-agnostic host-agent
   instructions and a JSONL segment output contract for translation generation.
 - Draft prompts render those requests as paste-ready Markdown for manual
@@ -56,7 +65,7 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 ## Lifecycle
 
 ```text
-inspect -> preflight -> plan -> retrieve -> draft-request -> draft-prompt
+inspect -> preflight -> termbase-preflight -> plan -> retrieve -> draft-request -> draft-prompt
         -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
         -> stage-generated -> validate-output -> package
@@ -77,6 +86,27 @@ JSONL contract for direct provider execution and handoff/import fallback, and
 does not overwrite source project files.
 
 Adapters implement the narrower lifecycle documented in `docs/adapters.md`.
+
+## Termbase Preflight
+
+`termbase-preflight` scans extracted source segments before generation. The
+seed implementation extracts repeated short phrases, resource-key-derived
+terms, capitalized acronyms, Android high-risk UI terms, document high-risk
+patterns, and existing termbase matches. It classifies terms conservatively and
+connects candidates to `term-registry.csv`, `term-decisions.jsonl`, and
+`forbidden-translations.csv` when those files are present.
+
+The review queue supports statuses `candidate`, `needs_review`, `approved`,
+`locked`, `rejected`, `forbidden`, `deferred`, and `scope_specific`. Recording
+a queue decision writes `term-review-decisions.jsonl` and updates term
+governance assets when the decision can safely become governance input:
+approved/locked terms become registry candidates for hard constraints, and
+forbidden targets update forbidden translations.
+
+`termbase-preflight-report.json` exposes unreviewed high-risk terms and simple
+conflicts. Generation-facing artifacts must carry the report's terminology
+assurance state; incomplete review is not equivalent to full terminology
+assurance.
 
 ## Localization Modes
 

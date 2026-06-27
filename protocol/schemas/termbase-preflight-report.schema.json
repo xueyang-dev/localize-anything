@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/termbase-preflight-report.schema.json",
+  "title": "Localize Anything Termbase Preflight Report",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "source_locale",
+    "target_locale",
+    "status",
+    "terminology_assurance",
+    "summary",
+    "unreviewed_high_risk_terms",
+    "conflicts",
+    "artifacts",
+    "limitations"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-termbase-preflight-report-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["pass", "review_required", "blocked"] },
+    "terminology_assurance": { "enum": ["reviewed", "incomplete_review_required", "blocked_by_conflict"] },
+    "summary": { "type": "object", "additionalProperties": true },
+    "unreviewed_high_risk_terms": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "conflicts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "artifacts": {
+      "type": "object",
+      "required": ["candidate_terms", "term_review_queue", "term_review_decisions"],
+      "properties": {
+        "candidate_terms": { "const": "candidate-terms.jsonl" },
+        "term_review_queue": { "const": "term-review-queue.json" },
+        "term_review_decisions": { "const": "term-review-decisions.jsonl" }
+      },
+      "additionalProperties": true
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

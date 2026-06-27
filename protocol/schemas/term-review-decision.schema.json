@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/term-review-decision.schema.json",
+  "title": "Localize Anything Term Review Decision",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "candidate_id",
+    "source_term",
+    "target_term",
+    "term_type",
+    "status",
+    "target_locale",
+    "forbidden_targets",
+    "decided_by",
+    "decided_at",
+    "provenance"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-term-review-decision-v1" },
+    "candidate_id": { "type": "string", "minLength": 1 },
+    "source_term": { "type": "string", "minLength": 1 },
+    "target_term": { "type": "string" },
+    "term_type": {
+      "enum": [
+        "institution",
+        "project",
+        "policy_term",
+        "award",
+        "mechanism",
+        "metric",
+        "ui_term",
+        "domain_term",
+        "style_term",
+        "other"
+      ]
+    },
+    "status": { "enum": ["approved", "locked", "rejected", "forbidden", "deferred", "scope_specific"] },
+    "source_locale": { "type": "string" },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "scope": { "type": "string" },
+    "notes": { "type": "string" },
+    "forbidden_targets": { "type": "array", "items": { "type": "string" } },
+    "decided_by": { "type": "string", "minLength": 1 },
+    "decided_at": { "type": "string", "format": "date-time" },
+    "provenance": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+  },
+  "additionalProperties": true
+}

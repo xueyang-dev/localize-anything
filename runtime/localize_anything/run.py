@@ -47,6 +47,7 @@ from .subtitle_adapter import extract_segments as extract_subtitle_segments
 from .subtitle_adapter import validate_pair as validate_subtitle_pair
 from .tabular_adapter import extract_segments as extract_tabular_segments
 from .tabular_adapter import validate_pair as validate_tabular_pair
+from .termbase_preflight import run_termbase_preflight
 from .word_adapter import extract_segments as extract_word_segments
 from .word_adapter import validate_pair as validate_word_pair
 from .xcstrings_adapter import extract_segments as extract_xcstrings
@@ -151,6 +152,13 @@ def run_localize(
         segments.extend(overlay_plan["segments"])
     segments_path = run_dir / "segments.jsonl"
     write_jsonl(segments_path, segments)
+    term_preflight = run_termbase_preflight(
+        state_dir,
+        segments,
+        source_locale=source_locale,
+        target_locale=target_locale,
+        run_id=run_id,
+    )
 
     inventory_by_path = {item["path"]: item for item in inspection["supported_files"]}
     candidate_segments, preserved_segments, reference_plan = create_reference_plan(
@@ -213,6 +221,7 @@ def run_localize(
             len(plan["batches"]),
             generation_mode="handoff_only",
             reference_plan_path=reference_plan_path,
+            term_preflight=term_preflight,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -251,6 +260,7 @@ def run_localize(
             len(plan["batches"]),
             generation_mode=generation_mode,
             reference_plan_path=reference_plan_path,
+            term_preflight=term_preflight,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -358,6 +368,7 @@ def run_localize(
         len(plan["batches"]),
         generation_mode=generation_mode,
         reference_plan_path=reference_plan_path,
+        term_preflight=term_preflight,
         operating_mode=operating_mode,
         reference_policy=reference_policy,
         reference_summary=reference_plan["summary"],
@@ -651,6 +662,7 @@ def _summary(
     blocking_count: int = 0,
     warning_count: int = 0,
     reference_plan_path: Path | None = None,
+    term_preflight: dict[str, Any] | None = None,
     operating_mode: str = DEFAULT_OPERATING_MODE,
     reference_policy: str = DEFAULT_REFERENCE_POLICY_BY_MODE[DEFAULT_OPERATING_MODE],
     reference_summary: dict[str, Any] | None = None,
@@ -692,6 +704,14 @@ def _summary(
     for key, value in optional.items():
         if value is not None:
             artifacts[key] = value.as_posix()
+    termbase_artifacts: dict[str, str] = {}
+    if term_preflight:
+        state_dir = project_root / ".localize-anything"
+        for key, value in term_preflight.get("artifacts", {}).items():
+            artifact_key = str(key)
+            path = state_dir / str(value)
+            artifacts[artifact_key] = path.as_posix()
+            termbase_artifacts[artifact_key] = path.as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -713,6 +733,12 @@ def _summary(
             "mode_contract": mode_contract(operating_mode, reference_policy),
             "summary": reference_summary or {},
         },
+        "terminology": {
+            "status": (term_preflight or {}).get("status", "not_checked"),
+            "terminology_assurance": (term_preflight or {}).get("terminology_assurance", "not_checked"),
+            "summary": (term_preflight or {}).get("summary", {}),
+            "artifacts": termbase_artifacts,
+        },
         "generation": {
             "mode": generation_mode,
             "status": generation_status or "pending",
@@ -727,6 +753,7 @@ def _summary(
             "qa_status": qa_status or "not_checked",
             "blocking_count": blocking_count,
             "warning_count": warning_count,
+            "terminology_assurance": (term_preflight or {}).get("terminology_assurance", "not_checked"),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

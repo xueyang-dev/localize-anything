@@ -34,6 +34,7 @@ Intake
  -> Preflight Policy Selection
  -> Preflight Scan
  -> Initial Memory Assets
+ -> Termbase Preflight Gate
  -> Batch Plan
  -> Working Context Packet
  -> Localization
@@ -69,6 +70,10 @@ term-decisions.jsonl
 forbidden-translations.csv
 term-conflicts.jsonl
 term-provenance.jsonl
+candidate-terms.jsonl
+termbase-preflight-report.json
+term-review-queue.json
+term-review-decisions.jsonl
 delivery-manifest.json
 ```
 
@@ -89,6 +94,43 @@ decisions:
 Generation-facing work packets expose approved and locked term-registry entries
 through `memory.hard_constraints`. Blind benchmark mode hides target-language
 term and translation-memory content to preserve reference isolation.
+
+## Termbase Preflight Gate
+
+Termbase preflight runs after source segment extraction and before generation
+handoff. It scans source segments for conservative terminology signals:
+repeated short phrases, resource-key-derived UI labels, capitalized acronyms,
+Android high-risk UI strings, document high-risk term patterns, and matches
+against existing term governance files.
+
+The gate writes four UI-first artifacts:
+
+- `candidate-terms.jsonl`: one deterministic candidate term per line with
+  source occurrences, evidence, term type, risk, existing matches, and
+  conflicts.
+- `termbase-preflight-report.json`: summary status, terminology assurance, high
+  risk unreviewed terms, conflicts, and artifact links.
+- `term-review-queue.json`: the Workbench-ready review queue.
+- `term-review-decisions.jsonl`: decisions recorded from the queue.
+
+The queue is the primary review surface. Workbench/API clients can read the
+queue and record decisions without exporting a spreadsheet. Sheet or CSV export
+may be added later for convenience, but it is not the source of truth because
+spreadsheet review loses artifact identity, segment evidence, queue status,
+and safe API write semantics.
+
+Review decisions feed Term Governance. Approved and locked terms sync into
+`term-registry.csv`; forbidden targets sync into
+`forbidden-translations.csv`; provenance-bearing decisions append to
+`term-decisions.jsonl` when they include a target term. Work packets can then
+select those approved or locked registry entries as hard constraints.
+
+This gate is intentionally not the full Generation Strategy Gate. It provides
+terminology assurance status and visible blockers. Later generation strategy can
+use the same report to decide whether to block, route for higher assurance, or
+request more user decisions. Until review is complete, run summaries and work
+packets carry `terminology_assurance: incomplete_review_required` or
+`blocked_by_conflict`; generation must not claim full terminology assurance.
 
 ## Localization Brief
 

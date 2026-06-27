@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/candidate-term.schema.json",
+  "title": "Localize Anything Candidate Term",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "candidate_id",
+    "source_term",
+    "term_type",
+    "status",
+    "risk_level",
+    "review_priority",
+    "source_locale",
+    "target_locale",
+    "occurrence_count",
+    "occurrences",
+    "evidence",
+    "matches",
+    "conflicts",
+    "suggested_action"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-candidate-term-v1" },
+    "candidate_id": { "type": "string", "minLength": 1 },
+    "source_term": { "type": "string", "minLength": 1 },
+    "target_term": { "type": "string" },
+    "term_type": {
+      "enum": [
+        "institution",
+        "project",
+        "policy_term",
+        "award",
+        "mechanism",
+        "metric",
+        "ui_term",
+        "domain_term",
+        "style_term",
+        "other"
+      ]
+    },
+    "status": {
+      "enum": ["candidate", "needs_review", "approved", "locked", "rejected", "forbidden", "deferred", "scope_specific"]
+    },
+    "risk_level": { "enum": ["low", "medium", "high", "critical"] },
+    "review_priority": { "enum": ["normal", "review_recommended", "owner_review_required"] },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "occurrence_count": { "type": "integer", "minimum": 0 },
+    "occurrences": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "evidence": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "matches": {
+      "type": "object",
+      "required": ["term_registry", "term_decisions", "forbidden_translations"],
+      "properties": {
+        "term_registry": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "term_decisions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "forbidden_translations": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+      },
+      "additionalProperties": true
+    },
+    "conflicts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "suggested_action": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": true
+}

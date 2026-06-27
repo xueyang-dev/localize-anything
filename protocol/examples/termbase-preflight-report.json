@@ -1,0 +1,36 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-termbase-preflight-report-v1",
+  "run_id": "example-run-001",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "status": "review_required",
+  "terminology_assurance": "incomplete_review_required",
+  "summary": {
+    "candidate_count": 1,
+    "review_required_count": 1,
+    "high_risk_unreviewed_count": 1,
+    "conflict_count": 0
+  },
+  "unreviewed_high_risk_terms": [
+    {
+      "candidate_id": "termcand-001",
+      "source_term": "Delete account",
+      "term_type": "ui_term",
+      "risk_level": "critical",
+      "review_priority": "owner_review_required",
+      "occurrence_count": 1,
+      "status": "needs_review"
+    }
+  ],
+  "conflicts": [],
+  "artifacts": {
+    "candidate_terms": "candidate-terms.jsonl",
+    "term_review_queue": "term-review-queue.json",
+    "term_review_decisions": "term-review-decisions.jsonl"
+  },
+  "limitations": [
+    "candidate extraction is deterministic and conservative",
+    "incomplete term review must not be treated as full terminology assurance"
+  ]
+}

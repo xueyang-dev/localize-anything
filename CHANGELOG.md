@@ -18,6 +18,10 @@
 - Align brief fields with the optimized architecture structure:
   `document_type`, `source_genre`, `target_mode`, `target_audience`, `style`,
   `constraints`, `allowed_transformations`, and `forbidden_behaviors`.
+- Add a UI-first termbase preflight seed that writes `candidate-terms.jsonl`,
+  `termbase-preflight-report.json`, `term-review-queue.json`, and
+  `term-review-decisions.jsonl`, with CLI and Workbench API paths for queue
+  review decisions.
 
 ## v0.4.1 - Workbench UI Wiring
 

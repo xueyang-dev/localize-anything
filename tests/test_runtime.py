@@ -19,6 +19,7 @@ import unittest
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from unittest import mock
 from xml.etree import ElementTree
 
@@ -77,6 +78,11 @@ from runtime.localize_anything.subtitle_adapter import extract_segments as extra
 from runtime.localize_anything.subtitle_adapter import rebuild as rebuild_subtitles, validate_pair as validate_subtitle_pair
 from runtime.localize_anything.tabular_adapter import extract_segments as extract_tabular_segments
 from runtime.localize_anything.tabular_adapter import rebuild as rebuild_tabular, validate_pair as validate_tabular_pair
+from runtime.localize_anything.term_governance import select_term_constraints
+from runtime.localize_anything.termbase_preflight import (
+    record_term_review_decision,
+    run_termbase_preflight,
+)
 from runtime.localize_anything.ui import create_ui_server
 from runtime.localize_anything.word_adapter import extract_segments as extract_word_segments
 from runtime.localize_anything.word_adapter import rebuild as rebuild_word, validate_pair as validate_word_pair
@@ -3457,6 +3463,312 @@ class DeliveryLifecycleTests(unittest.TestCase):
                 execute_apply(Path(unsafe_packaged["delivery_directory"]), project, "unsafe-overlay-apply-001")
 
 
+class TermbasePreflightTests(unittest.TestCase):
+    def test_candidate_term_extraction_and_queue_report(self) -> None:
+        segments = _termbase_segments()
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            result = run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN", run_id="terms-001")
+
+            self.assertEqual(result["status"], "review_required")
+            self.assertEqual(result["terminology_assurance"], "incomplete_review_required")
+            candidates = read_jsonl(state / "candidate-terms.jsonl")
+            queue = read_json(state / "term-review-queue.json")
+            report = read_json(state / "termbase-preflight-report.json")
+            self.assertTrue((state / "term-review-decisions.jsonl").is_file())
+            assert_protocol_schema(self, "candidate-term", candidates[0])
+            assert_protocol_schema(self, "term-review-queue", queue)
+            assert_protocol_schema(self, "termbase-preflight-report", report)
+
+            by_term = {item["source_term"]: item for item in candidates}
+            self.assertIn("Delete account", by_term)
+            self.assertEqual(by_term["Delete account"]["status"], "needs_review")
+            self.assertEqual(by_term["Delete account"]["term_type"], "ui_term")
+            self.assertGreaterEqual(by_term["Delete account"]["occurrence_count"], 2)
+            self.assertIn("SSO", by_term)
+            self.assertIn("NASA", by_term)
+            self.assertIn("National award certification improves trust", by_term)
+            self.assertGreaterEqual(queue["summary"]["high_risk_unreviewed_count"], 1)
+            self.assertEqual(report["terminology_assurance"], "incomplete_review_required")
+            self.assertIn("Delete account", {item["source_term"] for item in report["unreviewed_high_risk_terms"]})
+
+    def test_existing_term_registry_match_marks_approved(self) -> None:
+        segments = [_segment("s1", "Enable SSO for sign in")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            state.mkdir()
+            _write_term_registry(
+                state,
+                [
+                    {
+                        "source_term": "SSO",
+                        "target_term": "单点登录",
+                        "type": "domain_term",
+                        "status": "approved",
+                        "priority": "user_confirmed",
+                        "target_locale": "zh-CN",
+                    }
+                ],
+            )
+
+            run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+            candidates = {item["source_term"]: item for item in read_jsonl(state / "candidate-terms.jsonl")}
+
+            self.assertEqual(candidates["SSO"]["status"], "approved")
+            self.assertEqual(candidates["SSO"]["target_term"], "单点登录")
+            self.assertEqual(candidates["SSO"]["matches"]["term_registry"][0]["status"], "approved")
+
+    def test_forbidden_translation_match_is_visible(self) -> None:
+        segments = [_segment("s1", "Delete account")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            state.mkdir()
+            _write_forbidden_translations(
+                state,
+                [
+                    {
+                        "source_term": "Delete account",
+                        "forbidden_target": "删除账号",
+                        "target_locale": "zh-CN",
+                        "reason": "too blunt for product policy",
+                        "status": "approved",
+                    }
+                ],
+            )
+
+            run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+            candidates = {item["source_term"]: item for item in read_jsonl(state / "candidate-terms.jsonl")}
+
+            self.assertEqual(candidates["Delete account"]["status"], "forbidden")
+            self.assertEqual(candidates["Delete account"]["matches"]["forbidden_translations"][0]["forbidden_target"], "删除账号")
+
+    def test_simple_conflict_detection_blocks_assurance(self) -> None:
+        segments = [_segment("s1", "API access")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            state.mkdir()
+            _write_term_registry(
+                state,
+                [
+                    {
+                        "source_term": "API",
+                        "target_term": "接口",
+                        "type": "domain_term",
+                        "status": "approved",
+                        "priority": "user_confirmed",
+                        "target_locale": "zh-CN",
+                    },
+                    {
+                        "source_term": "API",
+                        "target_term": "应用程序接口",
+                        "type": "domain_term",
+                        "status": "locked",
+                        "priority": "user_confirmed",
+                        "target_locale": "zh-CN",
+                    },
+                ],
+            )
+            _write_forbidden_translations(
+                state,
+                [
+                    {
+                        "source_term": "API",
+                        "forbidden_target": "接口",
+                        "target_locale": "zh-CN",
+                        "reason": "ambiguous",
+                        "status": "approved",
+                    }
+                ],
+            )
+
+            run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+            queue = read_json(state / "term-review-queue.json")
+            report = read_json(state / "termbase-preflight-report.json")
+
+            self.assertEqual(queue["status"], "blocked_by_conflict")
+            self.assertEqual(report["terminology_assurance"], "blocked_by_conflict")
+            conflict_types = {item["type"] for item in report["conflicts"]}
+            self.assertIn("multiple_approved_targets", conflict_types)
+            self.assertIn("approved_target_is_forbidden", conflict_types)
+
+    def test_user_decision_updates_governance_and_work_packet_constraints(self) -> None:
+        segments = [_segment("s1", "Enable SSO login")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+            queue = read_json(state / "term-review-queue.json")
+            candidate_id = next(item["candidate_id"] for item in queue["terms"] if item["source_term"] == "SSO")
+
+            result = record_term_review_decision(
+                state,
+                {
+                    "candidate_id": candidate_id,
+                    "target_term": "单点登录",
+                    "status": "locked",
+                    "notes": "Use the established product term.",
+                    "forbidden_targets": ["SSO"],
+                    "decided_by": "tester",
+                },
+            )
+
+            self.assertEqual(result["queue"]["terms"][0]["status"], "locked")
+            review_decisions = read_jsonl(state / "term-review-decisions.jsonl")
+            assert_protocol_schema(self, "term-review-decision", review_decisions[0])
+            term_constraints = select_term_constraints(state, segments, "zh-CN", "style_only")
+            self.assertEqual(term_constraints["term_registry"][0]["source_term"], "SSO")
+            self.assertEqual(term_constraints["term_registry"][0]["target_term"], "单点登录")
+            self.assertEqual(term_constraints["forbidden_translations"][0]["forbidden_target"], "SSO")
+
+            plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
+            packet = build_work_packet(plan, "batch-0001", segments, state, "zh-CN")
+            self.assertEqual(packet["memory"]["hard_constraints"]["term_registry"][0]["source_term"], "SSO")
+            self.assertEqual(packet["memory"]["terminology_review"]["terminology_assurance"], "reviewed")
+
+    def test_unreviewed_terms_downgrade_work_packet_terminology_assurance(self) -> None:
+        segments = [_segment("s1", "Delete account", high_risk=True)]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+
+            plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
+            packet = build_work_packet(plan, "batch-0001", segments, state, "zh-CN")
+
+            self.assertEqual(packet["memory"]["terminology_review"]["terminology_assurance"], "incomplete_review_required")
+            self.assertEqual(packet["memory"]["terminology_review"]["unreviewed_high_risk_terms"][0]["source_term"], "Delete account")
+
+    def test_workbench_api_reads_queue_and_records_decision(self) -> None:
+        segments = [_segment("s1", "Enable SSO login")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                queue_status, queue_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/term-review-queue",
+                    {"state_dir": state.as_posix()},
+                )
+                self.assertEqual(queue_status, 200)
+                queue = queue_payload["term_review_queue"]
+                candidate_id = next(item["candidate_id"] for item in queue["terms"] if item["source_term"] == "SSO")
+
+                decision_status, decision_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/term-review-decision",
+                    {
+                        "state_dir": state.as_posix(),
+                        "decision": {
+                            "candidate_id": candidate_id,
+                            "target_term": "单点登录",
+                            "status": "approved",
+                            "decided_by": "tester",
+                        },
+                    },
+                )
+                self.assertEqual(decision_status, 200)
+                self.assertEqual(decision_payload["result"]["report"]["terminology_assurance"], "reviewed")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
+def _termbase_segments() -> list[dict[str, Any]]:
+    return [
+        _segment("s1", "Delete account", resource_name="delete_account_button", high_risk=True),
+        _segment("s2", "Delete account", resource_name="delete_account_title", high_risk=True),
+        _segment("s3", "Enable SSO for NASA login"),
+        _segment("s4", "National award certification improves trust", content_type="word_document_text"),
+    ]
+
+
+def _segment(
+    segment_id: str,
+    source: str,
+    *,
+    resource_name: str | None = None,
+    content_type: str = "locale_string",
+    high_risk: bool = False,
+) -> dict[str, Any]:
+    context: dict[str, Any] = {
+        "content_type": content_type,
+        "content_unit": "test:terms",
+    }
+    if resource_name:
+        context.update(
+            {
+                "resource_key": f"string:{resource_name}",
+                "resource_name": resource_name,
+                "resource_type": "string",
+            }
+        )
+    segment: dict[str, Any] = {
+        "protocol_version": "0.1",
+        "segment_id": segment_id,
+        "source": source,
+        "source_locale": "en-US",
+        "source_path": "locales/en-US.json",
+        "source_hash": "a" * 64,
+        "context": context,
+        "constraints": {"placeholders": [], "markup": []},
+        "status": "new",
+    }
+    if high_risk:
+        segment["ui_risk_classification"] = {
+            "ui_role": ["destructive_action"],
+            "risk_level": "critical",
+            "review_priority": "owner_review_required",
+            "classification_evidence": ["source_text_pattern"],
+        }
+    return segment
+
+
+def _write_term_registry(state: Path, rows: list[dict[str, str]]) -> None:
+    state.mkdir(parents=True, exist_ok=True)
+    columns = [
+        "source_term",
+        "target_term",
+        "type",
+        "status",
+        "priority",
+        "scope",
+        "notes",
+        "source_locale",
+        "target_locale",
+        "forbidden_targets",
+        "provenance",
+    ]
+    with (state / "term-registry.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in columns})
+
+
+def _write_forbidden_translations(state: Path, rows: list[dict[str, str]]) -> None:
+    state.mkdir(parents=True, exist_ok=True)
+    columns = [
+        "source_term",
+        "forbidden_target",
+        "target_locale",
+        "scope",
+        "reason",
+        "status",
+        "provenance",
+    ]
+    with (state / "forbidden-translations.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in columns})
+
+
 class ProtocolFilesTests(unittest.TestCase):
     def test_protocol_json_files_parse(self) -> None:
         root = Path(__file__).parents[1]
@@ -3545,7 +3857,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 21)
+        self.assertEqual(result["schemas_checked"], 25)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

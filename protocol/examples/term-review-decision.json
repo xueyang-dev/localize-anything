@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-term-review-decision-v1",
+  "candidate_id": "termcand-001",
+  "source_term": "Delete account",
+  "target_term": "注销账户",
+  "term_type": "ui_term",
+  "status": "locked",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "scope": "account settings",
+  "notes": "Use the product-approved account action term.",
+  "forbidden_targets": ["删除账号"],
+  "decided_by": "project-owner",
+  "decided_at": "2026-06-27T00:00:00+00:00",
+  "provenance": [
+    {
+      "type": "term_review_queue",
+      "candidate_id": "termcand-001"
+    }
+  ]
+}

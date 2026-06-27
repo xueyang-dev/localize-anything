@@ -68,6 +68,7 @@ from .subtitle_adapter import validate_pair as validate_subtitle_pair
 from .tabular_adapter import extract_segments as extract_tabular_segments
 from .tabular_adapter import rebuild as rebuild_tabular
 from .tabular_adapter import validate_pair as validate_tabular_pair
+from .termbase_preflight import record_term_review_decision, run_termbase_preflight
 from .word_adapter import extract_segments as extract_word_segments
 from .word_adapter import rebuild as rebuild_word
 from .word_adapter import validate_pair as validate_word_pair
@@ -370,6 +371,38 @@ def build_parser() -> argparse.ArgumentParser:
     retrieve_parser.add_argument("--target-locale", required=True)
     retrieve_parser.add_argument("--limit-tokens", type=int, default=4000)
     retrieve_parser.add_argument("--output", type=Path)
+
+    termbase_preflight_parser = subparsers.add_parser(
+        "termbase-preflight",
+        help="Create UI-ready term candidate, report, and review queue artifacts before generation",
+    )
+    termbase_preflight_parser.add_argument("segments", type=Path)
+    termbase_preflight_parser.add_argument("state_dir", type=Path)
+    termbase_preflight_parser.add_argument("--source-locale", required=True)
+    termbase_preflight_parser.add_argument("--target-locale", required=True)
+    termbase_preflight_parser.add_argument("--run-id")
+    termbase_preflight_parser.add_argument("--output", type=Path)
+
+    term_review_decision_parser = subparsers.add_parser(
+        "term-review-decision",
+        help="Record a term review queue decision and sync applicable term governance assets",
+    )
+    term_review_decision_parser.add_argument("state_dir", type=Path)
+    term_review_decision_parser.add_argument("--candidate-id")
+    term_review_decision_parser.add_argument("--source-term")
+    term_review_decision_parser.add_argument("--target-term", default="")
+    term_review_decision_parser.add_argument("--term-type", default="other")
+    term_review_decision_parser.add_argument(
+        "--status",
+        required=True,
+        choices=["approved", "locked", "rejected", "forbidden", "deferred", "scope_specific"],
+    )
+    term_review_decision_parser.add_argument("--target-locale")
+    term_review_decision_parser.add_argument("--scope", default="")
+    term_review_decision_parser.add_argument("--notes", default="")
+    term_review_decision_parser.add_argument("--forbidden-target", action="append", default=[], dest="forbidden_targets")
+    term_review_decision_parser.add_argument("--decided-by", default="cli-user")
+    term_review_decision_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -919,6 +952,32 @@ def main(argv: list[str] | None = None) -> int:
                 args.state_dir,
                 args.target_locale,
                 args.limit_tokens,
+            )
+            return _emit_json(result, args.output)
+        if args.command == "termbase-preflight":
+            result = run_termbase_preflight(
+                args.state_dir,
+                read_jsonl(args.segments),
+                source_locale=args.source_locale,
+                target_locale=args.target_locale,
+                run_id=args.run_id,
+            )
+            return _emit_json(result, args.output)
+        if args.command == "term-review-decision":
+            result = record_term_review_decision(
+                args.state_dir,
+                {
+                    "candidate_id": args.candidate_id,
+                    "source_term": args.source_term,
+                    "target_term": args.target_term,
+                    "term_type": args.term_type,
+                    "status": args.status,
+                    "target_locale": args.target_locale,
+                    "scope": args.scope,
+                    "notes": args.notes,
+                    "forbidden_targets": args.forbidden_targets,
+                    "decided_by": args.decided_by,
+                },
             )
             return _emit_json(result, args.output)
         if args.command == "draft-request":

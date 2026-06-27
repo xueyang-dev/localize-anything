@@ -12,6 +12,13 @@ from . import PROTOCOL_VERSION, __version__
 from .io_utils import read_json, sha256_file, write_json
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
 from .term_governance import TERM_GOVERNANCE_ASSETS, term_governance_asset_paths
+from .termbase_preflight import (
+    CANDIDATE_TERMS_JSONL,
+    TERM_REVIEW_DECISIONS_JSONL,
+    TERM_REVIEW_QUEUE_JSON,
+    TERMBASE_PREFLIGHT_REPORT_JSON,
+    termbase_preflight_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -19,6 +26,10 @@ OPTIONAL_CANONICAL_ASSETS = (
     LOCALIZATION_BRIEF_JSON,
     LOCALIZATION_BRIEF_YAML,
     *TERM_GOVERNANCE_ASSETS.values(),
+    CANDIDATE_TERMS_JSONL,
+    TERMBASE_PREFLIGHT_REPORT_JSON,
+    TERM_REVIEW_QUEUE_JSON,
+    TERM_REVIEW_DECISIONS_JSONL,
 )
 
 
@@ -119,6 +130,7 @@ def package_delivery(
                 "glossary": "glossary.csv",
                 "translation_memory": "translation-memory.jsonl",
                 **term_governance_asset_paths(state_dir),
+                **termbase_preflight_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },
             "qa": {

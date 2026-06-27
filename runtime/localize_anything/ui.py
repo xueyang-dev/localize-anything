@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from . import __version__
 from .agent import run_agent
 from .project import inspect_project, load_session_index
+from .termbase_preflight import read_term_review_queue, record_term_review_decision
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -119,6 +120,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/read-artifact":
                     self._handle_read_artifact(payload)
                     return
+                if parsed.path == "/api/term-review-queue":
+                    self._handle_term_review_queue(payload)
+                    return
+                if parsed.path == "/api/term-review-decision":
+                    self._handle_term_review_decision(payload)
+                    return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -205,6 +212,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             content = data[:max_bytes].decode("utf-8-sig", errors="replace")
             self._send_json({"status": "pass", "path": path.as_posix(), "truncated": truncated, "content": content})
 
+        def _handle_term_review_queue(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Term review queue is outside allowed workbench roots: {state_dir}")
+            queue = read_term_review_queue(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "term_review_queue": queue})
+
+        def _handle_term_review_decision(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Term review queue is outside allowed workbench roots: {state_dir}")
+            decision = payload.get("decision")
+            if not isinstance(decision, dict):
+                raise ValueError("decision must be a JSON object")
+            result = record_term_review_decision(state_dir, decision)
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0:
@@ -243,6 +268,13 @@ def _required_path(payload: dict[str, Any], key: str) -> Path:
 def _optional_path(payload: dict[str, Any], key: str) -> Path | None:
     value = str(payload.get(key) or "").strip()
     return Path(value).expanduser().resolve() if value else None
+
+
+def _state_dir_from_payload(payload: dict[str, Any]) -> Path:
+    if payload.get("state_dir"):
+        return _required_path(payload, "state_dir")
+    project = _required_path(payload, "project")
+    return project / ".localize-anything"
 
 
 def _source_files(value: Any) -> list[str] | None:

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/term-review-queue.schema.json",
+  "title": "Localize Anything Term Review Queue",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "source_locale",
+    "target_locale",
+    "status",
+    "decision_artifact",
+    "summary",
+    "terms"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-term-review-queue-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["review_required", "reviewed", "blocked_by_conflict"] },
+    "decision_artifact": { "const": "term-review-decisions.jsonl" },
+    "summary": {
+      "type": "object",
+      "required": ["candidate_count", "review_required_count", "high_risk_unreviewed_count", "conflict_count"],
+      "properties": {
+        "candidate_count": { "type": "integer", "minimum": 0 },
+        "review_required_count": { "type": "integer", "minimum": 0 },
+        "high_risk_unreviewed_count": { "type": "integer", "minimum": 0 },
+        "conflict_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "terms": { "type": "array", "items": { "$ref": "candidate-term.schema.json" } }
+  },
+  "additionalProperties": true
+}
