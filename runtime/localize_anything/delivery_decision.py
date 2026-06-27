@@ -5,6 +5,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .apply import create_apply_plan
+from .artifact_state import artifact_state_from_delivery, artifact_state_summary_from_document
 from .io_utils import read_json
 
 
@@ -14,6 +15,7 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     manifest = read_json(delivery_dir / "delivery-manifest.json")
     apply_plan = create_apply_plan(delivery_dir, project_root)
     reference_plan = _load_reference_plan_for_delivery(delivery_dir)
+    artifact_state = artifact_state_summary_from_document(artifact_state_from_delivery(delivery_dir))
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -82,6 +84,20 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 "evidence": {"reason": apply_plan.get("provider_apply_block_reason")},
             }
         )
+    if apply_plan.get("blocked_by_stale_artifacts"):
+        decisions.append(
+            {
+                "id": f"artifact-state-{len(decisions) + 1:04d}",
+                "type": "artifact_state",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Regenerate or review stale upstream artifacts before delivery or apply.",
+                "evidence": {
+                    "reason": apply_plan.get("artifact_state_apply_block_reason"),
+                    "artifact_state": artifact_state,
+                },
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -109,8 +125,11 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "unprocessed_asset_count": len(unprocessed_assets),
             "apply_summary": apply_plan.get("summary", {}),
             "localization": localization,
+            "artifact_state": artifact_state.get("summary", {}),
+            "stale_artifact_count": len(artifact_state.get("stale_artifacts", [])),
         },
         "localization": localization,
+        "artifact_state": artifact_state,
         "apply_plan": apply_plan,
         "decisions": decisions,
         "next_actions": _next_actions(status, apply_plan, decisions),
@@ -120,6 +139,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
 def render_delivery_decision_markdown(report: dict[str, Any]) -> str:
     summary = report.get("summary", {})
     safety = report.get("safety", {})
+    artifact_state = report.get("artifact_state", {})
+    artifact_state_summary = artifact_state.get("summary", {}) if isinstance(artifact_state, dict) else {}
     lines = [
         "# Delivery Decision Report",
         "",
@@ -131,6 +152,7 @@ def render_delivery_decision_markdown(report: dict[str, Any]) -> str:
         f"- Blocking: {summary.get('blocking_count', 0)}",
         f"- Requires confirmation: {summary.get('requires_confirmation_count', 0)}",
         f"- Requires review: {summary.get('requires_review_count', 0)}",
+        f"- Stale artifacts: {artifact_state_summary.get('stale_count', 0)}",
         "",
         "## Localization Mode",
         "",
@@ -198,6 +220,8 @@ def _status(decisions: list[dict[str, Any]]) -> str:
 
 def _next_actions(status: str, apply_plan: dict[str, Any], decisions: list[dict[str, Any]]) -> list[str]:
     if status == "blocked":
+        if apply_plan.get("blocked_by_stale_artifacts"):
+            return ["Regenerate stale upstream artifacts, then rebuild the delivery package and delivery decision report."]
         return ["Resolve blocked QA findings or apply conflicts, then regenerate the delivery decision report."]
     actions = ["Review this decision report before applying any staged files."]
     if apply_plan.get("requires_confirmation"):

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/artifact-state.schema.json",
+  "title": "Localize Anything Artifact State",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "status",
+    "safe_to_continue",
+    "artifact_state_path",
+    "summary",
+    "decisions",
+    "artifacts"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-artifact-state-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": {
+      "enum": [
+        "missing",
+        "draft",
+        "current",
+        "stale",
+        "superseded",
+        "blocked",
+        "accepted",
+        "rejected",
+        "requires_human_review"
+      ]
+    },
+    "safe_to_continue": { "type": "boolean" },
+    "artifact_state_path": { "const": "artifact-state.json" },
+    "summary": {
+      "type": "object",
+      "required": [
+        "artifact_count",
+        "current_count",
+        "missing_count",
+        "stale_count",
+        "blocked_count",
+        "requires_human_review_count"
+      ],
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "decisions": {
+      "type": "object",
+      "required": [
+        "full_quality_generation_handoff_allowed",
+        "delivery_apply_allowed",
+        "delivery_policy",
+        "apply_policy"
+      ],
+      "properties": {
+        "full_quality_generation_handoff_allowed": { "type": "boolean" },
+        "delivery_apply_allowed": { "type": "boolean" },
+        "delivery_policy": { "enum": ["allowed", "warn", "blocked"] },
+        "apply_policy": { "enum": ["allowed", "warn", "blocked"] }
+      },
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "artifact_type",
+          "path",
+          "status",
+          "content_hash",
+          "source_dependency_hashes",
+          "produced_by",
+          "downstream_affected"
+        ],
+        "properties": {
+          "artifact_id": { "type": "string", "minLength": 1 },
+          "artifact_type": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "status": {
+            "enum": [
+              "missing",
+              "draft",
+              "current",
+              "stale",
+              "superseded",
+              "blocked",
+              "accepted",
+              "rejected",
+              "requires_human_review"
+            ]
+          },
+          "content_hash": { "type": ["string", "null"] },
+          "source_dependency_hashes": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "produced_by": { "type": "string", "minLength": 1 },
+          "produced_at": { "type": ["string", "null"] },
+          "supersedes": { "type": "array", "items": { "type": "string" } },
+          "superseded_by": { "type": "array", "items": { "type": "string" } },
+          "blocking_reason": { "type": ["string", "null"] },
+          "downstream_affected": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "stale_artifacts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "blocked_artifacts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "missing_required_artifacts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "next_actions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

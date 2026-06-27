@@ -39,6 +39,7 @@ Intake
  -> Generation Strategy Gate
  -> Resolution Gate
  -> Generation Handoff Enforcement
+ -> Artifact State Check
  -> Working Context Packet
  -> Localization
  -> Deterministic QA
@@ -83,6 +84,7 @@ resolution-options.json
 user-resolution-decisions.jsonl
 resolution-summary.md
 generation-handoff-decision.json
+artifact-state.json
 delivery-manifest.json
 ```
 
@@ -230,6 +232,36 @@ after provider failure, review-complete status with unresolved high-risk terms,
 or safe apply readiness when generation readiness is blocked or review-required.
 Workbench exposes the artifact through a minimal API endpoint; full visual UI
 comes later because policy enforcement must exist before presentation.
+
+## Artifact State Machine
+
+Artifact State Machine runs after linked pre-generation artifacts exist and
+whenever handoff, delivery, or apply readiness is checked. It writes
+`artifact-state.json`, a machine-readable index of important state and run
+artifacts, their content hashes, source dependency hashes, status, producing
+stage, blocking reason, and downstream artifacts affected by staleness.
+
+Supported statuses are `missing`, `draft`, `current`, `stale`, `superseded`,
+`blocked`, `accepted`, `rejected`, and `requires_human_review`. The seed engine
+is conservative: source inventory or segment changes make generated output,
+review results, strategy, handoff decision, and delivery decisions stale; brief,
+term governance, term review, resolution, generation strategy, handoff decision,
+generated segment, and review-result changes make their downstream evidence
+stale until the affected artifacts are regenerated or reviewed.
+
+Generation Strategy Gate, Resolution Gate, and Generation Handoff Enforcement
+remain the sources of their own policy decisions. Artifact State Machine does not
+invent user decisions or provider policy; it records whether those decisions are
+still current enough to be used as evidence. Generation handoff must not use
+stale strategy, brief, term, or resolution artifacts to justify full-quality
+readiness. Delivery decision and apply planning must surface stale evidence and
+block apply when it affects generated files or safety policy.
+
+Run summaries and delivery packages include artifact state so reviewers can see
+which artifacts are current, which are stale, which decision is affected, and
+what needs to be regenerated. Workbench exposes this through an artifact-backed
+API endpoint; the visual UI should display `artifact-state.json`, not infer
+freshness from filenames or timestamps in the browser.
 
 ## Localization Brief
 

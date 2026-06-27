@@ -69,6 +69,7 @@
               "qa_finding",
               "apply_operation",
               "unprocessed_asset",
+              "artifact_state",
               "preserved_translation",
               "generated_candidate",
               "stale_translation",

@@ -1,0 +1,107 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-artifact-state-v1",
+  "run_id": "example-run-001",
+  "status": "stale",
+  "safe_to_continue": false,
+  "artifact_state_path": "artifact-state.json",
+  "summary": {
+    "artifact_count": 4,
+    "current_count": 3,
+    "missing_count": 0,
+    "stale_count": 1,
+    "blocked_count": 0,
+    "accepted_count": 0,
+    "rejected_count": 0,
+    "requires_human_review_count": 0,
+    "missing_required_count": 0
+  },
+  "decisions": {
+    "full_quality_generation_handoff_allowed": false,
+    "delivery_apply_allowed": false,
+    "delivery_policy": "blocked",
+    "apply_policy": "blocked"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "localization_brief_json",
+      "artifact_type": "localization_brief",
+      "path": "localization-brief.json",
+      "status": "current",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_dependency_hashes": {},
+      "produced_by": "preflight",
+      "produced_at": "2026-06-27T00:00:00Z",
+      "supersedes": [],
+      "superseded_by": [],
+      "blocking_reason": null,
+      "downstream_affected": ["generation_strategy"]
+    },
+    {
+      "artifact_id": "generation_strategy",
+      "artifact_type": "generation_strategy",
+      "path": "generation-strategy.json",
+      "status": "stale",
+      "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_dependency_hashes": {
+        "localization_brief_json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "produced_by": "generation_strategy",
+      "produced_at": "2026-06-27T00:01:00Z",
+      "supersedes": [],
+      "superseded_by": [],
+      "blocking_reason": "upstream_dependency_changed",
+      "downstream_affected": ["generation_handoff_decision", "generated_segments", "delivery_decision"],
+      "stale_dependency_ids": ["localization_brief_json"]
+    },
+    {
+      "artifact_id": "generation_handoff_decision",
+      "artifact_type": "generation_handoff_decision",
+      "path": "generation-handoff-decision.json",
+      "status": "current",
+      "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_dependency_hashes": {
+        "generation_strategy": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "produced_by": "generation_handoff_enforcement",
+      "produced_at": "2026-06-27T00:02:00Z",
+      "supersedes": [],
+      "superseded_by": [],
+      "blocking_reason": null,
+      "downstream_affected": ["generated_segments", "state_delivery_manifest"]
+    },
+    {
+      "artifact_id": "generated_segments",
+      "artifact_type": "generated_segments",
+      "path": "generated.jsonl",
+      "status": "current",
+      "content_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "source_dependency_hashes": {
+        "generation_strategy": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "generation_handoff_decision": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "produced_by": "generation",
+      "produced_at": "2026-06-27T00:03:00Z",
+      "supersedes": [],
+      "superseded_by": [],
+      "blocking_reason": null,
+      "downstream_affected": ["delivery_decision"]
+    }
+  ],
+  "stale_artifacts": [
+    {
+      "artifact_id": "generation_strategy",
+      "artifact_type": "generation_strategy",
+      "path": "generation-strategy.json",
+      "status": "stale",
+      "blocking_reason": "upstream_dependency_changed",
+      "stale_dependency_ids": ["localization_brief_json"],
+      "downstream_affected": ["generation_handoff_decision", "generated_segments", "delivery_decision"]
+    }
+  ],
+  "blocked_artifacts": [],
+  "missing_required_artifacts": [],
+  "next_actions": [
+    "Regenerate or review stale artifacts before claiming full-quality generation, delivery, or apply readiness."
+  ]
+}

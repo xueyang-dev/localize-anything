@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from . import PROTOCOL_VERSION
+from .artifact_state import artifact_state_from_delivery, artifact_state_summary_from_document
 from .io_utils import read_json, sha256_file
 
 
@@ -14,6 +15,8 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
     project_root = project_root.resolve()
     manifest = read_json(delivery_dir / "delivery-manifest.json")
     generation_block_reason = _provider_apply_block_reason(manifest.get("generation", {}))
+    artifact_state = artifact_state_summary_from_document(artifact_state_from_delivery(delivery_dir))
+    stale_block_reason = _artifact_state_apply_block_reason(artifact_state)
     operations: list[dict[str, Any]] = []
     for output in manifest.get("outputs", []):
         package_path = _safe_relative(str(output.get("package_path", "")), "package_path")
@@ -60,6 +63,9 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
         "blocked_by_conflicts": summary["conflict"] > 0,
         "blocked_by_provider_status": bool(generation_block_reason),
         "provider_apply_block_reason": generation_block_reason,
+        "blocked_by_stale_artifacts": bool(stale_block_reason),
+        "artifact_state_apply_block_reason": stale_block_reason,
+        "artifact_state": artifact_state,
         "rollback": {"backup_required_for": [item["destination"] for item in operations if item["backup_required"]]},
     }
 
@@ -79,6 +85,7 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
         f"- Requires confirmation: `{bool(plan.get('requires_confirmation'))}`",
         f"- Blocked by conflicts: `{bool(plan.get('blocked_by_conflicts'))}`",
         f"- Blocked by provider status: `{bool(plan.get('blocked_by_provider_status'))}`",
+        f"- Blocked by stale artifacts: `{bool(plan.get('blocked_by_stale_artifacts'))}`",
         "",
         "## Operations",
         "",
@@ -89,6 +96,15 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
                 "## Provider Status Block",
                 "",
                 str(plan.get("provider_apply_block_reason")),
+                "",
+            ]
+        )
+    if plan.get("blocked_by_stale_artifacts"):
+        lines.extend(
+            [
+                "## Artifact State Block",
+                "",
+                str(plan.get("artifact_state_apply_block_reason")),
                 "",
             ]
         )
@@ -134,6 +150,8 @@ def execute_apply(
         raise ValueError("confirm_run_id must match the delivery run_id")
     if plan.get("blocked_by_provider_status"):
         raise ValueError(f"Apply is blocked by provider generation status: {plan.get('provider_apply_block_reason')}")
+    if plan.get("blocked_by_stale_artifacts"):
+        raise ValueError(f"Apply is blocked by stale artifact evidence: {plan.get('artifact_state_apply_block_reason')}")
     if plan["blocked_by_conflicts"]:
         raise ValueError("Apply is blocked by destination conflicts; create a fresh plan after resolving them")
     dirty = _git_status_short(project_root)
@@ -205,6 +223,15 @@ def _provider_apply_block_reason(generation: dict[str, Any]) -> str | None:
     if generation.get("quality_claim") == "none" and generation.get("provider_requested") not in {None, "", "none", "synthetic"}:
         return "provider-backed translation did not complete"
     return None
+
+
+def _artifact_state_apply_block_reason(artifact_state: dict[str, Any]) -> str | None:
+    decisions = artifact_state.get("decisions", {})
+    if decisions.get("apply_policy") != "blocked" and decisions.get("delivery_apply_allowed") is not False:
+        return None
+    affected = artifact_state.get("stale_artifacts", []) or artifact_state.get("blocked_artifacts", [])
+    names = ", ".join(str(item.get("artifact_id")) for item in affected[:5] if item.get("artifact_id"))
+    return f"artifact state blocks apply because upstream evidence is stale or blocked: {names or 'unknown'}"
 
 
 def _validate_apply_destination(operation: dict[str, Any]) -> None:
