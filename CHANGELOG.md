@@ -29,6 +29,9 @@
   `resolution-options.json`, `user-resolution-decisions.jsonl`, and
   `resolution-summary.md` so blocked or review-required generation strategy
   states become explicit human decisions.
+- Add Generation Handoff Enforcement with `generation-handoff-decision.json`,
+  CLI/API status access, provider fallback fail-closed checks, and run/delivery
+  metadata that prevents downgraded handoffs from claiming full assurance.
 
 ## v0.4.1 - Workbench UI Wiring
 

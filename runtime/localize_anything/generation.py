@@ -64,6 +64,16 @@ def create_draft_request(work_packet: dict[str, Any]) -> dict[str, Any]:
     resolution_gate = work_packet.get("memory", {}).get("resolution_gate", {})
     if isinstance(resolution_gate, dict) and int(resolution_gate.get("unresolved_count") or 0):
         instructions.append("Resolution Gate has unresolved questions; do not claim full-quality or full-assurance output until they are resolved.")
+    handoff_decision = work_packet.get("memory", {}).get("generation_handoff", {})
+    if isinstance(handoff_decision, dict):
+        if handoff_decision.get("handoff_allowed") is False:
+            instructions.append("Generation Handoff Enforcement blocks execution; resolve blockers before using this request.")
+        elif not handoff_decision.get("full_quality_handoff_allowed", False):
+            claims = ", ".join(str(item) for item in handoff_decision.get("forbidden_quality_claims", []))
+            if claims:
+                instructions.append(f"Generation Handoff Enforcement allows only downgraded output; forbidden quality claims: {claims}.")
+            else:
+                instructions.append("Generation Handoff Enforcement allows only downgraded output; do not claim full-quality generation.")
     request_id = hashlib.sha256(
         json.dumps(
             {
@@ -476,6 +486,7 @@ def create_generation_handoff(
     draft_request_dir: Path,
     generated_dir: Path,
     target_locale: str | None = None,
+    handoff_decision: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     packet_paths = {path.stem: path for path in sorted(work_packet_dir.glob("*.json"))}
     request_paths = {path.stem: path for path in sorted(draft_request_dir.glob("*.json"))}
@@ -518,7 +529,7 @@ def create_generation_handoff(
     locales = sorted({str(batch.get("target_locale")) for batch in batches if batch.get("target_locale")})
     if not locales and target_locale:
         locales = [target_locale]
-    return {
+    handoff = {
         "protocol_version": PROTOCOL_VERSION,
         "handoff_id": digest,
         "task": "host_agent_translation_generation",
@@ -534,6 +545,17 @@ def create_generation_handoff(
         },
         "batches": batches,
     }
+    if handoff_decision is not None:
+        handoff["handoff_policy"] = {
+            "artifact": "generation-handoff-decision.json",
+            "status": handoff_decision.get("status"),
+            "handoff_mode": handoff_decision.get("handoff_mode"),
+            "handoff_allowed": handoff_decision.get("handoff_allowed"),
+            "full_quality_handoff_allowed": handoff_decision.get("full_quality_handoff_allowed"),
+            "provider_backed_generation_allowed": handoff_decision.get("provider_backed_generation_allowed"),
+            "forbidden_quality_claims": handoff_decision.get("forbidden_quality_claims", []),
+        }
+    return handoff
 
 
 def create_retry_handoff(

@@ -6,6 +6,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .generation import import_generated_handoff
+from .generation_handoff_policy import build_generation_handoff_decision
 from .io_utils import read_json, write_json
 from .project import inspect_project, record_project_session, session_index_path
 from .provider import generate_handoff_with_http_provider
@@ -161,6 +162,11 @@ def run_agent(
         handoff_path = Path(handoff_result["artifacts"]["generation_handoff"])
         handoff = read_json(handoff_path)
         handoff_run_dir = Path(handoff_result["artifacts"]["run_directory"])
+        handoff_decision = build_generation_handoff_decision(
+            project_root / ".localize-anything",
+            provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe"},
+            run_id=handoff_run_id,
+        )
         provider_path = handoff_run_dir / "provider-generation.json"
         generated_output = handoff_run_dir / "generated.jsonl"
         provider_result = generate_handoff_with_http_provider(
@@ -169,6 +175,7 @@ def run_agent(
             generated_output,
             provider_headers or {},
             provider_timeout_seconds,
+            handoff_decision,
         )
         write_json(provider_path, provider_result)
 

@@ -7,6 +7,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .generation import collect_generated_handoff, import_generated_response
+from .generation_handoff_policy import provider_generation_blocker
 from .io_utils import read_json
 
 
@@ -16,7 +17,11 @@ def generate_handoff_with_http_provider(
     output_jsonl: Path | None = None,
     headers: dict[str, str] | None = None,
     timeout_seconds: int = 60,
+    handoff_decision: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    blocker = provider_generation_blocker(handoff_decision)
+    if blocker:
+        return _provider_failure(blocker["category"], blocker["message"])
     batch_results: list[dict[str, Any]] = []
     items: list[dict[str, Any]] = []
     imported_batches = 0

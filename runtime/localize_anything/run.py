@@ -24,6 +24,10 @@ from .generation import (
     render_generation_instructions,
     write_handoff_prompts,
 )
+from .generation_handoff_policy import (
+    build_generation_handoff_decision,
+    generation_handoff_decision_asset_paths,
+)
 from .generation_strategy import build_generation_strategy, write_generation_strategy
 from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import validate_pair as validate_po_pair
@@ -201,6 +205,14 @@ def run_localize(
         },
         run_id=run_id,
     )
+    handoff_decision = build_generation_handoff_decision(
+        state_dir,
+        requested_mode="synthetic_test" if synthetic_draft else "full_quality",
+        provider_policy={"mode": "synthetic_test"} if synthetic_draft else {"mode": "host_agent", "provider_controlled": False},
+        coverage_policy=inspection.get("android_coverage", {}),
+        run_id=run_id,
+    )
+    handoff_decision_path = state_dir / "generation-handoff-decision.json"
 
     packet_dir = run_dir / "work-packets"
     request_dir = run_dir / "draft-requests"
@@ -209,7 +221,7 @@ def run_localize(
         packet_dir.mkdir(parents=True, exist_ok=True)
         request_dir.mkdir(parents=True, exist_ok=True)
         generated_batches_dir.mkdir(parents=True, exist_ok=True)
-        handoff = create_generation_handoff(packet_dir, request_dir, generated_batches_dir, target_locale)
+        handoff = create_generation_handoff(packet_dir, request_dir, generated_batches_dir, target_locale, handoff_decision)
         handoff_path = run_dir / "generation-handoff.json"
         write_json(handoff_path, handoff)
         prompt_dir = run_dir / "prompts"
@@ -242,6 +254,8 @@ def run_localize(
             term_preflight=term_preflight,
             generation_strategy=generation_strategy,
             resolution_gate=resolution_gate,
+            generation_handoff_decision=handoff_decision,
+            generation_handoff_decision_path=handoff_decision_path,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -257,7 +271,7 @@ def run_localize(
         write_json(packet_dir / f"{batch['batch_id']}.json", packet)
         write_json(request_dir / f"{batch['batch_id']}.json", create_draft_request(packet))
 
-    handoff = create_generation_handoff(packet_dir, request_dir, generated_batches_dir, target_locale)
+    handoff = create_generation_handoff(packet_dir, request_dir, generated_batches_dir, target_locale, handoff_decision)
     handoff_path = run_dir / "generation-handoff.json"
     write_json(handoff_path, handoff)
     prompt_dir = run_dir / "prompts"
@@ -292,6 +306,8 @@ def run_localize(
             term_preflight=term_preflight,
             generation_strategy=generation_strategy,
             resolution_gate=resolution_gate,
+            generation_handoff_decision=handoff_decision,
+            generation_handoff_decision_path=handoff_decision_path,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -333,6 +349,8 @@ def run_localize(
             term_preflight=term_preflight,
             generation_strategy=generation_strategy,
             resolution_gate=resolution_gate,
+            generation_handoff_decision=handoff_decision,
+            generation_handoff_decision_path=handoff_decision_path,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -347,6 +365,7 @@ def run_localize(
 
     generated_segments = read_jsonl(generated_path)
     generation_metadata = _generation_delivery_metadata(generation_mode, generated_segments)
+    generation_metadata["handoff_decision"] = _handoff_decision_metadata(handoff_decision)
     provider_failed = generation_metadata.get("provider_status") == "failed"
     delivery_segments = [*generated_segments, *preserved_segments]
     review_markdown_path = run_dir / "review-sheet.md"
@@ -443,6 +462,8 @@ def run_localize(
         term_preflight=term_preflight,
         generation_strategy=generation_strategy,
         resolution_gate=resolution_gate,
+        generation_handoff_decision=handoff_decision,
+        generation_handoff_decision_path=handoff_decision_path,
         operating_mode=operating_mode,
         reference_policy=reference_policy,
         reference_summary=reference_plan["summary"],
@@ -681,6 +702,29 @@ def _is_synthetic_fallback_generation(generation: object) -> bool:
     return provider in {"deepseek-fallback", "synthetic_fallback"} or generation.get("purpose") == "fallback"
 
 
+def _handoff_decision_metadata(decision: dict[str, Any] | None) -> dict[str, Any]:
+    if not decision:
+        return {
+            "status": "not_checked",
+            "handoff_mode": "not_checked",
+            "handoff_allowed": True,
+            "full_quality_handoff_allowed": False,
+            "forbidden_quality_claims": [],
+        }
+    return {
+        "artifact": "generation-handoff-decision.json",
+        "status": decision.get("status"),
+        "handoff_mode": decision.get("handoff_mode"),
+        "handoff_allowed": decision.get("handoff_allowed"),
+        "full_quality_handoff_allowed": decision.get("full_quality_handoff_allowed"),
+        "provider_backed_generation_allowed": decision.get("provider_backed_generation_allowed"),
+        "apply_policy": decision.get("apply_policy"),
+        "delivery_policy": decision.get("delivery_policy"),
+        "forbidden_quality_claims": decision.get("forbidden_quality_claims", []),
+        "unresolved_question_count": len(decision.get("unresolved_questions", [])),
+    }
+
+
 def _validate_staged_outputs(project_root: Path, staging_result: dict[str, Any], target_locale: str, qa_dir: Path) -> list[Path]:
     qa_paths: list[Path] = []
     for index, output in enumerate(staging_result.get("outputs", []), 1):
@@ -764,6 +808,8 @@ def _summary(
     term_preflight: dict[str, Any] | None = None,
     generation_strategy: dict[str, Any] | None = None,
     resolution_gate: dict[str, Any] | None = None,
+    generation_handoff_decision: dict[str, Any] | None = None,
+    generation_handoff_decision_path: Path | None = None,
     operating_mode: str = DEFAULT_OPERATING_MODE,
     reference_policy: str = DEFAULT_REFERENCE_POLICY_BY_MODE[DEFAULT_OPERATING_MODE],
     reference_summary: dict[str, Any] | None = None,
@@ -801,6 +847,7 @@ def _summary(
         "delivery_decision": delivery_decision_path,
         "delivery_decision_markdown": delivery_decision_markdown,
         "reference_plan": reference_plan_path,
+        "generation_handoff_decision": generation_handoff_decision_path,
     }
     for key, value in optional.items():
         if value is not None:
@@ -829,6 +876,11 @@ def _summary(
             path = state_dir / str(value)
             artifacts[artifact_key] = path.as_posix()
             resolution_artifacts[artifact_key] = path.as_posix()
+    if generation_handoff_decision:
+        state_dir = project_root / ".localize-anything"
+        for key, value in generation_handoff_decision_asset_paths(state_dir).items():
+            path = state_dir / value
+            artifacts[key] = path.as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -866,6 +918,7 @@ def _summary(
                 "route": (generation_strategy or {}).get("route", {}),
                 "artifacts": strategy_artifacts,
             },
+            "handoff_decision": _handoff_decision_metadata(generation_handoff_decision),
             **(generation_metadata or {}),
         },
         "resolution": {
@@ -884,6 +937,8 @@ def _summary(
             "terminology_assurance": (term_preflight or {}).get("terminology_assurance", "not_checked"),
             "unresolved_blocking_questions": (resolution_gate or {}).get("summary", {}).get("unresolved_blocking_count", 0),
             "unresolved_resolution_questions": (resolution_gate or {}).get("summary", {}).get("unresolved_count", 0),
+            "generation_handoff_status": (generation_handoff_decision or {}).get("status", "not_checked"),
+            "full_quality_handoff_allowed": bool((generation_handoff_decision or {}).get("full_quality_handoff_allowed", False)),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,
