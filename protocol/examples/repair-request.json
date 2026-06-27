@@ -1,0 +1,37 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-repair-request-v1",
+  "run_id": "repair-plan-example-001",
+  "status": "pending_repairs",
+  "segment_regeneration_plan_path": "segment-regeneration-plan.json",
+  "summary": {
+    "request_count": 1,
+    "human_confirmation_required_count": 1,
+    "provider_or_model_required_count": 1
+  },
+  "requests": [
+    {
+      "repair_id": "repair-1111111111111111",
+      "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+      "source_artifact_refs": {
+        "generation_strategy": "localize-anything-generation-strategy-v1",
+        "generation_handoff_decision": "localize-anything-generation-handoff-decision-v1"
+      },
+      "repair_type": "term_patch",
+      "reason": "term_policy_changed_for_matching_segment",
+      "old_target": null,
+      "previous_target_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "required_constraints": {
+        "matched_terms": ["Delete account"],
+        "deterministic_qa_required": false
+      },
+      "risk_level": "high",
+      "human_confirmation_required": true,
+      "deterministic_qa_required": false,
+      "provider_or_model_required": true,
+      "status": "pending_human_confirmation",
+      "plan_status": "requires_repair"
+    }
+  ]
+}

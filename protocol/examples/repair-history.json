@@ -1,0 +1,12 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-repair-history-v1",
+  "repair_id": "repair-1111111111111111",
+  "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+  "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "previous_target_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "new_target_hash": null,
+  "repair_reason": "term_policy_changed_for_matching_segment",
+  "repair_status": "pending_provider_or_model_repair",
+  "actor_type": "pending_provider_or_model"
+}

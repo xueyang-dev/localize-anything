@@ -279,6 +279,58 @@ This loop comes before Document Evidence Pack because segment reuse boundaries
 must be known before document-level evidence can safely say which prior target
 text, review result, or policy decision remains current.
 
+## Targeted Repair / Segment Regeneration Plan
+
+`segment-regeneration-plan` consumes `stale-segments.jsonl`,
+`reuse-decision.json`, `generation-strategy.json`,
+`generation-handoff-decision.json`, review artifacts when present, termbase
+preflight artifacts when present, and `artifact-state.json` when present. It
+writes:
+
+- `segment-regeneration-plan.json`;
+- `repair-request.json`;
+- `repair-result.json`;
+- `repair-history.jsonl`.
+
+The planner is deterministic and does not call a provider or LLM. It assigns
+one action per segment: `reuse`, `regenerate`, `re_review`,
+`targeted_repair`, `human_confirm`, or `blocked`.
+
+Conservative action rules:
+
+- unchanged low-risk segments with matching hashes are reused;
+- source text changes regenerate the segment;
+- placeholder or markup signature changes regenerate the segment and require
+  deterministic QA;
+- term-policy changes in segments containing affected known terms create
+  targeted repair when allowed, otherwise regeneration;
+- generation strategy or provider policy changes require regeneration or
+  re-review depending on severity;
+- review policy changes require re-review;
+- high-risk unresolved segments require human confirmation or are blocked.
+
+`repair-request.json` is the work queue for actionable repairs. Each request
+has a stable repair id, segment id, source artifact references, repair type,
+reason, previous target hash when available, required constraints, risk level,
+and human-confirmation requirement. Supported repair types are `term_patch`,
+`placeholder_patch`, `markup_patch`, `risk_wording_patch`, `style_patch`,
+`coverage_patch`, `review_only`, and `regenerate_segment`.
+
+`repair-result.json` records deterministic outcomes only. When a repair would
+require provider or model generation, it is marked
+`pending_provider_or_model_repair` and no target text is fabricated.
+`repair-history.jsonl` appends repair decisions for auditability.
+
+Generation Handoff Enforcement consumes the regeneration plan. Pending
+regeneration, targeted repair, human confirmation, or blocked segments prevent
+full-quality handoff and safe apply claims. Re-review-only segments downgrade
+handoff readiness. Delivery/apply readiness is blocked when required repairs
+remain pending for staged output.
+
+Workbench exposes `GET /api/segment-regeneration-plan`,
+`GET /api/repair-request`, and `GET /api/repair-history` as artifact-backed
+read paths. UI should render these artifacts rather than infer repair state.
+
 ## Localization Modes
 
 `operating_mode` and `reference_policy` are first-class protocol fields on

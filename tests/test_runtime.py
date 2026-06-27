@@ -86,6 +86,13 @@ from runtime.localize_anything.review_sheet import write_review_sheet
 from runtime.localize_anything.run import run_localize
 from runtime.localize_anything.schema_validation import validate_document, validate_protocol_tree
 from runtime.localize_anything.segments import diff_segments
+from runtime.localize_anything.segment_repair import (
+    build_segment_regeneration_plan,
+    read_repair_history,
+    read_repair_request,
+    read_repair_result,
+    read_segment_regeneration_plan,
+)
 from runtime.localize_anything.segment_staleness import build_reuse_decision, read_reuse_decision, read_stale_segments
 from runtime.localize_anything.staging import stage_generated
 from runtime.localize_anything.structured_adapter import extract_segments as extract_structured_segments
@@ -4966,6 +4973,264 @@ class SegmentStalenessReuseTests(unittest.TestCase):
                 thread.join(timeout=2)
 
 
+class TargetedRepairRegenerationPlanTests(unittest.TestCase):
+    def test_unchanged_low_risk_segment_action_is_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+
+            plan = build_segment_regeneration_plan(state)
+
+            assert_protocol_schema(self, "segment-regeneration-plan", plan)
+            self.assertEqual(plan["status"], "ready")
+            self.assertEqual(plan["segments"][0]["action"], "reuse")
+            self.assertEqual(read_repair_request(state)["summary"]["request_count"], 0)
+
+    def test_source_changed_segment_action_is_regenerate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            old = _segment("s1", "Start game")
+            new = _segment("s1", "Start game now")
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+            build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+
+            plan = build_segment_regeneration_plan(state)
+
+            self.assertEqual(plan["segments"][0]["action"], "regenerate")
+            self.assertEqual(plan["segments"][0]["repair_type"], "regenerate_segment")
+            self.assertEqual(plan["decisions"]["generation_handoff_policy"], "blocked")
+
+    def test_placeholder_changed_segment_requires_regenerate_and_qa(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            old = _segment("s1", "Delete %s files")
+            old["constraints"]["placeholders"] = ["%s"]
+            new = _segment("s1", "Delete %s files")
+            new["constraints"]["placeholders"] = ["%d"]
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+            build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+
+            plan = build_segment_regeneration_plan(state)
+            segment = plan["segments"][0]
+
+            self.assertEqual(segment["action"], "regenerate")
+            self.assertTrue(segment["deterministic_qa_required"])
+            self.assertTrue(plan["decisions"]["requires_deterministic_qa"])
+
+    def test_term_policy_change_creates_targeted_repair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Weight limit")
+            _write_term_registry(
+                state,
+                [{"source_term": "Weight", "target_term": "重量", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"}],
+            )
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+            _write_term_registry(
+                state,
+                [{"source_term": "Weight", "target_term": "体重", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"}],
+            )
+            build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+
+            plan = build_segment_regeneration_plan(state)
+
+            self.assertEqual(plan["segments"][0]["action"], "targeted_repair")
+            self.assertEqual(plan["segments"][0]["repair_type"], "term_patch")
+
+    def test_review_policy_changed_segment_creates_re_review_action(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(
+                state,
+                [segment],
+                generated_segments=[_generated_segment(segment)],
+                review_policy={"deterministic_review": "standard"},
+            )
+            build_reuse_decision(
+                state,
+                [segment],
+                generated_segments=[_generated_segment(segment)],
+                review_policy={"deterministic_review": "strict"},
+            )
+
+            plan = build_segment_regeneration_plan(state)
+
+            self.assertEqual(plan["segments"][0]["action"], "re_review")
+            self.assertEqual(plan["segments"][0]["repair_type"], "review_only")
+            self.assertEqual(plan["decisions"]["generation_handoff_policy"], "warn")
+
+    def test_high_risk_unresolved_segment_requires_human_confirm(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Delete account", high_risk=True)
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(
+                state,
+                [segment],
+                generated_segments=[_generated_segment(segment)],
+                review_policy={"deterministic_review": "standard"},
+            )
+            build_reuse_decision(
+                state,
+                [segment],
+                generated_segments=[_generated_segment(segment)],
+                review_policy={"deterministic_review": "strict"},
+            )
+
+            plan = build_segment_regeneration_plan(state)
+
+            self.assertEqual(plan["segments"][0]["action"], "human_confirm")
+            self.assertTrue(plan["segments"][0]["human_confirmation_required"])
+
+    def test_repair_request_is_created_for_targeted_repair_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_term_targeted_repair(state)
+
+            build_segment_regeneration_plan(state)
+            request = read_repair_request(state)
+
+            assert_protocol_schema(self, "repair-request", request)
+            self.assertEqual(request["summary"]["request_count"], 1)
+            self.assertEqual(request["requests"][0]["repair_type"], "term_patch")
+            self.assertTrue(request["requests"][0]["provider_or_model_required"])
+
+    def test_repair_result_does_not_fabricate_provider_model_repairs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_term_targeted_repair(state)
+
+            build_segment_regeneration_plan(state)
+            result = read_repair_result(state)
+
+            assert_protocol_schema(self, "repair-result", result)
+            self.assertEqual(result["results"][0]["repair_status"], "pending_provider_or_model_repair")
+            self.assertIsNone(result["results"][0]["new_target"])
+            self.assertIsNone(result["results"][0]["new_target_hash"])
+
+    def test_repair_history_appends_repair_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_term_targeted_repair(state)
+
+            build_segment_regeneration_plan(state)
+            first = read_repair_history(state)
+            build_segment_regeneration_plan(state)
+            second = read_repair_history(state)
+
+            assert_protocol_schema(self, "repair-history", first[0])
+            self.assertEqual(len(first), 1)
+            self.assertEqual(len(second), 2)
+            self.assertEqual(first[0]["repair_id"], second[0]["repair_id"])
+
+    def test_pending_repairs_block_handoff_delivery_and_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            delivery = root / "delivery"
+            output = delivery / "files" / "locales" / "zh-CN.json"
+            output.parent.mkdir(parents=True)
+            output.write_text('{"weight": "重量限制"}\n', encoding="utf-8")
+            (project / "locales").mkdir(parents=True)
+            (project / "locales" / "zh-CN.json").write_text("{}\n", encoding="utf-8")
+            state = root / ".localize-anything"
+            _seed_term_targeted_repair(state)
+            build_segment_regeneration_plan(state)
+            artifact_state = build_artifact_state(state)
+            write_json(
+                delivery / "delivery-manifest.json",
+                {
+                    "protocol_version": "0.1",
+                    "run_id": "pending-repair-delivery-001",
+                    "outputs": [
+                        {
+                            "package_path": "files/locales/zh-CN.json",
+                            "destination": "locales/zh-CN.json",
+                            "sha256": _sha256(output),
+                            "destination_base_sha256": _sha256(project / "locales" / "zh-CN.json"),
+                        }
+                    ],
+                    "generation": {"provider_status": "synthetic_test", "apply_allowed": True},
+                    "qa": {"status": "pass", "blocking_count": 0, "warning_count": 0, "items": []},
+                    "unprocessed_non_text_assets": [],
+                },
+            )
+            write_json(delivery / "artifact-state.json", artifact_state)
+
+            handoff = build_generation_handoff_decision(state)
+            apply_plan = create_apply_plan(delivery, project)
+            delivery_decision = create_delivery_decision_report(delivery, project)
+
+            self.assertEqual(handoff["status"], "blocked")
+            self.assertIn("pending_segment_repairs_block_handoff", {item["code"] for item in handoff["blockers"]})
+            self.assertTrue(apply_plan["blocked_by_stale_artifacts"])
+            self.assertIn("s1", apply_plan["artifact_state_apply_block_reason"])
+            self.assertEqual(delivery_decision["status"], "blocked")
+            self.assertEqual(delivery_decision["summary"]["pending_segment_repair_count"], 1)
+
+    def test_run_summary_surfaces_repair_regeneration_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _make_json_project(Path(directory))
+
+            result = run_localize(project, "en-US", ["zh-CN"], synthetic_draft=True, run_id="repair-summary-001")
+
+            self.assertIn("segment_regeneration_plan", result["artifacts"])
+            self.assertIn("repair_request", result["artifacts"])
+            self.assertEqual(result["summary"]["pending_segment_repairs"], 0)
+            self.assertEqual(result["summary"]["segments_targeted_repair"], 0)
+
+    def test_cli_commands_produce_deterministic_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            output = root / "plan-output.json"
+            request_output = root / "request-output.json"
+            history_output = root / "history-output.json"
+            _seed_term_targeted_repair(state)
+
+            plan_exit = cli_main(["segment-regeneration-plan", state.as_posix(), "--run-id", "cli-repair-001", "--output", output.as_posix()])
+            request_exit = cli_main(["repair-request", state.as_posix(), "--output", request_output.as_posix()])
+            history_exit = cli_main(["repair-history", state.as_posix(), "--output", history_output.as_posix()])
+
+            self.assertEqual(plan_exit, 0)
+            self.assertEqual(request_exit, 0)
+            self.assertEqual(history_exit, 0)
+            self.assertEqual(read_json(output)["run_id"], "cli-repair-001")
+            self.assertEqual(read_json(request_output)["repair_request"]["summary"]["request_count"], 1)
+            self.assertEqual(read_json(history_output)["repair_history"][0]["segment_id"], "s1")
+
+    def test_workbench_api_exposes_regeneration_and_repair_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_term_targeted_repair(state)
+            build_segment_regeneration_plan(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                plan_status, plan_body = _http_get(host, port, f"/api/segment-regeneration-plan?state_dir={state.as_posix()}")
+                request_status, request_body = _http_get(host, port, f"/api/repair-request?state_dir={state.as_posix()}")
+                history_status, history_body = _http_get(host, port, f"/api/repair-history?state_dir={state.as_posix()}")
+                self.assertEqual(plan_status, 200)
+                self.assertEqual(request_status, 200)
+                self.assertEqual(history_status, 200)
+                self.assertEqual(json.loads(plan_body)["segment_regeneration_plan"]["segments"][0]["action"], "targeted_repair")
+                self.assertEqual(json.loads(request_body)["repair_request"]["summary"]["request_count"], 1)
+                self.assertEqual(json.loads(history_body)["repair_history"][0]["segment_id"], "s1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
 def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) -> dict[str, Any]:
     run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
     plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
@@ -4981,6 +5246,32 @@ def _seed_strategy_handoff_state(state: Path, segments: list[dict[str, Any]] | N
     build_resolution_gate(state, strategy)
     build_generation_handoff_decision(state)
     return strategy
+
+
+def _seed_term_targeted_repair(state: Path) -> None:
+    segment = _segment("s1", "Weight limit")
+    _write_term_registry(
+        state,
+        [{"source_term": "Weight", "target_term": "重量", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"}],
+    )
+    _seed_strategy_handoff_state(state, [segment])
+    build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+    _write_term_registry(
+        state,
+        [{"source_term": "Weight", "target_term": "体重", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"}],
+    )
+    build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+
+
+def _make_json_project(root: Path) -> Path:
+    project = root / "project"
+    locales = project / "locales"
+    locales.mkdir(parents=True)
+    (locales / "en-US.json").write_text(
+        json.dumps({"start": "Start game", "weight": "Weight limit"}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return project
 
 
 def _write_artifact_brief(state: Path, marker: str) -> None:
@@ -5249,7 +5540,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 33)
+        self.assertEqual(result["schemas_checked"], 37)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

@@ -9,6 +9,7 @@ from .generation_strategy import GENERATION_STRATEGY_JSON
 from .io_utils import read_json, read_jsonl, write_json
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .resolution_gate import BLOCKING_QUESTIONS_JSON, RESOLUTION_OPTIONS_JSON, USER_RESOLUTION_DECISIONS_JSONL
+from .segment_repair import SEGMENT_REGENERATION_PLAN_JSON, segment_repair_summary
 from .termbase_preflight import TERM_REVIEW_QUEUE_JSON, TERMBASE_PREFLIGHT_REPORT_JSON
 
 
@@ -63,6 +64,7 @@ def build_generation_handoff_decision(
     _check_brief(strategy, warnings, forbidden_claims)
     _check_coverage(coverage_policy, continuation_decisions, warnings, forbidden_claims)
     _check_artifact_state(state_dir, blockers, warnings, forbidden_claims)
+    _check_segment_repair_plan(state_dir, blockers, warnings, forbidden_claims)
     provider_backed_allowed = _check_provider_policy(provider_policy, blockers, warnings, forbidden_claims)
 
     hard_blocked = bool(blockers)
@@ -181,6 +183,7 @@ def generation_handoff_decision_source_artifacts(state_dir: Path) -> dict[str, s
         "term_review_queue": TERM_REVIEW_QUEUE_JSON,
         "localization_brief": LOCALIZATION_BRIEF_JSON,
         "artifact_state": ARTIFACT_STATE_JSON,
+        "segment_regeneration_plan": SEGMENT_REGENERATION_PLAN_JSON,
     }
     return {key: value for key, value in names.items() if (state_dir / value).exists()}
 
@@ -468,6 +471,41 @@ def _check_artifact_state(
         forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "review_complete_status"})
 
 
+def _check_segment_repair_plan(
+    state_dir: Path,
+    blockers: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    forbidden_claims: set[str],
+) -> None:
+    summary = segment_repair_summary(state_dir)
+    if summary.get("status") == "not_run":
+        return
+    decisions = summary.get("decisions", {})
+    repair_summary = summary.get("summary", {})
+    if decisions.get("generation_handoff_policy") == "blocked":
+        blockers.append(
+            _issue(
+                "pending_segment_repairs_block_handoff",
+                "Segment regeneration plan has pending required repairs before full-quality handoff.",
+                SEGMENT_REGENERATION_PLAN_JSON,
+                repair_summary=repair_summary,
+                pending_segments=summary.get("pending_segments", []),
+            )
+        )
+        forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "safe_apply_readiness", "review_complete_status"})
+    elif decisions.get("generation_handoff_policy") == "warn":
+        warnings.append(
+            _issue(
+                "segment_repairs_require_review",
+                "Segment regeneration plan requires re-review before full-quality handoff.",
+                SEGMENT_REGENERATION_PLAN_JSON,
+                repair_summary=repair_summary,
+                pending_segments=summary.get("pending_segments", []),
+            )
+        )
+        forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "review_complete_status"})
+
+
 def _artifact_affects_handoff(item: dict[str, Any]) -> bool:
     if item.get("artifact_id") in {
         "current_manifest",
@@ -484,6 +522,9 @@ def _artifact_affects_handoff(item: dict[str, Any]) -> bool:
         "blocking_questions",
         "resolution_options",
         "user_resolution_decisions",
+        "segment_regeneration_plan",
+        "repair_request",
+        "repair_result",
     }:
         return True
     return "generation_handoff_decision" in item.get("downstream_affected", [])

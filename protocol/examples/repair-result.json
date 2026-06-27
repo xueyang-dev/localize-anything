@@ -1,0 +1,34 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-repair-result-v1",
+  "run_id": "repair-plan-example-001",
+  "status": "pending",
+  "segment_regeneration_plan_path": "segment-regeneration-plan.json",
+  "repair_request_path": "repair-request.json",
+  "summary": {
+    "result_count": 1,
+    "completed_count": 0,
+    "pending_provider_or_model_repair_count": 1,
+    "pending_human_confirmation_count": 0,
+    "pending_review_count": 0
+  },
+  "results": [
+    {
+      "repair_id": "repair-1111111111111111",
+      "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+      "repair_type": "term_patch",
+      "repair_reason": "term_policy_changed_for_matching_segment",
+      "repair_status": "pending_provider_or_model_repair",
+      "actor_type": "pending_provider_or_model",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "previous_target_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "new_target_hash": null,
+      "new_target": null,
+      "deterministic_qa_required": false
+    }
+  ],
+  "limitations": [
+    "deterministic planning does not call an LLM",
+    "provider/model repairs remain pending instead of fabricating target text"
+  ]
+}

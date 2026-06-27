@@ -47,6 +47,7 @@ from .retrieval import build_work_packet
 from .reflection import create_llm_review_request, render_llm_review_prompt
 from .resolution_gate import build_resolution_gate
 from .review_sheet import write_review_sheet
+from .segment_repair import build_segment_regeneration_plan
 from .segment_staleness import build_reuse_decision
 from .staging import stage_generated
 from .structured_adapter import extract_segments as extract_structured_segments
@@ -383,6 +384,7 @@ def run_localize(
         provider_policy={"mode": "synthetic_test"} if synthetic_draft else {"mode": "host_agent", "provider_controlled": False},
         run_id=run_id,
     )
+    build_segment_regeneration_plan(state_dir, run_id=run_id)
     review_markdown_path = run_dir / "review-sheet.md"
     review_csv_path = run_dir / "review-sheet.csv"
     review_sheet_path = run_dir / "review-sheet.json"
@@ -930,6 +932,16 @@ def _summary(
             artifacts["stale_segments"] = (project_root / ".localize-anything" / str(segment_artifact)).as_posix()
         if reuse_artifact:
             artifacts["reuse_decision"] = (project_root / ".localize-anything" / str(reuse_artifact)).as_posix()
+        repair_state = artifact_state.get("segment_repair", {})
+        for key, artifact_key in (
+            ("segment_regeneration_plan", "artifact"),
+            ("repair_request", "repair_request_artifact"),
+            ("repair_result", "repair_result_artifact"),
+            ("repair_history", "repair_history_artifact"),
+        ):
+            artifact = repair_state.get(artifact_key)
+            if artifact:
+                artifacts[key] = (project_root / ".localize-anything" / str(artifact)).as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -995,6 +1007,9 @@ def _summary(
             "stale_segment_count": (artifact_state or {}).get("summary", {}).get("stale_segment_count", 0),
             "segments_requiring_regeneration": (artifact_state or {}).get("summary", {}).get("segments_requiring_regeneration_count", 0),
             "segments_requiring_review": (artifact_state or {}).get("summary", {}).get("segments_requiring_review_count", 0),
+            "pending_segment_repairs": (artifact_state or {}).get("summary", {}).get("segment_repair_pending_count", 0),
+            "segments_targeted_repair": (artifact_state or {}).get("summary", {}).get("segments_targeted_repair_count", 0),
+            "segments_human_confirm": (artifact_state or {}).get("summary", {}).get("segments_human_confirm_count", 0),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

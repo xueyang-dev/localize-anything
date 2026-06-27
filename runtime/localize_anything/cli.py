@@ -62,6 +62,12 @@ from .review_sheet import write_review_sheet
 from .run import run_localize
 from .schema_validation import validate_protocol_tree
 from .segments import diff_segments
+from .segment_repair import (
+    build_segment_regeneration_plan,
+    read_repair_history,
+    read_repair_request,
+    read_segment_regeneration_plan,
+)
 from .segment_staleness import build_reuse_decision, read_reuse_decision, read_stale_segments
 from .staging import stage_generated
 from .structured_adapter import extract_segments as extract_structured_segments
@@ -490,6 +496,22 @@ def build_parser() -> argparse.ArgumentParser:
     stale_segments_parser = subparsers.add_parser("stale-segments", help="Read stale-segments.jsonl as deterministic JSON")
     stale_segments_parser.add_argument("state_dir", type=Path)
     stale_segments_parser.add_argument("--output", type=Path)
+
+    segment_regeneration_parser = subparsers.add_parser(
+        "segment-regeneration-plan",
+        help="Create segment-regeneration-plan.json and repair artifacts from reuse decisions",
+    )
+    segment_regeneration_parser.add_argument("state_dir", type=Path)
+    segment_regeneration_parser.add_argument("--run-id")
+    segment_regeneration_parser.add_argument("--output", type=Path)
+
+    repair_request_parser = subparsers.add_parser("repair-request", help="Read repair-request.json as deterministic JSON")
+    repair_request_parser.add_argument("state_dir", type=Path)
+    repair_request_parser.add_argument("--output", type=Path)
+
+    repair_history_parser = subparsers.add_parser("repair-history", help="Read repair-history.jsonl as deterministic JSON")
+    repair_history_parser.add_argument("state_dir", type=Path)
+    repair_history_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1153,6 +1175,26 @@ def main(argv: list[str] | None = None) -> int:
                 "state_dir": args.state_dir.as_posix(),
                 "reuse_decision": read_reuse_decision(args.state_dir),
                 "segments": read_stale_segments(args.state_dir),
+            }
+            return _emit_json(result, args.output)
+        if args.command == "segment-regeneration-plan":
+            result = build_segment_regeneration_plan(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "repair-request":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-repair-request-read-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "segment_regeneration_plan": read_segment_regeneration_plan(args.state_dir),
+                "repair_request": read_repair_request(args.state_dir),
+            }
+            return _emit_json(result, args.output)
+        if args.command == "repair-history":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-repair-history-list-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "repair_history": read_repair_history(args.state_dir),
             }
             return _emit_json(result, args.output)
         if args.command == "draft-request":

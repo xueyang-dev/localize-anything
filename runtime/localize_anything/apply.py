@@ -235,6 +235,10 @@ def _artifact_state_apply_block_reason(artifact_state: dict[str, Any]) -> str | 
         segment_state = artifact_state.get("segment_staleness", {})
         stale_segments = segment_state.get("stale_segments", []) if isinstance(segment_state, dict) else []
         names = ", ".join(str(item.get("segment_id")) for item in stale_segments[:5] if item.get("segment_id"))
+    if not names:
+        repair_state = artifact_state.get("segment_repair", {})
+        pending_segments = repair_state.get("pending_segments", []) if isinstance(repair_state, dict) else []
+        names = ", ".join(str(item.get("segment_id")) for item in pending_segments[:5] if item.get("segment_id"))
     return f"artifact state blocks apply because upstream evidence is stale or blocked: {names or 'unknown'}"
 
 

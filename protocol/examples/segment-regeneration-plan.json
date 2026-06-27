@@ -1,0 +1,72 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-segment-regeneration-plan-v1",
+  "run_id": "repair-plan-example-001",
+  "status": "requires_repair",
+  "source_artifacts": {
+    "stale_segments": "stale-segments.jsonl",
+    "reuse_decision": "reuse-decision.json",
+    "generation_strategy": "generation-strategy.json",
+    "generation_handoff_decision": "generation-handoff-decision.json",
+    "termbase_preflight_report": "termbase-preflight-report.json",
+    "artifact_state": "artifact-state.json"
+  },
+  "reuse_decision_status": "requires_regeneration",
+  "summary": {
+    "segment_count": 1,
+    "reuse_count": 0,
+    "regenerate_count": 0,
+    "re_review_count": 0,
+    "targeted_repair_count": 1,
+    "human_confirm_count": 0,
+    "blocked_count": 0,
+    "deterministic_qa_required_count": 0,
+    "pending_repair_count": 1,
+    "generation_handoff_blocking_count": 1,
+    "delivery_apply_blocking_count": 1
+  },
+  "decisions": {
+    "generation_handoff_policy": "blocked",
+    "delivery_apply_policy": "blocked",
+    "apply_policy": "blocked",
+    "full_quality_generation_handoff_allowed": false,
+    "requires_deterministic_qa": false,
+    "review_required": true,
+    "pending_required_repair_count": 1
+  },
+  "quality_claims_forbidden": ["full_quality_generation", "review_complete_status", "safe_apply_readiness"],
+  "segments": [
+    {
+      "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+      "resource_key": "string:delete_account_button",
+      "source_path": "app/src/main/res/values/strings.xml",
+      "action": "targeted_repair",
+      "repair_type": "term_patch",
+      "repair_id": "repair-1111111111111111",
+      "reason_codes": ["term_policy_changed_for_matching_segment"],
+      "source_text_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "previous_target_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_artifact_refs": {
+        "generation_strategy": "localize-anything-generation-strategy-v1",
+        "generation_handoff_decision": "localize-anything-generation-handoff-decision-v1"
+      },
+      "required_constraints": {
+        "matched_terms": ["Delete account"],
+        "deterministic_qa_required": false,
+        "generation_strategy_status": "ready",
+        "handoff_status": "ready",
+        "termbase_status": "requires_review"
+      },
+      "risk_level": "high",
+      "human_confirmation_required": true,
+      "deterministic_qa_required": false,
+      "targeted_repair_allowed": true,
+      "blocks_generation_handoff": true,
+      "blocks_delivery_apply": true
+    }
+  ],
+  "next_actions": [
+    "Complete targeted repair requests before claiming repaired segment readiness.",
+    "Collect human confirmation for high-risk unresolved segments."
+  ]
+}

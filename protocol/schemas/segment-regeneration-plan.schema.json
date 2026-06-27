@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/segment-regeneration-plan.schema.json",
+  "title": "Localize Anything Segment Regeneration Plan",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "status",
+    "summary",
+    "decisions",
+    "segments"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-segment-regeneration-plan-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": {
+      "enum": [
+        "ready",
+        "requires_regeneration",
+        "requires_repair",
+        "requires_review",
+        "requires_human_confirmation",
+        "blocked"
+      ]
+    },
+    "source_artifacts": { "type": "object", "additionalProperties": { "type": "string" } },
+    "reuse_decision_status": { "type": ["string", "null"] },
+    "summary": {
+      "type": "object",
+      "required": [
+        "segment_count",
+        "reuse_count",
+        "regenerate_count",
+        "re_review_count",
+        "targeted_repair_count",
+        "human_confirm_count",
+        "blocked_count",
+        "pending_repair_count"
+      ],
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "decisions": {
+      "type": "object",
+      "required": [
+        "generation_handoff_policy",
+        "delivery_apply_policy",
+        "apply_policy",
+        "full_quality_generation_handoff_allowed",
+        "requires_deterministic_qa",
+        "review_required",
+        "pending_required_repair_count"
+      ],
+      "properties": {
+        "generation_handoff_policy": { "enum": ["allowed", "warn", "blocked"] },
+        "delivery_apply_policy": { "enum": ["allowed", "warn", "blocked"] },
+        "apply_policy": { "enum": ["allowed", "warn", "blocked"] },
+        "full_quality_generation_handoff_allowed": { "type": "boolean" },
+        "requires_deterministic_qa": { "type": "boolean" },
+        "review_required": { "type": "boolean" },
+        "pending_required_repair_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "quality_claims_forbidden": { "type": "array", "items": { "type": "string" } },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "segment_id",
+          "action",
+          "repair_type",
+          "source_text_hash",
+          "required_constraints",
+          "risk_level",
+          "human_confirmation_required",
+          "deterministic_qa_required",
+          "blocks_generation_handoff",
+          "blocks_delivery_apply"
+        ],
+        "properties": {
+          "segment_id": { "type": "string", "minLength": 1 },
+          "resource_key": { "type": ["string", "null"] },
+          "source_path": { "type": ["string", "null"] },
+          "action": { "enum": ["reuse", "regenerate", "re_review", "targeted_repair", "human_confirm", "blocked"] },
+          "repair_type": {
+            "enum": [
+              "term_patch",
+              "placeholder_patch",
+              "markup_patch",
+              "risk_wording_patch",
+              "style_patch",
+              "coverage_patch",
+              "review_only",
+              "regenerate_segment"
+            ]
+          },
+          "repair_id": { "type": "string" },
+          "reason_codes": { "type": "array", "items": { "type": "string" } },
+          "source_text_hash": { "type": "string", "minLength": 1 },
+          "previous_target_hash": { "type": ["string", "null"] },
+          "source_artifact_refs": { "type": "object", "additionalProperties": { "type": "string" } },
+          "required_constraints": { "type": "object", "additionalProperties": true },
+          "risk_level": { "type": "string" },
+          "human_confirmation_required": { "type": "boolean" },
+          "deterministic_qa_required": { "type": "boolean" },
+          "targeted_repair_allowed": { "type": "boolean" },
+          "blocks_generation_handoff": { "type": "boolean" },
+          "blocks_delivery_apply": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "next_actions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

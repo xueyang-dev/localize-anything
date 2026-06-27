@@ -7,6 +7,13 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, sha256_file, write_json
+from .segment_repair import (
+    REPAIR_HISTORY_JSONL,
+    REPAIR_REQUEST_JSON,
+    REPAIR_RESULT_JSON,
+    SEGMENT_REGENERATION_PLAN_JSON,
+    segment_repair_summary,
+)
 from .segment_staleness import REUSE_DECISION_JSON, STALE_SEGMENTS_JSONL, segment_staleness_summary
 
 
@@ -111,6 +118,16 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ),
     ArtifactSpec("stale_segments", "stale_segments", STALE_SEGMENTS_JSONL, "segment_staleness"),
     ArtifactSpec("reuse_decision", "reuse_decision", REUSE_DECISION_JSON, "segment_staleness", ("stale_segments",)),
+    ArtifactSpec(
+        "segment_regeneration_plan",
+        "segment_regeneration_plan",
+        SEGMENT_REGENERATION_PLAN_JSON,
+        "targeted_repair",
+        ("stale_segments", "reuse_decision", "generation_strategy", "generation_handoff_decision", "termbase_preflight_report"),
+    ),
+    ArtifactSpec("repair_request", "repair_request", REPAIR_REQUEST_JSON, "targeted_repair", ("segment_regeneration_plan",)),
+    ArtifactSpec("repair_result", "repair_result", REPAIR_RESULT_JSON, "targeted_repair", ("repair_request",)),
+    ArtifactSpec("repair_history", "repair_history", REPAIR_HISTORY_JSONL, "targeted_repair", ("repair_result",)),
     ArtifactSpec(
         "state_delivery_manifest",
         "delivery_manifest",
@@ -220,15 +237,23 @@ def build_artifact_state(
     segment_summary = segment_state.get("summary", {})
     segment_handoff_policy = str(segment_decisions.get("generation_handoff_policy") or "allowed")
     segment_delivery_policy = str(segment_decisions.get("delivery_apply_policy") or "allowed")
+    repair_state = segment_repair_summary(state_dir)
+    repair_decisions = repair_state.get("decisions", {})
+    repair_summary = repair_state.get("summary", {})
+    repair_handoff_policy = str(repair_decisions.get("generation_handoff_policy") or "allowed")
+    repair_delivery_policy = str(repair_decisions.get("delivery_apply_policy") or "allowed")
     status = _overall_status(stale_artifacts, blocked_artifacts, review_artifacts, missing_required, artifacts)
     status = _status_with_segment_state(status, segment_state)
+    status = _status_with_repair_state(status, repair_state)
     handoff_policy = _merge_policy(
         "blocked" if any(item.get("affects_generation_handoff") for item in stale_artifacts + blocked_artifacts) else "allowed",
         segment_handoff_policy,
+        repair_handoff_policy,
     )
     delivery_policy = _merge_policy(
         "blocked" if any(item.get("affects_delivery_or_apply") for item in stale_artifacts + blocked_artifacts) else "allowed",
         segment_delivery_policy,
+        repair_delivery_policy,
     )
     state = {
         "protocol_version": PROTOCOL_VERSION,
@@ -251,6 +276,10 @@ def build_artifact_state(
             "segments_requiring_regeneration_count": int(segment_summary.get("needs_regeneration_count", 0)),
             "segments_requiring_review_count": int(segment_summary.get("needs_re_review_count", 0)),
             "reusable_segment_count": int(segment_summary.get("reusable_count", 0)),
+            "segment_repair_pending_count": int(repair_summary.get("pending_repair_count", 0)),
+            "segments_targeted_repair_count": int(repair_summary.get("targeted_repair_count", 0)),
+            "segments_human_confirm_count": int(repair_summary.get("human_confirm_count", 0)),
+            "segments_repair_blocked_count": int(repair_summary.get("blocked_count", 0)),
         },
         "decisions": {
             "full_quality_generation_handoff_allowed": handoff_policy == "allowed",
@@ -260,11 +289,13 @@ def build_artifact_state(
         },
         "artifacts": artifacts,
         "segment_staleness": segment_state,
+        "segment_repair": repair_state,
         "stale_artifacts": [_compact_artifact(item) for item in stale_artifacts],
         "blocked_artifacts": [_compact_artifact(item) for item in blocked_artifacts],
         "missing_required_artifacts": [_compact_artifact(item) for item in missing_required],
         "next_actions": _next_actions(stale_artifacts, blocked_artifacts, missing_required)
-        + list(segment_state.get("next_actions", [])),
+        + list(segment_state.get("next_actions", []))
+        + list(repair_state.get("next_actions", [])),
     }
     if write:
         state_dir.mkdir(parents=True, exist_ok=True)
@@ -300,6 +331,7 @@ def artifact_state_summary(state_dir: Path) -> dict[str, Any]:
         "stale_artifacts": state.get("stale_artifacts", []),
         "blocked_artifacts": state.get("blocked_artifacts", []),
         "segment_staleness": state.get("segment_staleness", {}),
+        "segment_repair": state.get("segment_repair", {}),
         "decisions": state.get("decisions", {}),
         "next_actions": state.get("next_actions", []),
     }
@@ -323,6 +355,7 @@ def artifact_state_summary_from_document(state: dict[str, Any] | None) -> dict[s
         "stale_artifacts": [],
         "blocked_artifacts": [],
         "segment_staleness": {},
+        "segment_repair": {},
         "decisions": {},
     }
     return {
@@ -332,6 +365,7 @@ def artifact_state_summary_from_document(state: dict[str, Any] | None) -> dict[s
         "stale_artifacts": state.get("stale_artifacts", []),
         "blocked_artifacts": state.get("blocked_artifacts", []),
         "segment_staleness": state.get("segment_staleness", {}),
+        "segment_repair": state.get("segment_repair", {}),
         "decisions": state.get("decisions", {}),
         "next_actions": state.get("next_actions", []),
     }
@@ -505,6 +539,17 @@ def _status_with_segment_state(status: str, segment_state: dict[str, Any]) -> st
     if segment_status == "requires_regeneration" and status == "current":
         return "stale"
     if segment_status == "requires_review" and status == "current":
+        return "requires_human_review"
+    return status
+
+
+def _status_with_repair_state(status: str, repair_state: dict[str, Any]) -> str:
+    repair_status = str(repair_state.get("status") or "not_run")
+    if repair_status == "blocked":
+        return "blocked"
+    if repair_status in {"requires_regeneration", "requires_repair"} and status == "current":
+        return "stale"
+    if repair_status in {"requires_review", "requires_human_confirmation"} and status == "current":
         return "requires_human_review"
     return status
 

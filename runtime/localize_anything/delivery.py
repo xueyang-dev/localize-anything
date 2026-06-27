@@ -21,6 +21,13 @@ from .resolution_gate import (
     USER_RESOLUTION_DECISIONS_JSONL,
     resolution_gate_asset_paths,
 )
+from .segment_repair import (
+    REPAIR_HISTORY_JSONL,
+    REPAIR_REQUEST_JSON,
+    REPAIR_RESULT_JSON,
+    SEGMENT_REGENERATION_PLAN_JSON,
+    segment_repair_asset_paths,
+)
 from .segment_staleness import REUSE_DECISION_JSON, STALE_SEGMENTS_JSONL, segment_staleness_asset_paths
 from .term_governance import TERM_GOVERNANCE_ASSETS, term_governance_asset_paths
 from .termbase_preflight import (
@@ -46,6 +53,10 @@ OPTIONAL_CANONICAL_ASSETS = (
     ARTIFACT_STATE_JSON,
     STALE_SEGMENTS_JSONL,
     REUSE_DECISION_JSON,
+    SEGMENT_REGENERATION_PLAN_JSON,
+    REPAIR_REQUEST_JSON,
+    REPAIR_RESULT_JSON,
+    REPAIR_HISTORY_JSONL,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -155,6 +166,7 @@ def package_delivery(
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),
+                **segment_repair_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },

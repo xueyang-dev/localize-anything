@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/repair-history.schema.json",
+  "title": "Localize Anything Repair History Record",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "repair_id",
+    "segment_id",
+    "source_hash",
+    "previous_target_hash",
+    "new_target_hash",
+    "repair_reason",
+    "repair_status",
+    "actor_type"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-repair-history-v1" },
+    "repair_id": { "type": "string", "minLength": 1 },
+    "segment_id": { "type": "string", "minLength": 1 },
+    "source_hash": { "type": ["string", "null"] },
+    "previous_target_hash": { "type": ["string", "null"] },
+    "new_target_hash": { "type": ["string", "null"] },
+    "repair_reason": { "type": "string" },
+    "repair_status": {
+      "enum": ["completed", "pending_provider_or_model_repair", "pending_human_confirmation", "pending_review"]
+    },
+    "actor_type": { "enum": ["runtime_deterministic", "pending_provider_or_model", "human"] }
+  },
+  "additionalProperties": true
+}

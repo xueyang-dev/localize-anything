@@ -303,6 +303,43 @@ Workbench exposes artifact-backed API endpoints for stale segments and reuse
 decisions. A full visual panel should render those artifacts rather than infer
 freshness in browser state.
 
+## Targeted Repair / Segment Regeneration Plan
+
+Targeted Repair consumes `stale-segments.jsonl` and `reuse-decision.json` and
+writes `segment-regeneration-plan.json`, `repair-request.json`,
+`repair-result.json`, and `repair-history.jsonl`. It is a deterministic
+planning gate, not a Translation Memory system and not an LLM repair executor.
+
+The planner assigns one action per segment: `reuse`, `regenerate`,
+`re_review`, `targeted_repair`, `human_confirm`, or `blocked`. Source text
+changes and placeholder or markup signature changes require regeneration;
+placeholder/markup changes also require deterministic QA. Term-policy changes
+for segments containing affected known terms become targeted repair when that
+is allowed, otherwise regeneration. Generation strategy, provider policy, or
+review policy changes can route a segment to re-review. High-risk unresolved
+segments require human confirmation or are blocked.
+
+`repair-request.json` is the actionable queue for repair work. Each item has a
+stable repair id, source artifact references, repair type, reason, previous
+target hash when available, required constraints, risk level, and whether human
+confirmation is required. `repair-result.json` records only deterministic
+runtime outcomes. If a repair would require provider or model generation, the
+result stays pending instead of inventing target text. `repair-history.jsonl`
+appends every repair decision so repeated runs remain auditable.
+
+Generation Handoff Enforcement reads the regeneration plan before allowing a
+full-quality handoff. Pending regeneration, targeted repair, human
+confirmation, or blocked segments block full-quality readiness and safe apply
+claims; re-review-only segments downgrade readiness. Delivery decisions and
+apply planning surface pending repairs and block apply when required repairs
+affect staged files.
+
+This loop comes before a Patch-Based Repair Loop because repair execution needs
+a stable, reviewable plan first. Workbench exposes artifact-backed read
+endpoints for the plan, repair request, and repair history; the visual UI should
+display these artifacts rather than reimplementing planner rules in browser
+state.
+
 ## Localization Brief
 
 `localization-brief.json` is the machine-readable draft of task intent before

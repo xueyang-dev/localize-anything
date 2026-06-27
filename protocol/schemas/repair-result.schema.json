@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/repair-result.schema.json",
+  "title": "Localize Anything Repair Result",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "status",
+    "segment_regeneration_plan_path",
+    "repair_request_path",
+    "summary",
+    "results"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-repair-result-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["ready", "pending", "blocked"] },
+    "segment_regeneration_plan_path": { "const": "segment-regeneration-plan.json" },
+    "repair_request_path": { "const": "repair-request.json" },
+    "summary": {
+      "type": "object",
+      "required": [
+        "result_count",
+        "completed_count",
+        "pending_provider_or_model_repair_count",
+        "pending_human_confirmation_count",
+        "pending_review_count"
+      ],
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "repair_id",
+          "segment_id",
+          "repair_type",
+          "repair_status",
+          "actor_type",
+          "source_hash",
+          "previous_target_hash",
+          "new_target_hash"
+        ],
+        "properties": {
+          "repair_id": { "type": "string", "minLength": 1 },
+          "segment_id": { "type": "string", "minLength": 1 },
+          "repair_type": { "type": "string" },
+          "repair_reason": { "type": "string" },
+          "repair_status": {
+            "enum": ["completed", "pending_provider_or_model_repair", "pending_human_confirmation", "pending_review"]
+          },
+          "actor_type": { "enum": ["runtime_deterministic", "pending_provider_or_model", "human"] },
+          "source_hash": { "type": ["string", "null"] },
+          "previous_target_hash": { "type": ["string", "null"] },
+          "new_target_hash": { "type": ["string", "null"] },
+          "new_target": { "type": ["string", "null"] },
+          "deterministic_qa_required": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

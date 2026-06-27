@@ -18,6 +18,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     artifact_state = artifact_state_summary_from_document(artifact_state_from_delivery(delivery_dir))
     segment_staleness = artifact_state.get("segment_staleness", {}) if isinstance(artifact_state, dict) else {}
     segment_summary = segment_staleness.get("summary", {}) if isinstance(segment_staleness, dict) else {}
+    segment_repair = artifact_state.get("segment_repair", {}) if isinstance(artifact_state, dict) else {}
+    repair_summary = segment_repair.get("summary", {}) if isinstance(segment_repair, dict) else {}
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -132,6 +134,9 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "stale_segment_count": segment_summary.get("stale_segment_count", 0),
             "segments_requiring_regeneration_count": segment_summary.get("needs_regeneration_count", 0),
             "segments_requiring_review_count": segment_summary.get("needs_re_review_count", 0),
+            "pending_segment_repair_count": repair_summary.get("pending_repair_count", 0),
+            "targeted_repair_count": repair_summary.get("targeted_repair_count", 0),
+            "human_confirm_count": repair_summary.get("human_confirm_count", 0),
         },
         "localization": localization,
         "artifact_state": artifact_state,
@@ -159,6 +164,7 @@ def render_delivery_decision_markdown(report: dict[str, Any]) -> str:
         f"- Requires review: {summary.get('requires_review_count', 0)}",
         f"- Stale artifacts: {artifact_state_summary.get('stale_count', 0)}",
         f"- Stale segments: {summary.get('stale_segment_count', 0)}",
+        f"- Pending segment repairs: {summary.get('pending_segment_repair_count', 0)}",
         "",
         "## Localization Mode",
         "",

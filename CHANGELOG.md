@@ -39,6 +39,10 @@
   `stale-segments.jsonl`, `reuse-decision.json`, CLI/API read paths,
   artifact-state summary integration, and handoff/delivery/apply enforcement
   for stale generated segments.
+- Add Targeted Repair / Segment Regeneration Plan seed with
+  `segment-regeneration-plan.json`, `repair-request.json`,
+  `repair-result.json`, `repair-history.jsonl`, CLI/API read paths, and
+  handoff/delivery/apply enforcement for pending segment repairs.
 
 ## v0.4.1 - Workbench UI Wiring
 
