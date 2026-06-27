@@ -93,7 +93,7 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 
 ```text
 inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> generation-handoff-enforcement
-        -> artifact-state
+        -> artifact-state -> segment-staleness / reuse-decision
         -> retrieve -> draft-request -> draft-prompt -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
         -> stage-generated -> validate-output -> package
@@ -233,6 +233,51 @@ Delivery decision and apply planning surface artifact-state blockers so stale
 evidence cannot justify delivery or source-project writes. Workbench exposes
 `GET /api/artifact-state` as an artifact-backed read path; UI panels should show
 this artifact rather than reimplementing freshness rules in presentation code.
+
+## Segment-Level Staleness / Reuse Decision
+
+`reuse-decision` writes `stale-segments.jsonl` and `reuse-decision.json` after
+source segments and prior generated or reviewed segments are available. The
+seed is deterministic. It does not implement Translation Memory, Personal
+Knowledge Pack, Document Evidence Pack, or provider calls.
+
+Each stale-segment record tracks a segment id or resource key, source text hash,
+source context hash, placeholder/markup signature hash, localization brief
+hash, term-governance hash, term-review decision hash, generation-strategy
+hash, provider-policy hash when supplied, previous generated target hash, and
+previous review or review-policy hash when supplied. The classifier supports
+`current`, `stale_source_changed`, `stale_context_changed`,
+`stale_term_policy_changed`, `stale_generation_strategy_changed`,
+`stale_provider_policy_changed`, `needs_regeneration`, `needs_re_review`,
+`reusable`, and `blocked`.
+
+Reuse decisions are conservative:
+
+- source text changes require regeneration;
+- placeholder or markup signature changes require regeneration and
+  deterministic QA;
+- term policy changes require regeneration or targeted repair only for segments
+  containing affected terms;
+- generation strategy, provider policy, or review policy changes require
+  re-review when the existing target may still be reused;
+- unrelated artifact changes do not invalidate segment reuse;
+- high-risk segments affected by policy changes require review even if the
+  target text is reused.
+
+Artifact State Machine consumes the reuse decision summary. Full-quality
+generation handoff is blocked when required stale segments remain unresolved and
+is downgraded when re-review is required. Delivery/apply readiness is blocked
+when stale generated segments affect staged files. Run summaries and delivery
+packages surface the stale segment counts and include references to both
+segment-level artifacts.
+
+Workbench exposes `GET /api/stale-segments` and `GET /api/reuse-decision` as
+artifact-backed read paths. UI should display these artifacts rather than
+inferring segment freshness from filenames, mtimes, or presentation state.
+
+This loop comes before Document Evidence Pack because segment reuse boundaries
+must be known before document-level evidence can safely say which prior target
+text, review result, or policy decision remains current.
 
 ## Localization Modes
 

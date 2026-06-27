@@ -7,6 +7,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, sha256_file, write_json
+from .segment_staleness import REUSE_DECISION_JSON, STALE_SEGMENTS_JSONL, segment_staleness_summary
 
 
 ARTIFACT_STATE_JSON = "artifact-state.json"
@@ -108,6 +109,8 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         required_for_handoff=True,
         required_for_delivery=True,
     ),
+    ArtifactSpec("stale_segments", "stale_segments", STALE_SEGMENTS_JSONL, "segment_staleness"),
+    ArtifactSpec("reuse_decision", "reuse_decision", REUSE_DECISION_JSON, "segment_staleness", ("stale_segments",)),
     ArtifactSpec(
         "state_delivery_manifest",
         "delivery_manifest",
@@ -212,7 +215,21 @@ def build_artifact_state(
         for item in artifacts
         if item["status"] == "missing" and (item.get("required_for_handoff") or item.get("required_for_delivery"))
     ]
+    segment_state = segment_staleness_summary(state_dir)
+    segment_decisions = segment_state.get("decisions", {})
+    segment_summary = segment_state.get("summary", {})
+    segment_handoff_policy = str(segment_decisions.get("generation_handoff_policy") or "allowed")
+    segment_delivery_policy = str(segment_decisions.get("delivery_apply_policy") or "allowed")
     status = _overall_status(stale_artifacts, blocked_artifacts, review_artifacts, missing_required, artifacts)
+    status = _status_with_segment_state(status, segment_state)
+    handoff_policy = _merge_policy(
+        "blocked" if any(item.get("affects_generation_handoff") for item in stale_artifacts + blocked_artifacts) else "allowed",
+        segment_handoff_policy,
+    )
+    delivery_policy = _merge_policy(
+        "blocked" if any(item.get("affects_delivery_or_apply") for item in stale_artifacts + blocked_artifacts) else "allowed",
+        segment_delivery_policy,
+    )
     state = {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-artifact-state-v1",
@@ -230,18 +247,24 @@ def build_artifact_state(
             "rejected_count": _count_status(artifacts, "rejected"),
             "requires_human_review_count": len(review_artifacts),
             "missing_required_count": len(missing_required),
+            "stale_segment_count": int(segment_summary.get("stale_segment_count", 0)),
+            "segments_requiring_regeneration_count": int(segment_summary.get("needs_regeneration_count", 0)),
+            "segments_requiring_review_count": int(segment_summary.get("needs_re_review_count", 0)),
+            "reusable_segment_count": int(segment_summary.get("reusable_count", 0)),
         },
         "decisions": {
-            "full_quality_generation_handoff_allowed": not any(item.get("affects_generation_handoff") for item in stale_artifacts + blocked_artifacts),
-            "delivery_apply_allowed": not any(item.get("affects_delivery_or_apply") for item in stale_artifacts + blocked_artifacts),
-            "delivery_policy": "blocked" if any(item.get("affects_delivery_or_apply") for item in stale_artifacts + blocked_artifacts) else "allowed",
-            "apply_policy": "blocked" if any(item.get("affects_delivery_or_apply") for item in stale_artifacts + blocked_artifacts) else "allowed",
+            "full_quality_generation_handoff_allowed": handoff_policy == "allowed",
+            "delivery_apply_allowed": delivery_policy != "blocked",
+            "delivery_policy": delivery_policy,
+            "apply_policy": delivery_policy,
         },
         "artifacts": artifacts,
+        "segment_staleness": segment_state,
         "stale_artifacts": [_compact_artifact(item) for item in stale_artifacts],
         "blocked_artifacts": [_compact_artifact(item) for item in blocked_artifacts],
         "missing_required_artifacts": [_compact_artifact(item) for item in missing_required],
-        "next_actions": _next_actions(stale_artifacts, blocked_artifacts, missing_required),
+        "next_actions": _next_actions(stale_artifacts, blocked_artifacts, missing_required)
+        + list(segment_state.get("next_actions", [])),
     }
     if write:
         state_dir.mkdir(parents=True, exist_ok=True)
@@ -276,6 +299,7 @@ def artifact_state_summary(state_dir: Path) -> dict[str, Any]:
         "summary": state.get("summary", {}),
         "stale_artifacts": state.get("stale_artifacts", []),
         "blocked_artifacts": state.get("blocked_artifacts", []),
+        "segment_staleness": state.get("segment_staleness", {}),
         "decisions": state.get("decisions", {}),
         "next_actions": state.get("next_actions", []),
     }
@@ -296,16 +320,18 @@ def artifact_state_summary_from_document(state: dict[str, Any] | None) -> dict[s
             "status": "not_available",
             "safe_to_continue": True,
             "summary": {},
-            "stale_artifacts": [],
-            "blocked_artifacts": [],
-            "decisions": {},
-        }
+        "stale_artifacts": [],
+        "blocked_artifacts": [],
+        "segment_staleness": {},
+        "decisions": {},
+    }
     return {
         "status": state.get("status", "not_checked"),
         "safe_to_continue": bool(state.get("safe_to_continue", False)),
         "summary": state.get("summary", {}),
         "stale_artifacts": state.get("stale_artifacts", []),
         "blocked_artifacts": state.get("blocked_artifacts", []),
+        "segment_staleness": state.get("segment_staleness", {}),
         "decisions": state.get("decisions", {}),
         "next_actions": state.get("next_actions", []),
     }
@@ -470,6 +496,25 @@ def _overall_status(
     if missing_required and not any(item["status"] == "current" for item in artifacts):
         return "missing"
     return "current"
+
+
+def _status_with_segment_state(status: str, segment_state: dict[str, Any]) -> str:
+    segment_status = str(segment_state.get("status") or "not_run")
+    if segment_status == "blocked":
+        return "blocked"
+    if segment_status == "requires_regeneration" and status == "current":
+        return "stale"
+    if segment_status == "requires_review" and status == "current":
+        return "requires_human_review"
+    return status
+
+
+def _merge_policy(*policies: str) -> str:
+    if "blocked" in policies:
+        return "blocked"
+    if "warn" in policies:
+        return "warn"
+    return "allowed"
 
 
 def _compact_artifact(item: dict[str, Any]) -> dict[str, Any]:

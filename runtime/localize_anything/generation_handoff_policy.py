@@ -441,6 +441,31 @@ def _check_artifact_state(
             )
         )
         forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "safe_apply_readiness"})
+    segment_staleness = summary.get("segment_staleness", {})
+    segment_decisions = segment_staleness.get("decisions", {}) if isinstance(segment_staleness, dict) else {}
+    segment_summary = segment_staleness.get("summary", {}) if isinstance(segment_staleness, dict) else {}
+    if segment_decisions.get("generation_handoff_policy") == "blocked":
+        blockers.append(
+            _issue(
+                "stale_segments_block_handoff",
+                "Segment-level reuse decision requires regeneration or targeted repair before full-quality handoff.",
+                ARTIFACT_STATE_JSON,
+                segment_summary=segment_summary,
+                stale_segments=segment_staleness.get("stale_segments", []),
+            )
+        )
+        forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "safe_apply_readiness", "review_complete_status"})
+    elif segment_decisions.get("generation_handoff_policy") == "warn":
+        warnings.append(
+            _issue(
+                "stale_segments_require_review",
+                "Segment-level reuse decision requires re-review before full-quality handoff.",
+                ARTIFACT_STATE_JSON,
+                segment_summary=segment_summary,
+                stale_segments=segment_staleness.get("stale_segments", []),
+            )
+        )
+        forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "review_complete_status"})
 
 
 def _artifact_affects_handoff(item: dict[str, Any]) -> bool:

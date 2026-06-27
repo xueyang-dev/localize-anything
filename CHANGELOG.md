@@ -35,6 +35,10 @@
 - Add Artifact State Machine seed with `artifact-state.json`, CLI/API status
   access, stale-evidence handoff enforcement, and delivery/apply blockers for
   stale upstream artifacts.
+- Add Segment-Level Staleness / Reuse Decision seed with
+  `stale-segments.jsonl`, `reuse-decision.json`, CLI/API read paths,
+  artifact-state summary integration, and handoff/delivery/apply enforcement
+  for stale generated segments.
 
 ## v0.4.1 - Workbench UI Wiring
 
