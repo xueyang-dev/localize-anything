@@ -62,6 +62,7 @@ from .review_sheet import write_review_sheet
 from .run import run_localize
 from .schema_validation import validate_protocol_tree
 from .segments import diff_segments
+from .segment_staleness import build_reuse_decision, read_reuse_decision, read_stale_segments
 from .staging import stage_generated
 from .structured_adapter import extract_segments as extract_structured_segments
 from .structured_adapter import rebuild as rebuild_structured
@@ -474,6 +475,21 @@ def build_parser() -> argparse.ArgumentParser:
     artifact_state_parser.add_argument("--delivery-dir", type=Path)
     artifact_state_parser.add_argument("--run-id")
     artifact_state_parser.add_argument("--output", type=Path)
+
+    reuse_decision_parser = subparsers.add_parser("reuse-decision", help="Create stale-segments.jsonl and reuse-decision.json")
+    reuse_decision_parser.add_argument("state_dir", type=Path)
+    reuse_decision_parser.add_argument("segments", type=Path)
+    reuse_decision_parser.add_argument("--previous-segments", type=Path)
+    reuse_decision_parser.add_argument("--generated", type=Path)
+    reuse_decision_parser.add_argument("--review-result", type=Path)
+    reuse_decision_parser.add_argument("--provider-policy-json")
+    reuse_decision_parser.add_argument("--review-policy-json")
+    reuse_decision_parser.add_argument("--run-id")
+    reuse_decision_parser.add_argument("--output", type=Path)
+
+    stale_segments_parser = subparsers.add_parser("stale-segments", help="Read stale-segments.jsonl as deterministic JSON")
+    stale_segments_parser.add_argument("state_dir", type=Path)
+    stale_segments_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1118,6 +1134,27 @@ def main(argv: list[str] | None = None) -> int:
                 run_id=args.run_id,
             )
             return _emit_json(result, args.output)
+        if args.command == "reuse-decision":
+            result = build_reuse_decision(
+                args.state_dir,
+                read_jsonl(args.segments),
+                previous_segments=read_jsonl(args.previous_segments) if args.previous_segments else None,
+                generated_segments=read_jsonl(args.generated) if args.generated else None,
+                review_result_path=args.review_result,
+                provider_policy=_json_argument(args.provider_policy_json, "provider-policy-json"),
+                review_policy=_json_argument(args.review_policy_json, "review-policy-json"),
+                run_id=args.run_id,
+            )
+            return _emit_json(result, args.output)
+        if args.command == "stale-segments":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-stale-segments-list-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "reuse_decision": read_reuse_decision(args.state_dir),
+                "segments": read_stale_segments(args.state_dir),
+            }
+            return _emit_json(result, args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":
@@ -1390,3 +1427,12 @@ def _emit_json(value: Any, output: Path | None) -> int:
         json.dump(value, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     return 0
+
+
+def _json_argument(value: str | None, label: str) -> dict[str, Any] | None:
+    if not value:
+        return None
+    parsed = json.loads(value)
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return parsed

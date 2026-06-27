@@ -86,6 +86,7 @@ from runtime.localize_anything.review_sheet import write_review_sheet
 from runtime.localize_anything.run import run_localize
 from runtime.localize_anything.schema_validation import validate_document, validate_protocol_tree
 from runtime.localize_anything.segments import diff_segments
+from runtime.localize_anything.segment_staleness import build_reuse_decision, read_reuse_decision, read_stale_segments
 from runtime.localize_anything.staging import stage_generated
 from runtime.localize_anything.structured_adapter import extract_segments as extract_structured_segments
 from runtime.localize_anything.structured_adapter import rebuild as rebuild_structured, validate_pair as validate_structured_pair
@@ -4508,9 +4509,15 @@ class ArtifactStateMachineTests(unittest.TestCase):
             assert_protocol_schema(self, "artifact-state", artifact_state)
             self.assertIn("artifact_state", result)
             self.assertEqual(result["artifact_state"]["artifact"], "artifact-state.json")
+            self.assertIn("stale_segments", result["artifacts"])
+            self.assertIn("reuse_decision", result["artifacts"])
+            self.assertEqual(result["summary"]["stale_segment_count"], 0)
             delivery = Path(result["artifacts"]["delivery_directory"])
             self.assertTrue((delivery / "artifact-state.json").is_file())
-            self.assertEqual(read_json(delivery / "delivery-manifest.json")["assets"]["artifact_state"], "artifact-state.json")
+            self.assertTrue((delivery / "stale-segments.jsonl").is_file())
+            manifest_assets = read_json(delivery / "delivery-manifest.json")["assets"]
+            self.assertEqual(manifest_assets["artifact_state"], "artifact-state.json")
+            self.assertEqual(manifest_assets["reuse_decision"], "reuse-decision.json")
 
     def test_missing_required_artifacts_are_marked_missing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -4704,6 +4711,261 @@ class ArtifactStateMachineTests(unittest.TestCase):
             self.assertEqual(result["run_id"], "cli-artifact-state-001")
 
 
+class SegmentStalenessReuseTests(unittest.TestCase):
+    def test_unchanged_segments_are_reusable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+
+            decision = build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+
+            assert_protocol_schema(self, "reuse-decision", decision)
+            assert_protocol_schema(self, "stale-segments", decision["segments"][0])
+            self.assertEqual(decision["status"], "ready")
+            self.assertEqual(decision["summary"]["reusable_count"], 1)
+            self.assertEqual(read_stale_segments(state)[0]["state"], "reusable")
+
+    def test_source_text_change_marks_affected_segment_for_regeneration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            old = _segment("s1", "Start game")
+            new = _segment("s1", "Start game now")
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+
+            decision = build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+            record = decision["segments"][0]
+
+            self.assertEqual(record["state"], "needs_regeneration")
+            self.assertIn("stale_source_changed", record["classifications"])
+            self.assertTrue(record["deterministic_qa_required"])
+
+    def test_placeholder_signature_change_marks_regeneration_and_qa(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            old = _segment("s1", "Delete %s files")
+            old["constraints"]["placeholders"] = ["%s"]
+            new = _segment("s1", "Delete %s files")
+            new["constraints"]["placeholders"] = ["%d"]
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+
+            decision = build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+            record = decision["segments"][0]
+
+            self.assertEqual(record["state"], "needs_regeneration")
+            self.assertIn("stale_context_changed", record["classifications"])
+            self.assertTrue(record["deterministic_qa_required"])
+
+    def test_term_policy_change_marks_term_containing_segments_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Weight limit", resource_name="weight_limit", high_risk=True)
+            _write_term_registry(
+                state,
+                [
+                    {
+                        "source_term": "Weight",
+                        "target_term": "重量",
+                        "type": "domain_term",
+                        "status": "approved",
+                        "target_locale": "zh-CN",
+                    }
+                ],
+            )
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+            _write_term_registry(
+                state,
+                [
+                    {
+                        "source_term": "Weight",
+                        "target_term": "体重",
+                        "type": "domain_term",
+                        "status": "approved",
+                        "target_locale": "zh-CN",
+                    }
+                ],
+            )
+
+            decision = build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+            record = decision["segments"][0]
+
+            self.assertIn("stale_term_policy_changed", record["classifications"])
+            self.assertEqual(record["state"], "needs_regeneration")
+            self.assertTrue(record["targeted_repair_allowed"])
+            self.assertTrue(record["review_required"])
+
+    def test_generation_strategy_change_marks_segments_review_required(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+            strategy = read_json(state / "generation-strategy.json")
+            strategy["route"]["mode"] = "high_assurance_handoff"
+            write_json(state / "generation-strategy.json", strategy)
+
+            decision = build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+            record = decision["segments"][0]
+
+            self.assertEqual(record["state"], "needs_re_review")
+            self.assertIn("stale_generation_strategy_changed", record["classifications"])
+            self.assertEqual(decision["decisions"]["generation_handoff_policy"], "warn")
+
+    def test_review_policy_change_marks_segments_for_re_review(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(
+                state,
+                [segment],
+                generated_segments=[_generated_segment(segment)],
+                review_policy={"deterministic_review": "standard"},
+            )
+
+            decision = build_reuse_decision(
+                state,
+                [segment],
+                generated_segments=[_generated_segment(segment)],
+                review_policy={"deterministic_review": "strict"},
+            )
+
+            self.assertEqual(decision["segments"][0]["state"], "needs_re_review")
+            self.assertIn("review_policy_changed", decision["segments"][0]["reason_codes"])
+
+    def test_stale_segment_summary_appears_in_artifact_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            old = _segment("s1", "Start game")
+            new = _segment("s1", "Start game now")
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+            build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+
+            artifact_state = build_artifact_state(state)
+
+            self.assertEqual(artifact_state["summary"]["stale_segment_count"], 1)
+            self.assertEqual(artifact_state["segment_staleness"]["summary"]["needs_regeneration_count"], 1)
+            self.assertFalse(artifact_state["decisions"]["full_quality_generation_handoff_allowed"])
+
+    def test_handoff_is_blocked_when_required_stale_segments_remain(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            old = _segment("s1", "Start game")
+            new = _segment("s1", "Start game now")
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+            build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+            build_artifact_state(state)
+
+            decision = build_generation_handoff_decision(state)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("stale_segments_block_handoff", {item["code"] for item in decision["blockers"]})
+
+    def test_delivery_apply_blocks_when_stale_generated_segments_affect_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            delivery = root / "delivery"
+            output = delivery / "files" / "locales" / "zh-CN.json"
+            output.parent.mkdir(parents=True)
+            output.write_text('{"start": "开始"}\n', encoding="utf-8")
+            (project / "locales").mkdir(parents=True)
+            (project / "locales" / "zh-CN.json").write_text("{}\n", encoding="utf-8")
+            state = root / ".localize-anything"
+            old = _segment("s1", "Start game")
+            new = _segment("s1", "Start game now")
+            _seed_strategy_handoff_state(state, [old])
+            build_reuse_decision(state, [old], generated_segments=[_generated_segment(old)])
+            build_reuse_decision(state, [new], generated_segments=[_generated_segment(old)])
+            artifact_state = build_artifact_state(state)
+            write_json(
+                delivery / "delivery-manifest.json",
+                {
+                    "protocol_version": "0.1",
+                    "run_id": "segment-stale-delivery-001",
+                    "outputs": [
+                        {
+                            "package_path": "files/locales/zh-CN.json",
+                            "destination": "locales/zh-CN.json",
+                            "sha256": _sha256(output),
+                            "destination_base_sha256": _sha256(project / "locales" / "zh-CN.json"),
+                        }
+                    ],
+                    "generation": {"provider_status": "synthetic_test", "apply_allowed": True},
+                    "qa": {"status": "pass", "blocking_count": 0, "warning_count": 0, "items": []},
+                    "unprocessed_non_text_assets": [],
+                },
+            )
+            write_json(delivery / "artifact-state.json", artifact_state)
+
+            apply_plan = create_apply_plan(delivery, project)
+            delivery_decision = create_delivery_decision_report(delivery, project)
+
+            self.assertTrue(apply_plan["blocked_by_stale_artifacts"])
+            self.assertIn("s1", apply_plan["artifact_state_apply_block_reason"])
+            self.assertEqual(delivery_decision["status"], "blocked")
+
+    def test_cli_reports_stale_segments_deterministically(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+            segments_path = root / "segments.jsonl"
+            generated_path = root / "generated.jsonl"
+            decision_output = root / "reuse-decision-output.json"
+            stale_output = root / "stale-segments-output.json"
+            write_jsonl(segments_path, [segment])
+            write_jsonl(generated_path, [_generated_segment(segment)])
+
+            exit_code = cli_main(
+                [
+                    "reuse-decision",
+                    state.as_posix(),
+                    segments_path.as_posix(),
+                    "--generated",
+                    generated_path.as_posix(),
+                    "--run-id",
+                    "cli-reuse-001",
+                    "--output",
+                    decision_output.as_posix(),
+                ]
+            )
+            stale_exit = cli_main(["stale-segments", state.as_posix(), "--output", stale_output.as_posix()])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(stale_exit, 0)
+            self.assertEqual(read_json(decision_output)["run_id"], "cli-reuse-001")
+            self.assertEqual(read_json(stale_output)["segments"][0]["state"], "reusable")
+
+    def test_workbench_api_exposes_stale_segments_and_reuse_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            segment = _segment("s1", "Start game")
+            _seed_strategy_handoff_state(state, [segment])
+            build_reuse_decision(state, [segment], generated_segments=[_generated_segment(segment)])
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                stale_status, stale_body = _http_get(host, port, f"/api/stale-segments?state_dir={state.as_posix()}")
+                reuse_status, reuse_body = _http_get(host, port, f"/api/reuse-decision?state_dir={state.as_posix()}")
+                self.assertEqual(stale_status, 200)
+                self.assertEqual(reuse_status, 200)
+                self.assertEqual(json.loads(stale_body)["stale_segments"][0]["state"], "reusable")
+                self.assertEqual(json.loads(reuse_body)["reuse_decision"]["status"], "ready")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
 def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) -> dict[str, Any]:
     run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
     plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
@@ -4850,6 +5112,15 @@ def _segment(
     return segment
 
 
+def _generated_segment(segment: dict[str, Any], target: str = "开始") -> dict[str, Any]:
+    generated = dict(segment)
+    generated["target_locale"] = "zh-CN"
+    generated["target"] = target
+    generated["status"] = "generated"
+    generated["generation"] = {"provider": "synthetic"}
+    return generated
+
+
 def _write_term_registry(state: Path, rows: list[dict[str, str]]) -> None:
     state.mkdir(parents=True, exist_ok=True)
     columns = [
@@ -4978,7 +5249,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 31)
+        self.assertEqual(result["schemas_checked"], 33)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

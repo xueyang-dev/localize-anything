@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/stale-segments.schema.json",
+  "title": "Localize Anything Stale Segment Record",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "segment_id",
+    "source_text_hash",
+    "source_context_hash",
+    "placeholder_signature_hash",
+    "dependency_hashes",
+    "classifications",
+    "state",
+    "reuse_allowed",
+    "action",
+    "blocks_generation_handoff",
+    "blocks_delivery_apply"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-stale-segments-v1" },
+    "segment_id": { "type": "string", "minLength": 1 },
+    "resource_key": { "type": ["string", "null"] },
+    "source_path": { "type": ["string", "null"] },
+    "source_text_hash": { "type": "string", "minLength": 1 },
+    "source_context_hash": { "type": "string", "minLength": 1 },
+    "placeholder_signature_hash": { "type": "string", "minLength": 1 },
+    "dependency_hashes": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "null"] }
+    },
+    "matched_terms": { "type": "array", "items": { "type": "string" } },
+    "classifications": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "current",
+          "stale_source_changed",
+          "stale_context_changed",
+          "stale_term_policy_changed",
+          "stale_generation_strategy_changed",
+          "stale_provider_policy_changed",
+          "needs_regeneration",
+          "needs_re_review",
+          "reusable",
+          "blocked"
+        ]
+      }
+    },
+    "state": {
+      "enum": [
+        "current",
+        "stale_source_changed",
+        "stale_context_changed",
+        "stale_term_policy_changed",
+        "stale_generation_strategy_changed",
+        "stale_provider_policy_changed",
+        "needs_regeneration",
+        "needs_re_review",
+        "reusable",
+        "blocked"
+      ]
+    },
+    "reuse_allowed": { "type": "boolean" },
+    "action": { "type": "string", "minLength": 1 },
+    "reason_codes": { "type": "array", "items": { "type": "string" } },
+    "targeted_repair_allowed": { "type": "boolean" },
+    "deterministic_qa_required": { "type": "boolean" },
+    "review_required": { "type": "boolean" },
+    "high_risk": { "type": "boolean" },
+    "blocks_generation_handoff": { "type": "boolean" },
+    "blocks_delivery_apply": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

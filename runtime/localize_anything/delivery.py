@@ -21,6 +21,7 @@ from .resolution_gate import (
     USER_RESOLUTION_DECISIONS_JSONL,
     resolution_gate_asset_paths,
 )
+from .segment_staleness import REUSE_DECISION_JSON, STALE_SEGMENTS_JSONL, segment_staleness_asset_paths
 from .term_governance import TERM_GOVERNANCE_ASSETS, term_governance_asset_paths
 from .termbase_preflight import (
     CANDIDATE_TERMS_JSONL,
@@ -43,6 +44,8 @@ OPTIONAL_CANONICAL_ASSETS = (
     GENERATION_STRATEGY_JSON,
     GENERATION_HANDOFF_DECISION_JSON,
     ARTIFACT_STATE_JSON,
+    STALE_SEGMENTS_JSONL,
+    REUSE_DECISION_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -151,6 +154,7 @@ def package_delivery(
                 **generation_strategy_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
+                **segment_staleness_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },

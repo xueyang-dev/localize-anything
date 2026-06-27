@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/reuse-decision.schema.json",
+  "title": "Localize Anything Reuse Decision",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "status",
+    "stale_segments_path",
+    "summary",
+    "decisions",
+    "quality_claims_forbidden",
+    "segments"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-reuse-decision-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["ready", "requires_regeneration", "requires_review", "blocked"] },
+    "stale_segments_path": { "const": "stale-segments.jsonl" },
+    "summary": {
+      "type": "object",
+      "required": [
+        "segment_count",
+        "reusable_count",
+        "stale_segment_count",
+        "needs_regeneration_count",
+        "needs_re_review_count",
+        "delivery_apply_blocking_count",
+        "generation_handoff_blocking_count"
+      ],
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "decisions": {
+      "type": "object",
+      "required": [
+        "reuse_allowed",
+        "generation_handoff_policy",
+        "delivery_apply_policy",
+        "requires_deterministic_qa",
+        "review_required"
+      ],
+      "properties": {
+        "reuse_allowed": { "type": "boolean" },
+        "generation_handoff_policy": { "enum": ["allowed", "warn", "blocked"] },
+        "delivery_apply_policy": { "enum": ["allowed", "warn", "blocked"] },
+        "requires_deterministic_qa": { "type": "boolean" },
+        "review_required": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "quality_claims_forbidden": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object", "additionalProperties": { "type": "string" } },
+    "segments": { "type": "array", "items": { "$ref": "stale-segments.schema.json" } },
+    "next_actions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

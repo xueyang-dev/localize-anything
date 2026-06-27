@@ -47,6 +47,7 @@ from .retrieval import build_work_packet
 from .reflection import create_llm_review_request, render_llm_review_prompt
 from .resolution_gate import build_resolution_gate
 from .review_sheet import write_review_sheet
+from .segment_staleness import build_reuse_decision
 from .staging import stage_generated
 from .structured_adapter import extract_segments as extract_structured_segments
 from .structured_adapter import validate_pair as validate_structured_pair
@@ -375,6 +376,13 @@ def run_localize(
     generation_metadata["handoff_decision"] = _handoff_decision_metadata(handoff_decision)
     provider_failed = generation_metadata.get("provider_status") == "failed"
     delivery_segments = [*generated_segments, *preserved_segments]
+    build_reuse_decision(
+        state_dir,
+        segments,
+        generated_segments=delivery_segments,
+        provider_policy={"mode": "synthetic_test"} if synthetic_draft else {"mode": "host_agent", "provider_controlled": False},
+        run_id=run_id,
+    )
     review_markdown_path = run_dir / "review-sheet.md"
     review_csv_path = run_dir / "review-sheet.csv"
     review_sheet_path = run_dir / "review-sheet.json"
@@ -916,6 +924,12 @@ def _summary(
             artifacts[key] = path.as_posix()
     if artifact_state:
         artifacts["artifact_state"] = (project_root / ".localize-anything" / ARTIFACT_STATE_JSON).as_posix()
+        segment_artifact = artifact_state.get("segment_staleness", {}).get("stale_segments_artifact")
+        reuse_artifact = artifact_state.get("segment_staleness", {}).get("artifact")
+        if segment_artifact:
+            artifacts["stale_segments"] = (project_root / ".localize-anything" / str(segment_artifact)).as_posix()
+        if reuse_artifact:
+            artifacts["reuse_decision"] = (project_root / ".localize-anything" / str(reuse_artifact)).as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -978,6 +992,9 @@ def _summary(
             "artifact_state_status": (artifact_state or {}).get("status", "not_checked"),
             "stale_artifact_count": (artifact_state or {}).get("summary", {}).get("stale_count", 0),
             "blocked_artifact_count": (artifact_state or {}).get("summary", {}).get("blocked_count", 0),
+            "stale_segment_count": (artifact_state or {}).get("summary", {}).get("stale_segment_count", 0),
+            "segments_requiring_regeneration": (artifact_state or {}).get("summary", {}).get("segments_requiring_regeneration_count", 0),
+            "segments_requiring_review": (artifact_state or {}).get("summary", {}).get("segments_requiring_review_count", 0),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

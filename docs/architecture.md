@@ -263,6 +263,46 @@ what needs to be regenerated. Workbench exposes this through an artifact-backed
 API endpoint; the visual UI should display `artifact-state.json`, not infer
 freshness from filenames or timestamps in the browser.
 
+## Segment-Level Staleness / Reuse Decision
+
+Segment-Level Staleness extends Artifact State Machine from whole artifacts to
+individual source segments. It writes `stale-segments.jsonl` and
+`reuse-decision.json` so the runtime can distinguish segments that can be
+reused, segments that need re-review, and segments that must be regenerated or
+targeted-repaired.
+
+The seed engine is deterministic. It compares source text hashes, source
+context hashes, placeholder/markup signatures, localization brief hash, term
+governance hash, term-review decision hash, generation strategy hash,
+provider-policy hash when supplied, previous target hash, and review-policy or
+review-result hash when supplied. It does not call an LLM and it is not a full
+Translation Memory implementation.
+
+Reuse policy is conservative: source text or placeholder/markup signature
+changes require regeneration; term-policy changes affect only segments
+containing known terms; strategy, provider, or review-policy changes require
+re-review when reuse may still be acceptable; unrelated artifact changes allow
+reuse. High-risk segments affected by policy changes remain review-required
+even when the target text can be reused.
+
+Artifact State Machine summarizes stale segment counts and applies those counts
+to handoff, delivery, and apply readiness. Generation handoff cannot claim
+full-quality readiness while required stale segments remain unresolved. Delivery
+and apply block when stale generated segments affect staged files. Run summaries
+and delivery packages include both segment-level artifacts so reviewers can see
+the concrete affected segment ids.
+
+This seed comes before Document Evidence Pack because document-level evidence
+cannot safely reuse prior review or source coverage unless segment reuse
+boundaries are already explicit. It also prepares the future Targeted Repair
+Loop: segments marked `needs_regeneration` may later be routed to full
+regeneration or targeted repair, while `needs_re_review` can stay on a cheaper
+human-review path.
+
+Workbench exposes artifact-backed API endpoints for stale segments and reuse
+decisions. A full visual panel should render those artifacts rather than infer
+freshness in browser state.
+
 ## Localization Brief
 
 `localization-brief.json` is the machine-readable draft of task intent before

@@ -20,6 +20,7 @@ from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
+from .segment_staleness import read_reuse_decision, read_stale_segments
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
 
 
@@ -115,6 +116,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/artifact-state":
                     self._handle_artifact_state_query(parsed.query)
+                    return
+                if parsed.path == "/api/stale-segments":
+                    self._handle_stale_segments_query(parsed.query)
+                    return
+                if parsed.path == "/api/reuse-decision":
+                    self._handle_reuse_decision_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -291,6 +298,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Artifact state is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "artifact_state": read_artifact_state(state_dir)})
+
+        def _handle_stale_segments_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Stale segments are outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "stale_segments": read_stale_segments(state_dir)})
+
+        def _handle_reuse_decision_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Reuse decision is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "reuse_decision": read_reuse_decision(state_dir)})
 
         def _handle_user_resolution_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

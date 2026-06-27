@@ -1,0 +1,75 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-reuse-decision-v1",
+  "run_id": "reuse-decision-example-001",
+  "status": "requires_regeneration",
+  "stale_segments_path": "stale-segments.jsonl",
+  "summary": {
+    "segment_count": 1,
+    "current_count": 0,
+    "reusable_count": 0,
+    "stale_segment_count": 1,
+    "needs_regeneration_count": 1,
+    "needs_re_review_count": 1,
+    "blocked_count": 0,
+    "deterministic_qa_required_count": 0,
+    "high_risk_review_required_count": 1,
+    "delivery_apply_blocking_count": 1,
+    "generation_handoff_blocking_count": 1
+  },
+  "decisions": {
+    "reuse_allowed": false,
+    "generation_handoff_policy": "blocked",
+    "delivery_apply_policy": "blocked",
+    "requires_deterministic_qa": false,
+    "review_required": true
+  },
+  "quality_claims_forbidden": ["full_quality_generation", "review_complete_status", "safe_apply_readiness"],
+  "source_artifacts": {
+    "stale_segments": "stale-segments.jsonl",
+    "reuse_decision": "reuse-decision.json"
+  },
+  "segments": [
+    {
+      "protocol_version": "0.1",
+      "schema": "localize-anything-stale-segments-v1",
+      "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+      "resource_key": "string:delete_account_button",
+      "source_path": "app/src/main/res/values/strings.xml",
+      "source_text_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "source_context_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "placeholder_signature_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+      "dependency_hashes": {
+        "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+        "resource_key": "string:delete_account_button",
+        "source_text_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+        "source_context_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+        "placeholder_signature_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+        "localization_brief_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "term_governance_hash": "5555555555555555555555555555555555555555555555555555555555555555",
+        "term_review_decision_hash": null,
+        "generation_strategy_hash": "6666666666666666666666666666666666666666666666666666666666666666",
+        "provider_policy_hash": "7777777777777777777777777777777777777777777777777777777777777777",
+        "previous_generated_target_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "previous_review_result_hash": null,
+        "review_policy_hash": null
+      },
+      "matched_terms": ["Delete account"],
+      "classifications": ["stale_term_policy_changed", "needs_regeneration", "needs_re_review"],
+      "state": "needs_regeneration",
+      "reuse_allowed": false,
+      "action": "regenerate_or_targeted_repair",
+      "reason_codes": ["term_policy_changed_for_matching_segment", "high_risk_policy_change_requires_review"],
+      "targeted_repair_allowed": true,
+      "deterministic_qa_required": false,
+      "review_required": true,
+      "high_risk": true,
+      "blocks_generation_handoff": true,
+      "blocks_delivery_apply": true
+    }
+  ],
+  "next_actions": [
+    "Regenerate or targeted-repair stale segments before claiming full-quality generation or applying staged files.",
+    "Re-review affected segments before claiming review-complete status."
+  ]
+}

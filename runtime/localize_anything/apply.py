@@ -231,6 +231,10 @@ def _artifact_state_apply_block_reason(artifact_state: dict[str, Any]) -> str | 
         return None
     affected = artifact_state.get("stale_artifacts", []) or artifact_state.get("blocked_artifacts", [])
     names = ", ".join(str(item.get("artifact_id")) for item in affected[:5] if item.get("artifact_id"))
+    if not names:
+        segment_state = artifact_state.get("segment_staleness", {})
+        stale_segments = segment_state.get("stale_segments", []) if isinstance(segment_state, dict) else []
+        names = ", ".join(str(item.get("segment_id")) for item in stale_segments[:5] if item.get("segment_id"))
     return f"artifact state blocks apply because upstream evidence is stale or blocked: {names or 'unknown'}"
 
 
