@@ -19,6 +19,7 @@
     "status": { "enum": ["ready", "pending", "blocked"] },
     "segment_regeneration_plan_path": { "const": "segment-regeneration-plan.json" },
     "repair_request_path": { "const": "repair-request.json" },
+    "generated_segments_path": { "type": ["string", "null"] },
     "summary": {
       "type": "object",
       "required": [
@@ -50,14 +51,33 @@
           "repair_type": { "type": "string" },
           "repair_reason": { "type": "string" },
           "repair_status": {
-            "enum": ["completed", "pending_provider_or_model_repair", "pending_human_confirmation", "pending_review"]
+            "enum": [
+              "completed",
+              "pending_provider_or_model_repair",
+              "pending_human_confirmation",
+              "pending_review",
+              "applied",
+              "pending_provider",
+              "pending_human",
+              "blocked",
+              "skipped_not_deterministic",
+              "failed_qa",
+              "not_applicable"
+            ]
           },
           "actor_type": { "enum": ["runtime_deterministic", "pending_provider_or_model", "human"] },
           "source_hash": { "type": ["string", "null"] },
           "previous_target_hash": { "type": ["string", "null"] },
+          "old_target_hash": { "type": ["string", "null"] },
+          "old_target_source": { "type": ["string", "null"] },
           "new_target_hash": { "type": ["string", "null"] },
           "new_target": { "type": ["string", "null"] },
-          "deterministic_qa_required": { "type": "boolean" }
+          "deterministic_qa_required": { "type": "boolean" },
+          "deterministic_rule_used": { "type": ["string", "null"] },
+          "no_patch_reason": { "type": ["string", "null"] },
+          "target_artifact_updated": { "type": "boolean" },
+          "target_artifact": { "type": ["string", "null"] },
+          "qa_result": { "type": "object" }
         },
         "additionalProperties": true
       }

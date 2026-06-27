@@ -2,11 +2,13 @@
   "protocol_version": "0.1",
   "schema": "localize-anything-repair-history-v1",
   "repair_id": "repair-1111111111111111",
-  "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
+  "segment_id": "android:app/src/main/res/values/strings.xml#brand-name",
   "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "previous_target_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "new_target_hash": null,
-  "repair_reason": "term_policy_changed_for_matching_segment",
-  "repair_status": "pending_provider_or_model_repair",
-  "actor_type": "pending_provider_or_model"
+  "new_target_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "repair_reason": "android_xml_escape_invalid",
+  "repair_status": "applied",
+  "actor_type": "runtime_deterministic",
+  "deterministic_rule_used": "xml_ampersand_escape",
+  "no_patch_reason": null
 }

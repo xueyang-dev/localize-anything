@@ -280,6 +280,12 @@ def build_artifact_state(
             "segments_targeted_repair_count": int(repair_summary.get("targeted_repair_count", 0)),
             "segments_human_confirm_count": int(repair_summary.get("human_confirm_count", 0)),
             "segments_repair_blocked_count": int(repair_summary.get("blocked_count", 0)),
+            "segment_repair_applied_count": int(repair_summary.get("applied_count", 0)),
+            "segment_repair_pending_provider_count": int(repair_summary.get("pending_provider_count", 0)),
+            "segment_repair_pending_human_count": int(repair_summary.get("pending_human_count", 0)),
+            "segment_repair_failed_qa_count": int(repair_summary.get("failed_qa_count", 0)),
+            "segment_repair_skipped_not_deterministic_count": int(repair_summary.get("skipped_not_deterministic_count", 0)),
+            "segment_repair_not_applicable_count": int(repair_summary.get("not_applicable_count", 0)),
         },
         "decisions": {
             "full_quality_generation_handoff_allowed": handoff_policy == "allowed",
