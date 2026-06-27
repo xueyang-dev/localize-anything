@@ -37,6 +37,10 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   `generation-handoff-decision.json`. It consumes Generation Strategy,
   Resolution Gate, termbase preflight, provider policy, terminology assurance,
   and coverage state before handoff or provider execution can claim full quality.
+- Artifact state records whether linked artifacts are current, stale,
+  superseded, blocked, accepted, or review-required in `artifact-state.json`.
+  Handoff, delivery, and apply readiness must not treat stale upstream artifacts
+  as valid evidence.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -89,6 +93,7 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 
 ```text
 inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> generation-handoff-enforcement
+        -> artifact-state
         -> retrieve -> draft-request -> draft-prompt -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
         -> stage-generated -> validate-output -> package
@@ -197,6 +202,37 @@ review-required.
 Unresolved blockers must remain visible in protocol artifacts rather than being
 hidden inside prompts. Prompts can repeat the enforcement state, but they are not
 the source of policy truth.
+
+## Artifact State
+
+`artifact-state` writes `artifact-state.json` for a state directory and,
+optionally, a run or delivery directory. The artifact tracks key upstream and
+downstream files such as project intake/source inventory, localization brief,
+termbase preflight, Term Governance, Resolution Gate, Generation Strategy,
+Generation Handoff Enforcement, generated segments, review results, delivery
+manifest, and delivery decision artifacts.
+
+Each tracked artifact records path, type, status, content hash, source
+dependency hashes where practical, producing stage, produced timestamp when the
+filesystem can supply it, supersession placeholders, blocking reason, and
+downstream artifacts affected by staleness. Status values are `missing`,
+`draft`, `current`, `stale`, `superseded`, `blocked`, `accepted`, `rejected`,
+and `requires_human_review`.
+
+Staleness is conservative. Source inventory or segment changes stale generated
+segments, review results, generation strategy, handoff decision, and delivery
+decisions. Localization brief, term governance/review decisions, resolution
+decisions, generation strategy, generation handoff decision, generated segments,
+and review results stale the downstream artifacts that used them as evidence.
+Stale state persists until the affected artifact itself is regenerated or
+reviewed.
+
+Generation handoff enforcement consumes artifact state when present and blocks
+full-quality handoff if stale upstream evidence affects the handoff decision.
+Delivery decision and apply planning surface artifact-state blockers so stale
+evidence cannot justify delivery or source-project writes. Workbench exposes
+`GET /api/artifact-state` as an artifact-backed read path; UI panels should show
+this artifact rather than reimplementing freshness rules in presentation code.
 
 ## Localization Modes
 

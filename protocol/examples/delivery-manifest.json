@@ -39,6 +39,7 @@
     "term_review_decisions": "term-review-decisions.jsonl",
     "generation_strategy": "generation-strategy.json",
     "generation_handoff_decision": "generation-handoff-decision.json",
+    "artifact_state": "artifact-state.json",
     "blocking_questions": "blocking-questions.json",
     "resolution_options": "resolution-options.json",
     "user_resolution_decisions": "user-resolution-decisions.jsonl",

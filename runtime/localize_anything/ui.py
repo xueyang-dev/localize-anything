@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .agent import run_agent
+from .artifact_state import read_artifact_state
 from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
 from .project import inspect_project, load_session_index
@@ -111,6 +112,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/generation-handoff-status":
                     self._handle_generation_handoff_status_query(parsed.query)
+                    return
+                if parsed.path == "/api/artifact-state":
+                    self._handle_artifact_state_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -281,6 +285,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     "generation_handoff_status": read_generation_handoff_decision(state_dir),
                 }
             )
+
+        def _handle_artifact_state_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Artifact state is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "artifact_state": read_artifact_state(state_dir)})
 
         def _handle_user_resolution_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

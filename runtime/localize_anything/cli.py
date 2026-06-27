@@ -11,6 +11,7 @@ from . import __version__
 from .acceptance import create_acceptance
 from .agent import run_agent
 from .android_app_test import run_android_app_test
+from .artifact_state import build_artifact_state
 from .android_strings_adapter import extract_segments as extract_android_strings
 from .android_strings_adapter import rebuild as rebuild_android_strings
 from .android_strings_adapter import stage_rebuild as stage_android_strings
@@ -463,6 +464,16 @@ def build_parser() -> argparse.ArgumentParser:
     handoff_status_parser.add_argument("--coverage-warning", action="store_true")
     handoff_status_parser.add_argument("--run-id")
     handoff_status_parser.add_argument("--output", type=Path)
+
+    artifact_state_parser = subparsers.add_parser(
+        "artifact-state",
+        help="Create or refresh artifact-state.json and report stale upstream evidence",
+    )
+    artifact_state_parser.add_argument("state_dir", type=Path)
+    artifact_state_parser.add_argument("--run-dir", type=Path)
+    artifact_state_parser.add_argument("--delivery-dir", type=Path)
+    artifact_state_parser.add_argument("--run-id")
+    artifact_state_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1089,11 +1100,21 @@ def main(argv: list[str] | None = None) -> int:
                 provider_policy["fallback_requested"] = True
             if args.provider_mode == "synthetic_test":
                 provider_policy["status"] = "safe"
+            build_artifact_state(args.state_dir, run_id=args.run_id)
             result = build_generation_handoff_decision(
                 args.state_dir,
                 requested_mode=args.requested_mode,
                 provider_policy=provider_policy,
                 coverage_policy={"visible_ui_coverage_warning": bool(args.coverage_warning)},
+                run_id=args.run_id,
+            )
+            build_artifact_state(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "artifact-state":
+            result = build_artifact_state(
+                args.state_dir,
+                run_dir=args.run_dir,
+                delivery_dir=args.delivery_dir,
                 run_id=args.run_id,
             )
             return _emit_json(result, args.output)
@@ -1149,6 +1170,7 @@ def main(argv: list[str] | None = None) -> int:
                 headers["Authorization"] = f"Bearer {api_key}"
             handoff_decision = None
             if args.state_dir:
+                build_artifact_state(args.state_dir)
                 handoff_decision = build_generation_handoff_decision(
                     args.state_dir,
                     provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe"},

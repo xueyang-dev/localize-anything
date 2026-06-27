@@ -32,6 +32,9 @@
 - Add Generation Handoff Enforcement with `generation-handoff-decision.json`,
   CLI/API status access, provider fallback fail-closed checks, and run/delivery
   metadata that prevents downgraded handoffs from claiming full assurance.
+- Add Artifact State Machine seed with `artifact-state.json`, CLI/API status
+  access, stale-evidence handoff enforcement, and delivery/apply blockers for
+  stale upstream artifacts.
 
 ## v0.4.1 - Workbench UI Wiring
 

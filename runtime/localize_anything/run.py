@@ -11,6 +11,7 @@ from .android_merged_overlay import (
     overlay_output_metadata,
     stage_overlay,
 )
+from .artifact_state import ARTIFACT_STATE_JSON, build_artifact_state
 from .android_strings_adapter import extract_segments as extract_android_strings
 from .android_strings_adapter import validate_pair as validate_android_strings
 from .apply import create_apply_plan, render_apply_plan_markdown
@@ -236,6 +237,7 @@ def run_localize(
             encoding="utf-8",
             newline="\n",
         )
+        artifact_state = build_artifact_state(state_dir, run_dir=run_dir, run_id=run_id)
         summary = _summary(
             run_id,
             "generation_strategy_blocked",
@@ -262,6 +264,7 @@ def run_localize(
             prompt_manifest_path=prompt_manifest_path,
             generation_readme_path=generation_readme_path,
             generation_status="blocked",
+            artifact_state=artifact_state,
             android_overlay_plan=overlay_plan,
         )
         return _write_run_summary(summary, run_dir, inspection)
@@ -288,6 +291,7 @@ def run_localize(
     )
 
     if handoff_only:
+        artifact_state = build_artifact_state(state_dir, run_dir=run_dir, run_id=run_id)
         summary = _summary(
             run_id,
             "handoff_ready",
@@ -313,6 +317,7 @@ def run_localize(
             reference_summary=reference_plan["summary"],
             prompt_manifest_path=prompt_manifest_path,
             generation_readme_path=generation_readme_path,
+            artifact_state=artifact_state,
             android_overlay_plan=overlay_plan,
         )
         return _write_run_summary(summary, run_dir, inspection)
@@ -331,6 +336,7 @@ def run_localize(
     collect_path = run_dir / "generation-collect.json"
     write_json(collect_path, collect_result)
     if collect_result["status"] == "fail":
+        artifact_state = build_artifact_state(state_dir, run_dir=run_dir, run_id=run_id)
         summary = _summary(
             run_id,
             "generation_failed",
@@ -359,6 +365,7 @@ def run_localize(
             collect_path=collect_path,
             generated_path=generated_path,
             generation_status=collect_result["status"],
+            artifact_state=artifact_state,
             android_overlay_plan=overlay_plan,
         )
         return _write_run_summary(summary, run_dir, inspection)
@@ -413,6 +420,7 @@ def run_localize(
     staging_path = run_dir / "staging-result.json"
     write_json(staging_path, staging_result)
     qa_paths = _validate_staged_outputs(project_root, staging_result, target_locale, run_dir / "qa")
+    build_artifact_state(state_dir, run_dir=run_dir, run_id=run_id)
     packaged = package_delivery(
         state_dir,
         staging_dir,
@@ -443,6 +451,7 @@ def run_localize(
         encoding="utf-8",
         newline="\n",
     )
+    artifact_state = build_artifact_state(state_dir, run_dir=run_dir, delivery_dir=delivery_dir, run_id=run_id)
 
     summary = _summary(
         run_id,
@@ -490,6 +499,7 @@ def run_localize(
         qa_status=dashboard["summary"]["qa_status"],
         blocking_count=dashboard["summary"]["blocking_count"],
         warning_count=dashboard["summary"]["warning_count"],
+        artifact_state=artifact_state,
         android_overlay_plan=overlay_plan,
         android_overlay_output=overlay_output,
     )
@@ -725,6 +735,28 @@ def _handoff_decision_metadata(decision: dict[str, Any] | None) -> dict[str, Any
     }
 
 
+def _artifact_state_metadata(state: dict[str, Any] | None) -> dict[str, Any]:
+    if not state:
+        return {
+            "status": "not_checked",
+            "safe_to_continue": True,
+            "artifact": None,
+            "summary": {},
+            "stale_artifacts": [],
+            "blocked_artifacts": [],
+        }
+    return {
+        "status": state.get("status", "not_checked"),
+        "safe_to_continue": bool(state.get("safe_to_continue", False)),
+        "artifact": ARTIFACT_STATE_JSON,
+        "summary": state.get("summary", {}),
+        "stale_artifacts": state.get("stale_artifacts", []),
+        "blocked_artifacts": state.get("blocked_artifacts", []),
+        "decisions": state.get("decisions", {}),
+        "next_actions": state.get("next_actions", []),
+    }
+
+
 def _validate_staged_outputs(project_root: Path, staging_result: dict[str, Any], target_locale: str, qa_dir: Path) -> list[Path]:
     qa_paths: list[Path] = []
     for index, output in enumerate(staging_result.get("outputs", []), 1):
@@ -816,6 +848,7 @@ def _summary(
     android_overlay_plan: dict[str, Any] | None = None,
     android_overlay_output: dict[str, Any] | None = None,
     generation_metadata: dict[str, Any] | None = None,
+    artifact_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     artifacts: dict[str, str] = {
         "run_directory": run_dir.as_posix(),
@@ -881,6 +914,8 @@ def _summary(
         for key, value in generation_handoff_decision_asset_paths(state_dir).items():
             path = state_dir / value
             artifacts[key] = path.as_posix()
+    if artifact_state:
+        artifacts["artifact_state"] = (project_root / ".localize-anything" / ARTIFACT_STATE_JSON).as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -926,6 +961,7 @@ def _summary(
             "summary": (resolution_gate or {}).get("summary", {}),
             "artifacts": resolution_artifacts,
         },
+        "artifact_state": _artifact_state_metadata(artifact_state),
         "summary": {
             "source_file_count": len(source_files),
             "segment_count": segment_count,
@@ -939,6 +975,9 @@ def _summary(
             "unresolved_resolution_questions": (resolution_gate or {}).get("summary", {}).get("unresolved_count", 0),
             "generation_handoff_status": (generation_handoff_decision or {}).get("status", "not_checked"),
             "full_quality_handoff_allowed": bool((generation_handoff_decision or {}).get("full_quality_handoff_allowed", False)),
+            "artifact_state_status": (artifact_state or {}).get("status", "not_checked"),
+            "stale_artifact_count": (artifact_state or {}).get("summary", {}).get("stale_count", 0),
+            "blocked_artifact_count": (artifact_state or {}).get("summary", {}).get("blocked_count", 0),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

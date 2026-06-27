@@ -26,6 +26,7 @@ from xml.etree import ElementTree
 from runtime.localize_anything.acceptance import create_acceptance
 from runtime.localize_anything.agent import run_agent
 from runtime.localize_anything.android_app_test import run_android_app_test
+from runtime.localize_anything.artifact_state import build_artifact_state, read_artifact_state
 from runtime.localize_anything.android_strings_adapter import android_resource_routing
 from runtime.localize_anything.android_strings_adapter import extract_segments as extract_android_segments
 from runtime.localize_anything.android_strings_adapter import rebuild as rebuild_android_strings
@@ -60,7 +61,7 @@ from runtime.localize_anything.generation_strategy import (
 )
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
-from runtime.localize_anything.io_utils import read_json, read_jsonl, write_json, write_jsonl
+from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
 from runtime.localize_anything.ios_strings_adapter import extract_segments as extract_ios_segments
 from runtime.localize_anything.ios_strings_adapter import rebuild as rebuild_ios_strings
 from runtime.localize_anything.ios_strings_adapter import stage_rebuild as stage_ios_strings
@@ -4484,6 +4485,225 @@ class GenerationHandoffEnforcementTests(unittest.TestCase):
             self.assertTrue((state / "generation-handoff-decision.json").is_file())
 
 
+class ArtifactStateMachineTests(unittest.TestCase):
+    def test_artifact_state_created_for_normal_run_and_delivery_package(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                source_files=["locales/en-US.json"],
+                output_root=root / "out",
+                run_id="artifact-state-run-001",
+                max_segments=2,
+                synthetic_draft=True,
+            )
+
+            self.assertIn("artifact_state", result["artifacts"])
+            artifact_state = read_artifact_state(project / ".localize-anything")
+            assert_protocol_schema(self, "artifact-state", artifact_state)
+            self.assertIn("artifact_state", result)
+            self.assertEqual(result["artifact_state"]["artifact"], "artifact-state.json")
+            delivery = Path(result["artifacts"]["delivery_directory"])
+            self.assertTrue((delivery / "artifact-state.json").is_file())
+            self.assertEqual(read_json(delivery / "delivery-manifest.json")["assets"]["artifact_state"], "artifact-state.json")
+
+    def test_missing_required_artifacts_are_marked_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+
+            artifact_state = build_artifact_state(state)
+
+            brief = _artifact_by_id(artifact_state, "localization_brief_json")
+            self.assertEqual(brief["status"], "missing")
+            self.assertGreater(artifact_state["summary"]["missing_required_count"], 0)
+
+    def test_localization_brief_change_makes_generation_strategy_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+
+            _write_artifact_brief(state, "updated-brief")
+            artifact_state = build_artifact_state(state)
+
+            self.assertEqual(_artifact_by_id(artifact_state, "generation_strategy")["status"], "stale")
+            self.assertIn("generation_strategy", {item["artifact_id"] for item in artifact_state["stale_artifacts"]})
+
+    def test_dependency_hash_change_marks_stale_even_when_mtime_is_not_newer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+
+            strategy = state / "generation-strategy.json"
+            strategy_mtime_ns = strategy.stat().st_mtime_ns
+            _write_artifact_brief(state, "updated-brief-with-preserved-time")
+            os.utime(state / "localization-brief.json", ns=(strategy_mtime_ns - 1, strategy_mtime_ns - 1))
+            artifact_state = build_artifact_state(state)
+
+            strategy_state = _artifact_by_id(artifact_state, "generation_strategy")
+            self.assertEqual(strategy_state["status"], "stale")
+            self.assertIn("localization_brief_json", strategy_state["stale_dependency_ids"])
+
+    def test_term_decision_change_makes_strategy_and_handoff_decision_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [
+                    {
+                        "protocol_version": "0.1",
+                        "schema": "localize-anything-term-decision-v1",
+                        "decision_id": "term-decision-stale-test",
+                        "source_term": "Start",
+                        "target_term": "开始",
+                        "status": "approved",
+                    }
+                ],
+            )
+            artifact_state = build_artifact_state(state)
+
+            self.assertEqual(_artifact_by_id(artifact_state, "generation_strategy")["status"], "stale")
+            self.assertEqual(_artifact_by_id(artifact_state, "generation_handoff_decision")["status"], "stale")
+
+    def test_resolution_decision_change_makes_handoff_decision_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+
+            write_jsonl(
+                state / "user-resolution-decisions.jsonl",
+                [
+                    {
+                        "decision_id": "resolution-stale-test",
+                        "question_id": "bq-test",
+                        "option_id": "continue_only_draft_review",
+                        "status": "accepted",
+                    }
+                ],
+            )
+            artifact_state = build_artifact_state(state)
+
+            self.assertEqual(_artifact_by_id(artifact_state, "generation_handoff_decision")["status"], "stale")
+
+    def test_generation_strategy_change_makes_generated_segments_and_delivery_decision_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            run_dir = root / "run"
+            run_dir.mkdir()
+            segments = [_segment("s1", "Start game")]
+            _seed_strategy_handoff_state(state, segments)
+            write_jsonl(run_dir / "segments.jsonl", segments)
+            write_jsonl(run_dir / "generated.jsonl", [{**segments[0], "target": "开始游戏", "status": "generated"}])
+            write_json(run_dir / "review-sheet.json", {"protocol_version": "0.1", "status": "owner_review_required"})
+            write_json(run_dir / "delivery-decision.json", {"protocol_version": "0.1", "status": "owner_review_required"})
+            write_json(state / "delivery-manifest.json", {"protocol_version": "0.1", "delivery_status": "draft_package"})
+            build_artifact_state(state, run_dir=run_dir)
+
+            strategy = read_json(state / "generation-strategy.json")
+            strategy["scope"]["segment_count"] = 99
+            write_json(state / "generation-strategy.json", strategy)
+            artifact_state = build_artifact_state(state, run_dir=run_dir)
+
+            self.assertEqual(_artifact_by_id(artifact_state, "generated_segments")["status"], "stale")
+            self.assertEqual(_artifact_by_id(artifact_state, "delivery_decision")["status"], "stale")
+
+    def test_stale_upstream_artifact_prevents_full_quality_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+            _write_artifact_brief(state, "changed-after-strategy")
+            build_artifact_state(state)
+
+            decision = build_generation_handoff_decision(state)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertFalse(decision["full_quality_handoff_allowed"])
+            self.assertIn("stale_artifacts_block_handoff", {item["code"] for item in decision["blockers"]})
+
+    def test_stale_evidence_blocks_delivery_decision_and_apply_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            output = root / "delivery" / "files" / "locales" / "zh-CN.json"
+            output.parent.mkdir(parents=True)
+            output.write_text('{"start": "开始"}\n', encoding="utf-8")
+            (project / "locales").mkdir(parents=True)
+            (project / "locales" / "zh-CN.json").write_text("{}\n", encoding="utf-8")
+            delivery = root / "delivery"
+            write_json(
+                delivery / "delivery-manifest.json",
+                {
+                    "protocol_version": "0.1",
+                    "run_id": "stale-delivery-001",
+                    "outputs": [
+                        {
+                            "package_path": "files/locales/zh-CN.json",
+                            "destination": "locales/zh-CN.json",
+                            "sha256": _sha256(output),
+                            "destination_base_sha256": _sha256(project / "locales" / "zh-CN.json"),
+                        }
+                    ],
+                    "generation": {"provider_status": "synthetic_test", "apply_allowed": True},
+                    "qa": {"status": "pass", "blocking_count": 0, "warning_count": 0, "items": []},
+                    "unprocessed_non_text_assets": [],
+                },
+            )
+            write_json(delivery / "artifact-state.json", _stale_artifact_state_document())
+
+            apply_plan = create_apply_plan(delivery, project)
+            delivery_decision = create_delivery_decision_report(delivery, project)
+
+            self.assertTrue(apply_plan["blocked_by_stale_artifacts"])
+            self.assertEqual(delivery_decision["status"], "blocked")
+            self.assertIn("artifact_state", {item["type"] for item in delivery_decision["decisions"]})
+
+    def test_workbench_api_exposes_artifact_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/artifact-state?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                payload = json.loads(body)
+                self.assertEqual(payload["artifact_state"]["schema"], "localize-anything-artifact-state-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_artifact_state_reports_deterministically(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            output = root / "artifact-state-output.json"
+            _seed_strategy_handoff_state(state)
+
+            exit_code = cli_main(["artifact-state", state.as_posix(), "--run-id", "cli-artifact-state-001", "--output", output.as_posix()])
+
+            self.assertEqual(exit_code, 0)
+            self.assertTrue((state / "artifact-state.json").is_file())
+            result = read_json(output)
+            assert_protocol_schema(self, "artifact-state", result)
+            self.assertEqual(result["run_id"], "cli-artifact-state-001")
+
+
 def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) -> dict[str, Any]:
     run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
     plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
@@ -4491,6 +4711,93 @@ def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) ->
         state,
         build_generation_strategy(state, plan, source_locale="en-US", target_locale="zh-CN"),
     )
+
+
+def _seed_strategy_handoff_state(state: Path, segments: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    _write_artifact_brief(state, "initial-brief")
+    strategy = _write_strategy_for_segments(state, segments or [_segment("s1", "Start game")])
+    build_resolution_gate(state, strategy)
+    build_generation_handoff_decision(state)
+    return strategy
+
+
+def _write_artifact_brief(state: Path, marker: str) -> None:
+    state.mkdir(parents=True, exist_ok=True)
+    write_json(
+        state / "localization-brief.json",
+        {
+            "protocol_version": "0.1",
+            "status": "ready",
+            "document_type": marker,
+            "required_human_confirmations": [],
+        },
+    )
+
+
+def _artifact_by_id(artifact_state: dict[str, Any], artifact_id: str) -> dict[str, Any]:
+    return next(item for item in artifact_state["artifacts"] if item["artifact_id"] == artifact_id)
+
+
+def _sha256(path: Path) -> str:
+    return sha256_file(path)
+
+
+def _stale_artifact_state_document() -> dict[str, Any]:
+    return {
+        "protocol_version": "0.1",
+        "schema": "localize-anything-artifact-state-v1",
+        "run_id": "stale-delivery-001",
+        "status": "stale",
+        "safe_to_continue": False,
+        "artifact_state_path": "artifact-state.json",
+        "summary": {
+            "artifact_count": 1,
+            "current_count": 0,
+            "missing_count": 0,
+            "stale_count": 1,
+            "blocked_count": 0,
+            "accepted_count": 0,
+            "rejected_count": 0,
+            "requires_human_review_count": 0,
+            "missing_required_count": 0,
+        },
+        "decisions": {
+            "full_quality_generation_handoff_allowed": False,
+            "delivery_apply_allowed": False,
+            "delivery_policy": "blocked",
+            "apply_policy": "blocked",
+        },
+        "artifacts": [
+            {
+                "artifact_id": "generation_strategy",
+                "artifact_type": "generation_strategy",
+                "path": "generation-strategy.json",
+                "status": "stale",
+                "content_hash": "a" * 64,
+                "source_dependency_hashes": {},
+                "produced_by": "generation_strategy",
+                "produced_at": "2026-06-27T00:00:00Z",
+                "supersedes": [],
+                "superseded_by": [],
+                "blocking_reason": "upstream_dependency_changed",
+                "downstream_affected": ["generation_handoff_decision", "generated_segments", "delivery_decision"],
+            }
+        ],
+        "stale_artifacts": [
+            {
+                "artifact_id": "generation_strategy",
+                "artifact_type": "generation_strategy",
+                "path": "generation-strategy.json",
+                "status": "stale",
+                "blocking_reason": "upstream_dependency_changed",
+                "stale_dependency_ids": ["localization_brief_json"],
+                "downstream_affected": ["generation_handoff_decision", "generated_segments", "delivery_decision"],
+            }
+        ],
+        "blocked_artifacts": [],
+        "missing_required_artifacts": [],
+        "next_actions": ["Regenerate stale upstream artifacts."],
+    }
 
 
 def _termbase_segments() -> list[dict[str, Any]]:
@@ -4671,7 +4978,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 30)
+        self.assertEqual(result["schemas_checked"], 31)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

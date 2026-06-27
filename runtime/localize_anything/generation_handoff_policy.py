@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION
+from .artifact_state import ARTIFACT_STATE_JSON, artifact_state_summary
 from .generation_strategy import GENERATION_STRATEGY_JSON
 from .io_utils import read_json, read_jsonl, write_json
 from .localization_brief import LOCALIZATION_BRIEF_JSON
@@ -61,6 +62,7 @@ def build_generation_handoff_decision(
     _check_termbase(term_report, term_queue, blockers, warnings, forbidden_claims)
     _check_brief(strategy, warnings, forbidden_claims)
     _check_coverage(coverage_policy, continuation_decisions, warnings, forbidden_claims)
+    _check_artifact_state(state_dir, blockers, warnings, forbidden_claims)
     provider_backed_allowed = _check_provider_policy(provider_policy, blockers, warnings, forbidden_claims)
 
     hard_blocked = bool(blockers)
@@ -178,6 +180,7 @@ def generation_handoff_decision_source_artifacts(state_dir: Path) -> dict[str, s
         "termbase_preflight_report": TERMBASE_PREFLIGHT_REPORT_JSON,
         "term_review_queue": TERM_REVIEW_QUEUE_JSON,
         "localization_brief": LOCALIZATION_BRIEF_JSON,
+        "artifact_state": ARTIFACT_STATE_JSON,
     }
     return {key: value for key, value in names.items() if (state_dir / value).exists()}
 
@@ -395,6 +398,70 @@ def _check_provider_policy(
     )
     forbidden_claims.add("provider_backed_quality")
     return False
+
+
+def _check_artifact_state(
+    state_dir: Path,
+    blockers: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    forbidden_claims: set[str],
+) -> None:
+    summary = artifact_state_summary(state_dir)
+    if summary.get("status") == "not_run":
+        return
+    stale_handoff = [
+        item
+        for item in summary.get("stale_artifacts", [])
+        if item.get("artifact_id") != "generation_handoff_decision"
+        and _artifact_affects_handoff(item)
+    ]
+    blocked_handoff = [
+        item
+        for item in summary.get("blocked_artifacts", [])
+        if item.get("artifact_id") != "generation_handoff_decision"
+        and _artifact_affects_handoff(item)
+    ]
+    if stale_handoff:
+        blockers.append(
+            _issue(
+                "stale_artifacts_block_handoff",
+                "Artifact state reports stale upstream evidence; regenerate affected artifacts before full-quality handoff.",
+                ARTIFACT_STATE_JSON,
+                stale_artifacts=stale_handoff,
+            )
+        )
+        forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "safe_apply_readiness", "review_complete_status"})
+    if blocked_handoff:
+        blockers.append(
+            _issue(
+                "blocked_artifacts_block_handoff",
+                "Artifact state reports blocked upstream evidence; resolve it before handoff.",
+                ARTIFACT_STATE_JSON,
+                blocked_artifacts=blocked_handoff,
+            )
+        )
+        forbidden_claims.update({FULL_QUALITY_FORBIDDEN_CLAIM, "safe_apply_readiness"})
+
+
+def _artifact_affects_handoff(item: dict[str, Any]) -> bool:
+    if item.get("artifact_id") in {
+        "current_manifest",
+        "source_inventory",
+        "localization_brief_json",
+        "candidate_terms",
+        "term_review_queue",
+        "term_review_decisions",
+        "term_registry",
+        "term_decisions",
+        "forbidden_translations",
+        "termbase_preflight_report",
+        "generation_strategy",
+        "blocking_questions",
+        "resolution_options",
+        "user_resolution_decisions",
+    }:
+        return True
+    return "generation_handoff_decision" in item.get("downstream_affected", [])
 
 
 def _handoff_mode(
