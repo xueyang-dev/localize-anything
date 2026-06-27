@@ -11,6 +11,7 @@ from . import PROTOCOL_VERSION
 from .generation_strategy import generation_strategy_summary
 from .modes import mode_contract, resolve_mode_policy
 from .planning import estimate_tokens
+from .resolution_gate import resolution_gate_summary
 from .term_governance import select_term_constraints
 from .termbase_preflight import terminology_review_summary
 
@@ -57,17 +58,18 @@ def build_work_packet(
     hard_constraints = select_term_constraints(state_dir, selected, target_locale, reference_policy, glossary_limit)
     term_review = terminology_review_summary(state_dir, selected)
     strategy = generation_strategy_summary(state_dir)
+    resolution = resolution_gate_summary(state_dir)
 
     trimmed: list[str] = []
-    packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, limit_tokens, trimmed, operating_mode, reference_policy)
+    packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, limit_tokens, trimmed, operating_mode, reference_policy)
     while packet["budget"]["estimated_tokens"] > limit_tokens and tm:
         tm.pop()
         trimmed.append("low_priority_translation_memory")
-        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, limit_tokens, trimmed, operating_mode, reference_policy)
+        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, limit_tokens, trimmed, operating_mode, reference_policy)
     while packet["budget"]["estimated_tokens"] > limit_tokens and glossary:
         glossary.pop()
         trimmed.append("low_priority_glossary")
-        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, limit_tokens, trimmed, operating_mode, reference_policy)
+        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, limit_tokens, trimmed, operating_mode, reference_policy)
     if packet["budget"]["estimated_tokens"] > limit_tokens:
         trimmed.append("source_or_p0_exceeds_budget_shrink_batch")
         packet["budget"]["trimmed"] = sorted(set(trimmed))
@@ -210,6 +212,7 @@ def _packet(
     hard_constraints: dict[str, Any],
     term_review: dict[str, Any],
     strategy: dict[str, Any],
+    resolution: dict[str, Any],
     limit_tokens: int,
     trimmed: list[str],
     operating_mode: str,
@@ -229,6 +232,7 @@ def _packet(
         "translation_memory": tm,
         "terminology_review": term_review,
         "generation_strategy": strategy,
+        "resolution_gate": resolution,
         "reference_policy": {
             "policy": reference_policy,
             "target_reference_visibility": mode_contract(operating_mode, reference_policy)["target_reference_visibility"],

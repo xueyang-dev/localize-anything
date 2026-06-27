@@ -29,6 +29,10 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   handoff in `generation-strategy.json`. It consumes the localization brief,
   termbase preflight report, operating mode, reference policy, and batch plan to
   mark generation `ready`, `review_required`, or `blocked`.
+- Resolution gate artifacts record explicit human decisions for blocked or
+  review-required strategy states: `blocking-questions.json`,
+  `resolution-options.json`, `user-resolution-decisions.jsonl`, and optional
+  `resolution-summary.md`.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -48,6 +52,9 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   Strategy Gate. A blocked strategy must prevent generation handoff; a
   review-required strategy may still produce handoff artifacts, but cannot claim
   full review or terminology assurance.
+- Work packets may include `memory.resolution_gate`. If unresolved blocking
+  questions remain, draft requests must not claim full-quality or full-assurance
+  output.
 - Draft requests turn a work packet into provider-agnostic host-agent
   instructions and a JSONL segment output contract for translation generation.
 - Draft prompts render those requests as paste-ready Markdown for manual
@@ -73,7 +80,7 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 ## Lifecycle
 
 ```text
-inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> retrieve -> draft-request -> draft-prompt
+inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> retrieve -> draft-request -> draft-prompt
         -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
         -> stage-generated -> validate-output -> package
@@ -133,6 +140,25 @@ It emits `ready`, `review_required`, or `blocked`. `blocked` prevents generation
 handoff when unresolved term conflicts are present. `review_required` keeps the
 handoff path available, but the work packet and draft request must expose that
 the output is review-bound and cannot claim full assurance.
+
+## Resolution Gate
+
+`blocking-questions` writes Resolution Gate artifacts after generation strategy.
+The gate converts blocked or review-required states into explicit owner
+decisions with stable question ids, source artifact references, severity,
+responsible owner type, affected terms or segments, recommended defaults,
+available options, option effects, remaining risk, and whether human
+confirmation is required.
+
+Resolution options are conservative. They can approve, reject, or defer terms;
+allow partial coverage only with an explicit warning; require a localization
+brief; block unsafe provider-backed runs; or continue only in draft/review mode.
+
+`resolve-question` appends `user-resolution-decisions.jsonl`. Term decisions can
+delegate to the Termbase Preflight decision path so Term Governance remains the
+source of approved/locked terminology. Coverage decisions can update generation
+strategy state without claiming full source or visible UI coverage. Unresolved
+blocking questions prevent full-quality generation handoff.
 
 ## Localization Modes
 

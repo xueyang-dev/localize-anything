@@ -1,0 +1,69 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-blocking-questions-v1",
+  "run_id": "example-run-001",
+  "status": "review_required",
+  "generation_strategy": {
+    "status": "review_required",
+    "generation_readiness": "review_required",
+    "route": {
+      "mode": "high_assurance_handoff",
+      "assurance": "partial"
+    },
+    "artifact": "generation-strategy.json"
+  },
+  "summary": {
+    "question_count": 1,
+    "unresolved_count": 1,
+    "unresolved_blocking_count": 0,
+    "review_required_count": 1,
+    "resolved_count": 0
+  },
+  "questions": [
+    {
+      "question_id": "bq-example-high-risk-term",
+      "reason_code": "unreviewed_high_risk_terms",
+      "source_artifacts": [
+        {
+          "artifact": "termbase-preflight-report.json",
+          "pointer": "/unreviewed_high_risk_terms"
+        }
+      ],
+      "reason": "High-risk terminology is unreviewed; generation must stay downgraded.",
+      "severity": "review_required",
+      "responsible_owner_type": "terminology_owner",
+      "affected_segments": [
+        {
+          "segment_id": "android:settings#delete_account"
+        }
+      ],
+      "affected_terms": [
+        {
+          "candidate_id": "termcand-delete-account",
+          "source_term": "Delete account",
+          "term_type": "ui_term",
+          "risk_level": "critical",
+          "target_locale": "zh-CN"
+        }
+      ],
+      "recommended_default": "defer_term_continue_downgraded",
+      "available_options": ["approve_term", "reject_term", "defer_term_continue_downgraded"],
+      "option_effects": [
+        {
+          "option_id": "defer_term_continue_downgraded",
+          "effect": "Records an explicit deferral; full terminology assurance remains unavailable.",
+          "updates": ["term_review", "generation_strategy"],
+          "risk_remaining": "The unresolved term can still require owner review after draft generation."
+        }
+      ],
+      "human_confirmation_required": true,
+      "status": "unresolved"
+    }
+  ],
+  "artifacts": {
+    "blocking_questions": "blocking-questions.json",
+    "resolution_options": "resolution-options.json",
+    "user_resolution_decisions": "user-resolution-decisions.jsonl",
+    "resolution_summary": "resolution-summary.md"
+  }
+}

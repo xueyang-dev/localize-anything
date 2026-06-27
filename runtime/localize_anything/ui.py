@@ -11,12 +11,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from tempfile import gettempdir
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .agent import run_agent
 from .generation_strategy import read_generation_strategy
 from .project import inspect_project, load_session_index
+from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
 
 
@@ -94,13 +95,22 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
-            if parsed.path == "/":
-                self._send_text(WORKBENCH_HTML, "text/html; charset=utf-8")
-                return
-            if parsed.path == "/api/health":
-                self._send_json({"status": "pass", "app": "localize-anything-workbench", "version": __version__})
-                return
-            self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
+            try:
+                if parsed.path == "/":
+                    self._send_text(WORKBENCH_HTML, "text/html; charset=utf-8")
+                    return
+                if parsed.path == "/api/health":
+                    self._send_json({"status": "pass", "app": "localize-anything-workbench", "version": __version__})
+                    return
+                if parsed.path == "/api/blocking-questions":
+                    self._handle_blocking_questions_query(parsed.query)
+                    return
+                if parsed.path == "/api/resolution-options":
+                    self._handle_resolution_options_query(parsed.query)
+                    return
+                self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
@@ -129,6 +139,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/generation-strategy":
                     self._handle_generation_strategy(payload)
+                    return
+                if parsed.path == "/api/user-resolution-decision":
+                    self._handle_user_resolution_decision(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -241,6 +254,28 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             strategy = read_generation_strategy(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "generation_strategy": strategy})
 
+        def _handle_blocking_questions_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Blocking questions are outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "blocking_questions": read_blocking_questions(state_dir)})
+
+        def _handle_resolution_options_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Resolution options are outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "resolution_options": read_resolution_options(state_dir)})
+
+        def _handle_user_resolution_decision(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Resolution decision is outside allowed workbench roots: {state_dir}")
+            decision = payload.get("decision")
+            if not isinstance(decision, dict):
+                raise ValueError("decision must be a JSON object")
+            result = record_user_resolution_decision(state_dir, decision)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0:
@@ -286,6 +321,17 @@ def _state_dir_from_payload(payload: dict[str, Any]) -> Path:
         return _required_path(payload, "state_dir")
     project = _required_path(payload, "project")
     return project / ".localize-anything"
+
+
+def _state_dir_from_query(query: str) -> Path:
+    params = parse_qs(query)
+    state_dir = (params.get("state_dir") or [""])[0]
+    if state_dir:
+        return Path(state_dir).expanduser().resolve()
+    project = (params.get("project") or [""])[0]
+    if not project:
+        raise ValueError("state_dir or project query parameter is required")
+    return Path(project).expanduser().resolve() / ".localize-anything"
 
 
 def _source_files(value: Any) -> list[str] | None:

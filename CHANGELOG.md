@@ -25,6 +25,10 @@
 - Add a Generation Strategy Gate seed that writes `generation-strategy.json`,
   routes review-required handoffs, blocks unresolved term conflicts, and
   propagates strategy state into work packets and draft requests.
+- Add a Resolution Gate seed that writes `blocking-questions.json`,
+  `resolution-options.json`, `user-resolution-decisions.jsonl`, and
+  `resolution-summary.md` so blocked or review-required generation strategy
+  states become explicit human decisions.
 
 ## v0.4.1 - Workbench UI Wiring
 

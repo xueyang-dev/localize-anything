@@ -1,0 +1,13 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-user-resolution-decision-v1",
+  "decision_id": "urd-example-001",
+  "question_id": "bq-example-high-risk-term",
+  "option_id": "defer_term_continue_downgraded",
+  "status": "accepted",
+  "decided_by": "project-owner",
+  "decided_at": "2026-06-27T10:00:00+00:00",
+  "notes": "Proceed only as draft review; terminology remains unresolved.",
+  "effects": ["term_review", "generation_strategy"],
+  "artifacts_updated": ["generation-strategy.json", "blocking-questions.json"]
+}

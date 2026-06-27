@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/resolution-options.schema.json",
+  "title": "Localize Anything Resolution Options",
+  "type": "object",
+  "required": ["protocol_version", "schema", "status", "options"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-resolution-options-v1" },
+    "status": { "enum": ["pass"] },
+    "options": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "option_id",
+          "label",
+          "description",
+          "applies_to_reason_codes",
+          "effect",
+          "updates",
+          "risk_remaining",
+          "conservative_default",
+          "requires_human_confirmation"
+        ],
+        "properties": {
+          "option_id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "applies_to_reason_codes": { "type": "array", "items": { "type": "string" } },
+          "effect": { "type": "string", "minLength": 1 },
+          "updates": { "type": "array", "items": { "type": "string" } },
+          "risk_remaining": { "type": "string", "minLength": 1 },
+          "conservative_default": { "type": "boolean" },
+          "requires_human_confirmation": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

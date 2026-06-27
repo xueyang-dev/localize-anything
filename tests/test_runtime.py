@@ -70,6 +70,11 @@ from runtime.localize_anything.planning import create_batch_plan, is_generation_
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
 from runtime.localize_anything.reflection import create_llm_review_request, import_llm_review_response, render_llm_review_prompt
+from runtime.localize_anything.resolution_gate import (
+    build_resolution_gate,
+    read_blocking_questions,
+    record_user_resolution_decision,
+)
 from runtime.localize_anything.retrieval import build_work_packet
 from runtime.localize_anything.review import import_review
 from runtime.localize_anything.review_sheet import write_review_sheet
@@ -3864,6 +3869,316 @@ class GenerationStrategyGateTests(unittest.TestCase):
             self.assertEqual(list(Path(result["artifacts"]["work_packets"]).glob("*.json")), [])
 
 
+class ResolutionGateTests(unittest.TestCase):
+    def test_unresolved_term_conflicts_create_blocking_questions(self) -> None:
+        segments = [_segment("s1", "API access")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            state.mkdir()
+            _write_term_registry(
+                state,
+                [
+                    {"source_term": "API", "target_term": "接口", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"},
+                    {"source_term": "API", "target_term": "应用程序接口", "type": "domain_term", "status": "locked", "target_locale": "zh-CN"},
+                ],
+            )
+            strategy = _write_strategy_for_segments(state, segments)
+
+            questions = build_resolution_gate(state, strategy)
+
+            assert_protocol_schema(self, "blocking-questions", questions)
+            self.assertEqual(questions["status"], "blocked")
+            question = questions["questions"][0]
+            self.assertEqual(question["reason_code"], "term_conflict")
+            self.assertEqual(question["severity"], "blocking")
+            self.assertIn("keep_blocked", question["available_options"])
+            self.assertTrue((state / "resolution-options.json").is_file())
+            self.assertTrue((state / "user-resolution-decisions.jsonl").is_file())
+
+    def test_high_risk_unreviewed_terms_create_review_questions(self) -> None:
+        segments = [_segment("s1", "Delete account", high_risk=True)]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+
+            questions = build_resolution_gate(state, strategy)
+
+            self.assertEqual(questions["status"], "review_required")
+            question = next(item for item in questions["questions"] if item["reason_code"] == "unreviewed_high_risk_terms")
+            self.assertEqual(question["severity"], "review_required")
+            self.assertEqual(question["responsible_owner_type"], "terminology_owner")
+            self.assertEqual(question["affected_terms"][0]["source_term"], "Delete account")
+
+    def test_incomplete_terminology_assurance_stays_downgraded(self) -> None:
+        segments = [_segment("s1", "Start game"), _segment("s2", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+
+            questions = build_resolution_gate(state, strategy)
+            packet = build_work_packet(create_batch_plan(segments, "en-US", ["zh-CN"], 10), "batch-0001", segments, state, "zh-CN")
+            draft_request = create_draft_request(packet)
+
+            self.assertEqual(strategy["generation_readiness"], "review_required")
+            self.assertIn("term_review_incomplete", {item["reason_code"] for item in questions["questions"]})
+            self.assertEqual(packet["memory"]["resolution_gate"]["status"], "review_required")
+            self.assertIn("Resolution Gate has unresolved questions", "\n".join(draft_request["instructions"]))
+
+    def test_partial_coverage_without_allowance_creates_warning_question(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+
+            questions = build_resolution_gate(
+                state,
+                strategy,
+                context={"android_coverage": {"visible_ui_coverage_warning": True, "merged_dependency_strings_detected": 8}},
+            )
+
+            question = next(item for item in questions["questions"] if item["reason_code"] == "partial_source_coverage")
+            self.assertEqual(question["severity"], "warning")
+            self.assertIn("allow_partial_coverage", question["available_options"])
+
+    def test_unsafe_provider_fallback_creates_blocker(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+
+            questions = build_resolution_gate(
+                state,
+                strategy,
+                context={"provider_policy": {"mode": "real_provider", "fallback_requested": True}},
+            )
+
+            question = next(item for item in questions["questions"] if item["reason_code"] == "provider_fallback_requested")
+            self.assertEqual(question["severity"], "blocking")
+            self.assertEqual(question["recommended_default"], "block_provider_until_safe")
+
+    def test_unknown_mode_and_scenario_create_resolution_questions(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+
+            questions = build_resolution_gate(state, strategy, context={"operating_mode": "mystery_mode", "scenario": "unknown"})
+
+            reason_codes = {item["reason_code"] for item in questions["questions"]}
+            self.assertIn("unknown_operating_mode", reason_codes)
+            self.assertIn("unknown_scenario", reason_codes)
+
+    def test_recording_term_approval_feeds_governance(self) -> None:
+        segments = [_segment("s1", "Enable SSO login")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            questions = build_resolution_gate(state, strategy)
+            question = next(item for item in questions["questions"] if item["reason_code"] == "term_review_incomplete")
+            # Use a concrete term question from the queue to exercise term governance updates.
+            queue = read_json(state / "term-review-queue.json")
+            candidate_id = next(item["candidate_id"] for item in queue["terms"] if item["source_term"] == "SSO")
+            term_question = {
+                **question,
+                "question_id": "bq-term-approval-test",
+                "reason_code": "unreviewed_high_risk_terms",
+                "affected_terms": [{"candidate_id": candidate_id, "source_term": "SSO", "target_locale": "zh-CN", "term_type": "project"}],
+                "available_options": ["approve_term"],
+                "recommended_default": "approve_term",
+            }
+            questions["questions"].append(term_question)
+            write_json(state / "blocking-questions.json", questions)
+
+            result = record_user_resolution_decision(
+                state,
+                {
+                    "question_id": "bq-term-approval-test",
+                    "option_id": "approve_term",
+                    "target_term": "单点登录",
+                    "decided_by": "tester",
+                },
+            )
+
+            assert_protocol_schema(self, "user-resolution-decision", result["decision"])
+            constraints = select_term_constraints(state, segments, "zh-CN", "style_only")
+            self.assertEqual(constraints["term_registry"][0]["source_term"], "SSO")
+            self.assertEqual(constraints["term_registry"][0]["target_term"], "单点登录")
+
+    def test_allowing_partial_coverage_updates_decision_state_without_full_coverage_claim(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            questions = build_resolution_gate(
+                state,
+                strategy,
+                context={"android_coverage": {"visible_ui_coverage_warning": True}},
+            )
+            question_id = next(item["question_id"] for item in questions["questions"] if item["reason_code"] == "partial_source_coverage")
+
+            record_user_resolution_decision(
+                state,
+                {"question_id": question_id, "option_id": "allow_partial_coverage", "decided_by": "tester"},
+            )
+
+            updated_strategy = read_json(state / "generation-strategy.json")
+            coverage = updated_strategy["resolution_state"]["coverage_policy"]
+            self.assertTrue(coverage["partial_coverage_allowed"])
+            self.assertFalse(coverage["full_coverage_claim"])
+            self.assertNotEqual(updated_strategy["generation_readiness"], "ready")
+
+    def test_run_summary_surfaces_unresolved_blocking_questions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            locale_dir = project / "locales"
+            locale_dir.mkdir(parents=True)
+            (locale_dir / "en-US.json").write_text(json.dumps({"api": "API access"}), encoding="utf-8")
+            _write_term_registry(
+                project / ".localize-anything",
+                [
+                    {"source_term": "API", "target_term": "接口", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"},
+                    {"source_term": "API", "target_term": "应用程序接口", "type": "domain_term", "status": "locked", "target_locale": "zh-CN"},
+                ],
+            )
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                source_files=["locales/en-US.json"],
+                output_root=root / "runs",
+                run_id="resolution-blocked-001",
+                handoff_only=True,
+            )
+
+            self.assertEqual(result["status"], "generation_strategy_blocked")
+            self.assertEqual(result["resolution"]["status"], "blocked")
+            self.assertGreater(result["summary"]["unresolved_blocking_questions"], 0)
+            self.assertEqual(read_json(Path(result["artifacts"]["generation_handoff"]))["request_count"], 0)
+
+    def test_resolved_questions_are_included_in_delivery_package(self) -> None:
+        source = FIXTURE_ROOT / "locales" / "en-US.json"
+        expected = FIXTURE_ROOT / "locales" / "zh-CN.json"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            locale_dir = project / "locales"
+            locale_dir.mkdir(parents=True)
+            (locale_dir / "en-US.json").write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            segments = extract_segments(project / "locales" / "en-US.json", "en-US", "locales/en-US.json")
+            strategy = _write_strategy_for_segments(state, segments)
+            questions = build_resolution_gate(state, strategy, context={"android_coverage": {"visible_ui_coverage_warning": True}})
+            question_id = next(item["question_id"] for item in questions["questions"] if item["reason_code"] == "partial_source_coverage")
+            record_user_resolution_decision(state, {"question_id": question_id, "option_id": "allow_partial_coverage"})
+
+            staging = root / "staging"
+            target = staging / "locales" / "zh-CN.json"
+            target.parent.mkdir(parents=True)
+            target.write_text(expected.read_text(encoding="utf-8"), encoding="utf-8")
+            qa_path = root / "qa.json"
+            agent_qa_path = root / "agent-qa.json"
+            write_json(qa_path, {"protocol_version": "0.1", "status": "pass", "evidence_channels": ["adapter"], "items": []})
+            write_json(agent_qa_path, {"protocol_version": "0.1", "status": "pass", "evidence_channels": ["agent"], "items": []})
+
+            packaged = package_delivery(state, staging, root / "deliveries", [qa_path, agent_qa_path], "review_ready", "resolution-delivery-001")
+            delivery = Path(packaged["delivery_directory"])
+
+            self.assertTrue((delivery / "blocking-questions.json").is_file())
+            self.assertTrue((delivery / "user-resolution-decisions.jsonl").is_file())
+            self.assertEqual(packaged["manifest"]["assets"]["blocking_questions"], "blocking-questions.json")
+
+    def test_workbench_api_reads_and_writes_resolution_artifacts(self) -> None:
+        segments = [_segment("s1", "Delete account", high_risk=True)]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            questions = build_resolution_gate(state, strategy)
+            question_id = next(item["question_id"] for item in questions["questions"] if item["reason_code"] == "unreviewed_high_risk_terms")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/blocking-questions?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["blocking_questions"]["status"], "review_required")
+                status, body = _http_get(host, port, f"/api/resolution-options?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertTrue(json.loads(body)["resolution_options"]["options"])
+                decision_status, payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/user-resolution-decision",
+                    {
+                        "state_dir": state.as_posix(),
+                        "decision": {
+                            "question_id": question_id,
+                            "option_id": "defer_term_continue_downgraded",
+                            "decided_by": "tester",
+                        },
+                    },
+                )
+                self.assertEqual(decision_status, 200)
+                self.assertEqual(payload["result"]["decision"]["option_id"], "defer_term_continue_downgraded")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_blocking_questions_and_resolve_question(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            _write_strategy_for_segments(state, segments)
+            questions_output = root / "questions.json"
+            decision_output = root / "decision.json"
+
+            exit_code = cli_main(
+                [
+                    "blocking-questions",
+                    state.as_posix(),
+                    "--coverage-warning",
+                    "--output",
+                    questions_output.as_posix(),
+                ]
+            )
+            self.assertEqual(exit_code, 0)
+            question_id = next(
+                item["question_id"]
+                for item in read_json(questions_output)["questions"]
+                if item["reason_code"] == "partial_source_coverage"
+            )
+
+            exit_code = cli_main(
+                [
+                    "resolve-question",
+                    state.as_posix(),
+                    "--question-id",
+                    question_id,
+                    "--option-id",
+                    "allow_partial_coverage",
+                    "--output",
+                    decision_output.as_posix(),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(read_json(decision_output)["decision"]["option_id"], "allow_partial_coverage")
+
+
+def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) -> dict[str, Any]:
+    run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
+    plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
+    return write_generation_strategy(
+        state,
+        build_generation_strategy(state, plan, source_locale="en-US", target_locale="zh-CN"),
+    )
+
+
 def _termbase_segments() -> list[dict[str, Any]]:
     return [
         _segment("s1", "Delete account", resource_name="delete_account_button", high_risk=True),
@@ -4042,7 +4357,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 26)
+        self.assertEqual(result["schemas_checked"], 29)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

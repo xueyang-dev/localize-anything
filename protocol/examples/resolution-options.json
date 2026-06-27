@@ -1,0 +1,18 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-resolution-options-v1",
+  "status": "pass",
+  "options": [
+    {
+      "option_id": "defer_term_continue_downgraded",
+      "label": "Defer term",
+      "description": "Defer the term and continue only with downgraded terminology assurance.",
+      "applies_to_reason_codes": ["unreviewed_high_risk_terms", "term_review_incomplete"],
+      "effect": "Records an explicit deferral; full terminology assurance remains unavailable.",
+      "updates": ["term_review", "generation_strategy"],
+      "risk_remaining": "The unresolved term can still require owner review after draft generation.",
+      "conservative_default": false,
+      "requires_human_confirmation": true
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/blocking-questions.schema.json",
+  "title": "Localize Anything Blocking Questions",
+  "type": "object",
+  "required": ["protocol_version", "schema", "status", "generation_strategy", "summary", "questions", "artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-blocking-questions-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["clear", "review_required", "blocked"] },
+    "generation_strategy": { "type": "object", "additionalProperties": true },
+    "summary": {
+      "type": "object",
+      "required": ["question_count", "unresolved_count", "unresolved_blocking_count", "review_required_count", "resolved_count"],
+      "properties": {
+        "question_count": { "type": "integer", "minimum": 0 },
+        "unresolved_count": { "type": "integer", "minimum": 0 },
+        "unresolved_blocking_count": { "type": "integer", "minimum": 0 },
+        "review_required_count": { "type": "integer", "minimum": 0 },
+        "resolved_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "question_id",
+          "reason_code",
+          "source_artifacts",
+          "reason",
+          "severity",
+          "responsible_owner_type",
+          "affected_segments",
+          "affected_terms",
+          "recommended_default",
+          "available_options",
+          "option_effects",
+          "human_confirmation_required",
+          "status"
+        ],
+        "properties": {
+          "question_id": { "type": "string", "minLength": 1 },
+          "reason_code": { "type": "string", "minLength": 1 },
+          "source_artifacts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "reason": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["blocking", "critical", "review_required", "warning"] },
+          "responsible_owner_type": { "type": "string", "minLength": 1 },
+          "affected_segments": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "affected_terms": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "recommended_default": { "type": "string", "minLength": 1 },
+          "available_options": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "option_effects": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "human_confirmation_required": { "type": "boolean" },
+          "status": { "enum": ["unresolved", "resolved"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["blocking_questions", "resolution_options", "user_resolution_decisions"],
+      "properties": {
+        "blocking_questions": { "const": "blocking-questions.json" },
+        "resolution_options": { "const": "resolution-options.json" },
+        "user_resolution_decisions": { "const": "user-resolution-decisions.jsonl" },
+        "resolution_summary": { "const": "resolution-summary.md" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

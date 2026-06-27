@@ -53,6 +53,7 @@ from .planning import create_batch_plan
 from .project import initialize_project, inspect_project, load_session_index
 from .provider import generate_handoff_with_http_provider
 from .reflection import create_llm_review_request, import_llm_review_response, render_llm_review_prompt
+from .resolution_gate import build_resolution_gate, record_user_resolution_decision
 from .retrieval import build_work_packet
 from .review import import_review
 from .review_sheet import write_review_sheet
@@ -415,6 +416,32 @@ def build_parser() -> argparse.ArgumentParser:
     generation_strategy_parser.add_argument("--target-locale")
     generation_strategy_parser.add_argument("--run-id")
     generation_strategy_parser.add_argument("--output", type=Path)
+
+    blocking_questions_parser = subparsers.add_parser(
+        "blocking-questions",
+        help="Create Resolution Gate blocking-question artifacts from generation strategy state",
+    )
+    blocking_questions_parser.add_argument("state_dir", type=Path)
+    blocking_questions_parser.add_argument("--coverage-warning", action="store_true")
+    blocking_questions_parser.add_argument("--provider-policy", choices=["safe", "unsafe", "fallback_requested"], default="safe")
+    blocking_questions_parser.add_argument("--operating-mode")
+    blocking_questions_parser.add_argument("--scenario")
+    blocking_questions_parser.add_argument("--run-id")
+    blocking_questions_parser.add_argument("--output", type=Path)
+
+    resolve_question_parser = subparsers.add_parser(
+        "resolve-question",
+        help="Record a user Resolution Gate decision",
+    )
+    resolve_question_parser.add_argument("state_dir", type=Path)
+    resolve_question_parser.add_argument("--question-id", required=True)
+    resolve_question_parser.add_argument("--option-id", required=True)
+    resolve_question_parser.add_argument("--target-term")
+    resolve_question_parser.add_argument("--target-locale")
+    resolve_question_parser.add_argument("--term-status", choices=["approved", "locked"], default="approved")
+    resolve_question_parser.add_argument("--notes", default="")
+    resolve_question_parser.add_argument("--decided-by", default="cli-user")
+    resolve_question_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1004,6 +1031,28 @@ def main(argv: list[str] | None = None) -> int:
                 ),
             )
             return _emit_json(result, args.output)
+        if args.command == "blocking-questions":
+            provider_policy = {"status": args.provider_policy}
+            if args.provider_policy == "fallback_requested":
+                provider_policy = {"mode": "real_provider", "fallback_requested": True}
+            context = {
+                "android_coverage": {"visible_ui_coverage_warning": bool(args.coverage_warning)},
+                "provider_policy": provider_policy,
+                "operating_mode": args.operating_mode,
+                "scenario": args.scenario,
+            }
+            return _emit_json(build_resolution_gate(args.state_dir, context=context, run_id=args.run_id), args.output)
+        if args.command == "resolve-question":
+            decision = {
+                "question_id": args.question_id,
+                "option_id": args.option_id,
+                "target_term": args.target_term,
+                "target_locale": args.target_locale,
+                "term_status": args.term_status,
+                "notes": args.notes,
+                "decided_by": args.decided_by,
+            }
+            return _emit_json(record_user_resolution_decision(args.state_dir, decision), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

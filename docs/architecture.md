@@ -37,6 +37,7 @@ Intake
  -> Termbase Preflight Gate
  -> Batch Plan
  -> Generation Strategy Gate
+ -> Resolution Gate
  -> Working Context Packet
  -> Localization
  -> Deterministic QA
@@ -76,6 +77,10 @@ termbase-preflight-report.json
 term-review-queue.json
 term-review-decisions.jsonl
 generation-strategy.json
+blocking-questions.json
+resolution-options.json
+user-resolution-decisions.jsonl
+resolution-summary.md
 delivery-manifest.json
 ```
 
@@ -155,6 +160,34 @@ requests repeat blocked or review-required strategy state so host-agent
 workflows cannot silently claim full assurance. The gate consumes Termbase
 Preflight and Term Governance output; it does not replace the UI-first term
 review queue or invent terminology decisions.
+
+## Resolution Gate
+
+Resolution Gate runs after Generation Strategy Gate. It turns blocked or
+review-required strategy states into structured owner decisions instead of
+hiding them inside prompt instructions.
+
+The seed gate writes:
+
+- `blocking-questions.json`: stable question ids, source artifact references,
+  severity, owner type, affected terms or segments, recommended defaults,
+  available options, and whether human confirmation is required.
+- `resolution-options.json`: conservative actions such as keeping generation
+  blocked, approving or deferring a term, requiring a localization brief,
+  allowing partial coverage with an explicit warning, or blocking unsafe
+  provider policy.
+- `user-resolution-decisions.jsonl`: append-only user decisions.
+- `resolution-summary.md`: human-readable debug and delivery evidence.
+
+Term approval decisions reuse the Termbase Preflight review path so approved or
+locked terms can still flow into Term Governance and later hard constraints.
+Coverage decisions update generation strategy state without claiming full
+visible coverage. Provider fallback or unsafe provider policy must remain an
+explicit blocker unless a safe draft/review-only route is chosen.
+
+The current Workbench/API surface is artifact-backed only: clients can read
+blocking questions and resolution options and post user decisions. A full visual
+review panel belongs to a later UI loop.
 
 ## Localization Brief
 

@@ -40,6 +40,7 @@ from .project import initialize_project, inspect_project, record_project_session
 from .reference import create_reference_plan
 from .retrieval import build_work_packet
 from .reflection import create_llm_review_request, render_llm_review_prompt
+from .resolution_gate import build_resolution_gate
 from .review_sheet import write_review_sheet
 from .staging import stage_generated
 from .structured_adapter import extract_segments as extract_structured_segments
@@ -191,6 +192,15 @@ def run_localize(
             run_id=run_id,
         ),
     )
+    resolution_gate = build_resolution_gate(
+        state_dir,
+        generation_strategy,
+        context={
+            "android_coverage": inspection.get("android_coverage", {}),
+            "reference_summary": reference_plan["summary"],
+        },
+        run_id=run_id,
+    )
 
     packet_dir = run_dir / "work-packets"
     request_dir = run_dir / "draft-requests"
@@ -231,6 +241,7 @@ def run_localize(
             reference_plan_path=reference_plan_path,
             term_preflight=term_preflight,
             generation_strategy=generation_strategy,
+            resolution_gate=resolution_gate,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -280,6 +291,7 @@ def run_localize(
             reference_plan_path=reference_plan_path,
             term_preflight=term_preflight,
             generation_strategy=generation_strategy,
+            resolution_gate=resolution_gate,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -320,6 +332,7 @@ def run_localize(
             reference_plan_path=reference_plan_path,
             term_preflight=term_preflight,
             generation_strategy=generation_strategy,
+            resolution_gate=resolution_gate,
             operating_mode=operating_mode,
             reference_policy=reference_policy,
             reference_summary=reference_plan["summary"],
@@ -429,6 +442,7 @@ def run_localize(
         reference_plan_path=reference_plan_path,
         term_preflight=term_preflight,
         generation_strategy=generation_strategy,
+        resolution_gate=resolution_gate,
         operating_mode=operating_mode,
         reference_policy=reference_policy,
         reference_summary=reference_plan["summary"],
@@ -749,6 +763,7 @@ def _summary(
     reference_plan_path: Path | None = None,
     term_preflight: dict[str, Any] | None = None,
     generation_strategy: dict[str, Any] | None = None,
+    resolution_gate: dict[str, Any] | None = None,
     operating_mode: str = DEFAULT_OPERATING_MODE,
     reference_policy: str = DEFAULT_REFERENCE_POLICY_BY_MODE[DEFAULT_OPERATING_MODE],
     reference_summary: dict[str, Any] | None = None,
@@ -806,6 +821,14 @@ def _summary(
             path = state_dir / str(value)
             artifacts[artifact_key] = path.as_posix()
             strategy_artifacts[artifact_key] = path.as_posix()
+    resolution_artifacts: dict[str, str] = {}
+    if resolution_gate:
+        state_dir = project_root / ".localize-anything"
+        for key, value in resolution_gate.get("artifacts", {}).items():
+            artifact_key = str(key)
+            path = state_dir / str(value)
+            artifacts[artifact_key] = path.as_posix()
+            resolution_artifacts[artifact_key] = path.as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -845,6 +868,11 @@ def _summary(
             },
             **(generation_metadata or {}),
         },
+        "resolution": {
+            "status": (resolution_gate or {}).get("status", "not_checked"),
+            "summary": (resolution_gate or {}).get("summary", {}),
+            "artifacts": resolution_artifacts,
+        },
         "summary": {
             "source_file_count": len(source_files),
             "segment_count": segment_count,
@@ -854,6 +882,8 @@ def _summary(
             "blocking_count": blocking_count,
             "warning_count": warning_count,
             "terminology_assurance": (term_preflight or {}).get("terminology_assurance", "not_checked"),
+            "unresolved_blocking_questions": (resolution_gate or {}).get("summary", {}).get("unresolved_blocking_count", 0),
+            "unresolved_resolution_questions": (resolution_gate or {}).get("summary", {}).get("unresolved_count", 0),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

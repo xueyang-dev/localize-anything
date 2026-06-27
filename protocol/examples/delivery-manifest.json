@@ -38,6 +38,10 @@
     "term_review_queue": "term-review-queue.json",
     "term_review_decisions": "term-review-decisions.jsonl",
     "generation_strategy": "generation-strategy.json",
+    "blocking_questions": "blocking-questions.json",
+    "resolution_options": "resolution-options.json",
+    "user_resolution_decisions": "user-resolution-decisions.jsonl",
+    "resolution_summary": "resolution-summary.md",
     "qa_report": "qa-report.md"
   },
   "qa": {

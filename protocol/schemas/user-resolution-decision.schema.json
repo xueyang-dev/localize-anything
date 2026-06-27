@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/user-resolution-decision.schema.json",
+  "title": "Localize Anything User Resolution Decision",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "decision_id",
+    "question_id",
+    "option_id",
+    "status",
+    "decided_by",
+    "decided_at",
+    "effects",
+    "artifacts_updated"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-user-resolution-decision-v1" },
+    "decision_id": { "type": "string", "minLength": 1 },
+    "question_id": { "type": "string", "minLength": 1 },
+    "option_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["accepted", "rejected", "superseded"] },
+    "decided_by": { "type": "string", "minLength": 1 },
+    "decided_at": { "type": "string", "format": "date-time" },
+    "notes": { "type": "string" },
+    "effects": { "type": "array", "items": { "type": "string" } },
+    "artifacts_updated": { "type": "array", "items": { "type": "string" } },
+    "term_review_decision": { "type": "object", "additionalProperties": true },
+    "coverage_policy": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

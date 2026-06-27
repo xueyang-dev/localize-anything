@@ -61,6 +61,9 @@ def create_draft_request(work_packet: dict[str, Any]) -> dict[str, Any]:
             instructions.append("Generation Strategy Gate is blocked; do not treat this request as generation-ready until blockers are resolved.")
         elif readiness == "review_required":
             instructions.append("Generation Strategy Gate requires review; drafts may proceed only as review-bound output with no full assurance claim.")
+    resolution_gate = work_packet.get("memory", {}).get("resolution_gate", {})
+    if isinstance(resolution_gate, dict) and int(resolution_gate.get("unresolved_count") or 0):
+        instructions.append("Resolution Gate has unresolved questions; do not claim full-quality or full-assurance output until they are resolved.")
     request_id = hashlib.sha256(
         json.dumps(
             {

@@ -12,6 +12,13 @@ from . import PROTOCOL_VERSION, __version__
 from .generation_strategy import GENERATION_STRATEGY_JSON, generation_strategy_asset_paths
 from .io_utils import read_json, sha256_file, write_json
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
+from .resolution_gate import (
+    BLOCKING_QUESTIONS_JSON,
+    RESOLUTION_OPTIONS_JSON,
+    RESOLUTION_SUMMARY_MD,
+    USER_RESOLUTION_DECISIONS_JSONL,
+    resolution_gate_asset_paths,
+)
 from .term_governance import TERM_GOVERNANCE_ASSETS, term_governance_asset_paths
 from .termbase_preflight import (
     CANDIDATE_TERMS_JSONL,
@@ -32,6 +39,10 @@ OPTIONAL_CANONICAL_ASSETS = (
     TERM_REVIEW_QUEUE_JSON,
     TERM_REVIEW_DECISIONS_JSONL,
     GENERATION_STRATEGY_JSON,
+    BLOCKING_QUESTIONS_JSON,
+    RESOLUTION_OPTIONS_JSON,
+    USER_RESOLUTION_DECISIONS_JSONL,
+    RESOLUTION_SUMMARY_MD,
 )
 
 
@@ -134,6 +145,7 @@ def package_delivery(
                 **term_governance_asset_paths(state_dir),
                 **termbase_preflight_asset_paths(state_dir),
                 **generation_strategy_asset_paths(state_dir),
+                **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },
             "qa": {
