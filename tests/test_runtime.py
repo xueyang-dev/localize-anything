@@ -3955,6 +3955,41 @@ class ResolutionGateTests(unittest.TestCase):
             question = next(item for item in questions["questions"] if item["reason_code"] == "provider_fallback_requested")
             self.assertEqual(question["severity"], "blocking")
             self.assertEqual(question["recommended_default"], "block_provider_until_safe")
+            self.assertEqual(question["available_options"], ["block_provider_until_safe"])
+            with self.assertRaisesRegex(ValueError, "not available"):
+                record_user_resolution_decision(
+                    state,
+                    {
+                        "question_id": question["question_id"],
+                        "option_id": "continue_only_draft_review",
+                        "decided_by": "tester",
+                    },
+                )
+            questions["questions"][0]["available_options"].append("continue_only_draft_review")
+            write_json(state / "blocking-questions.json", questions)
+            with self.assertRaisesRegex(ValueError, "Unsafe provider fallback"):
+                record_user_resolution_decision(
+                    state,
+                    {
+                        "question_id": question["question_id"],
+                        "option_id": "continue_only_draft_review",
+                        "decided_by": "tester",
+                    },
+                )
+            decision = record_user_resolution_decision(
+                state,
+                {
+                    "question_id": question["question_id"],
+                    "option_id": "block_provider_until_safe",
+                    "decided_by": "tester",
+                },
+            )["decision"]
+            updated_strategy = read_json(state / "generation-strategy.json")
+            self.assertEqual(decision["reason_code"], "provider_fallback_requested")
+            self.assertFalse(updated_strategy["resolution_state"]["provider_policy"]["provider_backed_generation_allowed"])
+            self.assertFalse(updated_strategy["resolution_state"]["provider_policy"]["unsafe_provider_fallback_allowed"])
+            self.assertFalse(updated_strategy["work_packet_policy"]["allow_generation"])
+            self.assertEqual(updated_strategy["generation_readiness"], "blocked")
 
     def test_unknown_mode_and_scenario_create_resolution_questions(self) -> None:
         segments = [_segment("s1", "Start game")]

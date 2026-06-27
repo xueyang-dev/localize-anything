@@ -217,6 +217,8 @@ def record_user_resolution_decision(state_dir: Path, decision: dict[str, Any]) -
     question = by_question[question_id]
     if option_id not in question.get("available_options", []):
         raise ValueError(f"Option {option_id} is not available for question {question_id}")
+    if question.get("reason_code") in {"unsafe_provider_policy", "provider_fallback_requested"} and option_id != "block_provider_until_safe":
+        raise ValueError("Unsafe provider fallback questions can only be resolved by blocking provider-backed generation")
 
     now = datetime.now(UTC).isoformat()
     normalized = {
@@ -229,6 +231,8 @@ def record_user_resolution_decision(state_dir: Path, decision: dict[str, Any]) -
         "decided_by": str(decision.get("decided_by") or "workbench-user"),
         "decided_at": str(decision.get("decided_at") or now),
         "notes": str(decision.get("notes") or ""),
+        "reason_code": question.get("reason_code"),
+        "source_artifacts": question.get("source_artifacts", []),
         "effects": by_option[option_id].get("updates", []),
         "artifacts_updated": [],
     }
@@ -470,7 +474,7 @@ def _provider_questions(context: dict[str, Any]) -> list[dict[str, Any]]:
                 "Provider policy is unsafe for provider-backed generation.",
                 "blocking",
                 "developer",
-                ["block_provider_until_safe", "continue_only_draft_review"],
+                ["block_provider_until_safe"],
                 "block_provider_until_safe",
                 source_artifacts=[_artifact("provider-policy", "/")],
             )
@@ -482,7 +486,7 @@ def _provider_questions(context: dict[str, Any]) -> list[dict[str, Any]]:
                 "Synthetic fallback was requested in real provider mode and must not be allowed silently.",
                 "blocking",
                 "developer",
-                ["block_provider_until_safe", "continue_only_draft_review"],
+                ["block_provider_until_safe"],
                 "block_provider_until_safe",
                 source_artifacts=[_artifact("provider-policy", "/fallback_requested")],
             )
@@ -669,6 +673,29 @@ def _update_generation_strategy_resolution(
             "full_quality_claim": False,
             "decision_id": decision["decision_id"],
         }
+    if decision["option_id"] == "block_provider_until_safe":
+        resolution_state["provider_policy"] = {
+            "provider_backed_generation_allowed": False,
+            "unsafe_provider_fallback_allowed": False,
+            "decision_id": decision["decision_id"],
+            "reason_code": question.get("reason_code"),
+        }
+        strategy["status"] = "blocked"
+        strategy["generation_readiness"] = "blocked"
+        route = strategy.setdefault("route", {})
+        route["mode"] = "blocked"
+        route["assurance"] = "blocked"
+        reason_codes = set(route.get("reason_codes", []))
+        if question.get("reason_code"):
+            reason_codes.add(str(question["reason_code"]))
+        route["reason_codes"] = sorted(reason_codes)
+        work_packet_policy = strategy.setdefault("work_packet_policy", {})
+        work_packet_policy["allow_generation"] = False
+        blocked_reason_codes = set(work_packet_policy.get("blocked_reason_codes", []))
+        if question.get("reason_code"):
+            blocked_reason_codes.add(str(question["reason_code"]))
+        work_packet_policy["blocked_reason_codes"] = sorted(blocked_reason_codes)
+        strategy.setdefault("draft_request_policy", {})["quality_claim"] = "blocked_by_provider_policy"
     write_json(path, strategy)
     return {"artifacts_updated": [GENERATION_STRATEGY_JSON]}
 

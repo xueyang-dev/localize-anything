@@ -152,7 +152,8 @@ confirmation is required.
 
 Resolution options are conservative. They can approve, reject, or defer terms;
 allow partial coverage only with an explicit warning; require a localization
-brief; block unsafe provider-backed runs; or continue only in draft/review mode.
+brief; block unsafe provider-backed runs until provider policy is safe; or
+continue only in draft/review mode for non-provider blockers.
 
 `resolve-question` appends `user-resolution-decisions.jsonl`. Term decisions can
 delegate to the Termbase Preflight decision path so Term Governance remains the

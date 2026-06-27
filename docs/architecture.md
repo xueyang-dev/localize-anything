@@ -183,7 +183,7 @@ Term approval decisions reuse the Termbase Preflight review path so approved or
 locked terms can still flow into Term Governance and later hard constraints.
 Coverage decisions update generation strategy state without claiming full
 visible coverage. Provider fallback or unsafe provider policy must remain an
-explicit blocker unless a safe draft/review-only route is chosen.
+explicit provider-backed generation blocker until provider policy is safe.
 
 The current Workbench/API surface is artifact-backed only: clients can read
 blocking questions and resolution options and post user decisions. A full visual
