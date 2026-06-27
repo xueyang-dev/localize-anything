@@ -434,12 +434,13 @@ def _apply_previous_state_status(
     )
     if not changed_dependencies:
         return
-    dependency_newer = any(
-        (entries.get(dependency_id, {}).get("_mtime_ns") or 0) > (entry.get("_mtime_ns") or 0)
-        for dependency_id in changed_dependencies
-    )
-    if not dependency_newer:
-        return
+    if previous.get("content_hash") != entry.get("content_hash"):
+        dependency_newer = any(
+            (entries.get(dependency_id, {}).get("_mtime_ns") or 0) > (entry.get("_mtime_ns") or 0)
+            for dependency_id in changed_dependencies
+        )
+        if not dependency_newer:
+            return
     entry["status"] = "stale"
     entry["blocking_reason"] = "upstream_dependency_changed"
     entry["stale_dependency_ids"] = changed_dependencies

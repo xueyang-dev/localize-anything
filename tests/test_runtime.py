@@ -4534,6 +4534,22 @@ class ArtifactStateMachineTests(unittest.TestCase):
             self.assertEqual(_artifact_by_id(artifact_state, "generation_strategy")["status"], "stale")
             self.assertIn("generation_strategy", {item["artifact_id"] for item in artifact_state["stale_artifacts"]})
 
+    def test_dependency_hash_change_marks_stale_even_when_mtime_is_not_newer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _seed_strategy_handoff_state(state)
+            build_artifact_state(state)
+
+            strategy = state / "generation-strategy.json"
+            strategy_mtime_ns = strategy.stat().st_mtime_ns
+            _write_artifact_brief(state, "updated-brief-with-preserved-time")
+            os.utime(state / "localization-brief.json", ns=(strategy_mtime_ns - 1, strategy_mtime_ns - 1))
+            artifact_state = build_artifact_state(state)
+
+            strategy_state = _artifact_by_id(artifact_state, "generation_strategy")
+            self.assertEqual(strategy_state["status"], "stale")
+            self.assertIn("localization_brief_json", strategy_state["stale_dependency_ids"])
+
     def test_term_decision_change_makes_strategy_and_handoff_decision_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / ".localize-anything"
