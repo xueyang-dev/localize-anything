@@ -1,0 +1,56 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-generation-handoff-decision-v1",
+  "run_id": "run-001",
+  "requested_mode": "full_quality",
+  "status": "review_required",
+  "handoff_mode": "review_required",
+  "full_quality_handoff_allowed": false,
+  "handoff_allowed": true,
+  "provider_backed_generation_allowed": true,
+  "apply_policy": "warn",
+  "delivery_policy": "warn",
+  "blockers": [],
+  "warnings": [
+    {
+      "code": "high_risk_unreviewed_terms",
+      "message": "High-risk unreviewed terms require human confirmation.",
+      "artifact": "termbase-preflight-report.json",
+      "count": 1
+    }
+  ],
+  "unresolved_questions": [
+    {
+      "question_id": "bq-unreviewed-term-001",
+      "reason_code": "unreviewed_high_risk_terms",
+      "severity": "review_required",
+      "status": "unresolved",
+      "source_artifacts": [
+        {
+          "artifact": "termbase-preflight-report.json",
+          "pointer": "/unreviewed_high_risk_terms"
+        }
+      ]
+    }
+  ],
+  "continuation_decisions": [],
+  "forbidden_quality_claims": [
+    "full_quality_generation",
+    "full_terminology_assurance",
+    "review_complete_status",
+    "safe_apply_readiness"
+  ],
+  "source_artifacts": {
+    "generation_strategy": "generation-strategy.json",
+    "blocking_questions": "blocking-questions.json",
+    "resolution_options": "resolution-options.json",
+    "user_resolution_decisions": "user-resolution-decisions.jsonl",
+    "termbase_preflight_report": "termbase-preflight-report.json",
+    "term_review_queue": "term-review-queue.json"
+  },
+  "limitations": [
+    "generation handoff enforcement is deterministic and does not perform translation",
+    "downgraded handoffs cannot claim full quality, full terminology assurance, or safe apply readiness",
+    "non-overridable provider safety blockers cannot be cleared by ordinary resolution decisions"
+  ]
+}

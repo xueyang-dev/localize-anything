@@ -49,6 +49,10 @@ from runtime.localize_anything.generation import (
     validate_generated_segments,
     write_handoff_prompts,
 )
+from runtime.localize_anything.generation_handoff_policy import (
+    build_generation_handoff_decision,
+    read_generation_handoff_decision,
+)
 from runtime.localize_anything.generation_strategy import (
     build_generation_strategy,
     read_generation_strategy,
@@ -4205,6 +4209,281 @@ class ResolutionGateTests(unittest.TestCase):
             self.assertEqual(read_json(decision_output)["decision"]["option_id"], "allow_partial_coverage")
 
 
+class GenerationHandoffEnforcementTests(unittest.TestCase):
+    def test_blocked_strategy_prevents_full_quality_handoff(self) -> None:
+        segments = [_segment("s1", "API access")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_term_registry(
+                state,
+                [
+                    {"source_term": "API", "target_term": "接口", "type": "domain_term", "status": "approved", "target_locale": "zh-CN"},
+                    {"source_term": "API", "target_term": "应用程序接口", "type": "domain_term", "status": "locked", "target_locale": "zh-CN"},
+                ],
+            )
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+
+            decision = build_generation_handoff_decision(state)
+
+            assert_protocol_schema(self, "generation-handoff-decision", decision)
+            self.assertEqual(decision["status"], "blocked")
+            self.assertFalse(decision["full_quality_handoff_allowed"])
+            self.assertFalse(decision["handoff_allowed"])
+            self.assertIn("generation_strategy_blocked", {item["code"] for item in decision["blockers"]})
+
+    def test_allow_generation_false_prevents_handoff(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            strategy["work_packet_policy"]["allow_generation"] = False
+            write_json(state / "generation-strategy.json", strategy)
+            build_resolution_gate(state, strategy)
+
+            decision = build_generation_handoff_decision(state)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("allow_generation_false", {item["code"] for item in decision["blockers"]})
+
+    def test_unresolved_blocking_questions_prevent_full_quality_handoff(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy, context={"provider_policy": {"mode": "real_provider", "fallback_requested": True}})
+
+            decision = build_generation_handoff_decision(
+                state,
+                provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe", "fallback_requested": True},
+            )
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertFalse(decision["handoff_allowed"])
+            self.assertIn("provider_fallback_requested", {item["reason_code"] for item in decision["unresolved_questions"]})
+
+    def test_resolved_questions_allow_only_decision_effects(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            questions = build_resolution_gate(
+                state,
+                strategy,
+                context={"android_coverage": {"visible_ui_coverage_warning": True}},
+            )
+            question_id = next(item["question_id"] for item in questions["questions"] if item["reason_code"] == "partial_source_coverage")
+            record_user_resolution_decision(state, {"question_id": question_id, "option_id": "allow_partial_coverage", "decided_by": "tester"})
+
+            decision = build_generation_handoff_decision(state, coverage_policy={"visible_ui_coverage_warning": True})
+
+            self.assertTrue(decision["handoff_allowed"])
+            self.assertFalse(decision["full_quality_handoff_allowed"])
+            self.assertEqual(decision["handoff_mode"], "source_only_with_partial_coverage_warning")
+            self.assertEqual(decision["continuation_decisions"][0]["option_id"], "allow_partial_coverage")
+            self.assertIn("full_source_coverage", decision["forbidden_quality_claims"])
+
+    def test_high_risk_unreviewed_terms_force_review_required_handoff(self) -> None:
+        segments = [_segment("s1", "Delete account", high_risk=True)]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+
+            decision = build_generation_handoff_decision(state)
+
+            self.assertTrue(decision["handoff_allowed"])
+            self.assertFalse(decision["full_quality_handoff_allowed"])
+            self.assertEqual(decision["handoff_mode"], "review_required")
+            self.assertIn("high_risk_unreviewed_terms", {item["code"] for item in decision["warnings"]})
+            self.assertIn("full_terminology_assurance", decision["forbidden_quality_claims"])
+
+    def test_partial_coverage_without_allowance_downgrades_handoff(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy, context={"android_coverage": {"visible_ui_coverage_warning": True}})
+
+            decision = build_generation_handoff_decision(state, coverage_policy={"visible_ui_coverage_warning": True})
+
+            self.assertTrue(decision["handoff_allowed"])
+            self.assertFalse(decision["full_quality_handoff_allowed"])
+            self.assertEqual(decision["handoff_mode"], "source_only_with_partial_coverage_warning")
+            self.assertIn("partial_source_coverage_unaccepted", {item["code"] for item in decision["warnings"]})
+            self.assertIn("full_source_coverage", decision["forbidden_quality_claims"])
+
+    def test_partial_coverage_with_allowance_warns_without_full_coverage_claim(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            questions = build_resolution_gate(state, strategy, context={"android_coverage": {"visible_ui_coverage_warning": True}})
+            question_id = next(item["question_id"] for item in questions["questions"] if item["reason_code"] == "partial_source_coverage")
+            record_user_resolution_decision(state, {"question_id": question_id, "option_id": "allow_partial_coverage", "decided_by": "tester"})
+
+            decision = build_generation_handoff_decision(state, coverage_policy={"visible_ui_coverage_warning": True})
+
+            self.assertTrue(decision["handoff_allowed"])
+            self.assertEqual(decision["delivery_policy"], "warn")
+            self.assertIn("partial_source_coverage_allowed", {item["code"] for item in decision["warnings"]})
+            self.assertIn("full_source_coverage", decision["forbidden_quality_claims"])
+
+    def test_unsafe_provider_fallback_blocks_real_provider_handoff(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+
+            decision = build_generation_handoff_decision(
+                state,
+                provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe", "fallback_requested": True},
+            )
+            blocked = generate_handoff_with_http_provider({}, "http://127.0.0.1:9/generate", handoff_decision=decision)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("provider_fallback_requested", {item["code"] for item in decision["blockers"]})
+            self.assertEqual(blocked["status"], "fail")
+            self.assertEqual(blocked["items"][0]["category"], "generation_handoff_blocked")
+
+    def test_provider_controlled_handoff_requires_safe_provider_policy(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+
+            missing = build_generation_handoff_decision(
+                state,
+                provider_policy={"mode": "real_provider", "provider_controlled": True},
+            )
+
+            self.assertEqual(missing["status"], "blocked")
+            self.assertIn("provider_policy_missing", {item["code"] for item in missing["blockers"]})
+
+    def test_unsafe_provider_fallback_cannot_be_overridden_by_ordinary_decision(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+            write_jsonl(
+                state / "user-resolution-decisions.jsonl",
+                [
+                    {
+                        "decision_id": "bad-provider-override",
+                        "question_id": "bq-provider",
+                        "option_id": "continue_only_draft_review",
+                        "status": "accepted",
+                        "reason_code": "provider_fallback_requested",
+                    }
+                ],
+            )
+
+            decision = build_generation_handoff_decision(state, provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe"})
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("non_overridable_safety_override", {item["code"] for item in decision["blockers"]})
+
+    def test_synthetic_fallback_is_allowed_only_in_explicit_synthetic_test_mode(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+
+            real_provider = build_generation_handoff_decision(
+                state,
+                provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe", "fallback_requested": True},
+            )
+            synthetic = build_generation_handoff_decision(
+                state,
+                requested_mode="synthetic_test",
+                provider_policy={"mode": "synthetic_test", "fallback_requested": True},
+            )
+
+            self.assertEqual(real_provider["status"], "blocked")
+            self.assertTrue(synthetic["handoff_allowed"])
+            self.assertEqual(synthetic["handoff_mode"], "synthetic_test")
+            self.assertFalse(synthetic["provider_backed_generation_allowed"])
+            self.assertIn("provider_backed_quality", synthetic["forbidden_quality_claims"])
+
+    def test_downgraded_handoff_appears_in_run_summary_and_delivery_package(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            locales = project / "locales"
+            locales.mkdir(parents=True)
+            (locales / "en-US.json").write_text(json.dumps({"delete": "Delete account"}), encoding="utf-8")
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                source_files=["locales/en-US.json"],
+                output_root=root / "out",
+                run_id="handoff-decision-delivery-001",
+                max_segments=10,
+                synthetic_draft=True,
+            )
+
+            self.assertIn("generation_handoff_decision", result["artifacts"])
+            self.assertIn("full_quality_generation", result["generation"]["handoff_decision"]["forbidden_quality_claims"])
+            delivery = Path(result["artifacts"]["delivery_directory"])
+            manifest = read_json(delivery / "delivery-manifest.json")
+            self.assertEqual(manifest["assets"]["generation_handoff_decision"], "generation-handoff-decision.json")
+            self.assertIn("full_quality_generation", manifest["generation"]["handoff_decision"]["forbidden_quality_claims"])
+
+    def test_workbench_api_exposes_artifact_backed_handoff_readiness(self) -> None:
+        segments = [_segment("s1", "Delete account", high_risk=True)]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+            build_generation_handoff_decision(state)
+            self.assertEqual(read_generation_handoff_decision(state)["handoff_mode"], "review_required")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/generation-handoff-status?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                payload = json.loads(body)
+                self.assertEqual(payload["generation_handoff_status"]["handoff_mode"], "review_required")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_generation_handoff_status_writes_artifact(self) -> None:
+        segments = [_segment("s1", "Start game")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / ".localize-anything"
+            strategy = _write_strategy_for_segments(state, segments)
+            build_resolution_gate(state, strategy)
+            output = root / "handoff-decision.json"
+
+            exit_code = cli_main(
+                [
+                    "generation-handoff-status",
+                    state.as_posix(),
+                    "--provider-mode",
+                    "real_provider",
+                    "--provider-policy",
+                    "missing",
+                    "--output",
+                    output.as_posix(),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(read_json(output)["status"], "blocked")
+            self.assertTrue((state / "generation-handoff-decision.json").is_file())
+
+
 def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) -> dict[str, Any]:
     run_termbase_preflight(state, segments, source_locale="en-US", target_locale="zh-CN")
     plan = create_batch_plan(segments, "en-US", ["zh-CN"], 10)
@@ -4392,7 +4671,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 29)
+        self.assertEqual(result["schemas_checked"], 30)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

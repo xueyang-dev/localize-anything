@@ -33,6 +33,7 @@ from .generation import (
     validate_generated_segments,
     write_handoff_prompts,
 )
+from .generation_handoff_policy import build_generation_handoff_decision
 from .generation_strategy import build_generation_strategy, write_generation_strategy
 from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import rebuild as rebuild_po
@@ -443,6 +444,26 @@ def build_parser() -> argparse.ArgumentParser:
     resolve_question_parser.add_argument("--decided-by", default="cli-user")
     resolve_question_parser.add_argument("--output", type=Path)
 
+    handoff_status_parser = subparsers.add_parser(
+        "generation-handoff-status",
+        help="Create or refresh the deterministic Generation Handoff Enforcement decision artifact",
+    )
+    handoff_status_parser.add_argument("state_dir", type=Path)
+    handoff_status_parser.add_argument(
+        "--requested-mode",
+        choices=["full_quality", "draft_only", "review_required", "allowed_with_warnings", "source_only_with_partial_coverage_warning", "synthetic_test"],
+        default="full_quality",
+    )
+    handoff_status_parser.add_argument(
+        "--provider-mode",
+        choices=["host_agent", "real_provider", "synthetic_test"],
+        default="host_agent",
+    )
+    handoff_status_parser.add_argument("--provider-policy", choices=["missing", "safe", "unsafe", "fallback_requested"], default="missing")
+    handoff_status_parser.add_argument("--coverage-warning", action="store_true")
+    handoff_status_parser.add_argument("--run-id")
+    handoff_status_parser.add_argument("--output", type=Path)
+
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
     draft_request_parser.add_argument("--output", type=Path)
@@ -504,6 +525,7 @@ def build_parser() -> argparse.ArgumentParser:
     provider_generate_parser.add_argument("handoff", type=Path)
     provider_generate_parser.add_argument("--provider-url", required=True)
     provider_generate_parser.add_argument("--api-key-env")
+    provider_generate_parser.add_argument("--state-dir", type=Path)
     provider_generate_parser.add_argument("--generated-output", type=Path)
     provider_generate_parser.add_argument("--timeout-seconds", type=int, default=60)
     provider_generate_parser.add_argument("--output", type=Path)
@@ -1053,6 +1075,28 @@ def main(argv: list[str] | None = None) -> int:
                 "decided_by": args.decided_by,
             }
             return _emit_json(record_user_resolution_decision(args.state_dir, decision), args.output)
+        if args.command == "generation-handoff-status":
+            provider_policy: dict[str, Any] = {
+                "mode": args.provider_mode,
+                "provider_controlled": args.provider_mode == "real_provider",
+            }
+            if args.provider_policy == "safe":
+                provider_policy["status"] = "safe"
+            elif args.provider_policy == "unsafe":
+                provider_policy["status"] = "unsafe"
+            elif args.provider_policy == "fallback_requested":
+                provider_policy["status"] = "unsafe"
+                provider_policy["fallback_requested"] = True
+            if args.provider_mode == "synthetic_test":
+                provider_policy["status"] = "safe"
+            result = build_generation_handoff_decision(
+                args.state_dir,
+                requested_mode=args.requested_mode,
+                provider_policy=provider_policy,
+                coverage_policy={"visible_ui_coverage_warning": bool(args.coverage_warning)},
+                run_id=args.run_id,
+            )
+            return _emit_json(result, args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":
@@ -1103,12 +1147,19 @@ def main(argv: list[str] | None = None) -> int:
                 if not api_key:
                     raise ValueError(f"Environment variable is not set: {args.api_key_env}")
                 headers["Authorization"] = f"Bearer {api_key}"
+            handoff_decision = None
+            if args.state_dir:
+                handoff_decision = build_generation_handoff_decision(
+                    args.state_dir,
+                    provider_policy={"mode": "real_provider", "provider_controlled": True, "status": "safe"},
+                )
             result = generate_handoff_with_http_provider(
                 read_json(args.handoff),
                 args.provider_url,
                 args.generated_output,
                 headers,
                 args.timeout_seconds,
+                handoff_decision,
             )
             _emit_json(result, args.output)
             return 0 if result["status"] in {"pass", "pass_with_warnings"} else 1

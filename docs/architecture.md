@@ -38,6 +38,7 @@ Intake
  -> Batch Plan
  -> Generation Strategy Gate
  -> Resolution Gate
+ -> Generation Handoff Enforcement
  -> Working Context Packet
  -> Localization
  -> Deterministic QA
@@ -81,6 +82,7 @@ blocking-questions.json
 resolution-options.json
 user-resolution-decisions.jsonl
 resolution-summary.md
+generation-handoff-decision.json
 delivery-manifest.json
 ```
 
@@ -188,6 +190,46 @@ explicit provider-backed generation blocker until provider policy is safe.
 The current Workbench/API surface is artifact-backed only: clients can read
 blocking questions and resolution options and post user decisions. A full visual
 review panel belongs to a later UI loop.
+
+## Generation Handoff Enforcement
+
+Generation Handoff Enforcement runs after Generation Strategy Gate and
+Resolution Gate and before work packets are treated as executable generation
+handoff. It writes `generation-handoff-decision.json`, a deterministic artifact
+that answers two separate questions:
+
+- whether any full-quality generation handoff is allowed;
+- whether a downgraded handoff may proceed, and under which apply/delivery
+  policy.
+
+The gate reads `generation-strategy.json`, `blocking-questions.json`,
+`resolution-options.json`, `user-resolution-decisions.jsonl`, termbase preflight
+status, terminology assurance, provider policy, and coverage policy. It blocks
+full-quality handoff when strategy is blocked, `allow_generation` is false,
+blocking questions or term conflicts remain unresolved, unsafe provider fallback
+is requested in real provider mode, provider policy is missing or unsafe for
+provider-controlled generation, high-risk terms still need confirmation,
+partial coverage lacks explicit allowance, required brief information is
+missing, or a resolution decision tries to override a non-overridable safety
+blocker.
+
+Downgraded modes are explicit: `draft_only`, `review_required`,
+`allowed_with_warnings`, and `source_only_with_partial_coverage_warning`. A
+downgraded handoff records why it is downgraded, which questions remain
+unresolved, which user decisions allowed continuation, which quality claims are
+forbidden, and whether delivery/apply should be blocked, warned, or allowed.
+
+Provider fallback is fail-closed. Synthetic fallback is allowed only for
+explicit synthetic/test output and cannot be silently presented as
+provider-backed quality. Unsafe provider fallback and unsafe provider policy are
+non-overridable through ordinary resolution decisions.
+
+Run summaries and delivery packages consume the same artifact so they cannot
+claim full terminology assurance, full source coverage, provider-backed quality
+after provider failure, review-complete status with unresolved high-risk terms,
+or safe apply readiness when generation readiness is blocked or review-required.
+Workbench exposes the artifact through a minimal API endpoint; full visual UI
+comes later because policy enforcement must exist before presentation.
 
 ## Localization Brief
 

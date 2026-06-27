@@ -33,6 +33,10 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   review-required strategy states: `blocking-questions.json`,
   `resolution-options.json`, `user-resolution-decisions.jsonl`, and optional
   `resolution-summary.md`.
+- Generation handoff enforcement records the executable handoff policy in
+  `generation-handoff-decision.json`. It consumes Generation Strategy,
+  Resolution Gate, termbase preflight, provider policy, terminology assurance,
+  and coverage state before handoff or provider execution can claim full quality.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -55,6 +59,10 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 - Work packets may include `memory.resolution_gate`. If unresolved blocking
   questions remain, draft requests must not claim full-quality or full-assurance
   output.
+- Work packets may include `memory.generation_handoff`. This is a compact
+  summary of `generation-handoff-decision.json`, including handoff mode, whether
+  full-quality handoff is allowed, apply/delivery policy, and forbidden quality
+  claims.
 - Draft requests turn a work packet into provider-agnostic host-agent
   instructions and a JSONL segment output contract for translation generation.
 - Draft prompts render those requests as paste-ready Markdown for manual
@@ -80,8 +88,8 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 ## Lifecycle
 
 ```text
-inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> retrieve -> draft-request -> draft-prompt
-        -> generation-handoff -> localize -> import-generated-response(s)
+inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> generation-handoff-enforcement
+        -> retrieve -> draft-request -> draft-prompt -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
         -> stage-generated -> validate-output -> package
         -> delivery-decision -> review-import -> sign-off -> apply
@@ -160,6 +168,35 @@ delegate to the Termbase Preflight decision path so Term Governance remains the
 source of approved/locked terminology. Coverage decisions can update generation
 strategy state without claiming full source or visible UI coverage. Unresolved
 blocking questions prevent full-quality generation handoff.
+
+## Generation Handoff Enforcement
+
+`generation-handoff-status` writes `generation-handoff-decision.json` after the
+Resolution Gate and before generation handoff execution. The decision is
+machine-readable and artifact-backed; Workbench clients may read it, but UI
+logic must not be the place where safety policy is enforced.
+
+The enforcement decision blocks full-quality handoff when strategy is blocked,
+`allow_generation` is false, blocking questions remain unresolved, terminology
+conflicts remain, required brief confirmation is missing, high-risk terms still
+need review, partial coverage is unaccepted, or provider policy is unsafe for
+provider-controlled generation. Unsafe provider fallback in real provider mode
+is non-overridable: ordinary user resolution decisions cannot permit silent
+synthetic fallback as provider-backed output.
+
+If handoff proceeds in a downgraded mode, the decision must record the downgrade
+reason, unresolved questions, continuation decisions, forbidden quality claims,
+and whether apply or delivery should be blocked, warned, or allowed. Downgraded
+modes include `draft_only`, `review_required`, `allowed_with_warnings`, and
+`source_only_with_partial_coverage_warning`. Run summaries and delivery packages
+must not claim full terminology assurance, full source coverage, provider-backed
+quality after provider failure, review-complete status while high-risk questions
+remain, or safe apply readiness while generation readiness is blocked or
+review-required.
+
+Unresolved blockers must remain visible in protocol artifacts rather than being
+hidden inside prompts. Prompts can repeat the enforcement state, but they are not
+the source of policy truth.
 
 ## Localization Modes
 

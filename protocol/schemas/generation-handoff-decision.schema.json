@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/generation-handoff-decision.schema.json",
+  "title": "Localize Anything Generation Handoff Decision",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "requested_mode",
+    "status",
+    "handoff_mode",
+    "full_quality_handoff_allowed",
+    "handoff_allowed",
+    "provider_backed_generation_allowed",
+    "apply_policy",
+    "delivery_policy",
+    "blockers",
+    "warnings",
+    "unresolved_questions",
+    "continuation_decisions",
+    "forbidden_quality_claims",
+    "source_artifacts",
+    "limitations"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-generation-handoff-decision-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "requested_mode": {
+      "enum": ["full_quality", "draft_only", "review_required", "allowed_with_warnings", "source_only_with_partial_coverage_warning", "synthetic_test"]
+    },
+    "status": {
+      "enum": ["ready", "blocked", "draft_only", "review_required", "allowed_with_warnings", "source_only_with_partial_coverage_warning", "synthetic_test"]
+    },
+    "handoff_mode": {
+      "enum": ["full_quality", "blocked", "draft_only", "review_required", "allowed_with_warnings", "source_only_with_partial_coverage_warning", "synthetic_test"]
+    },
+    "full_quality_handoff_allowed": { "type": "boolean" },
+    "handoff_allowed": { "type": "boolean" },
+    "provider_backed_generation_allowed": { "type": "boolean" },
+    "apply_policy": { "enum": ["blocked", "warn", "allowed"] },
+    "delivery_policy": { "enum": ["blocked", "warn", "allowed"] },
+    "blockers": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "warnings": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "unresolved_questions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "continuation_decisions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "forbidden_quality_claims": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "source_artifacts": {
+      "type": "object",
+      "properties": {
+        "generation_strategy": { "const": "generation-strategy.json" },
+        "blocking_questions": { "const": "blocking-questions.json" },
+        "resolution_options": { "const": "resolution-options.json" },
+        "user_resolution_decisions": { "const": "user-resolution-decisions.jsonl" },
+        "termbase_preflight_report": { "const": "termbase-preflight-report.json" },
+        "term_review_queue": { "const": "term-review-queue.json" },
+        "localization_brief": { "const": "localization-brief.json" }
+      },
+      "additionalProperties": true
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

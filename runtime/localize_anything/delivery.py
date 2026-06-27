@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION, __version__
+from .generation_handoff_policy import GENERATION_HANDOFF_DECISION_JSON, generation_handoff_decision_asset_paths
 from .generation_strategy import GENERATION_STRATEGY_JSON, generation_strategy_asset_paths
 from .io_utils import read_json, sha256_file, write_json
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
@@ -39,6 +40,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     TERM_REVIEW_QUEUE_JSON,
     TERM_REVIEW_DECISIONS_JSONL,
     GENERATION_STRATEGY_JSON,
+    GENERATION_HANDOFF_DECISION_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -145,6 +147,7 @@ def package_delivery(
                 **term_governance_asset_paths(state_dir),
                 **termbase_preflight_asset_paths(state_dir),
                 **generation_strategy_asset_paths(state_dir),
+                **generation_handoff_decision_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },
