@@ -1,34 +1,60 @@
 {
   "protocol_version": "0.1",
   "schema": "localize-anything-repair-result-v1",
-  "run_id": "repair-plan-example-001",
-  "status": "pending",
+  "run_id": "repair-execution-example-001",
+  "status": "ready",
   "segment_regeneration_plan_path": "segment-regeneration-plan.json",
   "repair_request_path": "repair-request.json",
+  "generated_segments_path": "generated-segments.jsonl",
   "summary": {
     "result_count": 1,
-    "completed_count": 0,
-    "pending_provider_or_model_repair_count": 1,
+    "completed_count": 1,
+    "pending_provider_or_model_repair_count": 0,
     "pending_human_confirmation_count": 0,
-    "pending_review_count": 0
+    "pending_review_count": 0,
+    "applied_count": 1,
+    "pending_provider_count": 0,
+    "pending_human_count": 0,
+    "blocked_count": 0,
+    "skipped_not_deterministic_count": 0,
+    "failed_qa_count": 0,
+    "not_applicable_count": 0,
+    "deterministic_qa_required_count": 1,
+    "pending_required_repair_count": 0,
+    "pending_repair_count": 0
   },
   "results": [
     {
       "repair_id": "repair-1111111111111111",
-      "segment_id": "android:app/src/main/res/values/strings.xml#delete-account",
-      "repair_type": "term_patch",
-      "repair_reason": "term_policy_changed_for_matching_segment",
-      "repair_status": "pending_provider_or_model_repair",
-      "actor_type": "pending_provider_or_model",
+      "segment_id": "android:app/src/main/res/values/strings.xml#brand-name",
+      "repair_type": "escape_patch",
+      "repair_reason": "android_xml_escape_invalid",
+      "repair_status": "applied",
+      "actor_type": "runtime_deterministic",
       "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "previous_target_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "new_target_hash": null,
-      "new_target": null,
-      "deterministic_qa_required": false
+      "old_target_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "old_target_source": "generated_segments",
+      "new_target_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "new_target": "Tom &amp; Jerry",
+      "deterministic_qa_required": true,
+      "deterministic_rule_used": "xml_ampersand_escape",
+      "no_patch_reason": null,
+      "target_artifact_updated": true,
+      "target_artifact": "generated-segments.jsonl",
+      "qa_result": {
+        "status": "pass",
+        "checks": [
+          {
+            "bare_ampersand": false
+          }
+        ]
+      }
     }
   ],
   "limitations": [
-    "deterministic planning does not call an LLM",
-    "provider/model repairs remain pending instead of fabricating target text"
+    "deterministic repair execution does not call a provider or LLM",
+    "semantic rewrites and provider/model repairs remain pending",
+    "target text is never fabricated when old target text is unavailable"
   ]
 }

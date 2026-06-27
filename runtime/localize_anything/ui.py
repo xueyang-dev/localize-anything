@@ -20,7 +20,13 @@ from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
-from .segment_repair import read_repair_history, read_repair_request, read_segment_regeneration_plan
+from .segment_repair import (
+    apply_repair_plan,
+    read_repair_history,
+    read_repair_request,
+    read_repair_result,
+    read_segment_regeneration_plan,
+)
 from .segment_staleness import read_reuse_decision, read_stale_segments
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
 
@@ -130,6 +136,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/repair-request":
                     self._handle_repair_request_query(parsed.query)
                     return
+                if parsed.path == "/api/repair-result":
+                    self._handle_repair_result_query(parsed.query)
+                    return
                 if parsed.path == "/api/repair-history":
                     self._handle_repair_history_query(parsed.query)
                     return
@@ -167,6 +176,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/user-resolution-decision":
                     self._handle_user_resolution_decision(payload)
+                    return
+                if parsed.path == "/api/apply-repair-plan":
+                    self._handle_apply_repair_plan(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -339,11 +351,32 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 raise ValueError(f"Repair request is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "repair_request": read_repair_request(state_dir)})
 
+        def _handle_repair_result_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Repair result is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "repair_result": read_repair_result(state_dir)})
+
         def _handle_repair_history_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Repair history is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "repair_history": read_repair_history(state_dir)})
+
+        def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Repair plan is outside allowed workbench roots: {state_dir}")
+            generated_segments = _optional_path(payload, "generated_segments")
+            if generated_segments is not None and not state.is_allowed(generated_segments):
+                raise ValueError(f"Generated segments are outside allowed workbench roots: {generated_segments}")
+            result = apply_repair_plan(
+                state_dir,
+                generated_segments_path=generated_segments,
+                run_id=_optional_string(payload.get("run_id")),
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "repair_result": result})
 
         def _handle_user_resolution_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
