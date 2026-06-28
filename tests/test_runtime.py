@@ -87,6 +87,7 @@ from runtime.localize_anything.run import run_localize
 from runtime.localize_anything.schema_validation import validate_document, validate_protocol_tree
 from runtime.localize_anything.segments import diff_segments
 from runtime.localize_anything.segment_repair import (
+    apply_repair_plan,
     build_segment_regeneration_plan,
     read_repair_history,
     read_repair_request,
@@ -5183,6 +5184,8 @@ class TargetedRepairRegenerationPlanTests(unittest.TestCase):
 
             self.assertIn("segment_regeneration_plan", result["artifacts"])
             self.assertIn("repair_request", result["artifacts"])
+            self.assertIn("repair_result", result["artifacts"])
+            self.assertIn("repair_history", result["artifacts"])
             self.assertEqual(result["summary"]["pending_segment_repairs"], 0)
             self.assertEqual(result["summary"]["segments_targeted_repair"], 0)
 
@@ -5218,17 +5221,394 @@ class TargetedRepairRegenerationPlanTests(unittest.TestCase):
             try:
                 plan_status, plan_body = _http_get(host, port, f"/api/segment-regeneration-plan?state_dir={state.as_posix()}")
                 request_status, request_body = _http_get(host, port, f"/api/repair-request?state_dir={state.as_posix()}")
+                result_status, result_body = _http_get(host, port, f"/api/repair-result?state_dir={state.as_posix()}")
                 history_status, history_body = _http_get(host, port, f"/api/repair-history?state_dir={state.as_posix()}")
                 self.assertEqual(plan_status, 200)
                 self.assertEqual(request_status, 200)
+                self.assertEqual(result_status, 200)
                 self.assertEqual(history_status, 200)
                 self.assertEqual(json.loads(plan_body)["segment_regeneration_plan"]["segments"][0]["action"], "targeted_repair")
                 self.assertEqual(json.loads(request_body)["repair_request"]["summary"]["request_count"], 1)
+                self.assertEqual(json.loads(result_body)["repair_result"]["summary"]["result_count"], 1)
                 self.assertEqual(json.loads(history_body)["repair_history"][0]["segment_id"], "s1")
             finally:
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=2)
+
+
+class PatchBasedRepairExecutionTests(unittest.TestCase):
+    def test_placeholder_patch_applies_only_when_mechanically_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            generated = [_generated_segment(_segment("s1", "Delete %s files"), "Delete % S files")]
+            _write_repair_execution_state(
+                state,
+                [
+                    _manual_repair_request(
+                        "s1",
+                        "placeholder_patch",
+                        old_target="Delete % S files",
+                        required_constraints={"placeholders": ["%s"]},
+                        deterministic_qa_required=True,
+                    )
+                ],
+                generated,
+            )
+
+            result = apply_repair_plan(state, generated_segments_path=state / "generated-segments.jsonl")
+
+            self.assertEqual(result["results"][0]["repair_status"], "applied")
+            self.assertEqual(result["results"][0]["new_target"], "Delete %s files")
+            self.assertEqual(read_jsonl(state / "generated-segments.jsonl")[0]["target"], "Delete %s files")
+
+    def test_markup_patch_applies_only_when_structurally_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(
+                state,
+                [_manual_repair_request("s1", "markup_patch", old_target="Save", required_constraints={"markup": ["b"]})],
+            )
+
+            result = apply_repair_plan(state)
+
+            self.assertEqual(result["results"][0]["repair_status"], "applied")
+            self.assertEqual(result["results"][0]["new_target"], "<b>Save</b>")
+
+    def test_escape_patch_fixes_format_escaping_and_reruns_qa(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(state, [_manual_repair_request("s1", "escape_patch", old_target="Tom & Jerry")])
+
+            result = apply_repair_plan(state)
+
+            repair = result["results"][0]
+            self.assertEqual(repair["repair_status"], "applied")
+            self.assertEqual(repair["new_target"], "Tom &amp; Jerry")
+            self.assertEqual(repair["qa_result"]["status"], "pass")
+
+    def test_term_patch_applies_only_for_locked_unambiguous_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_term_registry(
+                state,
+                [
+                    {
+                        "source_term": "Weight",
+                        "target_term": "体重",
+                        "type": "domain_term",
+                        "status": "locked",
+                        "target_locale": "zh-CN",
+                        "forbidden_targets": "重量",
+                    }
+                ],
+            )
+            _write_repair_execution_state(
+                state,
+                [
+                    _manual_repair_request(
+                        "s1",
+                        "term_patch",
+                        old_target="重量限制",
+                        required_constraints={"matched_terms": ["Weight"]},
+                    )
+                ],
+            )
+
+            result = apply_repair_plan(state)
+
+            self.assertEqual(result["results"][0]["repair_status"], "applied")
+            self.assertEqual(result["results"][0]["new_target"], "体重限制")
+            self.assertEqual(result["results"][0]["deterministic_rule_used"], "locked_term_exact_replacement")
+
+    def test_term_patch_refuses_ambiguous_or_missing_old_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "missing" / ".localize-anything"
+            _write_term_registry(
+                state,
+                [{"source_term": "Weight", "target_term": "体重", "status": "approved", "forbidden_targets": "重量"}],
+            )
+            _write_repair_execution_state(
+                state,
+                [_manual_repair_request("s1", "term_patch", required_constraints={"matched_terms": ["Weight"]})],
+            )
+
+            missing = apply_repair_plan(state)
+
+            ambiguous_state = Path(directory) / "ambiguous" / ".localize-anything"
+            _write_term_registry(
+                ambiguous_state,
+                [
+                    {"source_term": "Weight", "target_term": "体重", "status": "approved", "forbidden_targets": "重量"},
+                    {"source_term": "Weight", "target_term": "砝码", "status": "approved", "forbidden_targets": "重量"},
+                ],
+            )
+            _write_repair_execution_state(
+                ambiguous_state,
+                [
+                    _manual_repair_request(
+                        "s1",
+                        "term_patch",
+                        old_target="重量限制",
+                        required_constraints={"matched_terms": ["Weight"]},
+                    )
+                ],
+            )
+            ambiguous = apply_repair_plan(ambiguous_state)
+
+            self.assertEqual(missing["results"][0]["repair_status"], "pending_provider")
+            self.assertEqual(missing["results"][0]["no_patch_reason"], "missing_old_target_text")
+            self.assertEqual(ambiguous["results"][0]["repair_status"], "blocked")
+
+    def test_risk_wording_patch_remains_pending_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(state, [_manual_repair_request("s1", "risk_wording_patch", old_target="Delete account")])
+
+            result = apply_repair_plan(state)
+
+            self.assertEqual(result["results"][0]["repair_status"], "pending_provider")
+
+    def test_regenerate_segment_remains_pending_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(state, [_manual_repair_request("s1", "regenerate_segment", old_target="Start game")])
+
+            result = apply_repair_plan(state)
+
+            self.assertEqual(result["results"][0]["repair_status"], "pending_provider")
+
+    def test_high_risk_repair_without_human_confirmation_is_pending_human(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(
+                state,
+                [
+                    _manual_repair_request(
+                        "s1",
+                        "escape_patch",
+                        old_target="Delete account",
+                        risk_level="high",
+                    )
+                ],
+            )
+
+            result = apply_repair_plan(state)
+
+            self.assertEqual(result["results"][0]["repair_status"], "pending_human")
+
+    def test_stale_old_target_mismatch_blocks_generated_artifact_update(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            generated = [_generated_segment(_segment("s1", "Brand"), "Tom and Jerry")]
+            _write_repair_execution_state(
+                state,
+                [_manual_repair_request("s1", "escape_patch", old_target="Tom & Jerry")],
+                generated,
+            )
+
+            result = apply_repair_plan(state, generated_segments_path=state / "generated-segments.jsonl")
+
+            self.assertEqual(result["results"][0]["repair_status"], "blocked")
+            self.assertEqual(result["results"][0]["no_patch_reason"], "generated_target_does_not_match_repair_request_old_target")
+            self.assertEqual(read_jsonl(state / "generated-segments.jsonl")[0]["target"], "Tom and Jerry")
+
+    def test_failed_deterministic_qa_blocks_delivery_apply_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(
+                state,
+                [
+                    _manual_repair_request(
+                        "s1",
+                        "placeholder_patch",
+                        old_target="Delete % S files",
+                        required_constraints={"placeholders": ["%s", "%d"]},
+                        deterministic_qa_required=True,
+                    )
+                ],
+            )
+
+            result = apply_repair_plan(state)
+            artifact_state = build_artifact_state(state)
+
+            self.assertEqual(result["results"][0]["repair_status"], "failed_qa")
+            self.assertEqual(artifact_state["decisions"]["apply_policy"], "blocked")
+            self.assertEqual(artifact_state["summary"]["segment_repair_failed_qa_count"], 1)
+
+    def test_repair_history_records_applied_and_pending_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(
+                state,
+                [
+                    _manual_repair_request("s1", "escape_patch", old_target="Tom & Jerry"),
+                    _manual_repair_request("s2", "regenerate_segment", old_target="Start game"),
+                ],
+            )
+
+            apply_repair_plan(state)
+            history = read_repair_history(state)
+
+            self.assertEqual([item["repair_status"] for item in history], ["applied", "pending_provider"])
+            self.assertEqual(history[0]["deterministic_rule_used"], "xml_ampersand_escape")
+            self.assertEqual(history[1]["no_patch_reason"], "provider_or_model_repair_required")
+
+    def test_run_summary_surfaces_patch_repair_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _make_json_project(Path(directory))
+
+            result = run_localize(project, "en-US", ["zh-CN"], synthetic_draft=True, run_id="patch-repair-summary-001")
+
+            self.assertIn("segment_repairs_applied", result["summary"])
+            self.assertIn("segment_repairs_pending_provider", result["summary"])
+            self.assertIn("segment_repairs_failed_qa", result["summary"])
+            manifest = read_json(Path(result["artifacts"]["delivery_directory"]) / "delivery-manifest.json")
+            self.assertEqual(manifest["assets"]["repair_result"], "repair-result.json")
+            self.assertEqual(manifest["assets"]["repair_history"], "repair-history.jsonl")
+
+    def test_cli_repair_command_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            output = Path(directory) / "repair-result-output.json"
+            _write_repair_execution_state(state, [_manual_repair_request("s1", "escape_patch", old_target="Tom & Jerry")])
+
+            exit_code = cli_main(["apply-repair-plan", state.as_posix(), "--output", output.as_posix()])
+            read_exit = cli_main(["repair-result", state.as_posix(), "--output", (Path(directory) / "repair-read.json").as_posix()])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(read_exit, 0)
+            self.assertEqual(read_json(output)["results"][0]["new_target"], "Tom &amp; Jerry")
+
+    def test_workbench_api_repair_endpoint_does_not_call_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_repair_execution_state(state, [_manual_repair_request("s1", "escape_patch", old_target="Tom & Jerry")])
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError):
+                    post_status, post_payload = _http_post_json(
+                        host,
+                        port,
+                        "/api/apply-repair-plan",
+                        {"state_dir": state.as_posix()},
+                    )
+                get_status, get_body = _http_get(host, port, f"/api/repair-result?state_dir={state.as_posix()}")
+                self.assertEqual(post_status, 200)
+                self.assertEqual(get_status, 200)
+                self.assertEqual(post_payload["repair_result"]["results"][0]["repair_status"], "applied")
+                self.assertEqual(json.loads(get_body)["repair_result"]["summary"]["applied_count"], 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
+def _write_repair_execution_state(
+    state: Path,
+    requests: list[dict[str, Any]],
+    generated_segments: list[dict[str, Any]] | None = None,
+) -> None:
+    state.mkdir(parents=True, exist_ok=True)
+    write_json(
+        state / "segment-regeneration-plan.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-segment-regeneration-plan-v1",
+            "run_id": "patch-repair-test-001",
+            "status": "requires_repair" if requests else "ready",
+            "summary": {
+                "segment_count": len(requests),
+                "reuse_count": 0,
+                "regenerate_count": 0,
+                "re_review_count": 0,
+                "targeted_repair_count": len(requests),
+                "human_confirm_count": sum(bool(item.get("human_confirmation_required")) for item in requests),
+                "blocked_count": 0,
+                "deterministic_qa_required_count": sum(bool(item.get("deterministic_qa_required")) for item in requests),
+                "pending_repair_count": len(requests),
+                "generation_handoff_blocking_count": len(requests),
+                "delivery_apply_blocking_count": len(requests),
+            },
+            "decisions": {
+                "generation_handoff_policy": "blocked" if requests else "allowed",
+                "delivery_apply_policy": "blocked" if requests else "allowed",
+                "apply_policy": "blocked" if requests else "allowed",
+                "full_quality_generation_handoff_allowed": not requests,
+                "requires_deterministic_qa": any(bool(item.get("deterministic_qa_required")) for item in requests),
+                "review_required": any(bool(item.get("human_confirmation_required")) for item in requests),
+                "pending_required_repair_count": len(requests),
+            },
+            "segments": [
+                {
+                    "segment_id": item["segment_id"],
+                    "action": "targeted_repair",
+                    "repair_type": item["repair_type"],
+                    "repair_id": item["repair_id"],
+                    "human_confirmation_required": item.get("human_confirmation_required", False),
+                    "blocks_generation_handoff": True,
+                    "blocks_delivery_apply": True,
+                }
+                for item in requests
+            ],
+            "next_actions": ["Complete deterministic repair execution."],
+        },
+    )
+    write_json(
+        state / "repair-request.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-repair-request-v1",
+            "run_id": "patch-repair-test-001",
+            "status": "pending_repairs" if requests else "ready",
+            "segment_regeneration_plan_path": "segment-regeneration-plan.json",
+            "summary": {
+                "request_count": len(requests),
+                "human_confirmation_required_count": sum(bool(item.get("human_confirmation_required")) for item in requests),
+                "provider_or_model_required_count": sum(bool(item.get("provider_or_model_required")) for item in requests),
+            },
+            "requests": requests,
+        },
+    )
+    if generated_segments is not None:
+        write_jsonl(state / "generated-segments.jsonl", generated_segments)
+
+
+def _manual_repair_request(
+    segment_id: str,
+    repair_type: str,
+    *,
+    old_target: str | None = None,
+    required_constraints: dict[str, Any] | None = None,
+    risk_level: str = "low",
+    human_confirmation_required: bool = False,
+    deterministic_qa_required: bool = False,
+) -> dict[str, Any]:
+    request = {
+        "repair_id": f"repair-{segment_id}-{repair_type}",
+        "segment_id": segment_id,
+        "source_artifact_refs": {"segment_regeneration_plan": "localize-anything-segment-regeneration-plan-v1"},
+        "repair_type": repair_type,
+        "reason": f"test_{repair_type}",
+        "old_target": old_target,
+        "previous_target_hash": "b" * 64 if old_target is not None else None,
+        "source_hash": "a" * 64,
+        "required_constraints": required_constraints or {},
+        "risk_level": risk_level,
+        "human_confirmation_required": human_confirmation_required,
+        "deterministic_qa_required": deterministic_qa_required,
+        "provider_or_model_required": repair_type in {"risk_wording_patch", "style_patch", "coverage_patch", "regenerate_segment"},
+        "status": "pending_provider_or_model_repair"
+        if repair_type in {"risk_wording_patch", "style_patch", "coverage_patch", "regenerate_segment"}
+        else "pending_human_confirmation"
+        if human_confirmation_required
+        else "pending_review",
+        "plan_status": "requires_repair",
+    }
+    return request
 
 
 def _write_strategy_for_segments(state: Path, segments: list[dict[str, Any]]) -> dict[str, Any]:

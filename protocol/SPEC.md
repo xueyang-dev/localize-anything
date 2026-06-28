@@ -331,6 +331,46 @@ Workbench exposes `GET /api/segment-regeneration-plan`,
 `GET /api/repair-request`, and `GET /api/repair-history` as artifact-backed
 read paths. UI should render these artifacts rather than infer repair state.
 
+## Patch-Based Repair Execution
+
+`apply-repair-plan` consumes `segment-regeneration-plan.json`,
+`repair-request.json`, generated segment artifacts when supplied, term
+governance artifacts when present, and the existing generation/handoff/artifact
+state context. It updates `repair-result.json` and appends
+`repair-history.jsonl`.
+
+This seed is provider-free. It may apply only mechanically verifiable repairs:
+
+- `placeholder_patch` when the source placeholder signature is known and a
+  malformed target placeholder can be normalized without semantic rewriting;
+- `markup_patch` when one known tag pair is structurally recoverable;
+- `escape_patch` for mechanical XML/Android escaping fixes;
+- `term_patch` when the source term is approved or locked, the replacement is
+  unambiguous, and the target contains an exact rejected/forbidden/old term
+  match;
+- `review_only` when no target text change is required.
+
+All semantic or provider/model work remains pending: `risk_wording_patch`,
+`style_patch`, `coverage_patch`, `regenerate_segment`, missing old target text,
+ambiguous term replacements, high-risk repairs without human confirmation, and
+anything that would alter placeholder, markup, or resource-key signatures.
+
+Execution statuses are `applied`, `pending_provider`, `pending_human`,
+`blocked`, `skipped_not_deterministic`, `failed_qa`, and `not_applicable`.
+Applied repairs record old/new target hashes, the deterministic rule used, QA
+result, source artifact references, and whether a generated-segment artifact was
+updated. Failed QA does not claim repaired readiness.
+
+Generation handoff, delivery decisions, and apply planning continue to consume
+artifact-backed repair state. Pending, blocked, skipped, or failed repairs block
+or downgrade readiness; applied or not-applicable deterministic repairs may
+clear repair readiness after artifact state is recomputed. Delivery packages
+include repair result/history references so repair provenance remains visible.
+
+Workbench exposes `GET /api/repair-result` and
+`POST /api/apply-repair-plan`. The POST endpoint runs only deterministic repair
+rules and does not accept provider configuration or call provider/model code.
+
 ## Localization Modes
 
 `operating_mode` and `reference_policy` are first-class protocol fields on

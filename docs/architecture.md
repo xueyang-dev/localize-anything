@@ -45,6 +45,7 @@ Intake
  -> Deterministic QA
  -> Agent Linguistic Review
  -> Targeted Repair
+ -> Patch-Based Repair Execution
  -> Delivery Package
  -> Review Import
  -> Scoped Sign-off
@@ -339,6 +340,38 @@ a stable, reviewable plan first. Workbench exposes artifact-backed read
 endpoints for the plan, repair request, and repair history; the visual UI should
 display these artifacts rather than reimplementing planner rules in browser
 state.
+
+## Patch-Based Repair Execution
+
+Patch-Based Repair Execution is the deterministic execution layer after the
+segment regeneration plan. It reads `segment-regeneration-plan.json`,
+`repair-request.json`, generated segment artifacts when provided, term
+governance artifacts, generation strategy/handoff context, and artifact state.
+It updates `repair-result.json` and appends `repair-history.jsonl`.
+
+The seed intentionally supports only narrow, mechanically verifiable patches:
+placeholder normalization, recoverable markup tag restoration, XML/Android
+escape fixes, locked/approved term replacements with exact old-term matches,
+and review-only decisions. Every applied repair records old/new target hashes,
+the deterministic rule used, QA result, source artifact references, and whether
+the generated segment artifact was updated.
+
+Anything requiring semantic judgment remains pending. That includes risk
+wording, style changes, coverage repair, segment regeneration, missing old
+target text, ambiguous term replacement, provider/model repair, and high-risk
+segments without human confirmation. The execution layer must not invent target
+text; if the old target is not available, it records why no patch was applied.
+
+Deterministic QA runs after each applied patch. Failed QA is recorded as
+`failed_qa` and continues to block or downgrade handoff, delivery, and apply
+readiness. Pending, blocked, skipped, or failed repairs remain visible in
+artifact-state, run summary, delivery decision reports, and delivery packages.
+
+Workbench exposes artifact-backed `GET /api/repair-result` and a minimal
+`POST /api/apply-repair-plan`. The POST endpoint executes only deterministic
+rules and does not call providers. A richer visual UI should come after this
+enforcement layer so the UI displays runtime decisions instead of duplicating
+repair policy.
 
 ## Localization Brief
 

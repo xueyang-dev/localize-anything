@@ -43,6 +43,11 @@
   `segment-regeneration-plan.json`, `repair-request.json`,
   `repair-result.json`, `repair-history.jsonl`, CLI/API read paths, and
   handoff/delivery/apply enforcement for pending segment repairs.
+- Add Patch-Based Repair Execution seed with provider-free deterministic
+  `apply-repair-plan`, `GET /api/repair-result`,
+  `POST /api/apply-repair-plan`, repair execution statuses, QA/provenance
+  history, and run/delivery summaries for applied, pending, blocked, and failed
+  repairs.
 
 ## v0.4.1 - Workbench UI Wiring
 

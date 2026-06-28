@@ -63,9 +63,11 @@ from .run import run_localize
 from .schema_validation import validate_protocol_tree
 from .segments import diff_segments
 from .segment_repair import (
+    apply_repair_plan,
     build_segment_regeneration_plan,
     read_repair_history,
     read_repair_request,
+    read_repair_result,
     read_segment_regeneration_plan,
 )
 from .segment_staleness import build_reuse_decision, read_reuse_decision, read_stale_segments
@@ -508,6 +510,16 @@ def build_parser() -> argparse.ArgumentParser:
     repair_request_parser = subparsers.add_parser("repair-request", help="Read repair-request.json as deterministic JSON")
     repair_request_parser.add_argument("state_dir", type=Path)
     repair_request_parser.add_argument("--output", type=Path)
+
+    apply_repair_parser = subparsers.add_parser("apply-repair-plan", help="Apply deterministic provider-free repair patches")
+    apply_repair_parser.add_argument("state_dir", type=Path)
+    apply_repair_parser.add_argument("--generated-segments", type=Path)
+    apply_repair_parser.add_argument("--run-id")
+    apply_repair_parser.add_argument("--output", type=Path)
+
+    repair_result_parser = subparsers.add_parser("repair-result", help="Read repair-result.json as deterministic JSON")
+    repair_result_parser.add_argument("state_dir", type=Path)
+    repair_result_parser.add_argument("--output", type=Path)
 
     repair_history_parser = subparsers.add_parser("repair-history", help="Read repair-history.jsonl as deterministic JSON")
     repair_history_parser.add_argument("state_dir", type=Path)
@@ -1187,6 +1199,21 @@ def main(argv: list[str] | None = None) -> int:
                 "state_dir": args.state_dir.as_posix(),
                 "segment_regeneration_plan": read_segment_regeneration_plan(args.state_dir),
                 "repair_request": read_repair_request(args.state_dir),
+            }
+            return _emit_json(result, args.output)
+        if args.command == "apply-repair-plan":
+            result = apply_repair_plan(
+                args.state_dir,
+                generated_segments_path=args.generated_segments,
+                run_id=args.run_id,
+            )
+            return _emit_json(result, args.output)
+        if args.command == "repair-result":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-repair-result-read-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "repair_result": read_repair_result(args.state_dir),
             }
             return _emit_json(result, args.output)
         if args.command == "repair-history":
