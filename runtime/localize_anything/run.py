@@ -18,6 +18,11 @@ from .apply import create_apply_plan, render_apply_plan_markdown
 from .dashboard import build_delivery_dashboard, render_dashboard_markdown
 from .delivery import package_delivery
 from .delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
+from .evaluation import (
+    EVALUATION_SCORECARD_JSON,
+    EVIDENCE_LEVEL_REPORT_MD,
+    build_evaluation_scorecard,
+)
 from .generation import (
     collect_generated_handoff,
     create_draft_request,
@@ -32,7 +37,7 @@ from .generation_handoff_policy import (
 from .generation_strategy import build_generation_strategy, write_generation_strategy
 from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import validate_pair as validate_po_pair
-from .io_utils import read_json, read_jsonl, write_json, write_jsonl
+from .io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -431,6 +436,14 @@ def run_localize(
     write_json(staging_path, staging_result)
     qa_paths = _validate_staged_outputs(project_root, staging_result, target_locale, run_dir / "qa")
     build_artifact_state(state_dir, run_dir=run_dir, run_id=run_id)
+    build_evaluation_scorecard(
+        state_dir,
+        run_dir=run_dir,
+        run_id=run_id,
+        generation_metadata=generation_metadata,
+        coverage_diagnostics=inspection.get("android_coverage", {}),
+        qa_result_paths=qa_paths,
+    )
     packaged = package_delivery(
         state_dir,
         staging_dir,
@@ -462,6 +475,16 @@ def run_localize(
         newline="\n",
     )
     artifact_state = build_artifact_state(state_dir, run_dir=run_dir, delivery_dir=delivery_dir, run_id=run_id)
+    evaluation_scorecard = build_evaluation_scorecard(
+        state_dir,
+        run_dir=run_dir,
+        delivery_dir=delivery_dir,
+        run_id=run_id,
+        generation_metadata=generation_metadata,
+        coverage_diagnostics=inspection.get("android_coverage", {}),
+        qa_result_paths=qa_paths,
+    )
+    _sync_evaluation_assets_to_delivery(state_dir, delivery_dir)
 
     summary = _summary(
         run_id,
@@ -510,10 +533,42 @@ def run_localize(
         blocking_count=dashboard["summary"]["blocking_count"],
         warning_count=dashboard["summary"]["warning_count"],
         artifact_state=artifact_state,
+        evaluation_scorecard=evaluation_scorecard,
         android_overlay_plan=overlay_plan,
         android_overlay_output=overlay_output,
     )
     return _write_run_summary(summary, run_dir, inspection)
+
+
+def _sync_evaluation_assets_to_delivery(state_dir: Path, delivery_dir: Path) -> None:
+    copied = False
+    for name in (EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD):
+        source = state_dir / name
+        if source.is_file():
+            (delivery_dir / name).write_bytes(source.read_bytes())
+            copied = True
+    manifest_path = delivery_dir / "delivery-manifest.json"
+    if copied and manifest_path.is_file():
+        manifest = read_json(manifest_path)
+        manifest.setdefault("assets", {})["evaluation_scorecard"] = EVALUATION_SCORECARD_JSON
+        manifest.setdefault("assets", {})["evidence_level_report"] = EVIDENCE_LEVEL_REPORT_MD
+        manifest.setdefault("snapshot", {})["content_sha256"] = _delivery_snapshot_hash(delivery_dir)
+        write_json(manifest_path, manifest)
+
+
+def _delivery_snapshot_hash(delivery_dir: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    for path in sorted(item for item in delivery_dir.rglob("*") if item.is_file()):
+        relative = path.relative_to(delivery_dir).as_posix()
+        if relative == "delivery-manifest.json":
+            continue
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(sha256_file(path).encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()
 
 
 def _select_source_files(inspection: dict[str, Any], source_locale: str, source_files: list[str] | None) -> list[str]:
@@ -859,6 +914,7 @@ def _summary(
     android_overlay_output: dict[str, Any] | None = None,
     generation_metadata: dict[str, Any] | None = None,
     artifact_state: dict[str, Any] | None = None,
+    evaluation_scorecard: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     artifacts: dict[str, str] = {
         "run_directory": run_dir.as_posix(),
@@ -942,6 +998,11 @@ def _summary(
             artifact = repair_state.get(artifact_key)
             if artifact:
                 artifacts[key] = (project_root / ".localize-anything" / str(artifact)).as_posix()
+    state_dir = project_root / ".localize-anything"
+    if (state_dir / EVALUATION_SCORECARD_JSON).is_file():
+        artifacts["evaluation_scorecard"] = (state_dir / EVALUATION_SCORECARD_JSON).as_posix()
+    if (state_dir / EVIDENCE_LEVEL_REPORT_MD).is_file():
+        artifacts["evidence_level_report"] = (state_dir / EVIDENCE_LEVEL_REPORT_MD).as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -1018,6 +1079,9 @@ def _summary(
                 "segment_repair_skipped_not_deterministic_count",
                 0,
             ),
+            "evaluation_status": (evaluation_scorecard or {}).get("status", "not_checked"),
+            "overall_claim": (evaluation_scorecard or {}).get("overall_claim", "not_checked"),
+            "highest_evidence_level": (evaluation_scorecard or {}).get("evidence_level", {}).get("highest_supported", "not_provided"),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

@@ -1,0 +1,647 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from . import PROTOCOL_VERSION
+from .io_utils import read_json, read_jsonl, write_json
+
+
+EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
+EVIDENCE_LEVEL_REPORT_MD = "evidence-level-report.md"
+
+E0 = "E0_deterministic_structural_qa"
+E1 = "E1_automated_semantic_or_policy_review"
+E2 = "E2_bilingual_human_spot_check"
+E3 = "E3_native_language_review"
+E4 = "E4_professional_localization_review"
+EVIDENCE_LEVELS = [E0, E1, E2, E3, E4]
+
+DIMENSION_NAMES = [
+    "structural_qa",
+    "provider_status",
+    "terminology_assurance",
+    "coverage_assurance",
+    "resolution_status",
+    "handoff_readiness",
+    "artifact_freshness",
+    "segment_reuse_readiness",
+    "repair_readiness",
+    "review_readiness",
+    "delivery_readiness",
+    "apply_readiness",
+]
+
+
+def build_evaluation_scorecard(
+    state_dir: Path,
+    *,
+    run_dir: Path | None = None,
+    delivery_dir: Path | None = None,
+    run_id: str | None = None,
+    generation_metadata: dict[str, Any] | None = None,
+    coverage_diagnostics: dict[str, Any] | None = None,
+    qa_result_paths: list[Path] | None = None,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    run_dir = run_dir.resolve() if run_dir else None
+    delivery_dir = delivery_dir.resolve() if delivery_dir else None
+    artifacts = _load_artifacts(state_dir, run_dir, delivery_dir, qa_result_paths)
+    provider = _provider_metadata(artifacts, generation_metadata)
+    coverage = coverage_diagnostics or _coverage_from_artifacts(artifacts)
+    dimensions = {
+        "structural_qa": _structural_qa_dimension(artifacts),
+        "provider_status": _provider_dimension(provider),
+        "terminology_assurance": _terminology_dimension(artifacts),
+        "coverage_assurance": _coverage_dimension(coverage, artifacts),
+        "resolution_status": _resolution_dimension(artifacts),
+        "handoff_readiness": _handoff_dimension(artifacts),
+        "artifact_freshness": _artifact_freshness_dimension(artifacts),
+        "segment_reuse_readiness": _segment_reuse_dimension(artifacts),
+        "repair_readiness": _repair_dimension(artifacts),
+        "review_readiness": _review_dimension(artifacts),
+        "delivery_readiness": _delivery_dimension(artifacts),
+        "apply_readiness": _apply_dimension(artifacts),
+    }
+    forbidden_claims = _forbidden_claims(dimensions, artifacts, provider, coverage)
+    evidence_level = _evidence_level(dimensions, artifacts)
+    overall_claim = _overall_claim(dimensions, forbidden_claims, evidence_level, artifacts, provider)
+    status = "blocked" if overall_claim == "blocked" else "pass_with_warnings" if forbidden_claims else "pass"
+    scorecard = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-evaluation-scorecard-v1",
+        "run_id": run_id or _run_id(artifacts),
+        "status": status,
+        "overall_claim": overall_claim,
+        "evidence_level": evidence_level,
+        **dimensions,
+        "dimensions": dimensions,
+        "forbidden_claims": forbidden_claims,
+        "recommended_next_actions": _recommended_next_actions(dimensions, forbidden_claims, artifacts),
+        "source_artifacts": _source_artifacts(state_dir, run_dir, delivery_dir),
+        "limitations": [
+            "evaluation scorecard summarizes existing artifacts and does not perform translation",
+            "missing evidence is treated conservatively and cannot support full quality claims",
+            "E2-E4 levels require explicit human/native/professional review artifacts",
+        ],
+    }
+    report = render_evidence_level_report(scorecard)
+    if write:
+        state_dir.mkdir(parents=True, exist_ok=True)
+        write_json(state_dir / EVALUATION_SCORECARD_JSON, scorecard)
+        (state_dir / EVIDENCE_LEVEL_REPORT_MD).write_text(report, encoding="utf-8", newline="\n")
+    return scorecard
+
+
+def read_evaluation_scorecard(state_dir: Path) -> dict[str, Any]:
+    path = state_dir / EVALUATION_SCORECARD_JSON
+    if not path.is_file():
+        raise ValueError(f"Missing evaluation scorecard: {path}")
+    return read_json(path)
+
+
+def evaluation_asset_paths(state_dir: Path) -> dict[str, str]:
+    names = {
+        "evaluation_scorecard": EVALUATION_SCORECARD_JSON,
+        "evidence_level_report": EVIDENCE_LEVEL_REPORT_MD,
+    }
+    return {key: value for key, value in names.items() if (state_dir / value).is_file()}
+
+
+def render_evidence_level_report(scorecard: dict[str, Any]) -> str:
+    evidence = scorecard.get("evidence_level", {})
+    levels = evidence.get("levels", {}) if isinstance(evidence, dict) else {}
+    lines = [
+        "# Evidence Level Report",
+        "",
+        f"- Run ID: `{scorecard.get('run_id')}`",
+        f"- Overall claim: `{scorecard.get('overall_claim')}`",
+        f"- Highest evidence level: `{evidence.get('highest_supported', 'not_provided')}`",
+        "",
+        "## What Passed",
+        "",
+    ]
+    passed = [
+        name
+        for name in DIMENSION_NAMES
+        if scorecard.get(name, {}).get("status") == "pass"
+    ]
+    lines.extend([f"- `{name}`" for name in passed] or ["- No fully passing dimension was proven."])
+    lines.extend(["", "## Blocked", ""])
+    blocked = [
+        (name, scorecard.get(name, {}))
+        for name in DIMENSION_NAMES
+        if scorecard.get(name, {}).get("status") == "blocked"
+    ]
+    if blocked:
+        for name, dimension in blocked:
+            blockers = ", ".join(str(item) for item in dimension.get("blockers", [])) or str(dimension.get("summary", "blocked"))
+            lines.append(f"- `{name}`: {blockers}")
+    else:
+        lines.append("- No blocking evidence was found.")
+    lines.extend(["", "## Downgraded", ""])
+    downgraded = [
+        (name, scorecard.get(name, {}))
+        for name in DIMENSION_NAMES
+        if scorecard.get(name, {}).get("status") in {"warning", "unknown", "not_provided"}
+    ]
+    if downgraded:
+        for name, dimension in downgraded:
+            warnings = ", ".join(str(item) for item in dimension.get("warnings", [])) or str(dimension.get("summary", "not proven"))
+            lines.append(f"- `{name}`: {warnings}")
+    else:
+        lines.append("- No downgraded evidence dimensions.")
+    lines.extend(["", "## Evidence Levels", ""])
+    for level in EVIDENCE_LEVELS:
+        value = levels.get(level, {})
+        lines.append(f"- `{level}`: `{value.get('status', 'not_provided')}` - {value.get('summary', '')}")
+    lines.extend(["", "## Forbidden Claims", ""])
+    lines.extend([f"- `{claim}`" for claim in scorecard.get("forbidden_claims", [])] or ["- None."])
+    lines.extend(["", "## Recommended Next Actions", ""])
+    lines.extend([f"- {action}" for action in scorecard.get("recommended_next_actions", [])] or ["- No next action recorded."])
+    return "\n".join(lines) + "\n"
+
+
+def _load_artifacts(
+    state_dir: Path,
+    run_dir: Path | None,
+    delivery_dir: Path | None,
+    qa_result_paths: list[Path] | None,
+) -> dict[str, Any]:
+    delivery_manifest = _read_optional_json((delivery_dir / "delivery-manifest.json") if delivery_dir else state_dir / "delivery-manifest.json")
+    return {
+        "localization_brief": _read_optional_json(state_dir / "localization-brief.json"),
+        "termbase_preflight_report": _read_optional_json(state_dir / "termbase-preflight-report.json"),
+        "generation_strategy": _read_optional_json(state_dir / "generation-strategy.json"),
+        "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
+        "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
+        "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
+        "generation_handoff_decision": _read_optional_json(state_dir / "generation-handoff-decision.json"),
+        "artifact_state": _read_optional_json(state_dir / "artifact-state.json"),
+        "stale_segments": _read_optional_jsonl(state_dir / "stale-segments.jsonl"),
+        "reuse_decision": _read_optional_json(state_dir / "reuse-decision.json"),
+        "segment_regeneration_plan": _read_optional_json(state_dir / "segment-regeneration-plan.json"),
+        "repair_request": _read_optional_json(state_dir / "repair-request.json"),
+        "repair_result": _read_optional_json(state_dir / "repair-result.json"),
+        "repair_history": _read_optional_jsonl(state_dir / "repair-history.jsonl"),
+        "generated_segments": _read_optional_jsonl((run_dir / "generated.jsonl") if run_dir else state_dir / "generated-segments.jsonl"),
+        "review_result": _first_json(
+            [
+                (run_dir / "llm-review-result.json") if run_dir else state_dir / "llm-review-result.json",
+                (run_dir / "review-sheet.json") if run_dir else state_dir / "review-sheet.json",
+                state_dir / "review-result.json",
+            ]
+        ),
+        "delivery_manifest": delivery_manifest,
+        "delivery_decision": _read_optional_json((run_dir / "delivery-decision.json") if run_dir else state_dir / "delivery-decision.json"),
+        "apply_plan": _read_optional_json((run_dir / "apply-plan.json") if run_dir else state_dir / "apply-plan.json"),
+        "qa": _qa_summary(delivery_manifest, qa_result_paths),
+    }
+
+
+def _structural_qa_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    qa = artifacts.get("qa", {})
+    status = str(qa.get("status") or "not_checked")
+    blocking_count = int(qa.get("blocking_count", 0) or 0)
+    warning_count = int(qa.get("warning_count", 0) or 0)
+    if status in {"pass", "pass_with_warnings"} and not blocking_count:
+        return _dimension("warning" if warning_count else "pass", E0, f"deterministic QA {status}", warnings=_count_warning(warning_count, "qa warnings"))
+    if status in {"fail", "blocked"} or blocking_count:
+        return _dimension("blocked", E0, "deterministic QA has blockers", blockers=["deterministic_qa_blocking"])
+    return _dimension("not_provided", E0, "deterministic QA evidence was not provided", warnings=["deterministic_qa_missing"])
+
+
+def _provider_dimension(provider: dict[str, Any]) -> dict[str, Any]:
+    status = str(provider.get("provider_status") or "not_run")
+    actual = str(provider.get("provider_actual") or provider.get("provider") or "unknown")
+    if status == "passed":
+        return _dimension("pass", E1, f"provider completed as {actual}")
+    if status == "failed":
+        return _dimension("blocked", E1, "provider failed or fallback output was detected", blockers=["provider_failed_or_fallback"])
+    if status in {"synthetic_test", "not_applicable"} or actual in {"synthetic", "none", "synthetic_fallback"}:
+        return _dimension("warning", E0, f"provider-backed quality not proven ({status})", warnings=["provider_backed_quality_not_proven"])
+    return _dimension("not_provided", E0, "provider evidence was not provided", warnings=["provider_status_missing"])
+
+
+def _terminology_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    report = artifacts.get("termbase_preflight_report", {})
+    assurance = str(report.get("terminology_assurance") or "not_checked")
+    summary = report.get("summary", {}) if isinstance(report, dict) else {}
+    if assurance == "reviewed":
+        return _dimension("pass", E1, "terminology review is marked reviewed")
+    if assurance == "blocked_by_conflict" or int(summary.get("conflict_count", 0) or 0):
+        return _dimension("blocked", E1, "term conflicts are unresolved", blockers=["term_conflict"])
+    if assurance == "incomplete_review_required" or int(summary.get("high_risk_unreviewed_count", 0) or 0):
+        return _dimension("warning", E1, "terminology review is incomplete", warnings=["term_review_incomplete"])
+    return _dimension("unknown", E0, "terminology assurance was not checked", warnings=["terminology_assurance_unknown"])
+
+
+def _coverage_dimension(coverage: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
+    handoff = artifacts.get("generation_handoff_decision", {})
+    forbidden = set(handoff.get("forbidden_quality_claims", [])) if isinstance(handoff, dict) else set()
+    visible_warning = bool(coverage.get("visible_ui_coverage_warning"))
+    mode = str(coverage.get("coverage_mode") or "unknown")
+    if visible_warning or "full_source_coverage" in forbidden or mode in {"source-only", "unknown"}:
+        return _dimension("warning", E0, f"coverage is {mode} or downgraded", warnings=["full_coverage_not_proven"])
+    if mode == "source-plus-merged-overlay" or coverage.get("full_coverage_claim") is True:
+        return _dimension("pass", E0, "coverage evidence supports current source scope")
+    return _dimension("unknown", E0, "coverage diagnostics were not provided", warnings=["coverage_unknown"])
+
+
+def _resolution_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    questions = artifacts.get("blocking_questions", {})
+    handoff = artifacts.get("generation_handoff_decision", {})
+    unresolved = _unresolved_count(questions) or len(handoff.get("unresolved_questions", []) or [])
+    if unresolved:
+        return _dimension("blocked", E1, f"{unresolved} unresolved blocking/resolution questions", blockers=["unresolved_questions"])
+    if questions or artifacts.get("resolution_options"):
+        return _dimension("pass", E1, "resolution gate has no unresolved blocking questions")
+    return _dimension("not_provided", E0, "resolution gate evidence was not provided", warnings=["resolution_gate_missing"])
+
+
+def _handoff_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    handoff = artifacts.get("generation_handoff_decision", {})
+    status = str(handoff.get("status") or "not_checked")
+    if status == "blocked" or handoff.get("handoff_allowed") is False:
+        return _dimension("blocked", E1, "generation handoff is blocked", blockers=["handoff_blocked"])
+    if handoff.get("full_quality_handoff_allowed") is True:
+        return _dimension("pass", E1, "full-quality handoff is allowed")
+    if handoff:
+        return _dimension("warning", E1, f"handoff is downgraded ({status})", warnings=["handoff_downgraded"])
+    return _dimension("not_provided", E0, "handoff decision was not provided", warnings=["handoff_missing"])
+
+
+def _artifact_freshness_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    state = artifacts.get("artifact_state", {})
+    status = str(state.get("status") or "not_checked")
+    summary = state.get("summary", {}) if isinstance(state, dict) else {}
+    stale = int(summary.get("stale_count", 0) or 0)
+    blocked = int(summary.get("blocked_count", 0) or 0)
+    if blocked or status == "blocked":
+        return _dimension("blocked", E1, "artifact state contains blocked evidence", blockers=["artifact_state_blocked"])
+    if stale or status == "stale":
+        return _dimension("blocked", E1, "artifact state contains stale evidence", blockers=["artifact_state_stale"])
+    if state:
+        return _dimension("pass", E1, "artifact state has no stale or blocked artifacts")
+    return _dimension("not_provided", E0, "artifact state was not provided", warnings=["artifact_state_missing"])
+
+
+def _segment_reuse_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    reuse = artifacts.get("reuse_decision", {})
+    decisions = reuse.get("decisions", {}) if isinstance(reuse, dict) else {}
+    if decisions.get("generation_handoff_policy") == "blocked" or decisions.get("delivery_apply_policy") == "blocked":
+        return _dimension("blocked", E1, "segment reuse requires regeneration or repair", blockers=["segment_reuse_blocked"])
+    if decisions.get("generation_handoff_policy") == "warn" or decisions.get("review_required"):
+        return _dimension("warning", E1, "segment reuse requires review", warnings=["segment_reuse_review_required"])
+    if reuse:
+        return _dimension("pass", E1, "segment reuse decision is ready")
+    return _dimension("not_provided", E0, "segment reuse evidence was not provided", warnings=["segment_reuse_missing"])
+
+
+def _repair_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    repair = artifacts.get("repair_result", {})
+    summary = repair.get("summary", {}) if isinstance(repair, dict) else {}
+    pending = int(summary.get("pending_required_repair_count", 0) or 0) + int(summary.get("pending_provider_or_model_repair_count", 0) or 0)
+    failed = int(summary.get("failed_qa_count", 0) or 0) + int(summary.get("blocked_count", 0) or 0)
+    skipped = int(summary.get("skipped_not_deterministic_count", 0) or 0)
+    if pending or failed or skipped:
+        return _dimension("blocked", E1, "required repairs are pending, blocked, skipped, or failed QA", blockers=["repair_not_ready"])
+    if repair:
+        return _dimension("pass", E1, "repair result has no required pending repairs")
+    return _dimension("not_provided", E0, "repair result was not provided", warnings=["repair_result_missing"])
+
+
+def _review_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    human = _human_review_evidence(artifacts)
+    if human:
+        return _dimension("pass", human, f"explicit {human} review evidence was provided")
+    term = _terminology_dimension(artifacts)
+    repair = _repair_dimension(artifacts)
+    if term["status"] in {"blocked", "warning"} or repair["status"] == "blocked":
+        return _dimension("warning", E1, "review is incomplete or required", warnings=["review_required"])
+    if artifacts.get("review_result") or artifacts.get("delivery_decision"):
+        return _dimension("warning", E1, "automated review exists but E2-E4 human review was not provided", warnings=["human_review_not_provided"])
+    return _dimension("not_provided", E0, "review evidence was not provided", warnings=["review_missing"])
+
+
+def _delivery_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    upstream_blockers = _upstream_readiness_blockers(artifacts)
+    if upstream_blockers:
+        return _dimension("blocked", E1, "delivery readiness is blocked by upstream evidence", blockers=upstream_blockers)
+    decision = artifacts.get("delivery_decision", {})
+    manifest = artifacts.get("delivery_manifest", {})
+    status = str(decision.get("status") or manifest.get("delivery_status") or "not_checked")
+    if status == "blocked":
+        return _dimension("blocked", E1, "delivery decision is blocked", blockers=["delivery_blocked"])
+    if status in {"owner_review_required", "draft_package"}:
+        return _dimension("warning", E1, f"delivery is {status}", warnings=["delivery_requires_review_or_confirmation"])
+    if status in {"review_ready", "ready_no_changes", "user_accepted"}:
+        return _dimension("pass", E1, f"delivery status is {status}")
+    return _dimension("not_provided", E0, "delivery decision was not provided", warnings=["delivery_evidence_missing"])
+
+
+def _apply_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    upstream_blockers = _upstream_readiness_blockers(artifacts)
+    decision = artifacts.get("delivery_decision", {})
+    manifest = artifacts.get("delivery_manifest", {})
+    delivery_status = str(decision.get("status") or manifest.get("delivery_status") or "")
+    if delivery_status == "blocked":
+        upstream_blockers.append("delivery_blocked")
+    if upstream_blockers:
+        return _dimension("blocked", E1, "apply readiness is blocked by upstream evidence", blockers=upstream_blockers)
+    apply_plan = artifacts.get("apply_plan", {})
+    if apply_plan.get("blocked_by_provider_status") or apply_plan.get("blocked_by_stale_artifacts"):
+        return _dimension("blocked", E1, "apply plan is blocked by provider or stale evidence", blockers=["apply_blocked"])
+    operations = apply_plan.get("operations", []) if isinstance(apply_plan, dict) else []
+    if any(item.get("action") == "conflict" for item in operations):
+        return _dimension("blocked", E1, "apply plan contains destination conflicts", blockers=["apply_conflict"])
+    if operations:
+        return _dimension("warning", E1, "apply requires explicit run-id confirmation", warnings=["apply_requires_confirmation"])
+    if apply_plan:
+        return _dimension("pass", E1, "apply plan has no blocking operations")
+    return _dimension("not_provided", E0, "apply plan was not provided", warnings=["apply_plan_missing"])
+
+
+def _evidence_level(dimensions: dict[str, dict[str, Any]], artifacts: dict[str, Any]) -> dict[str, Any]:
+    e0_status = "provided" if dimensions["structural_qa"]["status"] in {"pass", "warning"} else "blocked" if dimensions["structural_qa"]["status"] == "blocked" else "not_provided"
+    automated_present = any(artifacts.get(key) for key in ("generation_strategy", "generation_handoff_decision", "artifact_state", "delivery_decision"))
+    e1_blocked = any(dimensions[name]["status"] == "blocked" for name in DIMENSION_NAMES if dimensions[name].get("evidence_level") == E1)
+    levels = {
+        E0: {"status": e0_status, "summary": dimensions["structural_qa"]["summary"]},
+        E1: {"status": "blocked" if e1_blocked else "provided" if automated_present else "not_provided", "summary": "automated policy/review artifacts summarized" if automated_present else "no automated policy evidence"},
+        E2: {"status": "not_provided", "summary": "explicit bilingual human spot-check evidence was not provided"},
+        E3: {"status": "not_provided", "summary": "explicit native-language review evidence was not provided"},
+        E4: {"status": "not_provided", "summary": "explicit professional localization review evidence was not provided"},
+    }
+    human = _human_review_evidence(artifacts)
+    if human in {E2, E3, E4}:
+        start = EVIDENCE_LEVELS.index(human)
+        for level in EVIDENCE_LEVELS[2 : start + 1]:
+            levels[level] = {"status": "provided", "summary": "explicit review artifact provided"}
+    supported = [level for level in EVIDENCE_LEVELS if levels[level]["status"] == "provided"]
+    return {"highest_supported": supported[-1] if supported else "not_provided", "levels": levels}
+
+
+def _overall_claim(
+    dimensions: dict[str, dict[str, Any]],
+    forbidden_claims: list[str],
+    evidence_level: dict[str, Any],
+    artifacts: dict[str, Any],
+    provider: dict[str, Any],
+) -> str:
+    if any(dimension["status"] == "blocked" for dimension in dimensions.values()):
+        return "blocked"
+    if dimensions["structural_qa"]["status"] in {"not_provided", "unknown"}:
+        return "not_ready"
+    delivery_status = dimensions["delivery_readiness"]["status"]
+    apply_status = dimensions["apply_readiness"]["status"]
+    provider_status = str(provider.get("provider_status") or "")
+    warnings = any(dimension["status"] in {"warning", "unknown", "not_provided"} for dimension in dimensions.values())
+    if apply_status == "pass" and "apply_ready" not in forbidden_claims and evidence_level.get("highest_supported") in {E2, E3, E4}:
+        return "apply_ready"
+    if delivery_status == "pass" and not warnings:
+        return "delivery_ready"
+    if delivery_status == "pass":
+        return "delivery_ready_with_warnings"
+    if artifacts.get("delivery_decision") and dimensions["delivery_readiness"]["status"] == "warning":
+        return "review_ready"
+    if provider_status != "passed":
+        return "draft_only"
+    return "review_required" if warnings else "review_ready"
+
+
+def _forbidden_claims(
+    dimensions: dict[str, dict[str, Any]],
+    artifacts: dict[str, Any],
+    provider: dict[str, Any],
+    coverage: dict[str, Any],
+) -> list[str]:
+    claims: set[str] = set()
+    if dimensions["coverage_assurance"]["status"] != "pass":
+        claims.add("full_coverage")
+    if dimensions["provider_status"]["status"] != "pass" or str(provider.get("provider_status") or "") != "passed":
+        claims.add("provider_backed_quality")
+    if dimensions["terminology_assurance"]["status"] != "pass":
+        claims.add("full_terminology_assurance")
+    if dimensions["review_readiness"]["status"] != "pass":
+        claims.add("review_complete")
+    if dimensions["delivery_readiness"]["status"] != "pass":
+        claims.add("delivery_ready")
+    if dimensions["apply_readiness"]["status"] != "pass":
+        claims.add("apply_ready")
+    if any(dimension["status"] == "blocked" for dimension in dimensions.values()) or dimensions["review_readiness"]["status"] != "pass":
+        claims.add("production_ready")
+    handoff = artifacts.get("generation_handoff_decision", {})
+    for claim in handoff.get("forbidden_quality_claims", []) if isinstance(handoff, dict) else []:
+        claims.update(_claim_aliases(str(claim)))
+    return sorted(claims)
+
+
+def _recommended_next_actions(
+    dimensions: dict[str, dict[str, Any]],
+    forbidden_claims: list[str],
+    artifacts: dict[str, Any],
+) -> list[str]:
+    actions: list[str] = []
+    for name, dimension in dimensions.items():
+        if dimension["status"] == "blocked":
+            actions.append(f"Resolve blockers for {name}: {', '.join(dimension.get('blockers', [])) or 'blocked evidence'}.")
+        elif dimension["status"] in {"warning", "unknown", "not_provided"}:
+            actions.append(f"Collect or refresh evidence for {name}.")
+    artifact_state = artifacts.get("artifact_state", {})
+    actions.extend(str(item) for item in artifact_state.get("next_actions", []) if item)
+    if "provider_backed_quality" in forbidden_claims:
+        actions.append("Run a real provider successfully before claiming provider-backed quality.")
+    if "review_complete" in forbidden_claims:
+        actions.append("Record explicit human/native/professional review before claiming review completion.")
+    return list(dict.fromkeys(actions))[:12]
+
+
+def _provider_metadata(artifacts: dict[str, Any], generation_metadata: dict[str, Any] | None) -> dict[str, Any]:
+    if generation_metadata:
+        return generation_metadata
+    manifest = artifacts.get("delivery_manifest", {})
+    if isinstance(manifest.get("generation"), dict):
+        return manifest["generation"]
+    generated = artifacts.get("generated_segments", [])
+    if generated:
+        providers = sorted({str(item.get("generation", {}).get("provider") or "") for item in generated if isinstance(item, dict)})
+        if providers == ["synthetic"]:
+            return {"provider_actual": "synthetic", "provider_status": "synthetic_test"}
+        if providers:
+            return {"provider_actual": providers[0] if len(providers) == 1 else "mixed", "provider_status": "passed"}
+    return {"provider_actual": "none", "provider_status": "not_run"}
+
+
+def _coverage_from_artifacts(artifacts: dict[str, Any]) -> dict[str, Any]:
+    handoff = artifacts.get("generation_handoff_decision", {})
+    forbidden = set(handoff.get("forbidden_quality_claims", [])) if isinstance(handoff, dict) else set()
+    if "full_source_coverage" in forbidden:
+        return {"coverage_mode": "source-only", "visible_ui_coverage_warning": True}
+    return {}
+
+
+def _upstream_readiness_blockers(artifacts: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    qa = artifacts.get("qa", {})
+    if str(qa.get("status") or "") in {"fail", "blocked"} or int(qa.get("blocking_count", 0) or 0):
+        blockers.append("deterministic_qa_blocking")
+    handoff = artifacts.get("generation_handoff_decision", {})
+    if isinstance(handoff, dict) and (handoff.get("status") == "blocked" or handoff.get("handoff_allowed") is False):
+        blockers.append("handoff_blocked")
+    questions = artifacts.get("blocking_questions", {})
+    if _unresolved_count(questions):
+        blockers.append("unresolved_questions")
+    state = artifacts.get("artifact_state", {})
+    summary = state.get("summary", {}) if isinstance(state, dict) else {}
+    if str(state.get("status") or "") in {"stale", "blocked"} or int(summary.get("stale_count", 0) or 0) or int(summary.get("blocked_count", 0) or 0):
+        blockers.append("artifact_state_not_current")
+    repair = artifacts.get("repair_result", {})
+    repair_summary = repair.get("summary", {}) if isinstance(repair, dict) else {}
+    if (
+        int(repair_summary.get("pending_required_repair_count", 0) or 0)
+        or int(repair_summary.get("pending_provider_or_model_repair_count", 0) or 0)
+        or int(repair_summary.get("failed_qa_count", 0) or 0)
+        or int(repair_summary.get("blocked_count", 0) or 0)
+        or int(repair_summary.get("skipped_not_deterministic_count", 0) or 0)
+    ):
+        blockers.append("repair_not_ready")
+    manifest = artifacts.get("delivery_manifest", {})
+    generation = manifest.get("generation", {}) if isinstance(manifest, dict) else {}
+    if str(generation.get("provider_status") or "") == "failed":
+        blockers.append("provider_failed_or_fallback")
+    return list(dict.fromkeys(blockers))
+
+
+def _qa_summary(delivery_manifest: dict[str, Any], qa_result_paths: list[Path] | None) -> dict[str, Any]:
+    if isinstance(delivery_manifest.get("qa"), dict):
+        return delivery_manifest["qa"]
+    paths = qa_result_paths or []
+    if not paths:
+        return {}
+    blocking = 0
+    warning = 0
+    channels: set[str] = set()
+    for path in paths:
+        value = _read_optional_json(path)
+        blocking += int(value.get("summary", {}).get("blocking_count", value.get("blocking_count", 0)) or 0)
+        warning += int(value.get("summary", {}).get("warning_count", value.get("warning_count", 0)) or 0)
+        channels.update(str(item) for item in value.get("evidence_channels", []) if item)
+    return {
+        "status": "fail" if blocking else "pass_with_warnings" if warning else "pass",
+        "blocking_count": blocking,
+        "warning_count": warning,
+        "evidence_channels": sorted(channels),
+    }
+
+
+def _human_review_evidence(artifacts: dict[str, Any]) -> str | None:
+    review = artifacts.get("review_result", {})
+    text = json.dumps(review, ensure_ascii=False).casefold() if review else ""
+    if E4.casefold() in text or "professional_localization" in text:
+        return E4
+    if E3.casefold() in text or "native_language" in text:
+        return E3
+    if E2.casefold() in text or "bilingual_human" in text:
+        return E2
+    return None
+
+
+def _dimension(
+    status: str,
+    evidence_level: str,
+    summary: str,
+    *,
+    blockers: list[str] | None = None,
+    warnings: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "evidence_level": evidence_level,
+        "summary": summary,
+        "blockers": blockers or [],
+        "warnings": warnings or [],
+    }
+
+
+def _count_warning(count: int, label: str) -> list[str]:
+    return [f"{count} {label}"] if count else []
+
+
+def _unresolved_count(questions: dict[str, Any]) -> int:
+    summary = questions.get("summary", {}) if isinstance(questions, dict) else {}
+    if "unresolved_blocking_count" in summary:
+        return int(summary.get("unresolved_blocking_count", 0) or 0)
+    items = questions.get("questions", []) if isinstance(questions, dict) else []
+    return sum(str(item.get("status") or "unresolved") != "resolved" for item in items if isinstance(item, dict))
+
+
+def _claim_aliases(claim: str) -> set[str]:
+    aliases: set[str] = set()
+    if claim in {"full_source_coverage", "full_visible_ui_coverage"}:
+        aliases.add("full_coverage")
+        if claim == "full_source_coverage":
+            aliases.add(claim)
+    if claim in {"review_complete_status"}:
+        aliases.add("review_complete")
+        aliases.add(claim)
+    if claim in {"safe_apply_readiness"}:
+        aliases.add("apply_ready")
+        aliases.add(claim)
+    if claim in {"full_quality_generation"}:
+        aliases.add("production_ready")
+        aliases.add(claim)
+    return aliases
+
+
+def _run_id(artifacts: dict[str, Any]) -> str | None:
+    for value in artifacts.values():
+        if isinstance(value, dict) and value.get("run_id"):
+            return str(value["run_id"])
+    return None
+
+
+def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path | None) -> dict[str, str]:
+    candidates = {
+        "localization_brief": state_dir / "localization-brief.json",
+        "termbase_preflight_report": state_dir / "termbase-preflight-report.json",
+        "generation_strategy": state_dir / "generation-strategy.json",
+        "blocking_questions": state_dir / "blocking-questions.json",
+        "resolution_options": state_dir / "resolution-options.json",
+        "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",
+        "generation_handoff_decision": state_dir / "generation-handoff-decision.json",
+        "artifact_state": state_dir / "artifact-state.json",
+        "stale_segments": state_dir / "stale-segments.jsonl",
+        "reuse_decision": state_dir / "reuse-decision.json",
+        "segment_regeneration_plan": state_dir / "segment-regeneration-plan.json",
+        "repair_request": state_dir / "repair-request.json",
+        "repair_result": state_dir / "repair-result.json",
+        "repair_history": state_dir / "repair-history.jsonl",
+        "generated_segments": (run_dir / "generated.jsonl") if run_dir else state_dir / "generated-segments.jsonl",
+        "delivery_decision": (run_dir / "delivery-decision.json") if run_dir else state_dir / "delivery-decision.json",
+        "apply_plan": (run_dir / "apply-plan.json") if run_dir else state_dir / "apply-plan.json",
+        "delivery_manifest": (delivery_dir / "delivery-manifest.json") if delivery_dir else state_dir / "delivery-manifest.json",
+    }
+    return {key: path.name for key, path in candidates.items() if path and path.is_file()}
+
+
+def _read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    value = read_json(path)
+    return value if isinstance(value, dict) else {}
+
+
+def _first_json(paths: list[Path]) -> dict[str, Any]:
+    for path in paths:
+        if path.is_file():
+            return _read_optional_json(path)
+    return {}
+
+
+def _read_optional_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    return [item for item in read_jsonl(path) if isinstance(item, dict)]

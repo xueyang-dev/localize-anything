@@ -46,6 +46,7 @@ Intake
  -> Agent Linguistic Review
  -> Targeted Repair
  -> Patch-Based Repair Execution
+ -> Evaluation Scorecard
  -> Delivery Package
  -> Review Import
  -> Scoped Sign-off
@@ -86,6 +87,14 @@ user-resolution-decisions.jsonl
 resolution-summary.md
 generation-handoff-decision.json
 artifact-state.json
+stale-segments.jsonl
+reuse-decision.json
+segment-regeneration-plan.json
+repair-request.json
+repair-result.json
+repair-history.jsonl
+evaluation-scorecard.json
+evidence-level-report.md
 delivery-manifest.json
 ```
 
@@ -372,6 +381,46 @@ Workbench exposes artifact-backed `GET /api/repair-result` and a minimal
 rules and does not call providers. A richer visual UI should come after this
 enforcement layer so the UI displays runtime decisions instead of duplicating
 repair policy.
+
+## Evaluation Scorecard
+
+Evaluation Scorecard runs after deterministic QA, handoff enforcement,
+artifact-state checks, segment reuse planning, and patch-based repair state are
+available. It produces `evaluation-scorecard.json` plus the concise
+human-readable `evidence-level-report.md`.
+
+The scorecard is deliberately conservative. It summarizes what the current run
+has actually proven across structural QA, provider status, terminology
+assurance, coverage, resolution state, handoff readiness, artifact freshness,
+segment reuse, repair readiness, review readiness, delivery readiness, and
+apply readiness. Missing evidence does not become a positive claim.
+
+Evidence levels are explicit:
+
+- `E0_deterministic_structural_qa`: deterministic runtime or adapter checks.
+- `E1_automated_semantic_or_policy_review`: automated policy, handoff,
+  artifact-state, repair, delivery, or review artifacts.
+- `E2_bilingual_human_spot_check`: explicit bilingual human spot-check
+  evidence.
+- `E3_native_language_review`: explicit native-language review evidence.
+- `E4_professional_localization_review`: explicit professional localization
+  review evidence.
+
+The seed mostly computes E0/E1 readiness from existing artifacts. It must not
+fabricate E2-E4; those levels remain `not_provided` unless explicit review
+artifacts exist.
+
+The scorecard emits `forbidden_claims` such as `full_coverage`,
+`provider_backed_quality`, `full_terminology_assurance`, `review_complete`,
+`delivery_ready`, `apply_ready`, and `production_ready` when the evidence chain
+does not support those statements. Overall claim is derived from the weakest
+required evidence, not from the happiest path.
+
+Run summaries and delivery packages reference the scorecard and report so
+Workbench and downstream reviewers read artifact-backed readiness instead of
+inferring quality from UI state. The minimal Workbench path is
+`GET /api/evaluation-scorecard`; a richer visual panel should come after this
+runtime enforcement layer.
 
 ## Localization Brief
 

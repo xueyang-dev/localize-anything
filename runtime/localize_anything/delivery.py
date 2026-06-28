@@ -10,6 +10,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION, __version__
 from .artifact_state import ARTIFACT_STATE_JSON, artifact_state_asset_paths
+from .evaluation import EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD, evaluation_asset_paths
 from .generation_handoff_policy import GENERATION_HANDOFF_DECISION_JSON, generation_handoff_decision_asset_paths
 from .generation_strategy import GENERATION_STRATEGY_JSON, generation_strategy_asset_paths
 from .io_utils import read_json, sha256_file, write_json
@@ -57,6 +58,8 @@ OPTIONAL_CANONICAL_ASSETS = (
     REPAIR_REQUEST_JSON,
     REPAIR_RESULT_JSON,
     REPAIR_HISTORY_JSONL,
+    EVALUATION_SCORECARD_JSON,
+    EVIDENCE_LEVEL_REPORT_MD,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -167,6 +170,7 @@ def package_delivery(
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),
                 **segment_repair_asset_paths(state_dir),
+                **evaluation_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },

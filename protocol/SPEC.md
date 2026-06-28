@@ -371,6 +371,60 @@ Workbench exposes `GET /api/repair-result` and
 `POST /api/apply-repair-plan`. The POST endpoint runs only deterministic repair
 rules and does not accept provider configuration or call provider/model code.
 
+## Evaluation Scorecard
+
+`evaluation-scorecard.json` is the unified machine-readable evidence summary
+for a run. `evidence-level-report.md` is the human-readable companion report.
+The scorecard reads existing artifacts when present, including localization
+brief, term governance, termbase preflight, generation strategy, Resolution
+Gate artifacts, Generation Handoff Enforcement, artifact state, stale segment
+and reuse decisions, segment regeneration and repair artifacts, generated
+segments, deterministic QA, review results, delivery decisions, apply status,
+provider status, and coverage diagnostics.
+
+The schema `evaluation-scorecard` records these dimensions:
+`structural_qa`, `provider_status`, `terminology_assurance`,
+`coverage_assurance`, `resolution_status`, `handoff_readiness`,
+`artifact_freshness`, `segment_reuse_readiness`, `repair_readiness`,
+`review_readiness`, `delivery_readiness`, and `apply_readiness`. It also
+records `evidence_level`, `overall_claim`, `forbidden_claims`, and
+`recommended_next_actions`.
+
+Evidence levels are ordered from deterministic runtime evidence to explicit
+professional review:
+
+- `E0_deterministic_structural_qa`
+- `E1_automated_semantic_or_policy_review`
+- `E2_bilingual_human_spot_check`
+- `E3_native_language_review`
+- `E4_professional_localization_review`
+
+The seed computes E0/E1 from existing deterministic and automated policy
+artifacts. E2-E4 must remain `not_provided` unless explicit human/native/
+professional review artifacts exist. The runtime must not fabricate review
+evidence from provider output, synthetic fallback, or UI state.
+
+`overall_claim` is one of `blocked`, `not_ready`, `draft_only`,
+`review_required`, `review_ready`, `delivery_ready_with_warnings`,
+`delivery_ready`, or `apply_ready`. It is derived from the weakest required
+evidence. Missing, stale, blocked, downgraded, or incomplete upstream evidence
+must prevent stronger claims.
+
+`forbidden_claims` explicitly lists statements the project must not make for
+the current run, including `full_coverage`, `provider_backed_quality`,
+`full_terminology_assurance`, `review_complete`, `delivery_ready`,
+`apply_ready`, and `production_ready` when unsupported. Partial/source-only/
+unknown coverage forbids full coverage. Failed, missing, or synthetic provider
+evidence forbids provider-backed quality. Incomplete or stale term review
+forbids full terminology assurance. Pending required repairs, failed QA, stale
+artifacts, blocked handoff, unresolved blockers, or unsafe provider policy
+forbid delivery/apply readiness as applicable.
+
+Run summaries and delivery packages include or reference both scorecard
+artifacts. The deterministic CLI command is `evaluation-scorecard`. Workbench
+exposes `GET /api/evaluation-scorecard`, which returns the artifact-backed
+scorecard only; UI must not hide scoring policy in browser state.
+
 ## Localization Modes
 
 `operating_mode` and `reference_policy` are first-class protocol fields on

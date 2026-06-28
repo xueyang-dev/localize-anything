@@ -22,6 +22,7 @@ from .chinese_draft import generate_chinese_draft_file
 from .dashboard import build_delivery_dashboard, render_dashboard_markdown
 from .delivery import package_delivery
 from .delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
+from .evaluation import build_evaluation_scorecard, read_evaluation_scorecard
 from .generation import (
     collect_generated_handoff,
     create_draft_request,
@@ -524,6 +525,13 @@ def build_parser() -> argparse.ArgumentParser:
     repair_history_parser = subparsers.add_parser("repair-history", help="Read repair-history.jsonl as deterministic JSON")
     repair_history_parser.add_argument("state_dir", type=Path)
     repair_history_parser.add_argument("--output", type=Path)
+
+    evaluation_parser = subparsers.add_parser("evaluation-scorecard", help="Create evaluation-scorecard.json and evidence-level-report.md")
+    evaluation_parser.add_argument("state_dir", type=Path)
+    evaluation_parser.add_argument("--run-dir", type=Path)
+    evaluation_parser.add_argument("--delivery-dir", type=Path)
+    evaluation_parser.add_argument("--run-id")
+    evaluation_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1222,6 +1230,21 @@ def main(argv: list[str] | None = None) -> int:
                 "schema": "localize-anything-repair-history-list-v1",
                 "state_dir": args.state_dir.as_posix(),
                 "repair_history": read_repair_history(args.state_dir),
+            }
+            return _emit_json(result, args.output)
+        if args.command == "evaluation-scorecard":
+            scorecard = build_evaluation_scorecard(
+                args.state_dir,
+                run_dir=args.run_dir,
+                delivery_dir=args.delivery_dir,
+                run_id=args.run_id,
+            )
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-evaluation-scorecard-read-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "evaluation_scorecard": read_evaluation_scorecard(args.state_dir),
+                "overall_claim": scorecard.get("overall_claim"),
             }
             return _emit_json(result, args.output)
         if args.command == "draft-request":

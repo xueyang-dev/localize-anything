@@ -48,6 +48,11 @@
   `POST /api/apply-repair-plan`, repair execution statuses, QA/provenance
   history, and run/delivery summaries for applied, pending, blocked, and failed
   repairs.
+- Add Evaluation Scorecard seed with `evaluation-scorecard.json`,
+  `evidence-level-report.md`, conservative E0-E4 evidence levels, forbidden
+  quality claims, CLI/API access, and run/delivery references that prevent
+  unsupported full coverage, provider-backed quality, review-complete,
+  delivery-ready, or apply-ready claims.
 
 ## v0.4.1 - Workbench UI Wiring
 
