@@ -1,0 +1,26 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-action-log-record-v1",
+  "action_id": "workbench-action-review-e2",
+  "action_type": "record_human_review_evidence",
+  "actor_role": "bilingual_reviewer",
+  "actor_reference": "reviewer@example.com",
+  "input_payload_summary": {
+    "reviewer_role": "bilingual_reviewer",
+    "review_scope": {
+      "scope_type": "full_run"
+    }
+  },
+  "affected_artifact_references": ["human-review-evidence.jsonl"],
+  "before_status": {
+    "evaluation_scorecard": "review_required"
+  },
+  "after_status": {
+    "evaluation_scorecard": "review_ready"
+  },
+  "runtime_validation_result": {
+    "status": "accepted"
+  },
+  "created_at": "2026-06-28T00:00:00Z",
+  "outcome": "accepted"
+}

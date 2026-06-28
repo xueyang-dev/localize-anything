@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-action-log.schema.json",
+  "title": "Localize Anything Workbench Action Log Record",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "action_id",
+    "action_type",
+    "actor_role",
+    "input_payload_summary",
+    "affected_artifact_references",
+    "before_status",
+    "after_status",
+    "runtime_validation_result",
+    "created_at",
+    "outcome"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-action-log-record-v1" },
+    "action_id": { "type": "string", "minLength": 1 },
+    "action_type": {
+      "enum": [
+        "record_human_review_evidence",
+        "accept_claim",
+        "reject_claim",
+        "downgrade_claim",
+        "create_signoff",
+        "reject_signoff",
+        "request_follow_up",
+        "acknowledge_forbidden_claim",
+        "acknowledge_limitation",
+        "mark_queue_item_addressed"
+      ]
+    },
+    "actor_role": { "type": "string" },
+    "actor_reference": { "type": "string" },
+    "input_payload_summary": { "type": "object" },
+    "affected_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "before_status": { "type": "object" },
+    "after_status": { "type": "object" },
+    "runtime_validation_result": { "type": "object" },
+    "created_at": { "type": "string" },
+    "outcome": { "enum": ["accepted", "rejected", "blocked", "requires_follow_up"] }
+  },
+  "additionalProperties": true
+}

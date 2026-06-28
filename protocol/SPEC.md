@@ -67,6 +67,11 @@ spec adds schemas/examples and the runtime validates them.
   `workbench-review-queue.json`, `workbench-claim-queue.json`, and
   `workbench-signoff-summary.json`. They are views over runtime artifacts, not
   a second source of readiness truth.
+- Workbench action artifacts record UI-facing review actions in
+  `workbench-action-log.jsonl` and the latest action result in
+  `workbench-action-result.json`. They delegate to runtime artifact writers and
+  cannot bypass scorecard, signoff, artifact-state, repair, QA, handoff, or
+  provider-policy gates.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -554,6 +559,34 @@ readiness, or mark delivery/apply ready when scorecard, signoff, artifact-state,
 repair, QA, or handoff evidence is blocked. UI layers should render these
 artifacts and delegate writes to existing human-review, claim-acceptance, and
 signoff artifact writers.
+
+## Workbench Action Surface
+
+`workbench-action` executes one structured Workbench action against a state
+directory and writes `workbench-action-result.json`. It appends every accepted,
+rejected, blocked, or failed action to `workbench-action-log.jsonl`.
+`workbench-action-log` reads the action log deterministically.
+
+Supported action types are `record_human_review_evidence`, `accept_claim`,
+`reject_claim`, `downgrade_claim`, `create_signoff`, `reject_signoff`,
+`request_follow_up`, `acknowledge_forbidden_claim`,
+`acknowledge_limitation`, and `mark_queue_item_addressed`.
+
+`record_human_review_evidence` must use the Human Review Evidence writer.
+Claim actions must use Claim Acceptance. Signoff actions must use Signoff
+Record. Follow-up, acknowledgement, and queue-addressed actions may add action
+log records, but they must not mutate queue artifacts directly or invent
+readiness.
+
+Workbench APIs expose these artifacts through:
+
+- `POST /api/workbench-action`
+- `GET /api/workbench-action-log`
+
+The POST endpoint only delegates to the runtime action surface and must not
+call providers. It cannot remove scorecard `forbidden_claims`, infer E2/E3/E4
+from project-owner signoff, turn limited-scope acceptance into global
+readiness, or authorize delivery/apply when runtime gates remain blocked.
 
 ## Localization Modes
 

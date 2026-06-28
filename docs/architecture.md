@@ -221,6 +221,8 @@ evidence-level-report.md
 human-review-evidence.jsonl
 claim-acceptance-decision.json
 signoff-record.json
+workbench-action-log.jsonl
+workbench-action-result.json
 workbench-review-queue.json
 workbench-claim-queue.json
 workbench-signoff-summary.json
@@ -637,6 +639,25 @@ source of evidence conclusions, Human Review Evidence and Claim Acceptance
 remain the write paths for review/claim decisions, and Delivery/Apply gates
 remain responsible for enforcement. Workbench/API endpoints should read these
 runtime-generated projections rather than compute readiness in the UI layer.
+
+## Workbench Action Surface
+
+Workbench Action Surface is the seed write path for UI-facing review actions.
+It records `workbench-action-log.jsonl` and `workbench-action-result.json`, then
+refreshes the scorecard and Workbench queue projections from runtime artifacts.
+
+Supported actions include recording human review evidence, accepting,
+rejecting, or downgrading claims, creating or rejecting signoff, requesting
+follow-up, acknowledging forbidden claims or limitations, and marking queue
+items addressed. These actions delegate to the existing Human Review Evidence,
+Claim Acceptance, and Signoff runtime writers. A queue item can be marked
+addressed only when regenerating the queue no longer produces that item.
+
+The action surface cannot upgrade evidence levels, remove forbidden claims,
+infer E2/E3/E4 from project-owner signoff, or authorize delivery/apply against
+scorecard, artifact-state, QA, repair, handoff, or provider-policy blockers.
+This keeps business logic in runtime gates while giving Workbench a structured
+artifact-backed way to record decisions.
 
 ## Localization Brief
 

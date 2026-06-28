@@ -21,7 +21,7 @@
     "schema": { "const": "localize-anything-signoff-record-v1" },
     "run_id": { "type": ["string", "null"] },
     "signoff_id": { "type": "string", "minLength": 1 },
-    "status": { "enum": ["accepted", "accepted_with_limitations", "requires_follow_up"] },
+    "status": { "enum": ["accepted", "accepted_with_limitations", "requires_follow_up", "rejected"] },
     "signed_by": { "type": "string", "minLength": 1 },
     "signed_role": { "type": "string", "minLength": 1 },
     "signed_at": { "type": "string" },

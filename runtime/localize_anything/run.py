@@ -64,6 +64,7 @@ from .tabular_adapter import extract_segments as extract_tabular_segments
 from .tabular_adapter import validate_pair as validate_tabular_pair
 from .termbase_preflight import run_termbase_preflight
 from .word_adapter import extract_segments as extract_word_segments
+from .workbench_action import WORKBENCH_ACTION_LOG_JSONL, WORKBENCH_ACTION_RESULT_JSON
 from .workbench_queue import WORKBENCH_CLAIM_QUEUE_JSON, WORKBENCH_REVIEW_QUEUE_JSON, WORKBENCH_SIGNOFF_SUMMARY_JSON
 from .word_adapter import validate_pair as validate_word_pair
 from .xcstrings_adapter import extract_segments as extract_xcstrings
@@ -1022,6 +1023,10 @@ def _summary(
         artifacts["claim_acceptance_decision"] = (state_dir / CLAIM_ACCEPTANCE_DECISION_JSON).as_posix()
     if (state_dir / SIGNOFF_RECORD_JSON).is_file():
         artifacts["signoff_record"] = (state_dir / SIGNOFF_RECORD_JSON).as_posix()
+    if (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file():
+        artifacts["workbench_action_log"] = (state_dir / WORKBENCH_ACTION_LOG_JSONL).as_posix()
+    if (state_dir / WORKBENCH_ACTION_RESULT_JSON).is_file():
+        artifacts["workbench_action_result"] = (state_dir / WORKBENCH_ACTION_RESULT_JSON).as_posix()
     if (state_dir / WORKBENCH_REVIEW_QUEUE_JSON).is_file():
         artifacts["workbench_review_queue"] = (state_dir / WORKBENCH_REVIEW_QUEUE_JSON).as_posix()
     if (state_dir / WORKBENCH_CLAIM_QUEUE_JSON).is_file():
@@ -1117,6 +1122,8 @@ def _summary(
             "signoff_delivery_authorized": bool((evaluation_scorecard or {}).get("signoff", {}).get("delivery_authorized", False)),
             "signoff_apply_authorized": bool((evaluation_scorecard or {}).get("signoff", {}).get("apply_authorized", False)),
             "forbidden_claim_count": len((evaluation_scorecard or {}).get("forbidden_claims", [])),
+            "workbench_action_log_present": (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file(),
+            "workbench_action_result_present": (state_dir / WORKBENCH_ACTION_RESULT_JSON).is_file(),
             "workbench_review_queue_present": (state_dir / WORKBENCH_REVIEW_QUEUE_JSON).is_file(),
             "workbench_claim_queue_present": (state_dir / WORKBENCH_CLAIM_QUEUE_JSON).is_file(),
             "workbench_signoff_summary_present": (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).is_file(),

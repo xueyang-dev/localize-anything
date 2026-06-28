@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Workbench Action Surface seed with `workbench-action-log.jsonl`,
+  `workbench-action-result.json`, deterministic CLI/API actions, and runtime
+  delegation for human review, claim acceptance, signoff, follow-up, and
+  acknowledgement workflows.
 - Split architecture documentation into public README positioning, current
   architecture/status docs, and a separate `docs/architecture-roadmap.md` for
   future Locale, non-text, collaboration, evolution, and community-adapter

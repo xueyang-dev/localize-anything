@@ -1,0 +1,25 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-action-result-v1",
+  "artifact": "workbench-action-result.json",
+  "action_id": "workbench-action-review-e2",
+  "action_type": "record_human_review_evidence",
+  "outcome": "accepted",
+  "runtime_validation_result": {
+    "status": "accepted"
+  },
+  "affected_artifact_references": ["human-review-evidence.jsonl"],
+  "refreshed_artifacts": [
+    "evaluation-scorecard.json",
+    "workbench-review-queue.json",
+    "workbench-claim-queue.json",
+    "workbench-signoff-summary.json"
+  ],
+  "action_log_artifact": "workbench-action-log.jsonl",
+  "action_log_record": {
+    "schema": "localize-anything-workbench-action-log-record-v1",
+    "action_id": "workbench-action-review-e2",
+    "action_type": "record_human_review_evidence",
+    "outcome": "accepted"
+  }
+}

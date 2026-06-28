@@ -44,6 +44,11 @@ from .termbase_preflight import (
     TERMBASE_PREFLIGHT_REPORT_JSON,
     termbase_preflight_asset_paths,
 )
+from .workbench_action import (
+    WORKBENCH_ACTION_LOG_JSONL,
+    WORKBENCH_ACTION_RESULT_JSON,
+    workbench_action_asset_paths,
+)
 from .workbench_queue import (
     WORKBENCH_CLAIM_QUEUE_JSON,
     WORKBENCH_REVIEW_QUEUE_JSON,
@@ -75,6 +80,8 @@ OPTIONAL_CANONICAL_ASSETS = (
     HUMAN_REVIEW_EVIDENCE_JSONL,
     CLAIM_ACCEPTANCE_DECISION_JSON,
     SIGNOFF_RECORD_JSON,
+    WORKBENCH_ACTION_LOG_JSONL,
+    WORKBENCH_ACTION_RESULT_JSON,
     WORKBENCH_REVIEW_QUEUE_JSON,
     WORKBENCH_CLAIM_QUEUE_JSON,
     WORKBENCH_SIGNOFF_SUMMARY_JSON,
@@ -190,6 +197,7 @@ def package_delivery(
                 **segment_repair_asset_paths(state_dir),
                 **evaluation_asset_paths(state_dir),
                 **human_review_asset_paths(state_dir),
+                **workbench_action_asset_paths(state_dir),
                 **workbench_queue_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",

@@ -131,6 +131,7 @@ def build_claim_acceptance_decision(
     state_dir: Path,
     *,
     requested_claims: list[str] | None = None,
+    rejected_claims: list[str] | None = None,
     accepted_risk: dict[str, Any] | None = None,
     run_id: str | None = None,
     write: bool = True,
@@ -142,8 +143,9 @@ def build_claim_acceptance_decision(
     overall = str(scorecard.get("overall_claim") or "not_ready")
     accepted_risk = accepted_risk or {}
     accepts_limitations = bool(accepted_risk.get("accepts_limitations") or accepted_risk.get("accepts_partial_or_limited_scope"))
+    explicit_rejections = set(_requested_claims(rejected_claims)) if rejected_claims else set()
     decisions = [
-        _claim_decision(claim, forbidden, overall, review, accepts_limitations)
+        _claim_decision(claim, forbidden, overall, review, accepts_limitations, explicit_rejections)
         for claim in claims
     ]
     accepted = [item["claim"] for item in decisions if item["status"] == "accepted"]
@@ -207,6 +209,43 @@ def create_signoff_record(
     blocked: list[dict[str, str]] = []
     delivery_authorized = False
     apply_authorized = False
+    explicit_rejection = bool(signoff.get("rejected")) or str(signoff.get("status") or "") == "rejected"
+    if explicit_rejection:
+        blocked = [
+            {"authorization": authorization, "reason": "signoff_rejected"}
+            for authorization, requested_value in requested.items()
+            if requested_value
+        ]
+        status = "rejected"
+        record = {
+            "protocol_version": PROTOCOL_VERSION,
+            "schema": "localize-anything-signoff-record-v1",
+            "run_id": run_id or scorecard.get("run_id") or claim_decision.get("run_id"),
+            "signoff_id": str(signoff.get("signoff_id") or _stable_id("signoff", signoff)[:24]),
+            "status": status,
+            "artifact": SIGNOFF_RECORD_JSON,
+            "signed_by": str(signoff["signed_by"]).strip(),
+            "signed_role": str(signoff.get("signed_role") or "project_owner"),
+            "signed_at": signoff.get("signed_at") or _now(),
+            "signoff_scope": signoff.get("signoff_scope") if isinstance(signoff.get("signoff_scope"), dict) else {"scope_type": "limited"},
+            "requested_authorizations": requested,
+            "delivery_authorized": False,
+            "apply_authorized": False,
+            "limitations_accepted": limitations_accepted,
+            "accepted_claims": claim_decision.get("accepted_claims", []),
+            "accepted_with_limitations": claim_decision.get("accepted_with_limitations", []),
+            "rejected_claims": claim_decision.get("rejected_claims", []),
+            "forbidden_claims_remaining": sorted(forbidden | set(claim_decision.get("forbidden_claims_remaining", []))),
+            "blocked_authorizations": blocked,
+            "source_artifacts": {
+                "evaluation_scorecard": "evaluation-scorecard.json" if scorecard else None,
+                "claim_acceptance_decision": CLAIM_ACCEPTANCE_DECISION_JSON if claim_decision else None,
+                "artifact_state": "artifact-state.json" if artifact_state else None,
+            },
+        }
+        if write:
+            write_json(state_dir / SIGNOFF_RECORD_JSON, record)
+        return record
     if requested.get("delivery"):
         delivery_authorized = _delivery_authorized(overall, forbidden, claim_status, limitations_accepted, stale_state)
         if not delivery_authorized:
@@ -322,7 +361,10 @@ def _claim_decision(
     overall: str,
     review: dict[str, Any],
     accepts_limitations: bool,
+    explicit_rejections: set[str] | None = None,
 ) -> dict[str, Any]:
+    if claim in (explicit_rejections or set()):
+        return {"claim": claim, "status": "rejected", "reason": "user_rejected_claim"}
     if claim in forbidden:
         return {"claim": claim, "status": "blocked", "reason": "unsupported_by_evaluation_scorecard"}
     if claim == "review_complete" and not review.get("global_supported_levels"):
