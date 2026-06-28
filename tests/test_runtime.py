@@ -5561,6 +5561,8 @@ class EvaluationScorecardTests(unittest.TestCase):
 
             self.assertEqual(scorecard["artifact_freshness"]["status"], "blocked")
             self.assertEqual(scorecard["overall_claim"], "blocked")
+            self.assertIn("full_coverage", scorecard["forbidden_claims"])
+            self.assertIn("full_terminology_assurance", scorecard["forbidden_claims"])
 
     def test_pending_required_repairs_block_delivery_and_apply_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -433,6 +433,18 @@ def _forbidden_claims(
         claims.add("apply_ready")
     if any(dimension["status"] == "blocked" for dimension in dimensions.values()) or dimensions["review_readiness"]["status"] != "pass":
         claims.add("production_ready")
+    if dimensions["artifact_freshness"]["status"] != "pass":
+        claims.update(
+            {
+                "full_coverage",
+                "provider_backed_quality",
+                "full_terminology_assurance",
+                "review_complete",
+                "delivery_ready",
+                "apply_ready",
+                "production_ready",
+            }
+        )
     handoff = artifacts.get("generation_handoff_decision", {})
     for claim in handoff.get("forbidden_quality_claims", []) if isinstance(handoff, dict) else []:
         claims.update(_claim_aliases(str(claim)))
