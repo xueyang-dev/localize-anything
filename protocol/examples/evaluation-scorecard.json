@@ -1,0 +1,140 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-evaluation-scorecard-v1",
+  "run_id": "evaluation-example-001",
+  "status": "pass_with_warnings",
+  "overall_claim": "review_ready",
+  "evidence_level": {
+    "highest_supported": "E1_automated_semantic_or_policy_review",
+    "levels": {
+      "E0_deterministic_structural_qa": {
+        "status": "provided",
+        "summary": "deterministic QA pass"
+      },
+      "E1_automated_semantic_or_policy_review": {
+        "status": "provided",
+        "summary": "automated policy/review artifacts summarized"
+      },
+      "E2_bilingual_human_spot_check": {
+        "status": "not_provided",
+        "summary": "explicit bilingual human spot-check evidence was not provided"
+      },
+      "E3_native_language_review": {
+        "status": "not_provided",
+        "summary": "explicit native-language review evidence was not provided"
+      },
+      "E4_professional_localization_review": {
+        "status": "not_provided",
+        "summary": "explicit professional localization review evidence was not provided"
+      }
+    }
+  },
+  "structural_qa": {
+    "status": "pass",
+    "evidence_level": "E0_deterministic_structural_qa",
+    "summary": "deterministic QA pass",
+    "blockers": [],
+    "warnings": []
+  },
+  "provider_status": {
+    "status": "warning",
+    "evidence_level": "E0_deterministic_structural_qa",
+    "summary": "provider-backed quality not proven (synthetic_test)",
+    "blockers": [],
+    "warnings": ["provider_backed_quality_not_proven"]
+  },
+  "terminology_assurance": {
+    "status": "pass",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "terminology review is marked reviewed",
+    "blockers": [],
+    "warnings": []
+  },
+  "coverage_assurance": {
+    "status": "warning",
+    "evidence_level": "E0_deterministic_structural_qa",
+    "summary": "coverage is source-only or downgraded",
+    "blockers": [],
+    "warnings": ["full_coverage_not_proven"]
+  },
+  "resolution_status": {
+    "status": "pass",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "resolution gate has no unresolved blocking questions",
+    "blockers": [],
+    "warnings": []
+  },
+  "handoff_readiness": {
+    "status": "warning",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "handoff is downgraded (review_required)",
+    "blockers": [],
+    "warnings": ["handoff_downgraded"]
+  },
+  "artifact_freshness": {
+    "status": "pass",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "artifact state has no stale or blocked artifacts",
+    "blockers": [],
+    "warnings": []
+  },
+  "segment_reuse_readiness": {
+    "status": "pass",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "segment reuse decision is ready",
+    "blockers": [],
+    "warnings": []
+  },
+  "repair_readiness": {
+    "status": "pass",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "repair result has no required pending repairs",
+    "blockers": [],
+    "warnings": []
+  },
+  "review_readiness": {
+    "status": "warning",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "automated review exists but E2-E4 human review was not provided",
+    "blockers": [],
+    "warnings": ["human_review_not_provided"]
+  },
+  "delivery_readiness": {
+    "status": "warning",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "delivery is owner_review_required",
+    "blockers": [],
+    "warnings": ["delivery_requires_review_or_confirmation"]
+  },
+  "apply_readiness": {
+    "status": "warning",
+    "evidence_level": "E1_automated_semantic_or_policy_review",
+    "summary": "apply requires explicit run-id confirmation",
+    "blockers": [],
+    "warnings": ["apply_requires_confirmation"]
+  },
+  "dimensions": {},
+  "forbidden_claims": [
+    "apply_ready",
+    "delivery_ready",
+    "full_coverage",
+    "provider_backed_quality",
+    "production_ready",
+    "review_complete"
+  ],
+  "recommended_next_actions": [
+    "Collect or refresh evidence for provider_status.",
+    "Collect or refresh evidence for coverage_assurance.",
+    "Record explicit human/native/professional review before claiming review completion."
+  ],
+  "source_artifacts": {
+    "termbase_preflight_report": "termbase-preflight-report.json",
+    "generation_handoff_decision": "generation-handoff-decision.json",
+    "artifact_state": "artifact-state.json"
+  },
+  "limitations": [
+    "evaluation scorecard summarizes existing artifacts and does not perform translation",
+    "missing evidence is treated conservatively and cannot support full quality claims",
+    "E2-E4 levels require explicit human/native/professional review artifacts"
+  ]
+}

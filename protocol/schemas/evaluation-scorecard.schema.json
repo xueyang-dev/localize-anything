@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/evaluation-scorecard.schema.json",
+  "title": "Localize Anything Evaluation Scorecard",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "status",
+    "overall_claim",
+    "evidence_level",
+    "structural_qa",
+    "provider_status",
+    "terminology_assurance",
+    "coverage_assurance",
+    "resolution_status",
+    "handoff_readiness",
+    "artifact_freshness",
+    "segment_reuse_readiness",
+    "repair_readiness",
+    "review_readiness",
+    "delivery_readiness",
+    "apply_readiness",
+    "forbidden_claims",
+    "recommended_next_actions",
+    "source_artifacts"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-evaluation-scorecard-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["pass", "pass_with_warnings", "blocked"] },
+    "overall_claim": {
+      "enum": [
+        "blocked",
+        "not_ready",
+        "draft_only",
+        "review_required",
+        "review_ready",
+        "delivery_ready_with_warnings",
+        "delivery_ready",
+        "apply_ready"
+      ]
+    },
+    "evidence_level": {
+      "type": "object",
+      "required": ["highest_supported", "levels"],
+      "properties": {
+        "highest_supported": { "type": "string" },
+        "levels": { "type": "object", "additionalProperties": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
+    "dimensions": { "type": "object" },
+    "structural_qa": { "type": "object" },
+    "provider_status": { "type": "object" },
+    "terminology_assurance": { "type": "object" },
+    "coverage_assurance": { "type": "object" },
+    "resolution_status": { "type": "object" },
+    "handoff_readiness": { "type": "object" },
+    "artifact_freshness": { "type": "object" },
+    "segment_reuse_readiness": { "type": "object" },
+    "repair_readiness": { "type": "object" },
+    "review_readiness": { "type": "object" },
+    "delivery_readiness": { "type": "object" },
+    "apply_readiness": { "type": "object" },
+    "forbidden_claims": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "full_coverage",
+          "provider_backed_quality",
+          "full_terminology_assurance",
+          "review_complete",
+          "delivery_ready",
+          "apply_ready",
+          "production_ready",
+          "full_source_coverage",
+          "full_quality_generation",
+          "safe_apply_readiness",
+          "review_complete_status"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "recommended_next_actions": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object", "additionalProperties": { "type": "string" } },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

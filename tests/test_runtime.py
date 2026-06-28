@@ -39,6 +39,7 @@ from runtime.localize_anything.dashboard import build_delivery_dashboard, render
 from runtime.localize_anything.delivery import package_delivery
 from runtime.localize_anything.delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
 from runtime.localize_anything.deepseek_provider import _get_api_key, generate_deepseek_batch_file
+from runtime.localize_anything.evaluation import build_evaluation_scorecard
 from runtime.localize_anything.generation import (
     collect_generated_handoff,
     create_draft_request,
@@ -5507,6 +5508,416 @@ class PatchBasedRepairExecutionTests(unittest.TestCase):
                 thread.join(timeout=2)
 
 
+class EvaluationScorecardTests(unittest.TestCase):
+    def test_scorecard_blocks_provider_backed_claim_when_provider_failed_or_not_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            failed_state = Path(directory) / "failed" / ".localize-anything"
+            failed = _build_scorecard_state(
+                failed_state,
+                provider_status="failed",
+                provider_actual="synthetic_fallback",
+            )
+            not_run_state = Path(directory) / "not-run" / ".localize-anything"
+            not_run = _build_scorecard_state(
+                not_run_state,
+                provider_status="not_run",
+                provider_actual="none",
+            )
+
+            self.assertEqual(failed["provider_status"]["status"], "blocked")
+            self.assertIn("provider_backed_quality", failed["forbidden_claims"])
+            self.assertIn("provider_backed_quality", not_run["forbidden_claims"])
+
+    def test_scorecard_blocks_full_coverage_claim_when_coverage_is_partial_or_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            partial = _build_scorecard_state(
+                Path(directory) / "partial" / ".localize-anything",
+                coverage={"coverage_mode": "source-only", "visible_ui_coverage_warning": True},
+            )
+            unknown = _build_scorecard_state(Path(directory) / "unknown" / ".localize-anything", coverage={})
+
+            self.assertIn("full_coverage", partial["forbidden_claims"])
+            self.assertIn("full_coverage", unknown["forbidden_claims"])
+            self.assertEqual(partial["coverage_assurance"]["status"], "warning")
+
+    def test_incomplete_term_review_downgrades_terminology_assurance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(
+                Path(directory) / ".localize-anything",
+                term_assurance="incomplete_review_required",
+                high_risk_unreviewed_count=1,
+            )
+
+            self.assertEqual(scorecard["terminology_assurance"]["status"], "warning")
+            self.assertIn("full_terminology_assurance", scorecard["forbidden_claims"])
+
+    def test_stale_artifacts_block_or_downgrade_overall_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(
+                Path(directory) / ".localize-anything",
+                artifact_status="stale",
+                stale_count=1,
+            )
+
+            self.assertEqual(scorecard["artifact_freshness"]["status"], "blocked")
+            self.assertEqual(scorecard["overall_claim"], "blocked")
+            self.assertIn("full_coverage", scorecard["forbidden_claims"])
+            self.assertIn("full_terminology_assurance", scorecard["forbidden_claims"])
+
+    def test_pending_required_repairs_block_delivery_and_apply_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(
+                Path(directory) / ".localize-anything",
+                pending_required_repairs=1,
+            )
+
+            self.assertEqual(scorecard["repair_readiness"]["status"], "blocked")
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+            self.assertIn("apply_ready", scorecard["forbidden_claims"])
+
+    def test_successful_deterministic_qa_supports_e0(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(Path(directory) / ".localize-anything")
+
+            assert_protocol_schema(self, "evaluation-scorecard", scorecard)
+            self.assertEqual(scorecard["structural_qa"]["status"], "pass")
+            self.assertEqual(scorecard["evidence_level"]["levels"]["E0_deterministic_structural_qa"]["status"], "provided")
+
+    def test_automated_policy_artifacts_support_e1_but_not_e2_to_e4(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(Path(directory) / ".localize-anything")
+            levels = scorecard["evidence_level"]["levels"]
+
+            self.assertEqual(levels["E1_automated_semantic_or_policy_review"]["status"], "provided")
+            self.assertEqual(levels["E2_bilingual_human_spot_check"]["status"], "not_provided")
+            self.assertEqual(levels["E3_native_language_review"]["status"], "not_provided")
+            self.assertEqual(levels["E4_professional_localization_review"]["status"], "not_provided")
+
+    def test_human_native_professional_review_evidence_is_required_for_e2_to_e4(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            without_human = _build_scorecard_state(Path(directory) / "without" / ".localize-anything")
+            with_native = _build_scorecard_state(
+                Path(directory) / "with-native" / ".localize-anything",
+                review_evidence="E3_native_language_review",
+            )
+
+            self.assertEqual(without_human["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "not_provided")
+            self.assertEqual(with_native["evidence_level"]["highest_supported"], "E3_native_language_review")
+            self.assertEqual(with_native["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "provided")
+            self.assertEqual(with_native["evidence_level"]["levels"]["E3_native_language_review"]["status"], "provided")
+            self.assertEqual(with_native["evidence_level"]["levels"]["E4_professional_localization_review"]["status"], "not_provided")
+
+    def test_overall_claim_becomes_review_ready_only_when_blockers_are_clear(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            clear = _build_scorecard_state(
+                Path(directory) / "clear" / ".localize-anything",
+                delivery_status="owner_review_required",
+            )
+            blocked = _build_scorecard_state(
+                Path(directory) / "blocked" / ".localize-anything",
+                delivery_status="owner_review_required",
+                unresolved_question_count=1,
+            )
+
+            self.assertEqual(clear["overall_claim"], "review_ready")
+            self.assertEqual(blocked["overall_claim"], "blocked")
+
+    def test_delivery_ready_with_warnings_requires_explicit_non_blocking_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(
+                Path(directory) / ".localize-anything",
+                coverage={"coverage_mode": "source-only", "visible_ui_coverage_warning": True},
+            )
+
+            self.assertEqual(scorecard["delivery_readiness"]["status"], "pass")
+            self.assertEqual(scorecard["overall_claim"], "delivery_ready_with_warnings")
+            self.assertIn("full_coverage", scorecard["forbidden_claims"])
+
+    def test_apply_ready_is_blocked_when_apply_evidence_is_blocked_or_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(
+                Path(directory) / ".localize-anything",
+                apply_blocked_by_stale=True,
+            )
+
+            self.assertEqual(scorecard["apply_readiness"]["status"], "blocked")
+            self.assertEqual(scorecard["overall_claim"], "blocked")
+            self.assertIn("apply_ready", scorecard["forbidden_claims"])
+
+    def test_forbidden_claims_are_emitted_for_unsupported_quality_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scorecard = _build_scorecard_state(
+                Path(directory) / ".localize-anything",
+                provider_status="synthetic_test",
+                provider_actual="synthetic",
+                term_assurance="incomplete_review_required",
+                high_risk_unreviewed_count=1,
+                coverage={},
+                delivery_status="draft_package",
+                apply_operations=[{"action": "replace", "destination": "locales/zh-CN.json"}],
+            )
+
+            self.assertTrue(
+                {
+                    "full_coverage",
+                    "provider_backed_quality",
+                    "full_terminology_assurance",
+                    "review_complete",
+                    "delivery_ready",
+                    "apply_ready",
+                    "production_ready",
+                }.issubset(set(scorecard["forbidden_claims"]))
+            )
+
+    def test_run_summary_and_delivery_package_reference_scorecard_and_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _make_json_project(Path(directory))
+
+            result = run_localize(project, "en-US", ["zh-CN"], synthetic_draft=True, run_id="scorecard-run-001")
+
+            self.assertIn("evaluation_scorecard", result["artifacts"])
+            self.assertIn("evidence_level_report", result["artifacts"])
+            self.assertIn("evaluation_status", result["summary"])
+            self.assertIn("overall_claim", result["summary"])
+            scorecard = read_json(Path(result["artifacts"]["evaluation_scorecard"]))
+            assert_protocol_schema(self, "evaluation-scorecard", scorecard)
+            delivery = Path(result["artifacts"]["delivery_directory"])
+            manifest = read_json(delivery / "delivery-manifest.json")
+            self.assertEqual(manifest["assets"]["evaluation_scorecard"], "evaluation-scorecard.json")
+            self.assertEqual(manifest["assets"]["evidence_level_report"], "evidence-level-report.md")
+            self.assertTrue((delivery / "evaluation-scorecard.json").is_file())
+            self.assertTrue((delivery / "evidence-level-report.md").is_file())
+            packaged_scorecard = read_json(delivery / "evaluation-scorecard.json")
+            self.assertEqual(packaged_scorecard["overall_claim"], scorecard["overall_claim"])
+
+    def test_cli_output_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            output = Path(directory) / "scorecard-output.json"
+            _write_scorecard_state(state)
+
+            exit_code = cli_main(
+                [
+                    "evaluation-scorecard",
+                    state.as_posix(),
+                    "--run-id",
+                    "cli-scorecard-001",
+                    "--output",
+                    output.as_posix(),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            emitted = read_json(output)
+            self.assertEqual(emitted["overall_claim"], emitted["evaluation_scorecard"]["overall_claim"])
+            self.assertEqual(emitted["evaluation_scorecard"]["run_id"], "cli-scorecard-001")
+            self.assertTrue((state / "evidence-level-report.md").is_file())
+
+    def test_workbench_api_exposes_scorecard_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/evaluation-scorecard?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                payload = json.loads(body)
+                self.assertEqual(payload["evaluation_scorecard"]["schema"], "localize-anything-evaluation-scorecard-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
+def _build_scorecard_state(
+    state: Path,
+    *,
+    coverage: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    _write_scorecard_state(state, **kwargs)
+    coverage = {"coverage_mode": "source-plus-merged-overlay"} if coverage is None else coverage
+    return build_evaluation_scorecard(
+        state,
+        run_id="scorecard-test-001",
+        coverage_diagnostics=coverage,
+    )
+
+
+def _write_scorecard_state(
+    state: Path,
+    *,
+    provider_status: str = "passed",
+    provider_actual: str = "deepseek",
+    term_assurance: str = "reviewed",
+    high_risk_unreviewed_count: int = 0,
+    artifact_status: str = "current",
+    stale_count: int = 0,
+    blocked_count: int = 0,
+    pending_required_repairs: int = 0,
+    failed_repair_qa_count: int = 0,
+    delivery_status: str = "ready_no_changes",
+    apply_blocked_by_stale: bool = False,
+    apply_operations: list[dict[str, Any]] | None = None,
+    unresolved_question_count: int = 0,
+    review_evidence: str | None = None,
+) -> None:
+    state.mkdir(parents=True, exist_ok=True)
+    write_json(
+        state / "termbase-preflight-report.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-termbase-preflight-report-v1",
+            "status": "ready",
+            "terminology_assurance": term_assurance,
+            "summary": {
+                "conflict_count": 0,
+                "high_risk_unreviewed_count": high_risk_unreviewed_count,
+            },
+        },
+    )
+    unresolved_questions = [
+        {"question_id": f"bq-{index}", "status": "unresolved"}
+        for index in range(unresolved_question_count)
+    ]
+    write_json(
+        state / "blocking-questions.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-blocking-questions-v1",
+            "summary": {"unresolved_blocking_count": unresolved_question_count},
+            "questions": unresolved_questions,
+        },
+    )
+    write_json(
+        state / "resolution-options.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-resolution-options-v1",
+            "options": [],
+        },
+    )
+    write_json(
+        state / "generation-strategy.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-generation-strategy-v1",
+            "status": "ready",
+            "generation_readiness": "ready",
+        },
+    )
+    write_json(
+        state / "generation-handoff-decision.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-generation-handoff-decision-v1",
+            "status": "ready",
+            "handoff_allowed": unresolved_question_count == 0,
+            "full_quality_handoff_allowed": unresolved_question_count == 0,
+            "unresolved_questions": unresolved_questions,
+            "forbidden_quality_claims": [],
+        },
+    )
+    write_json(
+        state / "artifact-state.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-artifact-state-v1",
+            "status": artifact_status,
+            "safe_to_continue": artifact_status == "current" and blocked_count == 0 and stale_count == 0,
+            "summary": {
+                "stale_count": stale_count,
+                "blocked_count": blocked_count,
+            },
+            "decisions": {
+                "delivery_policy": "blocked" if stale_count or blocked_count else "allowed",
+                "apply_policy": "blocked" if stale_count or blocked_count else "allowed",
+            },
+            "next_actions": [],
+        },
+    )
+    write_json(
+        state / "reuse-decision.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-reuse-decision-v1",
+            "status": "ready",
+            "decisions": {
+                "generation_handoff_policy": "allowed",
+                "delivery_apply_policy": "allowed",
+                "review_required": False,
+            },
+        },
+    )
+    write_json(
+        state / "repair-result.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-repair-result-v1",
+            "status": "ready" if not pending_required_repairs and not failed_repair_qa_count else "blocked",
+            "summary": {
+                "pending_required_repair_count": pending_required_repairs,
+                "pending_provider_or_model_repair_count": 0,
+                "failed_qa_count": failed_repair_qa_count,
+                "blocked_count": 0,
+                "skipped_not_deterministic_count": 0,
+            },
+            "results": [],
+        },
+    )
+    write_json(
+        state / "delivery-manifest.json",
+        {
+            "protocol_version": "0.1",
+            "run_id": "scorecard-test-001",
+            "delivery_status": delivery_status,
+            "outputs": [],
+            "generation": {
+                "provider_status": provider_status,
+                "provider_actual": provider_actual,
+                "apply_allowed": True,
+            },
+            "qa": {
+                "status": "pass",
+                "blocking_count": 0,
+                "warning_count": 0,
+                "evidence_channels": ["runtime"],
+            },
+            "assets": {},
+        },
+    )
+    write_json(
+        state / "delivery-decision.json",
+        {
+            "protocol_version": "0.1",
+            "status": delivery_status,
+            "summary": {"blocking_count": 0},
+        },
+    )
+    write_json(
+        state / "apply-plan.json",
+        {
+            "protocol_version": "0.1",
+            "blocked_by_provider_status": False,
+            "blocked_by_stale_artifacts": apply_blocked_by_stale,
+            "operations": apply_operations or [],
+        },
+    )
+    if review_evidence:
+        write_json(
+            state / "review-result.json",
+            {
+                "protocol_version": "0.1",
+                "status": "pass",
+                "evidence_level": review_evidence,
+                "review_actor_type": review_evidence,
+            },
+        )
+
+
 def _write_repair_execution_state(
     state: Path,
     requests: list[dict[str, Any]],
@@ -5920,7 +6331,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 37)
+        self.assertEqual(result["schemas_checked"], 38)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
