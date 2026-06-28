@@ -8,6 +8,7 @@ import webbrowser
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address
 from pathlib import Path, PurePosixPath
 from tempfile import gettempdir
 from typing import Any
@@ -190,6 +191,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/import-files":
                     self._handle_import_files(payload)
                     return
+                if parsed.path == "/api/pick-directory":
+                    self._handle_pick_directory()
+                    return
                 if parsed.path == "/api/agent-run":
                     self._handle_agent_run(payload)
                     return
@@ -242,7 +246,6 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             source_files = [
                 item["path"]
                 for item in inspection.get("supported_files", [])
-                if item.get("adapter") == "core.word-document"
             ]
             self._send_json(
                 {
@@ -251,6 +254,25 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     "routing": _routing_view(inspection),
                     "inspection": inspection,
                     "source_files": source_files,
+                }
+            )
+
+        def _handle_pick_directory(self) -> None:
+            if not ip_address(self.client_address[0].split("%", 1)[0]).is_loopback:
+                raise ValueError("Local directory selection is only available from this computer")
+            project = _pick_directory()
+            if project is None:
+                self._send_json({"status": "cancelled"})
+                return
+            state.add_allowed_root(project)
+            inspection = inspect_project(project)
+            self._send_json(
+                {
+                    "status": "pass",
+                    "project": project.as_posix(),
+                    "routing": _routing_view(inspection),
+                    "inspection": inspection,
+                    "source_files": [item["path"] for item in inspection.get("supported_files", [])],
                 }
             )
 
@@ -614,6 +636,27 @@ def _write_imported_files(value: Any) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(data)
     return root
+
+
+def _pick_directory() -> Path | None:
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except ImportError as exc:
+        raise ValueError("This Python installation does not provide a native directory picker") from exc
+
+    root = None
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        selected = filedialog.askdirectory(parent=root, title="选择本地项目目录", mustexist=True)
+    except tk.TclError as exc:
+        raise ValueError(f"Could not open the native directory picker: {exc}") from exc
+    finally:
+        if root is not None:
+            root.destroy()
+    return Path(selected).expanduser().resolve() if selected else None
 
 
 def _safe_import_relative_path(value: str) -> PurePosixPath:
@@ -1275,22 +1318,59 @@ WORKBENCH_HTML = r"""<!doctype html>
           <label for="project">项目路径</label>
           <input id="project" placeholder="C:\path\to\project">
 
-          <label for="dropzone">选择项目文件夹或 Word 文件</label>
+          <label for="dropzone">打开本地项目或导入文件</label>
           <div class="dropzone hero-drop" id="dropzone" role="button" tabindex="0">
             <div class="drop-icon" aria-hidden="true"></div>
-            <div class="drop-title">选择项目文件夹</div>
-            <div>拖放文件夹到这里，或手动选择</div>
+            <div class="drop-title">打开本地项目目录</div>
+            <div>直接读取本机路径，不上传目录内容</div>
           </div>
           <div class="file-actions">
-            <label class="file-button" for="filePicker">选择文件</label>
-            <label class="file-button" for="folderPicker">选择文件夹</label>
-            <input class="file-input" id="filePicker" type="file" multiple accept=".docx,.dotx,.docm,.dotm,.doc">
-            <input class="file-input" id="folderPicker" type="file" multiple webkitdirectory directory>
+            <button class="file-button" type="button" onclick="pickProjectDirectory()">选择本地目录</button>
+            <label class="file-button" for="filePicker">导入文件</label>
+            <input class="file-input" id="filePicker" type="file" multiple>
           </div>
 
           <div class="form-grid">
             <label for="targetLocale">目标语言</label>
-            <input id="targetLocale" value="zh-CN">
+            <input id="targetLocale" value="zh-CN" list="localeOptions" autocomplete="off" spellcheck="false">
+            <datalist id="localeOptions">
+              <option value="ar-SA" label="🇸🇦 阿拉伯语 · العربية（沙特阿拉伯）"></option>
+              <option value="bn-BD" label="🇧🇩 孟加拉语 · বাংলা（孟加拉国）"></option>
+              <option value="cs-CZ" label="🇨🇿 捷克语 · Čeština（捷克）"></option>
+              <option value="da-DK" label="🇩🇰 丹麦语 · Dansk（丹麦）"></option>
+              <option value="de-DE" label="🇩🇪 德语 · Deutsch（德国）"></option>
+              <option value="el-GR" label="🇬🇷 希腊语 · Ελληνικά（希腊）"></option>
+              <option value="en-GB" label="🇬🇧 英语 · English（英国）"></option>
+              <option value="en-US" label="🇺🇸 英语 · English（美国）"></option>
+              <option value="es-ES" label="🇪🇸 西班牙语 · Español（西班牙）"></option>
+              <option value="es-MX" label="🇲🇽 西班牙语 · Español（墨西哥）"></option>
+              <option value="fi-FI" label="🇫🇮 芬兰语 · Suomi（芬兰）"></option>
+              <option value="fr-CA" label="🇨🇦 法语 · Français（加拿大）"></option>
+              <option value="fr-FR" label="🇫🇷 法语 · Français（法国）"></option>
+              <option value="he-IL" label="🇮🇱 希伯来语 · עברית（以色列）"></option>
+              <option value="hi-IN" label="🇮🇳 印地语 · हिन्दी（印度）"></option>
+              <option value="hu-HU" label="🇭🇺 匈牙利语 · Magyar（匈牙利）"></option>
+              <option value="id-ID" label="🇮🇩 印度尼西亚语 · Bahasa Indonesia（印度尼西亚）"></option>
+              <option value="it-IT" label="🇮🇹 意大利语 · Italiano（意大利）"></option>
+              <option value="ja-JP" label="🇯🇵 日语 · 日本語（日本）"></option>
+              <option value="ko-KR" label="🇰🇷 韩语 · 한국어（韩国）"></option>
+              <option value="ms-MY" label="🇲🇾 马来语 · Bahasa Melayu（马来西亚）"></option>
+              <option value="nl-NL" label="🇳🇱 荷兰语 · Nederlands（荷兰）"></option>
+              <option value="no-NO" label="🇳🇴 挪威语 · Norsk（挪威）"></option>
+              <option value="pl-PL" label="🇵🇱 波兰语 · Polski（波兰）"></option>
+              <option value="pt-BR" label="🇧🇷 葡萄牙语 · Português（巴西）"></option>
+              <option value="pt-PT" label="🇵🇹 葡萄牙语 · Português（葡萄牙）"></option>
+              <option value="ro-RO" label="🇷🇴 罗马尼亚语 · Română（罗马尼亚）"></option>
+              <option value="ru-RU" label="🇷🇺 俄语 · Русский（俄罗斯）"></option>
+              <option value="sv-SE" label="🇸🇪 瑞典语 · Svenska（瑞典）"></option>
+              <option value="th-TH" label="🇹🇭 泰语 · ไทย（泰国）"></option>
+              <option value="tr-TR" label="🇹🇷 土耳其语 · Türkçe（土耳其）"></option>
+              <option value="uk-UA" label="🇺🇦 乌克兰语 · Українська（乌克兰）"></option>
+              <option value="vi-VN" label="🇻🇳 越南语 · Tiếng Việt（越南）"></option>
+              <option value="zh-CN" label="🇨🇳 简体中文 · 中文（中国大陆）"></option>
+              <option value="zh-HK" label="🇭🇰 繁体中文 · 中文（香港）"></option>
+              <option value="zh-TW" label="🇹🇼 繁体中文 · 中文（台湾）"></option>
+            </datalist>
 
             <label>本地化模式</label>
             <div class="mode-options">
@@ -1301,7 +1381,7 @@ WORKBENCH_HTML = r"""<!doctype html>
             </div>
 
             <label for="sourceLocale">源语言</label>
-            <input id="sourceLocale" value="en-US">
+            <input id="sourceLocale" value="en-US" list="localeOptions" autocomplete="off" spellcheck="false">
 
             <label for="sourceFiles">源文件</label>
             <textarea id="sourceFiles" placeholder="可选。每行一个相对路径。"></textarea>
@@ -1540,39 +1620,19 @@ WORKBENCH_HTML = r"""<!doctype html>
       $("project").focus();
     }
 
-    async function droppedFileItems(dataTransfer) {
-      const transferItems = Array.from(dataTransfer.items || []);
-      if (!transferItems.length || !transferItems[0].webkitGetAsEntry) {
-        return Array.from(dataTransfer.files || []).map((file) => ({file, relative_path: file.name}));
-      }
-      const collected = [];
-      for (const item of transferItems) {
-        const entry = item.webkitGetAsEntry();
-        if (entry) collected.push(...await traverseEntry(entry, ""));
-      }
-      return collected;
-    }
-
-    async function traverseEntry(entry, prefix) {
-      if (entry.isFile) {
-        return await new Promise((resolve, reject) => {
-          entry.file(
-            (file) => resolve([{file, relative_path: prefix + file.name}]),
-            reject
-          );
-        });
-      }
-      if (!entry.isDirectory) return [];
-      const reader = entry.createReader();
-      const result = [];
-      while (true) {
-        const entries = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
-        if (!entries.length) break;
-        for (const child of entries) {
-          result.push(...await traverseEntry(child, prefix + entry.name + "/"));
+    async function pickProjectDirectory() {
+      await runBusy(async () => {
+        const data = await postJson("/api/pick-directory", {});
+        if (data.status === "cancelled") {
+          setStatus("未选择项目。", "");
+          return;
         }
-      }
-      return result;
+        $("project").value = data.project;
+        $("sourceFiles").value = (data.source_files || []).join("\n");
+        renderRouting(data.routing);
+        updateContext(data.routing);
+        setStatus("已打开本地项目，目录内容未上传。", "pass");
+      });
     }
 
     function setBusy(value) {
@@ -1765,14 +1825,13 @@ WORKBENCH_HTML = r"""<!doctype html>
     updateContext();
 
     $("filePicker").addEventListener("change", (event) => importSelectedFiles(event.target.files));
-    $("folderPicker").addEventListener("change", (event) => importSelectedFiles(event.target.files));
     $("dropzone").addEventListener("click", () => {
-      if (!busy) $("filePicker").click();
+      if (!busy) pickProjectDirectory();
     });
     $("dropzone").addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        if (!busy) $("filePicker").click();
+        if (!busy) pickProjectDirectory();
       }
     });
     $("dropzone").addEventListener("dragover", (event) => {
@@ -1783,7 +1842,12 @@ WORKBENCH_HTML = r"""<!doctype html>
     $("dropzone").addEventListener("drop", async (event) => {
       event.preventDefault();
       $("dropzone").classList.remove("dragging");
-      importFileItems(await droppedFileItems(event.dataTransfer));
+      const entries = Array.from(event.dataTransfer.items || []).map((item) => item.webkitGetAsEntry && item.webkitGetAsEntry());
+      if (entries.some((entry) => entry && entry.isDirectory)) {
+        setStatus("文件夹请使用“选择本地目录”，服务会直接读取路径。", "");
+        return;
+      }
+      importSelectedFiles(event.dataTransfer.files);
     });
   </script>
 </body>

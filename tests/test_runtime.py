@@ -3105,7 +3105,11 @@ class WorkbenchUITests(unittest.TestCase):
                             {
                                 "relative_path": "docs/upload.docx",
                                 "content_base64": base64.b64encode(source.read_bytes()).decode("ascii"),
-                            }
+                            },
+                            {
+                                "relative_path": "locales/en-US.json",
+                                "content_base64": base64.b64encode(b'{"hello": "Hello"}\n').decode("ascii"),
+                            },
                         ]
                     },
                 )
@@ -3113,12 +3117,23 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(payload["status"], "pass")
                 imported_project = Path(payload["project"])
                 self.assertTrue((imported_project / "docs" / "upload.docx").is_file())
-                self.assertEqual(payload["routing"]["adapter_counts"], {"core.word-document": 1})
-                self.assertEqual(payload["source_files"], ["docs/upload.docx"])
+                self.assertTrue((imported_project / "locales" / "en-US.json").is_file())
+                self.assertEqual(
+                    payload["routing"]["adapter_counts"],
+                    {"core.json-locale": 1, "core.word-document": 1},
+                )
+                self.assertEqual(payload["source_files"], ["docs/upload.docx", "locales/en-US.json"])
                 home_status, home = _http_get(host, port, "/")
                 self.assertEqual(home_status, 200)
                 self.assertIn("dropzone", home)
-                self.assertIn("folderPicker", home)
+                self.assertNotIn("folderPicker", home)
+                self.assertNotIn('accept=".docx', home)
+                self.assertIn('onclick="pickProjectDirectory()"', home)
+                self.assertIn('postJson("/api/pick-directory", {})', home)
+                self.assertNotIn("traverseEntry", home)
+                self.assertIn('id="targetLocale" value="zh-CN" list="localeOptions"', home)
+                self.assertIn('id="sourceLocale" value="en-US" list="localeOptions"', home)
+                self.assertIn('value="th-TH" label="🇹🇭 泰语 · ไทย（泰国）"', home)
 
                 unsafe_status, unsafe = _http_post_json(
                     host,
@@ -3128,6 +3143,32 @@ class WorkbenchUITests(unittest.TestCase):
                 )
                 self.assertEqual(unsafe_status, 400)
                 self.assertEqual(unsafe["status"], "fail")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_pick_directory_reads_local_project_without_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.ui._pick_directory", return_value=project.resolve()):
+                    status, payload = _http_post_json(host, port, "/api/pick-directory", {})
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["status"], "pass")
+                self.assertEqual(Path(payload["project"]), project.resolve())
+                self.assertEqual(payload["routing"]["adapter_counts"], {"core.json-locale": 1})
+                self.assertEqual(payload["source_files"], ["locales/en-US.json"])
+
+                with mock.patch("runtime.localize_anything.ui._pick_directory", return_value=None):
+                    cancelled_status, cancelled = _http_post_json(host, port, "/api/pick-directory", {})
+                self.assertEqual(cancelled_status, 200)
+                self.assertEqual(cancelled["status"], "cancelled")
             finally:
                 server.shutdown()
                 server.server_close()
