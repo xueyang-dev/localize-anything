@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/human-review-evidence.schema.json",
+  "title": "Localize Anything Human Review Evidence Record",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "evidence_id",
+    "reviewer_role",
+    "status",
+    "review_scope",
+    "supports_evidence_levels",
+    "effective_evidence_levels"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-human-review-evidence-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "evidence_id": { "type": "string", "minLength": 1 },
+    "reviewer_role": {
+      "enum": [
+        "project_owner",
+        "bilingual_reviewer",
+        "native_language_reviewer",
+        "professional_localization_reviewer"
+      ]
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "accepted_with_limitations",
+        "rejected",
+        "stale",
+        "superseded",
+        "requires_follow_up"
+      ]
+    },
+    "review_scope": {
+      "type": "object",
+      "required": ["scope_type"],
+      "properties": {
+        "scope_type": { "enum": ["full_run", "locale", "file", "segment", "batch", "limited"] },
+        "locales": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "segments": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "supports_evidence_levels": { "type": "array", "items": { "type": "string" } },
+    "effective_evidence_levels": { "type": "array", "items": { "type": "string" } },
+    "review_notes": { "type": "string" },
+    "recorded_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

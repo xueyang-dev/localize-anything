@@ -60,6 +60,12 @@ from runtime.localize_anything.generation_strategy import (
     read_generation_strategy,
     write_generation_strategy,
 )
+from runtime.localize_anything.human_review import (
+    build_claim_acceptance_decision,
+    create_signoff_record,
+    read_human_review_evidence,
+    record_human_review_evidence,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -5603,7 +5609,7 @@ class EvaluationScorecardTests(unittest.TestCase):
 
             self.assertEqual(without_human["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "not_provided")
             self.assertEqual(with_native["evidence_level"]["highest_supported"], "E3_native_language_review")
-            self.assertEqual(with_native["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "provided")
+            self.assertEqual(with_native["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "not_provided")
             self.assertEqual(with_native["evidence_level"]["levels"]["E3_native_language_review"]["status"], "provided")
             self.assertEqual(with_native["evidence_level"]["levels"]["E4_professional_localization_review"]["status"], "not_provided")
 
@@ -5726,6 +5732,270 @@ class EvaluationScorecardTests(unittest.TestCase):
                 self.assertEqual(status, 200)
                 payload = json.loads(body)
                 self.assertEqual(payload["evaluation_scorecard"]["schema"], "localize-anything-evaluation-scorecard-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
+class HumanReviewClaimAcceptanceTests(unittest.TestCase):
+    def test_record_bilingual_human_review_supports_e2(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_scorecard_state(state)
+            record_human_review_evidence(state, _human_review_record("bilingual_reviewer", "E2_bilingual_human_spot_check", "full_run"))
+            scorecard = build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            assert_protocol_schema(self, "human-review-evidence", read_human_review_evidence(state)[0])
+            self.assertEqual(scorecard["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "provided")
+            self.assertEqual(scorecard["review_readiness"]["status"], "pass")
+
+    def test_project_owner_signoff_does_not_create_e2(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_scorecard_state(state)
+            record_human_review_evidence(state, _human_review_record("project_owner", "E2_bilingual_human_spot_check", "full_run"))
+            scorecard = build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            self.assertEqual(scorecard["human_review_evidence"]["global_supported_levels"], [])
+            self.assertEqual(scorecard["evidence_level"]["levels"]["E2_bilingual_human_spot_check"]["status"], "not_provided")
+            self.assertIn("review_complete", scorecard["forbidden_claims"])
+
+    def test_limited_scope_human_review_is_reported_as_limited(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_scorecard_state(state)
+            record_human_review_evidence(state, _human_review_record("bilingual_reviewer", "E2_bilingual_human_spot_check", "segment"))
+            scorecard = build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            self.assertEqual(scorecard["human_review_evidence"]["status"], "limited_scope")
+            self.assertEqual(scorecard["review_readiness"]["status"], "warning")
+            self.assertIn("review_complete", scorecard["forbidden_claims"])
+
+    def test_rejected_or_stale_review_does_not_support_e_levels(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_scorecard_state(state)
+            record_human_review_evidence(
+                state,
+                {**_human_review_record("native_language_reviewer", "E3_native_language_review", "full_run"), "status": "rejected"},
+            )
+            scorecard = build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            self.assertEqual(scorecard["evidence_level"]["levels"]["E3_native_language_review"]["status"], "not_provided")
+            self.assertEqual(scorecard["human_review_evidence"]["status"], "requires_follow_up")
+
+    def test_claim_acceptance_blocks_forbidden_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, provider_status="not_run", provider_actual="none")
+
+            decision = build_claim_acceptance_decision(state, requested_claims=["provider_backed_quality"])
+
+            assert_protocol_schema(self, "claim-acceptance-decision", decision)
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("provider_backed_quality", decision["rejected_claims"])
+
+    def test_claim_acceptance_accepts_review_ready_when_scorecard_supports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, delivery_status="owner_review_required")
+
+            decision = build_claim_acceptance_decision(state, requested_claims=["review_ready"])
+
+            self.assertEqual(decision["status"], "accepted")
+            self.assertEqual(decision["accepted_claims"], ["review_ready"])
+
+    def test_limited_delivery_claim_requires_explicit_risk_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, coverage={"coverage_mode": "source-only", "visible_ui_coverage_warning": True})
+
+            blocked = build_claim_acceptance_decision(state, requested_claims=["limited_scope_delivery_ready"])
+            limited = build_claim_acceptance_decision(
+                state,
+                requested_claims=["limited_scope_delivery_ready"],
+                accepted_risk={"accepts_limitations": True},
+            )
+
+            self.assertEqual(blocked["status"], "blocked")
+            self.assertEqual(limited["status"], "accepted_with_limitations")
+
+    def test_signoff_cannot_authorize_apply_when_scorecard_forbids_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            build_claim_acceptance_decision(state, requested_claims=["apply_ready"])
+
+            signoff = create_signoff_record(state, _signoff_request(apply=True))
+
+            assert_protocol_schema(self, "signoff-record", signoff)
+            self.assertFalse(signoff["apply_authorized"])
+            self.assertEqual(signoff["status"], "requires_follow_up")
+
+    def test_signoff_authorizes_apply_only_when_scorecard_is_apply_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["apply_ready"])
+
+            signoff = create_signoff_record(state, _signoff_request(apply=True, limitations=False))
+
+            self.assertTrue(signoff["apply_authorized"])
+            self.assertEqual(signoff["status"], "accepted")
+
+    def test_artifact_state_tracks_human_review_claim_and_signoff_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["review_complete"])
+            create_signoff_record(state, _signoff_request(delivery=True))
+
+            artifact_state = build_artifact_state(state)
+            artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+
+            self.assertTrue({"human_review_evidence", "claim_acceptance_decision", "signoff_record"}.issubset(artifact_ids))
+            self.assertEqual(artifact_state["summary"]["human_review_global_count"], 1)
+
+    def test_human_review_change_stales_claim_acceptance_and_signoff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["review_complete"])
+            create_signoff_record(state, _signoff_request(delivery=True))
+            build_artifact_state(state)
+            record_human_review_evidence(state, _human_review_record("bilingual_reviewer", "E2_bilingual_human_spot_check", "segment"))
+
+            artifact_state = build_artifact_state(state)
+
+            self.assertEqual(_artifact_by_id(artifact_state, "claim_acceptance_decision")["status"], "stale")
+            self.assertEqual(_artifact_by_id(artifact_state, "signoff_record")["status"], "stale")
+
+    def test_scorecard_ignores_unstructured_review_result_for_e2_to_e4(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_scorecard_state(state)
+            write_json(state / "review-result.json", {"notes": "E4_professional_localization_review"})
+            scorecard = build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            self.assertEqual(scorecard["evidence_level"]["levels"]["E4_professional_localization_review"]["status"], "not_provided")
+
+    def test_evidence_report_mentions_claim_and_signoff_states(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            build_claim_acceptance_decision(state, requested_claims=["review_ready"])
+            create_signoff_record(state, _signoff_request(delivery=True))
+            build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            report = (state / "evidence-level-report.md").read_text(encoding="utf-8")
+
+            self.assertIn("## Claim Acceptance", report)
+            self.assertIn("## Human Review And Signoff", report)
+
+    def test_apply_plan_blocks_scorecard_forbidden_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, delivery = _write_apply_delivery(
+                Path(directory),
+                scorecard={
+                    "status": "blocked",
+                    "overall_claim": "blocked",
+                    "forbidden_claims": ["apply_ready"],
+                    "structural_qa": {"status": "blocked"},
+                },
+            )
+
+            plan = create_apply_plan(delivery, project)
+
+            self.assertTrue(plan["blocked_by_evaluation_scorecard"])
+
+    def test_apply_plan_blocks_missing_apply_signoff_authorization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, delivery = _write_apply_delivery(
+                Path(directory),
+                scorecard={"overall_claim": "apply_ready", "forbidden_claims": []},
+                signoff={"status": "requires_follow_up", "apply_authorized": False},
+            )
+
+            plan = create_apply_plan(delivery, project)
+
+            self.assertTrue(plan["blocked_by_signoff"])
+
+    def test_delivery_decision_surfaces_scorecard_and_signoff_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, delivery = _write_apply_delivery(
+                Path(directory),
+                scorecard={
+                    "status": "blocked",
+                    "overall_claim": "blocked",
+                    "forbidden_claims": ["apply_ready"],
+                    "structural_qa": {"status": "blocked"},
+                },
+                signoff={"status": "requires_follow_up", "apply_authorized": False},
+            )
+
+            decision = create_delivery_decision_report(delivery, project)
+
+            self.assertIn("evaluation_scorecard", {item["type"] for item in decision["decisions"]})
+            self.assertIn("signoff", {item["type"] for item in decision["decisions"]})
+
+    def test_delivery_package_includes_human_review_claim_and_signoff_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["review_complete"])
+            create_signoff_record(state, _signoff_request(delivery=True))
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "human-review-delivery-001")
+            delivery = Path(packaged["delivery_directory"])
+
+            self.assertEqual(packaged["manifest"]["assets"]["human_review_evidence"], "human-review-evidence.jsonl")
+            self.assertEqual(packaged["manifest"]["assets"]["claim_acceptance_decision"], "claim-acceptance-decision.json")
+            self.assertEqual(packaged["manifest"]["assets"]["signoff_record"], "signoff-record.json")
+            self.assertTrue((delivery / "human-review-evidence.jsonl").is_file())
+
+    def test_cli_and_api_are_artifact_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            input_path = Path(directory) / "review.json"
+            output_path = Path(directory) / "review-output.json"
+            _build_scorecard_state(state)
+            write_json(input_path, _human_review_record("bilingual_reviewer", "E2_bilingual_human_spot_check", "full_run"))
+
+            self.assertEqual(cli_main(["record-human-review", state.as_posix(), "--input", input_path.as_posix(), "--output", output_path.as_posix()]), 0)
+            self.assertTrue((state / "human-review-evidence.jsonl").is_file())
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                claim_status, claim_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/claim-acceptance-decision",
+                    {"state_dir": state.as_posix(), "claims": ["review_ready"]},
+                )
+                signoff_status, signoff_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/signoff-record",
+                    {"state_dir": state.as_posix(), "signoff": _signoff_request(delivery=True)},
+                )
+                get_status, body = _http_get(host, port, f"/api/human-review-evidence?state_dir={state.as_posix()}")
+                self.assertEqual(claim_status, 200)
+                self.assertEqual(signoff_status, 200)
+                self.assertEqual(get_status, 200)
+                self.assertEqual(claim_payload["claim_acceptance_decision"]["schema"], "localize-anything-claim-acceptance-decision-v1")
+                self.assertEqual(signoff_payload["signoff_record"]["schema"], "localize-anything-signoff-record-v1")
+                self.assertEqual(len(json.loads(body)["human_review_evidence"]), 1)
             finally:
                 server.shutdown()
                 server.server_close()
@@ -5907,15 +6177,128 @@ def _write_scorecard_state(
         },
     )
     if review_evidence:
+        role = {
+            "E2_bilingual_human_spot_check": "bilingual_reviewer",
+            "E3_native_language_review": "native_language_reviewer",
+            "E4_professional_localization_review": "professional_localization_reviewer",
+        }[review_evidence]
+        write_jsonl(
+            state / "human-review-evidence.jsonl",
+            [
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-human-review-evidence-v1",
+                    "run_id": "scorecard-test-001",
+                    "evidence_id": f"review-{review_evidence}",
+                    "reviewer_role": role,
+                    "status": "accepted",
+                    "review_scope": {"scope_type": "full_run"},
+                    "supports_evidence_levels": [review_evidence],
+                    "effective_evidence_levels": [review_evidence],
+                }
+            ],
+        )
+
+
+def _human_review_record(role: str, level: str, scope_type: str) -> dict[str, Any]:
+    return {
+        "evidence_id": f"review-{role}-{scope_type}-{level}",
+        "reviewer_role": role,
+        "status": "accepted",
+        "review_scope": {
+            "scope_type": scope_type,
+            "segments": ["s1"] if scope_type == "segment" else [],
+        },
+        "supports_evidence_levels": [level],
+        "review_notes": "test review evidence",
+    }
+
+
+def _signoff_request(*, delivery: bool = False, apply: bool = False, limitations: bool = True) -> dict[str, Any]:
+    return {
+        "signed_by": "owner@example.com",
+        "signed_role": "project_owner",
+        "signoff_scope": {"scope_type": "limited", "locales": ["zh-CN"]},
+        "authorizations": {"delivery": delivery, "apply": apply},
+        "limitations_accepted": limitations,
+    }
+
+
+def _write_apply_delivery(
+    root: Path,
+    *,
+    scorecard: dict[str, Any] | None = None,
+    signoff: dict[str, Any] | None = None,
+) -> tuple[Path, Path]:
+    project = root / "project"
+    delivery = root / "delivery"
+    output = delivery / "files" / "locales" / "zh-CN.json"
+    project_file = project / "locales" / "zh-CN.json"
+    output.parent.mkdir(parents=True)
+    project_file.parent.mkdir(parents=True)
+    output.write_text('{"start": "开始"}\n', encoding="utf-8")
+    project_file.write_text('{"start": "Start"}\n', encoding="utf-8")
+    write_json(
+        delivery / "delivery-manifest.json",
+        {
+            "protocol_version": "0.1",
+            "run_id": "apply-gate-test-001",
+            "delivery_status": "review_ready",
+            "outputs": [
+                {
+                    "package_path": "files/locales/zh-CN.json",
+                    "destination": "locales/zh-CN.json",
+                    "sha256": sha256_file(output),
+                    "destination_base_sha256": sha256_file(project_file),
+                }
+            ],
+            "generation": {
+                "provider_requested": "none",
+                "provider_actual": "none",
+                "provider_status": "not_applicable",
+                "quality_claim": "not_applicable",
+                "apply_allowed": True,
+            },
+            "qa": {"status": "pass", "blocking_count": 0, "warning_count": 0, "evidence_channels": ["runtime"]},
+            "assets": {},
+        },
+    )
+    if scorecard is not None:
         write_json(
-            state / "review-result.json",
+            delivery / "evaluation-scorecard.json",
             {
                 "protocol_version": "0.1",
-                "status": "pass",
-                "evidence_level": review_evidence,
-                "review_actor_type": review_evidence,
+                "schema": "localize-anything-evaluation-scorecard-v1",
+                "status": scorecard.get("status", "pass_with_warnings"),
+                "overall_claim": scorecard.get("overall_claim", "delivery_ready"),
+                "evidence_level": {"highest_supported": "E1_automated_semantic_or_policy_review", "levels": {}},
+                "structural_qa": scorecard.get("structural_qa", {}),
+                "provider_status": scorecard.get("provider_status", {}),
+                "handoff_readiness": scorecard.get("handoff_readiness", {}),
+                "repair_readiness": scorecard.get("repair_readiness", {}),
+                "forbidden_claims": scorecard.get("forbidden_claims", []),
+                "recommended_next_actions": [],
+                "source_artifacts": {},
             },
         )
+    if signoff is not None:
+        write_json(
+            delivery / "signoff-record.json",
+            {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-signoff-record-v1",
+                "signoff_id": "signoff-apply-gate-test",
+                "status": signoff.get("status", "requires_follow_up"),
+                "signed_by": "owner@example.com",
+                "signed_role": "project_owner",
+                "signoff_scope": {"scope_type": "limited"},
+                "requested_authorizations": {"delivery": False, "apply": True},
+                "delivery_authorized": False,
+                "apply_authorized": signoff.get("apply_authorized", False),
+                "forbidden_claims_remaining": [],
+            },
+        )
+    return project, delivery
 
 
 def _write_repair_execution_state(
@@ -6331,7 +6714,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 38)
+        self.assertEqual(result["schemas_checked"], 41)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

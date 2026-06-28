@@ -53,6 +53,11 @@
   quality claims, CLI/API access, and run/delivery references that prevent
   unsupported full coverage, provider-backed quality, review-complete,
   delivery-ready, or apply-ready claims.
+- Add Human Review Evidence Intake, Claim Acceptance Gate, and Signoff Record
+  seed with `human-review-evidence.jsonl`, `claim-acceptance-decision.json`,
+  `signoff-record.json`, CLI/API access, scorecard integration, artifact-state
+  staleness tracking, and delivery/apply blockers for unsupported claims or
+  stale signoff evidence.
 
 ## v0.4.1 - Workbench UI Wiring
 

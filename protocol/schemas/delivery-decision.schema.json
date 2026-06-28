@@ -70,6 +70,8 @@
               "apply_operation",
               "unprocessed_asset",
               "artifact_state",
+              "evaluation_scorecard",
+              "signoff",
               "preserved_translation",
               "generated_candidate",
               "stale_translation",

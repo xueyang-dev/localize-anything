@@ -19,6 +19,14 @@ from .artifact_state import read_artifact_state
 from .evaluation import read_evaluation_scorecard
 from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
+from .human_review import (
+    build_claim_acceptance_decision,
+    create_signoff_record,
+    read_claim_acceptance_decision,
+    read_human_review_evidence,
+    read_signoff_record,
+    record_human_review_evidence,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -146,6 +154,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
                     return
+                if parsed.path == "/api/human-review-evidence":
+                    self._handle_human_review_evidence_query(parsed.query)
+                    return
+                if parsed.path == "/api/claim-acceptance-decision":
+                    self._handle_claim_acceptance_decision_query(parsed.query)
+                    return
+                if parsed.path == "/api/signoff-record":
+                    self._handle_signoff_record_query(parsed.query)
+                    return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -183,6 +200,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/apply-repair-plan":
                     self._handle_apply_repair_plan(payload)
+                    return
+                if parsed.path == "/api/human-review-evidence":
+                    self._handle_record_human_review_evidence(payload)
+                    return
+                if parsed.path == "/api/claim-acceptance-decision":
+                    self._handle_claim_acceptance_decision(payload)
+                    return
+                if parsed.path == "/api/signoff-record":
+                    self._handle_signoff_record(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -379,6 +405,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 }
             )
 
+        def _handle_human_review_evidence_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Human review evidence is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "human_review_evidence": read_human_review_evidence(state_dir)})
+
+        def _handle_claim_acceptance_decision_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Claim acceptance decision is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "claim_acceptance_decision": read_claim_acceptance_decision(state_dir)})
+
+        def _handle_signoff_record_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Signoff record is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "signoff_record": read_signoff_record(state_dir)})
+
         def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
             if not state.is_allowed(state_dir):
@@ -403,6 +447,47 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 raise ValueError("decision must be a JSON object")
             result = record_user_resolution_decision(state_dir, decision)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
+        def _handle_record_human_review_evidence(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Human review evidence is outside allowed workbench roots: {state_dir}")
+            evidence = payload.get("evidence")
+            if not isinstance(evidence, dict):
+                raise ValueError("evidence must be a JSON object")
+            result = record_human_review_evidence(state_dir, evidence, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
+        def _handle_claim_acceptance_decision(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Claim acceptance decision is outside allowed workbench roots: {state_dir}")
+            claims = payload.get("claims")
+            if claims is not None and not isinstance(claims, list):
+                raise ValueError("claims must be a list when provided")
+            accepted_risk = payload.get("accepted_risk")
+            if accepted_risk is not None and not isinstance(accepted_risk, dict):
+                raise ValueError("accepted_risk must be a JSON object when provided")
+            result = build_claim_acceptance_decision(
+                state_dir,
+                requested_claims=[str(item) for item in claims] if claims is not None else None,
+                accepted_risk=accepted_risk or {},
+                run_id=_optional_string(payload.get("run_id")),
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "claim_acceptance_decision": result})
+
+        def _handle_signoff_record(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Signoff record is outside allowed workbench roots: {state_dir}")
+            signoff = payload.get("signoff")
+            if not isinstance(signoff, dict):
+                raise ValueError("signoff must be a JSON object")
+            result = create_signoff_record(state_dir, signoff, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "signoff_record": result})
 
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))

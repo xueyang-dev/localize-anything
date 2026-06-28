@@ -41,6 +41,20 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
   superseded, blocked, accepted, or review-required in `artifact-state.json`.
   Handoff, delivery, and apply readiness must not treat stale upstream artifacts
   as valid evidence.
+- Evaluation scorecard artifacts record what the run has proven in
+  `evaluation-scorecard.json` and explain it in `evidence-level-report.md`.
+- Human review evidence records explicit qualified review in
+  `human-review-evidence.jsonl`. E2/E3/E4 evidence levels require matching
+  bilingual, native-language, or professional localization reviewer records and
+  must not be inferred from provider output, synthetic fallback, project-owner
+  signoff, or UI state.
+- Claim acceptance records in `claim-acceptance-decision.json` bind requested
+  quality/readiness claims to scorecard evidence. Unsupported or forbidden
+  claims remain rejected or blocked.
+- Signoff records in `signoff-record.json` capture project-owner delivery/apply
+  authorization after claim acceptance. Signoff can accept scoped risk, but it
+  cannot override stale artifacts, unsafe provider policy, failed QA, pending
+  repairs, or scorecard-forbidden claims.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -96,8 +110,9 @@ inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> res
         -> artifact-state -> segment-staleness / reuse-decision
         -> retrieve -> draft-request -> draft-prompt -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
-        -> stage-generated -> validate-output -> package
-        -> delivery-decision -> review-import -> sign-off -> apply
+        -> stage-generated -> validate-output -> repair -> evaluation-scorecard
+        -> human-review-evidence -> claim-acceptance -> package
+        -> delivery-decision -> review-import -> signoff-record -> apply
 ```
 
 `localize-run` is a reference-runtime convenience command for this lifecycle.
@@ -424,6 +439,49 @@ Run summaries and delivery packages include or reference both scorecard
 artifacts. The deterministic CLI command is `evaluation-scorecard`. Workbench
 exposes `GET /api/evaluation-scorecard`, which returns the artifact-backed
 scorecard only; UI must not hide scoring policy in browser state.
+
+## Human Review Evidence, Claim Acceptance, And Signoff
+
+`human-review-evidence.jsonl` stores one `human-review-evidence` record per
+line. Review roles are explicit: `bilingual_reviewer` can support E2,
+`native_language_reviewer` can support E3, and
+`professional_localization_reviewer` can support E4. `project_owner` may record
+ownership context but does not raise E2-E4. Review scope is part of the record;
+limited-scope evidence remains limited-scope and cannot silently support global
+review-complete claims.
+
+`claim-acceptance-decision.json` consumes the current scorecard and human review
+evidence. Each requested claim is accepted, accepted with limitations, rejected,
+or blocked. Claims in scorecard `forbidden_claims` cannot be accepted by an
+ordinary decision. This gate prevents partial/source-only coverage, synthetic or
+failed provider output, stale artifacts, pending repairs, failed QA, blocked
+handoff, unsafe provider policy, or incomplete human review from becoming
+stronger claims in delivery or apply summaries.
+
+`signoff-record.json` records project-owner authorization after claim
+acceptance. Delivery can be authorized only when scorecard and claim acceptance
+support the requested scope. Apply can be authorized only when the scorecard
+supports `apply_ready` and no signoff, claim, or artifact-state blocker remains.
+Stale review evidence or stale signoff is tracked by `artifact-state.json` and
+blocks or downgrades downstream readiness.
+
+CLI commands:
+
+- `record-human-review`
+- `human-review-evidence`
+- `claim-acceptance`
+- `signoff-record`
+
+Workbench API paths are artifact-backed:
+
+- `GET /api/human-review-evidence`
+- `POST /api/human-review-evidence`
+- `GET /api/claim-acceptance-decision`
+- `POST /api/claim-acceptance-decision`
+- `GET /api/signoff-record`
+- `POST /api/signoff-record`
+
+These endpoints do not call providers and do not hide scoring logic in the UI.
 
 ## Localization Modes
 

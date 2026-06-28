@@ -1,0 +1,16 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-human-review-evidence-v1",
+  "run_id": "human-review-example-001",
+  "evidence_id": "human-review-001",
+  "reviewer_role": "bilingual_reviewer",
+  "status": "accepted",
+  "review_scope": {
+    "scope_type": "full_run",
+    "locales": ["zh-CN"]
+  },
+  "supports_evidence_levels": ["E2_bilingual_human_spot_check"],
+  "effective_evidence_levels": ["E2_bilingual_human_spot_check"],
+  "review_notes": "Bilingual reviewer completed a scoped spot check with no blocking findings.",
+  "recorded_at": "2026-06-28T00:00:00Z"
+}

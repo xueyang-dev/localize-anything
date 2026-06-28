@@ -47,9 +47,11 @@ Intake
  -> Targeted Repair
  -> Patch-Based Repair Execution
  -> Evaluation Scorecard
+ -> Human Review Evidence Intake
+ -> Claim Acceptance Gate
  -> Delivery Package
  -> Review Import
- -> Scoped Sign-off
+ -> Signoff Record
  -> Optional Apply-in-Place
 ```
 
@@ -95,6 +97,9 @@ repair-result.json
 repair-history.jsonl
 evaluation-scorecard.json
 evidence-level-report.md
+human-review-evidence.jsonl
+claim-acceptance-decision.json
+signoff-record.json
 delivery-manifest.json
 ```
 
@@ -421,6 +426,44 @@ Workbench and downstream reviewers read artifact-backed readiness instead of
 inferring quality from UI state. The minimal Workbench path is
 `GET /api/evaluation-scorecard`; a richer visual panel should come after this
 runtime enforcement layer.
+
+## Human Review Evidence And Claim Acceptance
+
+Human Review Evidence Intake records explicit human review in
+`human-review-evidence.jsonl`. It is the only seed artifact that can raise
+E2-E4 evidence levels. Project-owner signoff can accept risk and authorize
+workflow steps, but it does not create bilingual, native-language, or
+professional localization review evidence.
+
+The intake is conservative:
+
+- E2 requires a `bilingual_reviewer` record.
+- E3 requires a `native_language_reviewer` record.
+- E4 requires a `professional_localization_reviewer` record.
+- Limited-scope review remains limited-scope evidence and cannot silently
+  become global review completion.
+- Rejected, stale, superseded, or follow-up review records remain visible and
+  do not support review-complete claims.
+
+Claim Acceptance Gate writes `claim-acceptance-decision.json` from the current
+scorecard plus human-review evidence. It records which claims are accepted,
+accepted only with limitations, rejected, or still forbidden. It cannot override
+scorecard blockers such as unsafe provider policy, stale artifacts, pending
+repairs, failed QA, partial coverage, or missing human review.
+
+`signoff-record.json` is a separate project-owner authorization record. It may
+authorize limited delivery when the scorecard and claim acceptance allow that
+risk, but apply authorization remains blocked when `apply_ready` is forbidden
+or artifacts are stale. This separation keeps human review evidence, claim
+truthfulness, and owner signoff auditable instead of collapsing them into a UI
+checkbox.
+
+Artifact state tracks these three artifacts by content hash. If review evidence,
+scorecard, delivery decision, or claim acceptance changes afterward, downstream
+signoff becomes stale and cannot justify delivery or apply readiness until it is
+refreshed. Workbench exposes artifact-backed API paths for the records; a full
+visual panel should display these runtime artifacts rather than infer quality
+claims in browser state.
 
 ## Localization Brief
 
