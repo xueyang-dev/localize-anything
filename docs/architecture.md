@@ -659,6 +659,27 @@ scorecard, artifact-state, QA, repair, handoff, or provider-policy blockers.
 This keeps business logic in runtime gates while giving Workbench a structured
 artifact-backed way to record decisions.
 
+## Workbench Review Console
+
+Workbench Review Console is the first minimal visual surface over the evidence
+spine. It renders run status, Evaluation Scorecard, Evidence Level Report,
+Workbench review queue, claim queue, signoff summary, forbidden claims, pending
+repairs, stale artifact warnings, action log, and latest action result from
+artifact-backed runtime reads.
+
+The console is intentionally thin. It can display suggested actions and submit
+structured action JSON to `POST /api/workbench-action`, but runtime action
+writers decide whether each action is accepted, rejected, blocked, or requires
+follow-up. After an action, the console refreshes queue and scorecard views
+from artifacts. It never marks queue items resolved locally, hides forbidden
+claims, converts limited-scope evidence into global readiness, infers E2/E3/E4
+from owner signoff, or authorizes delivery/apply against runtime blockers.
+
+The seed uses the existing Python Workbench server and adds no frontend
+dependency. A full visual Workbench can iterate on layout later, but it should
+continue to render these artifact-backed views rather than owning business
+logic.
+
 ## Localization Brief
 
 `localization-brief.json` is the machine-readable draft of task intent before

@@ -94,6 +94,7 @@ from .word_adapter import extract_segments as extract_word_segments
 from .word_adapter import rebuild as rebuild_word
 from .word_adapter import validate_pair as validate_word_pair
 from .workbench_action import perform_workbench_action, read_workbench_action_log
+from .workbench_console import render_workbench_console_html
 from .workbench_queue import (
     build_workbench_claim_queue,
     build_workbench_review_queue,
@@ -590,6 +591,10 @@ def build_parser() -> argparse.ArgumentParser:
     workbench_action_log_parser = subparsers.add_parser("workbench-action-log", help="Read workbench-action-log.jsonl")
     workbench_action_log_parser.add_argument("state_dir", type=Path)
     workbench_action_log_parser.add_argument("--output", type=Path)
+
+    workbench_console_parser = subparsers.add_parser("workbench-console", help="Render the artifact-backed Workbench Review Console HTML")
+    workbench_console_parser.add_argument("state_dir", type=Path)
+    workbench_console_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1346,6 +1351,8 @@ def main(argv: list[str] | None = None) -> int:
                 "records": read_workbench_action_log(args.state_dir),
             }
             return _emit_json(result, args.output)
+        if args.command == "workbench-console":
+            return _emit_text(render_workbench_console_html(args.state_dir), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":
@@ -1617,6 +1624,17 @@ def _emit_json(value: Any, output: Path | None) -> int:
     else:
         json.dump(value, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
+    return 0
+
+
+def _emit_text(value: str, output: Path | None) -> int:
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(value, encoding="utf-8", newline="\n")
+    else:
+        sys.stdout.write(value)
+        if not value.endswith("\n"):
+            sys.stdout.write("\n")
     return 0
 
 

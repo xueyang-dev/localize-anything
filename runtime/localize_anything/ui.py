@@ -39,7 +39,8 @@ from .segment_repair import (
 )
 from .segment_staleness import read_reuse_decision, read_stale_segments
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
-from .workbench_action import perform_workbench_action, read_workbench_action_log
+from .workbench_action import perform_workbench_action, read_workbench_action_log, read_workbench_action_result
+from .workbench_console import build_workbench_console_view, read_evidence_level_report, render_workbench_console_html
 from .workbench_queue import read_workbench_claim_queue, read_workbench_review_queue, read_workbench_signoff_summary
 
 
@@ -121,6 +122,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/":
                     self._send_text(WORKBENCH_HTML, "text/html; charset=utf-8")
                     return
+                if parsed.path == "/workbench-review-console":
+                    self._handle_workbench_review_console(parsed.query)
+                    return
                 if parsed.path == "/api/health":
                     self._send_json({"status": "pass", "app": "localize-anything-workbench", "version": __version__})
                     return
@@ -157,6 +161,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
                     return
+                if parsed.path == "/api/evidence-level-report":
+                    self._handle_evidence_level_report_query(parsed.query)
+                    return
                 if parsed.path == "/api/human-review-evidence":
                     self._handle_human_review_evidence_query(parsed.query)
                     return
@@ -177,6 +184,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-action-log":
                     self._handle_workbench_action_log_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-action-result":
+                    self._handle_workbench_action_result_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-console":
+                    self._handle_workbench_console_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -360,6 +373,21 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             strategy = read_generation_strategy(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "generation_strategy": strategy})
 
+        def _handle_workbench_review_console(self, query: str) -> None:
+            state_dir = _optional_state_dir_from_query(query)
+            if state_dir is None:
+                self._send_text(render_workbench_console_html(), "text/html; charset=utf-8")
+                return
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench review console is outside allowed workbench roots: {state_dir}")
+            self._send_text(render_workbench_console_html(state_dir), "text/html; charset=utf-8")
+
+        def _handle_workbench_console_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench review console is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_console": build_workbench_console_view(state_dir)})
+
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
             if not state.is_allowed(state_dir):
@@ -444,6 +472,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 }
             )
 
+        def _handle_evidence_level_report_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Evidence level report is outside allowed workbench roots: {state_dir}")
+            self._send_text(read_evidence_level_report(state_dir), "text/markdown; charset=utf-8")
+
         def _handle_human_review_evidence_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
             if not state.is_allowed(state_dir):
@@ -485,6 +519,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Workbench action log is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_log": read_workbench_action_log(state_dir)})
+
+        def _handle_workbench_action_result_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench action result is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_result": read_workbench_action_result(state_dir)})
 
         def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
@@ -619,6 +659,15 @@ def _state_dir_from_query(query: str) -> Path:
     if not project:
         raise ValueError("state_dir or project query parameter is required")
     return Path(project).expanduser().resolve() / ".localize-anything"
+
+
+def _optional_state_dir_from_query(query: str) -> Path | None:
+    params = parse_qs(query)
+    state_dir = (params.get("state_dir") or [""])[0]
+    if state_dir:
+        return Path(state_dir).expanduser().resolve()
+    project = (params.get("project") or [""])[0]
+    return Path(project).expanduser().resolve() / ".localize-anything" if project else None
 
 
 def _source_files(value: Any) -> list[str] | None:
