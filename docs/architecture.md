@@ -221,6 +221,9 @@ evidence-level-report.md
 human-review-evidence.jsonl
 claim-acceptance-decision.json
 signoff-record.json
+workbench-review-queue.json
+workbench-claim-queue.json
+workbench-signoff-summary.json
 delivery-manifest.json
 ```
 
@@ -602,6 +605,38 @@ signoff becomes stale and cannot justify delivery or apply readiness until it is
 refreshed. Workbench exposes artifact-backed API paths for the records; a full
 visual panel should display these runtime artifacts rather than infer quality
 claims in browser state.
+
+## Workbench Review Queue
+
+Workbench Review Queue is a projection layer over existing evidence artifacts.
+It writes `workbench-review-queue.json`, `workbench-claim-queue.json`, and
+`workbench-signoff-summary.json` so a Workbench UI can show what needs action
+without inventing readiness or duplicating runtime policy.
+
+`workbench-review-queue.json` collects actionable items from human review
+evidence, claim acceptance, signoff, the evaluation scorecard, blocking
+questions, repair artifacts, artifact-state, and delivery decisions. Items use
+stable ids and include owner role, severity, status, source artifact
+references, affected segments or scope, evidence-level impact, affected
+forbidden claims, recommended action, human-confirmation requirement, and
+whether stale evidence is involved.
+
+`workbench-claim-queue.json` lists claim decisions such as
+`provider_backed_quality`, `full_coverage`, `full_terminology_assurance`,
+`review_complete`, `delivery_ready`, `apply_ready`, `production_ready`,
+`limited_scope_delivery_ready`, `draft_only`, and `review_ready`. It preserves
+scorecard `forbidden_claims`; limited-scope acceptance does not erase global
+forbidden claims.
+
+`workbench-signoff-summary.json` exposes current signoff status, accepted and
+rejected claims, remaining forbidden claims, delivery/apply authorization,
+effective scope, limitations, stale-signoff warnings, and next action.
+
+These artifacts are not a new source of truth. Evaluation Scorecard remains the
+source of evidence conclusions, Human Review Evidence and Claim Acceptance
+remain the write paths for review/claim decisions, and Delivery/Apply gates
+remain responsible for enforcement. Workbench/API endpoints should read these
+runtime-generated projections rather than compute readiness in the UI layer.
 
 ## Localization Brief
 

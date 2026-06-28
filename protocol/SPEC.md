@@ -63,6 +63,10 @@ spec adds schemas/examples and the runtime validates them.
   authorization after claim acceptance. Signoff can accept scoped risk, but it
   cannot override stale artifacts, unsafe provider policy, failed QA, pending
   repairs, or scorecard-forbidden claims.
+- Workbench queue artifacts project existing evidence into UI-ready read models:
+  `workbench-review-queue.json`, `workbench-claim-queue.json`, and
+  `workbench-signoff-summary.json`. They are views over runtime artifacts, not
+  a second source of readiness truth.
 - Delivery decision reports combine QA findings, staged output state, apply
   plans, and unprocessed assets into explicit owner/developer decisions.
 - QA results keep runtime, agent, and human evidence distinct.
@@ -511,6 +515,45 @@ Workbench API paths are artifact-backed:
 - `POST /api/signoff-record`
 
 These endpoints do not call providers and do not hide scoring logic in the UI.
+
+## Workbench Review Queue
+
+`workbench-review-queue` writes `workbench-review-queue.json` from current
+human review, claim acceptance, signoff, scorecard, blocking-question, repair,
+artifact-state, and delivery-decision evidence. Queue items are actionable
+runtime projections with stable ids, item type, severity, status, owner role,
+source artifact references, affected segments or scope, evidence-level impact,
+affected forbidden claims, recommended action, human-confirmation requirement,
+and stale-evidence marker.
+
+Supported item types are `human_review_required`, `native_review_required`,
+`professional_review_required`, `claim_acceptance_required`, `signoff_required`,
+`stale_review_evidence`, `pending_repair`, `blocked_handoff`,
+`forbidden_claim_remaining`, `delivery_authorization_required`, and
+`apply_authorization_required`.
+
+`workbench-claim-queue` writes `workbench-claim-queue.json`, one item per
+quality/readiness claim. Each item records the current claim status, supporting
+and blocking evidence, related forbidden claim, whether it can be accepted,
+whether only limited-scope acceptance is possible, recommended next action, and
+risk if accepted.
+
+`workbench-signoff-summary` writes `workbench-signoff-summary.json`, a compact
+authorization view over scorecard, claim acceptance, signoff, and artifact-state
+evidence.
+
+Workbench APIs expose these artifacts through:
+
+- `GET /api/workbench-review-queue`
+- `GET /api/workbench-claim-queue`
+- `GET /api/workbench-signoff-summary`
+
+These queues must not infer E2/E3/E4 from project-owner signoff, hide forbidden
+claims after limited-scope acceptance, turn limited-scope review into global
+readiness, or mark delivery/apply ready when scorecard, signoff, artifact-state,
+repair, QA, or handoff evidence is blocked. UI layers should render these
+artifacts and delegate writes to existing human-review, claim-acceptance, and
+signoff artifact writers.
 
 ## Localization Modes
 

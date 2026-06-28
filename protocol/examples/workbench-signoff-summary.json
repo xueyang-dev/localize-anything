@@ -1,0 +1,24 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-signoff-summary-v1",
+  "artifact": "workbench-signoff-summary.json",
+  "current_signoff_status": "requires_follow_up",
+  "signer_role": "project_owner",
+  "accepted_claims": ["review_ready"],
+  "rejected_claims": ["apply_ready"],
+  "forbidden_claims_remaining": ["apply_ready"],
+  "delivery_authorized": true,
+  "apply_authorized": false,
+  "effective_scope": {
+    "scope_type": "limited",
+    "locales": ["zh-CN"]
+  },
+  "limitations": ["limited_scope_delivery_ready"],
+  "stale_or_superseded_signoff_warnings": [],
+  "next_action": "Resolve remaining forbidden claims before stronger readiness claims.",
+  "source_artifacts": {
+    "evaluation_scorecard": "evaluation-scorecard.json",
+    "claim_acceptance_decision": "claim-acceptance-decision.json",
+    "signoff_record": "signoff-record.json"
+  }
+}

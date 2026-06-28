@@ -38,6 +38,7 @@ from .segment_repair import (
 )
 from .segment_staleness import read_reuse_decision, read_stale_segments
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
+from .workbench_queue import read_workbench_claim_queue, read_workbench_review_queue, read_workbench_signoff_summary
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -162,6 +163,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/signoff-record":
                     self._handle_signoff_record_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-review-queue":
+                    self._handle_workbench_review_queue_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-claim-queue":
+                    self._handle_workbench_claim_queue_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-signoff-summary":
+                    self._handle_workbench_signoff_summary_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -422,6 +432,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Signoff record is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "signoff_record": read_signoff_record(state_dir)})
+
+        def _handle_workbench_review_queue_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench review queue is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_review_queue": read_workbench_review_queue(state_dir)})
+
+        def _handle_workbench_claim_queue_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench claim queue is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_claim_queue": read_workbench_claim_queue(state_dir)})
+
+        def _handle_workbench_signoff_summary_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench signoff summary is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_signoff_summary": read_workbench_signoff_summary(state_dir)})
 
         def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

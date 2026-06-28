@@ -1,0 +1,41 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-claim-queue-v1",
+  "artifact": "workbench-claim-queue.json",
+  "status": "requires_action",
+  "summary": {
+    "claim_count": 10,
+    "acceptable_count": 1,
+    "blocked_count": 2,
+    "limited_scope_possible_count": 1,
+    "forbidden_claim_count": 2
+  },
+  "claims": [
+    {
+      "claim": "full_coverage",
+      "current_status": "blocked",
+      "supporting_evidence": ["structural_qa"],
+      "blocking_evidence": ["evaluation_scorecard.forbidden_claims", "coverage_assurance"],
+      "related_forbidden_claim": "full_coverage",
+      "can_be_accepted": false,
+      "limited_scope_acceptance_possible": false,
+      "recommended_next_action": "Collect or refresh evidence before accepting full_coverage.",
+      "risk_if_accepted": "unsupported_by_current_evidence"
+    },
+    {
+      "claim": "limited_scope_delivery_ready",
+      "current_status": "not_accepted",
+      "supporting_evidence": ["structural_qa", "delivery_readiness"],
+      "blocking_evidence": [],
+      "related_forbidden_claim": null,
+      "can_be_accepted": true,
+      "limited_scope_acceptance_possible": true,
+      "recommended_next_action": "Accept limited_scope_delivery_ready through claim-acceptance if the project owner agrees.",
+      "risk_if_accepted": "normal_review_risk"
+    }
+  ],
+  "source_artifacts": {
+    "evaluation_scorecard": "evaluation-scorecard.json",
+    "claim_acceptance_decision": "claim-acceptance-decision.json"
+  }
+}
