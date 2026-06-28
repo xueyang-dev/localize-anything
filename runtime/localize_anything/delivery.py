@@ -13,6 +13,12 @@ from .artifact_state import ARTIFACT_STATE_JSON, artifact_state_asset_paths
 from .evaluation import EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD, evaluation_asset_paths
 from .generation_handoff_policy import GENERATION_HANDOFF_DECISION_JSON, generation_handoff_decision_asset_paths
 from .generation_strategy import GENERATION_STRATEGY_JSON, generation_strategy_asset_paths
+from .human_review import (
+    CLAIM_ACCEPTANCE_DECISION_JSON,
+    HUMAN_REVIEW_EVIDENCE_JSONL,
+    SIGNOFF_RECORD_JSON,
+    human_review_asset_paths,
+)
 from .io_utils import read_json, sha256_file, write_json
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
 from .resolution_gate import (
@@ -60,6 +66,9 @@ OPTIONAL_CANONICAL_ASSETS = (
     REPAIR_HISTORY_JSONL,
     EVALUATION_SCORECARD_JSON,
     EVIDENCE_LEVEL_REPORT_MD,
+    HUMAN_REVIEW_EVIDENCE_JSONL,
+    CLAIM_ACCEPTANCE_DECISION_JSON,
+    SIGNOFF_RECORD_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -171,6 +180,7 @@ def package_delivery(
                 **segment_staleness_asset_paths(state_dir),
                 **segment_repair_asset_paths(state_dir),
                 **evaluation_asset_paths(state_dir),
+                **human_review_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },

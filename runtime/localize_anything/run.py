@@ -35,6 +35,7 @@ from .generation_handoff_policy import (
     generation_handoff_decision_asset_paths,
 )
 from .generation_strategy import build_generation_strategy, write_generation_strategy
+from .human_review import CLAIM_ACCEPTANCE_DECISION_JSON, HUMAN_REVIEW_EVIDENCE_JSONL, SIGNOFF_RECORD_JSON
 from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import validate_pair as validate_po_pair
 from .io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -455,6 +456,17 @@ def run_localize(
         generation_metadata,
     )
     delivery_dir = Path(packaged["delivery_directory"])
+    build_artifact_state(state_dir, run_dir=run_dir, delivery_dir=delivery_dir, run_id=run_id)
+    build_evaluation_scorecard(
+        state_dir,
+        run_dir=run_dir,
+        delivery_dir=delivery_dir,
+        run_id=run_id,
+        generation_metadata=generation_metadata,
+        coverage_diagnostics=inspection.get("android_coverage", {}),
+        qa_result_paths=qa_paths,
+    )
+    _sync_evaluation_assets_to_delivery(state_dir, delivery_dir)
     apply_plan = create_apply_plan(delivery_dir, project_root)
     apply_plan_path = run_dir / "apply-plan.json"
     apply_plan_markdown_path = run_dir / "apply-plan.md"
@@ -1003,6 +1015,12 @@ def _summary(
         artifacts["evaluation_scorecard"] = (state_dir / EVALUATION_SCORECARD_JSON).as_posix()
     if (state_dir / EVIDENCE_LEVEL_REPORT_MD).is_file():
         artifacts["evidence_level_report"] = (state_dir / EVIDENCE_LEVEL_REPORT_MD).as_posix()
+    if (state_dir / HUMAN_REVIEW_EVIDENCE_JSONL).is_file():
+        artifacts["human_review_evidence"] = (state_dir / HUMAN_REVIEW_EVIDENCE_JSONL).as_posix()
+    if (state_dir / CLAIM_ACCEPTANCE_DECISION_JSON).is_file():
+        artifacts["claim_acceptance_decision"] = (state_dir / CLAIM_ACCEPTANCE_DECISION_JSON).as_posix()
+    if (state_dir / SIGNOFF_RECORD_JSON).is_file():
+        artifacts["signoff_record"] = (state_dir / SIGNOFF_RECORD_JSON).as_posix()
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -1082,6 +1100,16 @@ def _summary(
             "evaluation_status": (evaluation_scorecard or {}).get("status", "not_checked"),
             "overall_claim": (evaluation_scorecard or {}).get("overall_claim", "not_checked"),
             "highest_evidence_level": (evaluation_scorecard or {}).get("evidence_level", {}).get("highest_supported", "not_provided"),
+            "highest_global_human_review_level": (evaluation_scorecard or {}).get("evidence_level", {}).get(
+                "highest_global_human_supported",
+                "not_provided",
+            ),
+            "human_review_status": (evaluation_scorecard or {}).get("human_review_evidence", {}).get("status", "not_checked"),
+            "claim_acceptance_status": (evaluation_scorecard or {}).get("claim_acceptance", {}).get("status", "not_checked"),
+            "signoff_status": (evaluation_scorecard or {}).get("signoff", {}).get("status", "not_checked"),
+            "signoff_delivery_authorized": bool((evaluation_scorecard or {}).get("signoff", {}).get("delivery_authorized", False)),
+            "signoff_apply_authorized": bool((evaluation_scorecard or {}).get("signoff", {}).get("apply_authorized", False)),
+            "forbidden_claim_count": len((evaluation_scorecard or {}).get("forbidden_claims", [])),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

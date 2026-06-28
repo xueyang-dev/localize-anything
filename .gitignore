@@ -25,6 +25,7 @@ test_placeholder_fix.py
 
 docs/roadmap*.md
 docs/*roadmap*.md
+!docs/architecture-roadmap.md
 docs/v*-iteration-plan.md
 docs/*iteration-plan*.md
 docs/*verification*.md

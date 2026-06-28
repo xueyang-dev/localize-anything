@@ -102,6 +102,28 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 },
             }
         )
+    if apply_plan.get("blocked_by_evaluation_scorecard"):
+        decisions.append(
+            {
+                "id": f"evaluation-scorecard-{len(decisions) + 1:04d}",
+                "type": "evaluation_scorecard",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Resolve scorecard blockers before claiming apply readiness.",
+                "evidence": {"reason": apply_plan.get("evaluation_scorecard_apply_block_reason")},
+            }
+        )
+    if apply_plan.get("blocked_by_signoff"):
+        decisions.append(
+            {
+                "id": f"signoff-{len(decisions) + 1:04d}",
+                "type": "signoff",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Refresh signoff after scorecard and claim acceptance are ready.",
+                "evidence": {"reason": apply_plan.get("signoff_apply_block_reason")},
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -142,6 +164,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "segment_repair_pending_human_count": repair_summary.get("pending_human_count", 0),
             "segment_repair_failed_qa_count": repair_summary.get("failed_qa_count", 0),
             "segment_repair_skipped_not_deterministic_count": repair_summary.get("skipped_not_deterministic_count", 0),
+            "blocked_by_evaluation_scorecard": bool(apply_plan.get("blocked_by_evaluation_scorecard")),
+            "blocked_by_signoff": bool(apply_plan.get("blocked_by_signoff")),
         },
         "localization": localization,
         "artifact_state": artifact_state,

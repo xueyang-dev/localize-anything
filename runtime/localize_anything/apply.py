@@ -17,6 +17,8 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
     generation_block_reason = _provider_apply_block_reason(manifest.get("generation", {}))
     artifact_state = artifact_state_summary_from_document(artifact_state_from_delivery(delivery_dir))
     stale_block_reason = _artifact_state_apply_block_reason(artifact_state)
+    scorecard_block_reason = _scorecard_apply_block_reason(_read_optional_json(delivery_dir / "evaluation-scorecard.json"))
+    signoff_block_reason = _signoff_apply_block_reason(_read_optional_json(delivery_dir / "signoff-record.json"))
     operations: list[dict[str, Any]] = []
     for output in manifest.get("outputs", []):
         package_path = _safe_relative(str(output.get("package_path", "")), "package_path")
@@ -65,6 +67,10 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
         "provider_apply_block_reason": generation_block_reason,
         "blocked_by_stale_artifacts": bool(stale_block_reason),
         "artifact_state_apply_block_reason": stale_block_reason,
+        "blocked_by_evaluation_scorecard": bool(scorecard_block_reason),
+        "evaluation_scorecard_apply_block_reason": scorecard_block_reason,
+        "blocked_by_signoff": bool(signoff_block_reason),
+        "signoff_apply_block_reason": signoff_block_reason,
         "artifact_state": artifact_state,
         "rollback": {"backup_required_for": [item["destination"] for item in operations if item["backup_required"]]},
     }
@@ -86,6 +92,8 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
         f"- Blocked by conflicts: `{bool(plan.get('blocked_by_conflicts'))}`",
         f"- Blocked by provider status: `{bool(plan.get('blocked_by_provider_status'))}`",
         f"- Blocked by stale artifacts: `{bool(plan.get('blocked_by_stale_artifacts'))}`",
+        f"- Blocked by evaluation scorecard: `{bool(plan.get('blocked_by_evaluation_scorecard'))}`",
+        f"- Blocked by signoff: `{bool(plan.get('blocked_by_signoff'))}`",
         "",
         "## Operations",
         "",
@@ -105,6 +113,24 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
                 "## Artifact State Block",
                 "",
                 str(plan.get("artifact_state_apply_block_reason")),
+                "",
+            ]
+        )
+    if plan.get("blocked_by_evaluation_scorecard"):
+        lines.extend(
+            [
+                "## Evaluation Scorecard Block",
+                "",
+                str(plan.get("evaluation_scorecard_apply_block_reason")),
+                "",
+            ]
+        )
+    if plan.get("blocked_by_signoff"):
+        lines.extend(
+            [
+                "## Signoff Block",
+                "",
+                str(plan.get("signoff_apply_block_reason")),
                 "",
             ]
         )
@@ -152,6 +178,10 @@ def execute_apply(
         raise ValueError(f"Apply is blocked by provider generation status: {plan.get('provider_apply_block_reason')}")
     if plan.get("blocked_by_stale_artifacts"):
         raise ValueError(f"Apply is blocked by stale artifact evidence: {plan.get('artifact_state_apply_block_reason')}")
+    if plan.get("blocked_by_evaluation_scorecard"):
+        raise ValueError(f"Apply is blocked by evaluation scorecard: {plan.get('evaluation_scorecard_apply_block_reason')}")
+    if plan.get("blocked_by_signoff"):
+        raise ValueError(f"Apply is blocked by signoff: {plan.get('signoff_apply_block_reason')}")
     if plan["blocked_by_conflicts"]:
         raise ValueError("Apply is blocked by destination conflicts; create a fresh plan after resolving them")
     dirty = _git_status_short(project_root)
@@ -240,6 +270,47 @@ def _artifact_state_apply_block_reason(artifact_state: dict[str, Any]) -> str | 
         pending_segments = repair_state.get("pending_segments", []) if isinstance(repair_state, dict) else []
         names = ", ".join(str(item.get("segment_id")) for item in pending_segments[:5] if item.get("segment_id"))
     return f"artifact state blocks apply because upstream evidence is stale or blocked: {names or 'unknown'}"
+
+
+def _scorecard_apply_block_reason(scorecard: dict[str, Any]) -> str | None:
+    if not scorecard:
+        return None
+    forbidden = set(scorecard.get("forbidden_claims", []))
+    for dimension_name in (
+        "structural_qa",
+        "provider_status",
+        "handoff_readiness",
+        "repair_readiness",
+    ):
+        dimension = scorecard.get(dimension_name, {})
+        if isinstance(dimension, dict) and dimension.get("status") == "blocked":
+            return f"evaluation scorecard blocks apply through {dimension_name}"
+    signoff = scorecard.get("signoff", {})
+    if (
+        "apply_ready" in forbidden
+        and isinstance(signoff, dict)
+        and signoff.get("artifact")
+        and signoff.get("apply_authorized") is False
+    ):
+        return "evaluation scorecard forbids apply_ready and signoff does not authorize apply"
+    return None
+
+
+def _signoff_apply_block_reason(signoff: dict[str, Any]) -> str | None:
+    if not signoff:
+        return None
+    if signoff.get("apply_authorized") is True and str(signoff.get("status") or "") in {"accepted", "accepted_with_limitations"}:
+        return None
+    if str(signoff.get("status") or "") in {"rejected", "stale", "superseded", "requires_follow_up"}:
+        return f"signoff status is {signoff.get('status')}"
+    return "signoff does not authorize apply"
+
+
+def _read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    value = read_json(path)
+    return value if isinstance(value, dict) else {}
 
 
 def _validate_apply_destination(operation: dict[str, Any]) -> None:

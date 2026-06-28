@@ -1,0 +1,36 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-signoff-record-v1",
+  "run_id": "signoff-example-001",
+  "signoff_id": "signoff-example-001",
+  "status": "requires_follow_up",
+  "signed_by": "project-owner@example.com",
+  "signed_role": "project_owner",
+  "signed_at": "2026-06-28T00:00:00Z",
+  "signoff_scope": {
+    "scope_type": "limited",
+    "locales": ["zh-CN"]
+  },
+  "requested_authorizations": {
+    "delivery": true,
+    "apply": true
+  },
+  "delivery_authorized": true,
+  "apply_authorized": false,
+  "limitations_accepted": true,
+  "accepted_claims": ["review_ready"],
+  "accepted_with_limitations": ["limited_scope_delivery_ready"],
+  "rejected_claims": ["apply_ready"],
+  "forbidden_claims_remaining": ["apply_ready"],
+  "blocked_authorizations": [
+    {
+      "authorization": "apply",
+      "reason": "apply_ready_claim_is_forbidden"
+    }
+  ],
+  "source_artifacts": {
+    "evaluation_scorecard": "evaluation-scorecard.json",
+    "claim_acceptance_decision": "claim-acceptance-decision.json",
+    "artifact_state": "artifact-state.json"
+  }
+}

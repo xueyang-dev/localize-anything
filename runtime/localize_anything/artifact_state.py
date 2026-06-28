@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION
+from .evaluation import EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD
+from .human_review import (
+    CLAIM_ACCEPTANCE_DECISION_JSON,
+    HUMAN_REVIEW_EVIDENCE_JSONL,
+    SIGNOFF_RECORD_JSON,
+    human_review_summary,
+    signoff_summary,
+)
 from .io_utils import read_json, sha256_file, write_json
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -129,6 +137,39 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("repair_result", "repair_result", REPAIR_RESULT_JSON, "targeted_repair", ("repair_request",)),
     ArtifactSpec("repair_history", "repair_history", REPAIR_HISTORY_JSONL, "targeted_repair", ("repair_result",)),
     ArtifactSpec(
+        "evaluation_scorecard",
+        "evaluation_scorecard",
+        EVALUATION_SCORECARD_JSON,
+        "evaluation_scorecard",
+        ("termbase_preflight_report", "generation_handoff_decision", "repair_result", "human_review_evidence"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec("evidence_level_report", "evidence_level_report", EVIDENCE_LEVEL_REPORT_MD, "evaluation_scorecard", ("evaluation_scorecard",), required_for_delivery=True),
+    ArtifactSpec(
+        "human_review_evidence",
+        "human_review_evidence",
+        HUMAN_REVIEW_EVIDENCE_JSONL,
+        "human_review",
+        ("generated_segments", "review_sheet", "llm_review_result"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "claim_acceptance_decision",
+        "claim_acceptance_decision",
+        CLAIM_ACCEPTANCE_DECISION_JSON,
+        "claim_acceptance",
+        ("evaluation_scorecard", "human_review_evidence"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "signoff_record",
+        "signoff_record",
+        SIGNOFF_RECORD_JSON,
+        "signoff",
+        ("claim_acceptance_decision", "evaluation_scorecard", "human_review_evidence", "state_delivery_manifest", "delivery_decision"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
         "state_delivery_manifest",
         "delivery_manifest",
         "delivery-manifest.json",
@@ -242,6 +283,8 @@ def build_artifact_state(
     repair_summary = repair_state.get("summary", {})
     repair_handoff_policy = str(repair_decisions.get("generation_handoff_policy") or "allowed")
     repair_delivery_policy = str(repair_decisions.get("delivery_apply_policy") or "allowed")
+    human_review_state = human_review_summary(state_dir)
+    signoff_state = signoff_summary(state_dir)
     status = _overall_status(stale_artifacts, blocked_artifacts, review_artifacts, missing_required, artifacts)
     status = _status_with_segment_state(status, segment_state)
     status = _status_with_repair_state(status, repair_state)
@@ -286,6 +329,11 @@ def build_artifact_state(
             "segment_repair_failed_qa_count": int(repair_summary.get("failed_qa_count", 0)),
             "segment_repair_skipped_not_deterministic_count": int(repair_summary.get("skipped_not_deterministic_count", 0)),
             "segment_repair_not_applicable_count": int(repair_summary.get("not_applicable_count", 0)),
+            "human_review_record_count": int(human_review_state.get("record_count", 0) or 0),
+            "human_review_global_count": int(human_review_state.get("valid_global_review_count", 0) or 0),
+            "human_review_limited_count": int(human_review_state.get("valid_limited_review_count", 0) or 0),
+            "signoff_delivery_authorized": int(bool(signoff_state.get("delivery_authorized"))),
+            "signoff_apply_authorized": int(bool(signoff_state.get("apply_authorized"))),
         },
         "decisions": {
             "full_quality_generation_handoff_allowed": handoff_policy == "allowed",
@@ -296,12 +344,15 @@ def build_artifact_state(
         "artifacts": artifacts,
         "segment_staleness": segment_state,
         "segment_repair": repair_state,
+        "human_review": human_review_state,
+        "signoff": signoff_state,
         "stale_artifacts": [_compact_artifact(item) for item in stale_artifacts],
         "blocked_artifacts": [_compact_artifact(item) for item in blocked_artifacts],
         "missing_required_artifacts": [_compact_artifact(item) for item in missing_required],
         "next_actions": _next_actions(stale_artifacts, blocked_artifacts, missing_required)
         + list(segment_state.get("next_actions", []))
-        + list(repair_state.get("next_actions", [])),
+        + list(repair_state.get("next_actions", []))
+        + _human_review_next_actions(human_review_state, signoff_state),
     }
     if write:
         state_dir.mkdir(parents=True, exist_ok=True)
@@ -338,6 +389,8 @@ def artifact_state_summary(state_dir: Path) -> dict[str, Any]:
         "blocked_artifacts": state.get("blocked_artifacts", []),
         "segment_staleness": state.get("segment_staleness", {}),
         "segment_repair": state.get("segment_repair", {}),
+        "human_review": state.get("human_review", {}),
+        "signoff": state.get("signoff", {}),
         "decisions": state.get("decisions", {}),
         "next_actions": state.get("next_actions", []),
     }
@@ -362,6 +415,8 @@ def artifact_state_summary_from_document(state: dict[str, Any] | None) -> dict[s
         "blocked_artifacts": [],
         "segment_staleness": {},
         "segment_repair": {},
+        "human_review": {},
+        "signoff": {},
         "decisions": {},
     }
     return {
@@ -372,6 +427,8 @@ def artifact_state_summary_from_document(state: dict[str, Any] | None) -> dict[s
         "blocked_artifacts": state.get("blocked_artifacts", []),
         "segment_staleness": state.get("segment_staleness", {}),
         "segment_repair": state.get("segment_repair", {}),
+        "human_review": state.get("human_review", {}),
+        "signoff": state.get("signoff", {}),
         "decisions": state.get("decisions", {}),
         "next_actions": state.get("next_actions", []),
     }
@@ -452,6 +509,8 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
         return
     path = Path(str(entry["path"]))
     name = path.name
+    if name == EVALUATION_SCORECARD_JSON:
+        return
     if name.endswith(".json") and name != "artifact-state.json":
         try:
             content = read_json(_absolute_existing_path(entry))
@@ -596,6 +655,15 @@ def _next_actions(
         actions.append("Resolve blocked artifacts before continuing downstream execution.")
     if missing_required:
         actions.append("Create missing required artifacts before using them as generation, delivery, or apply evidence.")
+    return actions
+
+
+def _human_review_next_actions(human_review_state: dict[str, Any], signoff_state: dict[str, Any]) -> list[str]:
+    actions: list[str] = []
+    if human_review_state.get("status") in {"requires_follow_up", "stale"}:
+        actions.append("Refresh human review evidence before using E2-E4 claims downstream.")
+    if signoff_state.get("status") == "requires_follow_up":
+        actions.append("Refresh signoff after resolving blocked delivery or apply authorizations.")
     return actions
 
 

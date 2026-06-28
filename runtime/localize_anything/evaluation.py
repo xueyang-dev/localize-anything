@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION
+from .human_review import (
+    CLAIM_ACCEPTANCE_DECISION_JSON,
+    HUMAN_REVIEW_EVIDENCE_JSONL,
+    SIGNOFF_RECORD_JSON,
+    summarize_human_review_evidence,
+    summarize_signoff_record,
+)
 from .io_utils import read_json, read_jsonl, write_json
 
 
@@ -76,6 +82,9 @@ def build_evaluation_scorecard(
         "status": status,
         "overall_claim": overall_claim,
         "evidence_level": evidence_level,
+        "human_review_evidence": _human_review_summary(artifacts),
+        "claim_acceptance": _claim_acceptance_summary(artifacts),
+        "signoff": _signoff_summary(artifacts),
         **dimensions,
         "dimensions": dimensions,
         "forbidden_claims": forbidden_claims,
@@ -84,7 +93,8 @@ def build_evaluation_scorecard(
         "limitations": [
             "evaluation scorecard summarizes existing artifacts and does not perform translation",
             "missing evidence is treated conservatively and cannot support full quality claims",
-            "E2-E4 levels require explicit human/native/professional review artifacts",
+            "E2-E4 levels require explicit human-review-evidence records from qualified review roles",
+            "project owner signoff can accept risk but does not create E2-E4 review evidence",
         ],
     }
     report = render_evidence_level_report(scorecard)
@@ -119,6 +129,7 @@ def render_evidence_level_report(scorecard: dict[str, Any]) -> str:
         f"- Run ID: `{scorecard.get('run_id')}`",
         f"- Overall claim: `{scorecard.get('overall_claim')}`",
         f"- Highest evidence level: `{evidence.get('highest_supported', 'not_provided')}`",
+        f"- Highest global human review level: `{evidence.get('highest_global_human_supported', 'not_provided')}`",
         "",
         "## What Passed",
         "",
@@ -157,6 +168,20 @@ def render_evidence_level_report(scorecard: dict[str, Any]) -> str:
     for level in EVIDENCE_LEVELS:
         value = levels.get(level, {})
         lines.append(f"- `{level}`: `{value.get('status', 'not_provided')}` - {value.get('summary', '')}")
+    lines.extend(["", "## Claim Acceptance", ""])
+    claim_acceptance = scorecard.get("claim_acceptance", {})
+    lines.append(f"- Status: `{claim_acceptance.get('status', 'not_provided')}`")
+    lines.append(f"- Accepted claims: `{', '.join(claim_acceptance.get('accepted_claims', [])) or 'none'}`")
+    lines.append(f"- Rejected claims: `{', '.join(claim_acceptance.get('rejected_claims', [])) or 'none'}`")
+    lines.extend(["", "## Human Review And Signoff", ""])
+    human_review = scorecard.get("human_review_evidence", {})
+    signoff = scorecard.get("signoff", {})
+    lines.append(f"- Human review status: `{human_review.get('status', 'not_provided')}`")
+    lines.append(f"- Global levels: `{', '.join(human_review.get('global_supported_levels', [])) or 'none'}`")
+    lines.append(f"- Limited-scope levels: `{', '.join(human_review.get('limited_supported_levels', [])) or 'none'}`")
+    lines.append(f"- Signoff status: `{signoff.get('status', 'not_provided')}`")
+    lines.append(f"- Delivery authorized: `{bool(signoff.get('delivery_authorized'))}`")
+    lines.append(f"- Apply authorized: `{bool(signoff.get('apply_authorized'))}`")
     lines.extend(["", "## Forbidden Claims", ""])
     lines.extend([f"- `{claim}`" for claim in scorecard.get("forbidden_claims", [])] or ["- None."])
     lines.extend(["", "## Recommended Next Actions", ""])
@@ -180,6 +205,9 @@ def _load_artifacts(
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
         "generation_handoff_decision": _read_optional_json(state_dir / "generation-handoff-decision.json"),
         "artifact_state": _read_optional_json(state_dir / "artifact-state.json"),
+        "human_review_evidence": _read_optional_jsonl(state_dir / HUMAN_REVIEW_EVIDENCE_JSONL),
+        "claim_acceptance_decision": _read_optional_json(state_dir / CLAIM_ACCEPTANCE_DECISION_JSON),
+        "signoff_record": _read_optional_json(state_dir / SIGNOFF_RECORD_JSON),
         "stale_segments": _read_optional_jsonl(state_dir / "stale-segments.jsonl"),
         "reuse_decision": _read_optional_json(state_dir / "reuse-decision.json"),
         "segment_regeneration_plan": _read_optional_json(state_dir / "segment-regeneration-plan.json"),
@@ -253,9 +281,15 @@ def _coverage_dimension(coverage: dict[str, Any], artifacts: dict[str, Any]) -> 
 def _resolution_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     questions = artifacts.get("blocking_questions", {})
     handoff = artifacts.get("generation_handoff_decision", {})
-    unresolved = _unresolved_count(questions) or len(handoff.get("unresolved_questions", []) or [])
-    if unresolved:
-        return _dimension("blocked", E1, f"{unresolved} unresolved blocking/resolution questions", blockers=["unresolved_questions"])
+    summary = questions.get("summary", {}) if isinstance(questions, dict) else {}
+    unresolved_blocking = _unresolved_count(questions)
+    unresolved_total = int(summary.get("unresolved_count", 0) or 0)
+    review_required = int(summary.get("review_required_count", 0) or 0)
+    handoff_unresolved = len(handoff.get("unresolved_questions", []) or []) if isinstance(handoff, dict) else 0
+    if unresolved_blocking:
+        return _dimension("blocked", E1, f"{unresolved_blocking} unresolved blocking questions", blockers=["unresolved_questions"])
+    if unresolved_total or review_required or handoff_unresolved:
+        return _dimension("warning", E1, "resolution gate still requires review", warnings=["resolution_review_required"])
     if questions or artifacts.get("resolution_options"):
         return _dimension("pass", E1, "resolution gate has no unresolved blocking questions")
     return _dimension("not_provided", E0, "resolution gate evidence was not provided", warnings=["resolution_gate_missing"])
@@ -314,9 +348,15 @@ def _repair_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
 
 
 def _review_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
-    human = _human_review_evidence(artifacts)
-    if human:
-        return _dimension("pass", human, f"explicit {human} review evidence was provided")
+    human = _human_review_summary(artifacts)
+    if human.get("global_supported_levels"):
+        level = str(human.get("highest_global_supported") or E2)
+        return _dimension("pass", level, f"explicit global {level} human review evidence was provided")
+    if human.get("limited_supported_levels"):
+        level = str(human.get("highest_limited_supported") or E2)
+        return _dimension("warning", level, "human review evidence is limited-scope only", warnings=["human_review_limited_scope"])
+    if human.get("status") in {"requires_follow_up", "stale"}:
+        return _dimension("warning", E1, "human review evidence is rejected, stale, or requires follow-up", warnings=["human_review_not_current"])
     term = _terminology_dimension(artifacts)
     repair = _repair_dimension(artifacts)
     if term["status"] in {"blocked", "warning"} or repair["status"] == "blocked":
@@ -375,13 +415,20 @@ def _evidence_level(dimensions: dict[str, dict[str, Any]], artifacts: dict[str, 
         E3: {"status": "not_provided", "summary": "explicit native-language review evidence was not provided"},
         E4: {"status": "not_provided", "summary": "explicit professional localization review evidence was not provided"},
     }
-    human = _human_review_evidence(artifacts)
-    if human in {E2, E3, E4}:
-        start = EVIDENCE_LEVELS.index(human)
-        for level in EVIDENCE_LEVELS[2 : start + 1]:
-            levels[level] = {"status": "provided", "summary": "explicit review artifact provided"}
+    human = _human_review_summary(artifacts)
+    for level in human.get("global_supported_levels", []):
+        levels[level] = {"status": "provided", "summary": "explicit qualified human review evidence provided"}
+    for level in human.get("limited_supported_levels", []):
+        if levels[level]["status"] != "provided":
+            levels[level] = {"status": "provided_limited_scope", "summary": "explicit qualified human review evidence is limited-scope"}
     supported = [level for level in EVIDENCE_LEVELS if levels[level]["status"] == "provided"]
-    return {"highest_supported": supported[-1] if supported else "not_provided", "levels": levels}
+    limited_supported = [level for level in EVIDENCE_LEVELS if levels[level]["status"] == "provided_limited_scope"]
+    return {
+        "highest_supported": supported[-1] if supported else limited_supported[-1] if limited_supported else "not_provided",
+        "highest_global_human_supported": human.get("highest_global_supported", "not_provided"),
+        "highest_limited_human_supported": human.get("highest_limited_supported", "not_provided"),
+        "levels": levels,
+    }
 
 
 def _overall_claim(
@@ -448,6 +495,18 @@ def _forbidden_claims(
     handoff = artifacts.get("generation_handoff_decision", {})
     for claim in handoff.get("forbidden_quality_claims", []) if isinstance(handoff, dict) else []:
         claims.update(_claim_aliases(str(claim)))
+    claim_acceptance = artifacts.get("claim_acceptance_decision", {})
+    if isinstance(claim_acceptance, dict):
+        claims.update(str(claim) for claim in claim_acceptance.get("forbidden_claims_remaining", []) if claim)
+        claims.update(str(claim) for claim in claim_acceptance.get("rejected_claims", []) if claim)
+    signoff = artifacts.get("signoff_record", {})
+    if isinstance(signoff, dict) and signoff:
+        if str(signoff.get("status") or "") in {"rejected", "stale", "superseded", "requires_follow_up"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
+        if signoff.get("delivery_authorized") is False:
+            claims.add("delivery_ready")
+        if signoff.get("apply_authorized") is False:
+            claims.add("apply_ready")
     return sorted(claims)
 
 
@@ -467,7 +526,13 @@ def _recommended_next_actions(
     if "provider_backed_quality" in forbidden_claims:
         actions.append("Run a real provider successfully before claiming provider-backed quality.")
     if "review_complete" in forbidden_claims:
-        actions.append("Record explicit human/native/professional review before claiming review completion.")
+        actions.append("Record explicit qualified human review evidence before claiming review completion.")
+    claim_acceptance = artifacts.get("claim_acceptance_decision", {})
+    if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
+        actions.append("Resolve blocked claim acceptance before delivery or apply readiness claims.")
+    signoff = artifacts.get("signoff_record", {})
+    if isinstance(signoff, dict) and signoff.get("status") == "requires_follow_up":
+        actions.append("Refresh signoff after resolving blocked authorizations.")
     return list(dict.fromkeys(actions))[:12]
 
 
@@ -524,6 +589,18 @@ def _upstream_readiness_blockers(artifacts: dict[str, Any]) -> list[str]:
     generation = manifest.get("generation", {}) if isinstance(manifest, dict) else {}
     if str(generation.get("provider_status") or "") == "failed":
         blockers.append("provider_failed_or_fallback")
+    claim_acceptance = artifacts.get("claim_acceptance_decision", {})
+    if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
+        blockers.append("claim_acceptance_blocked")
+    signoff = artifacts.get("signoff_record", {})
+    if isinstance(signoff, dict) and signoff:
+        signoff_status = str(signoff.get("status") or "")
+        if signoff_status in {"rejected", "stale", "superseded", "requires_follow_up"}:
+            blockers.append("signoff_not_current")
+        if signoff.get("delivery_authorized") is False and signoff.get("requested_authorizations", {}).get("delivery"):
+            blockers.append("delivery_signoff_not_authorized")
+        if signoff.get("apply_authorized") is False and signoff.get("requested_authorizations", {}).get("apply"):
+            blockers.append("apply_signoff_not_authorized")
     return list(dict.fromkeys(blockers))
 
 
@@ -549,16 +626,30 @@ def _qa_summary(delivery_manifest: dict[str, Any], qa_result_paths: list[Path] |
     }
 
 
-def _human_review_evidence(artifacts: dict[str, Any]) -> str | None:
-    review = artifacts.get("review_result", {})
-    text = json.dumps(review, ensure_ascii=False).casefold() if review else ""
-    if E4.casefold() in text or "professional_localization" in text:
-        return E4
-    if E3.casefold() in text or "native_language" in text:
-        return E3
-    if E2.casefold() in text or "bilingual_human" in text:
-        return E2
-    return None
+def _human_review_summary(artifacts: dict[str, Any]) -> dict[str, Any]:
+    records = artifacts.get("human_review_evidence", [])
+    return summarize_human_review_evidence(records if isinstance(records, list) else [])
+
+
+def _claim_acceptance_summary(artifacts: dict[str, Any]) -> dict[str, Any]:
+    decision = artifacts.get("claim_acceptance_decision", {})
+    if not isinstance(decision, dict) or not decision:
+        return {"status": "not_provided", "artifact": None, "accepted_claims": [], "rejected_claims": []}
+    return {
+        "status": decision.get("status", "not_checked"),
+        "artifact": CLAIM_ACCEPTANCE_DECISION_JSON,
+        "accepted_claims": decision.get("accepted_claims", []),
+        "accepted_with_limitations": decision.get("accepted_with_limitations", []),
+        "rejected_claims": decision.get("rejected_claims", []),
+        "forbidden_claims_remaining": decision.get("forbidden_claims_remaining", []),
+    }
+
+
+def _signoff_summary(artifacts: dict[str, Any]) -> dict[str, Any]:
+    record = artifacts.get("signoff_record", {})
+    if not isinstance(record, dict) or not record:
+        return {"status": "not_provided", "artifact": None, "delivery_authorized": False, "apply_authorized": False}
+    return summarize_signoff_record(record)
 
 
 def _dimension(
@@ -625,6 +716,9 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",
         "generation_handoff_decision": state_dir / "generation-handoff-decision.json",
         "artifact_state": state_dir / "artifact-state.json",
+        "human_review_evidence": state_dir / HUMAN_REVIEW_EVIDENCE_JSONL,
+        "claim_acceptance_decision": state_dir / CLAIM_ACCEPTANCE_DECISION_JSON,
+        "signoff_record": state_dir / SIGNOFF_RECORD_JSON,
         "stale_segments": state_dir / "stale-segments.jsonl",
         "reuse_decision": state_dir / "reuse-decision.json",
         "segment_regeneration_plan": state_dir / "segment-regeneration-plan.json",

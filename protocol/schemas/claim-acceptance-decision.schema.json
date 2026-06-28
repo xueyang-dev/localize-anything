@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/claim-acceptance-decision.schema.json",
+  "title": "Localize Anything Claim Acceptance Decision",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "status",
+    "requested_claims",
+    "accepted_claims",
+    "rejected_claims",
+    "forbidden_claims_remaining",
+    "claim_decisions"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-claim-acceptance-decision-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["accepted", "accepted_with_limitations", "blocked"] },
+    "requested_claims": { "type": "array", "items": { "type": "string" } },
+    "accepted_claims": { "type": "array", "items": { "type": "string" } },
+    "accepted_with_limitations": { "type": "array", "items": { "type": "string" } },
+    "rejected_claims": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "claim_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "status", "reason"],
+        "properties": {
+          "claim": { "type": "string" },
+          "status": { "enum": ["accepted", "accepted_with_limitations", "rejected", "blocked"] },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

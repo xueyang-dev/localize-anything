@@ -2,14 +2,49 @@
 
 ## Canonical Memory
 
-Maintain four assets for standard projects:
+Maintain artifact-backed project memory for standard projects. The exact set
+depends on the delivery level, but current canonical memory may include:
 
-- `localization-context.md`: semantic project memory and approved decisions.
-- `glossary.csv`: term-level constraints and provenance.
-- `translation-memory.jsonl`: segment-level reuse by target locale.
-- `delivery-manifest.json`: machine facts, file mapping, run state, and sign-off scope.
+```text
+localization-context.md
+localization-brief.json
+localization-brief.yaml
+glossary.csv
+translation-memory.jsonl
+term-registry.csv
+term-decisions.jsonl
+forbidden-translations.csv
+term-conflicts.jsonl
+term-provenance.jsonl
+candidate-terms.jsonl
+termbase-preflight-report.json
+term-review-queue.json
+term-review-decisions.jsonl
+generation-strategy.json
+blocking-questions.json
+resolution-options.json
+user-resolution-decisions.jsonl
+generation-handoff-decision.json
+artifact-state.json
+stale-segments.jsonl
+reuse-decision.json
+segment-regeneration-plan.json
+repair-request.json
+repair-result.json
+repair-history.jsonl
+evaluation-scorecard.json
+evidence-level-report.md
+human-review-evidence.jsonl
+claim-acceptance-decision.json
+signoff-record.json
+delivery-manifest.json
+delivery-decision.json
+apply-plan.json
+```
 
 Keep long-lived state in `.localize-anything/`. Copy relevant immutable snapshots into each delivery package.
+Do not turn rebuildable indexes, embeddings, browser state, or chat summaries
+into a source of truth.
 
 ## Context Priorities
 
@@ -41,13 +76,19 @@ Prefer accepted decisions, exact glossary matches, exact segment IDs, exact sour
 
 Use canonical files as source of truth. Permit a rebuildable SQLite index for lookup; do not require embeddings in v0.1.
 
+Knowledge-pack and Document Evidence Pack assets are roadmap features unless the
+current runtime writes their protocol artifacts. Treat imported glossaries,
+translation memories, examples, and style notes as reference material until
+their provenance, scope, and review status are explicit.
+
 ## Promotion
 
 After each batch, route information by function:
 
 - strategy, character, narrative, or cross-file decisions -> context
-- reusable terms and names -> glossary
-- processed segments -> TM
-- defects and unresolved questions -> QA report
+- reusable approved or locked terms -> term governance
+- reviewed segment targets -> translation memory within accepted scope
+- defects, unresolved questions, stale evidence, and repair outcomes -> QA,
+  scorecard, repair, or delivery-decision artifacts
 
 Promote only within accepted locale, content, file, and batch scope.

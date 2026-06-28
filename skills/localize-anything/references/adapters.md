@@ -6,6 +6,17 @@ Prefer, in order: explicit user selection, project lock, core adapter, verified/
 
 Distinguish format adapters from scenario adapters and platform overlays. A game scenario adapter should orchestrate engine detection, format adapters, platform risks, and delivery conventions rather than parse every format itself.
 
+Use the layer names precisely:
+
+- Format Adapter: extracts, validates, and rebuilds a file format.
+- Platform Overlay: expands or qualifies the source surface for a platform,
+  such as Android merged dependency resources.
+- Scenario Adapter: defines task intent, audience, risk, review, and delivery
+  conventions for a localization scenario.
+
+Do not present a platform or scenario as supported just because one underlying
+format can be parsed.
+
 ## Capability Levels
 
 - `full_round_trip`
@@ -21,6 +32,11 @@ Record actual runtime capability. Missing rendering, OCR, network, dependency, o
 Follow the lifecycle `detect -> inventory -> extract -> validate-source -> rebuild -> validate-output -> plan-apply`. Exchange schema-defined JSON and JSONL. Write to staging until apply is confirmed.
 
 Keep dependencies isolated and version-locked. Ask before downloading packages or executable community adapters. Permit project-local forks without requiring publication.
+
+Future registry entries should declare adapter id, supported extensions or
+project types, version, maintainer, capability level, trust tier, permissions,
+dependencies, and contract-test status. An adapter is stable only when contract
+tests and evidence support that claim.
 
 ## Core v0.1 Routing
 

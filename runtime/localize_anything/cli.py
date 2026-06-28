@@ -37,6 +37,13 @@ from .generation import (
 )
 from .generation_handoff_policy import build_generation_handoff_decision
 from .generation_strategy import build_generation_strategy, write_generation_strategy
+from .human_review import (
+    build_claim_acceptance_decision,
+    create_signoff_record,
+    read_human_review_evidence,
+    read_signoff_record,
+    record_human_review_evidence,
+)
 from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import rebuild as rebuild_po
 from .gettext_adapter import validate_pair as validate_po_pair
@@ -532,6 +539,29 @@ def build_parser() -> argparse.ArgumentParser:
     evaluation_parser.add_argument("--delivery-dir", type=Path)
     evaluation_parser.add_argument("--run-id")
     evaluation_parser.add_argument("--output", type=Path)
+
+    record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
+    record_human_review_parser.add_argument("state_dir", type=Path)
+    record_human_review_parser.add_argument("--input", type=Path, required=True)
+    record_human_review_parser.add_argument("--run-id")
+    record_human_review_parser.add_argument("--output", type=Path)
+
+    human_review_parser = subparsers.add_parser("human-review-evidence", help="Read human-review-evidence.jsonl as deterministic JSON")
+    human_review_parser.add_argument("state_dir", type=Path)
+    human_review_parser.add_argument("--output", type=Path)
+
+    claim_acceptance_parser = subparsers.add_parser("claim-acceptance", help="Create claim-acceptance-decision.json from current scorecard evidence")
+    claim_acceptance_parser.add_argument("state_dir", type=Path)
+    claim_acceptance_parser.add_argument("--claim", action="append", default=[], dest="claims")
+    claim_acceptance_parser.add_argument("--accepted-risk-json")
+    claim_acceptance_parser.add_argument("--run-id")
+    claim_acceptance_parser.add_argument("--output", type=Path)
+
+    signoff_record_parser = subparsers.add_parser("signoff-record", help="Create or read signoff-record.json")
+    signoff_record_parser.add_argument("state_dir", type=Path)
+    signoff_record_parser.add_argument("--input", type=Path)
+    signoff_record_parser.add_argument("--run-id")
+    signoff_record_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1246,6 +1276,31 @@ def main(argv: list[str] | None = None) -> int:
                 "evaluation_scorecard": read_evaluation_scorecard(args.state_dir),
                 "overall_claim": scorecard.get("overall_claim"),
             }
+            return _emit_json(result, args.output)
+        if args.command == "record-human-review":
+            result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "human-review-evidence":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-human-review-evidence-list-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "records": read_human_review_evidence(args.state_dir),
+            }
+            return _emit_json(result, args.output)
+        if args.command == "claim-acceptance":
+            result = build_claim_acceptance_decision(
+                args.state_dir,
+                requested_claims=args.claims or None,
+                accepted_risk=_json_argument(args.accepted_risk_json, "accepted-risk-json") or {},
+                run_id=args.run_id,
+            )
+            return _emit_json(result, args.output)
+        if args.command == "signoff-record":
+            if args.input:
+                result = create_signoff_record(args.state_dir, read_json(args.input), run_id=args.run_id)
+            else:
+                result = read_signoff_record(args.state_dir)
             return _emit_json(result, args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)

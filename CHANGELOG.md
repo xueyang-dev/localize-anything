@@ -4,6 +4,10 @@
 
 ### Added
 
+- Split architecture documentation into public README positioning, current
+  architecture/status docs, and a separate `docs/architecture-roadmap.md` for
+  future Locale, non-text, collaboration, evolution, and community-adapter
+  direction.
 - Add term-governance groundwork with seeded `term-registry.csv`,
   `term-decisions.jsonl`, `forbidden-translations.csv`,
   `term-conflicts.jsonl`, and `term-provenance.jsonl` project artifacts.
@@ -53,6 +57,11 @@
   quality claims, CLI/API access, and run/delivery references that prevent
   unsupported full coverage, provider-backed quality, review-complete,
   delivery-ready, or apply-ready claims.
+- Add Human Review Evidence Intake, Claim Acceptance Gate, and Signoff Record
+  seed with `human-review-evidence.jsonl`, `claim-acceptance-decision.json`,
+  `signoff-record.json`, CLI/API access, scorecard integration, artifact-state
+  staleness tracking, and delivery/apply blockers for unsupported claims or
+  stale signoff evidence.
 
 ## v0.4.1 - Workbench UI Wiring
 

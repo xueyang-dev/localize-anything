@@ -4,6 +4,60 @@
 
 Localize Anything is an agent-native localization framework, not a translation prompt. Its core promise is to produce a review-ready, traceable delivery package that can be applied to the source project without silently damaging structure.
 
+This file describes the current repository-facing architecture and keeps stable
+claims, seed claims, and experimental/non-claim areas separate. Future-facing
+vision lives in [Architecture Roadmap](architecture-roadmap.md).
+
+## Product Thesis
+
+Localize Anything is a localization engineering harness:
+
+```text
+Model     -> semantic generation and semantic judgment
+Runtime   -> deterministic validation, state, boundaries, and delivery
+Artifacts -> evidence, traceability, reproducibility, and review state
+Human     -> high-risk decisions and final authorization
+```
+
+The runtime must not treat processed files, generated text, or structural QA as
+task completion. A localization run needs evidence for task intent, source
+surface coverage, terminology, provider state, review state, repair state, and
+delivery/apply readiness.
+
+## Scope Boundaries
+
+Current v0.x focus is Android application resources plus institutional Word
+document localization. The architecture is designed for broader "any project"
+coverage, but unsupported platforms remain non-claims until adapters, runtime
+contracts, and benchmark evidence exist.
+
+Current conservative scope:
+
+- Android source resources are supported; merged dependency overlays are
+  experimental and opt-in.
+- Word OpenXML documents are supported; legacy binary `.doc`, image text, and
+  embedded object localization are non-claims.
+- iOS/macOS, Web framework i18n, XLIFF/PO hardening, subtitles, and advanced
+  tabular formats are roadmap areas unless implemented by a specific adapter.
+- Desktop apps, game engines, non-text asset localization, runtime dynamic
+  content, server-returned copy, push notification text, OS strings, and
+  hardcoded inline code strings are outside current stable scope.
+- Locale engineering features such as plural rules, grammatical gender, RTL/
+  bidi layout, date/time/number/currency formatting, Unicode normalization, and
+  fallback-locale chains are recognized gaps until implemented and surfaced in
+  runtime evidence.
+
+## Status Model
+
+- Stable baseline: released, tested, documented, and backed by regression or
+  real-project evidence.
+- Architecture seed: functional code exists on main or an active PR, but the
+  capability should not be described as complete or production-stable until a
+  release audit and evidence pass.
+- Experimental: implemented behind opt-in or investigation paths and not a
+  default product claim.
+- Non-claim: recognized by the architecture but not implemented.
+
 ## Layers
 
 ### Localization Protocol
@@ -21,6 +75,29 @@ Perform semantic work: intake, source confirmation, preflight interpretation, wo
 ### Adapter Ecosystem
 
 Implement format, scenario, and platform SOPs through a language-neutral JSON/JSONL contract. Prefer core adapters, permit project-local forks, and reserve a community registry for later releases.
+
+## System Rules
+
+```text
+Model may suggest.
+Runtime must verify.
+Artifacts must preserve evidence.
+Human must authorize high-risk and final acceptance.
+```
+
+No major decision should live only in a prompt, UI state, or chat transcript.
+Every gate that affects generation, delivery, or apply readiness should produce
+or consume durable artifacts.
+
+The system must never silently report success when a required layer failed. For
+example:
+
+- real provider requested but provider failed -> do not claim provider-backed
+  quality through synthetic fallback;
+- Android source-only resources pass -> report visible UI coverage risk when
+  merged dependency resources or runtime strings are out of scope;
+- Word document text is translated -> report whether audience, genre, claims,
+  terminology, and review evidence support the requested delivery claim.
 
 ## Workflow
 
@@ -47,11 +124,57 @@ Intake
  -> Targeted Repair
  -> Patch-Based Repair Execution
  -> Evaluation Scorecard
+ -> Human Review Evidence Intake
+ -> Claim Acceptance Gate
  -> Delivery Package
  -> Review Import
- -> Scoped Sign-off
+ -> Signoff Record
  -> Optional Apply-in-Place
 ```
+
+## Evidence Spine
+
+The Evidence Spine is the current architectural backbone. It connects each
+pre-generation, generation, review, repair, delivery, and signoff decision into
+a traceable artifact chain.
+
+```text
+Localization Brief
+ -> Term Governance
+ -> Termbase Preflight
+ -> Generation Strategy
+ -> Resolution Gate
+ -> Generation Handoff Enforcement
+ -> Artifact State
+ -> Segment Staleness / Reuse Decision
+ -> Targeted Repair
+ -> Patch-Based Repair Execution
+ -> Evaluation Scorecard
+ -> Human Review Evidence
+ -> Claim Acceptance
+ -> Signoff
+ -> Delivery / Apply Decision
+```
+
+Each link has a specific contract:
+
+| Gate | Artifact(s) | Enforces |
+| --- | --- | --- |
+| Localization Brief | `localization-brief.json`, `localization-brief.yaml` | Task intent and human confirmations are visible before generation. |
+| Term Governance | `term-registry.csv`, `term-decisions.jsonl`, `forbidden-translations.csv` | Terminology decisions are explicit and reusable. |
+| Termbase Preflight | `candidate-terms.jsonl`, `termbase-preflight-report.json`, `term-review-queue.json` | High-risk terminology is visible before drafting. |
+| Generation Strategy | `generation-strategy.json` | Provider, mode, coverage, and fallback strategy are explicit. |
+| Resolution Gate | `blocking-questions.json`, `resolution-options.json`, `user-resolution-decisions.jsonl` | Blocking questions become traceable owner decisions. |
+| Handoff Enforcement | `generation-handoff-decision.json` | Full-quality and downgraded handoffs are enforced before execution. |
+| Artifact State | `artifact-state.json` | Stale or missing evidence cannot justify readiness. |
+| Segment Staleness | `stale-segments.jsonl`, `reuse-decision.json` | Changed segments are regenerated, reviewed, or reused conservatively. |
+| Targeted Repair | `segment-regeneration-plan.json`, `repair-request.json` | Repair scope is segment-level and deterministic before execution. |
+| Patch Repair | `repair-result.json`, `repair-history.jsonl` | Only mechanically safe repairs are applied without providers. |
+| Evaluation | `evaluation-scorecard.json`, `evidence-level-report.md` | Unsupported quality/readiness claims are forbidden. |
+| Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
+| Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
+| Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
+| Delivery / Apply | `delivery-manifest.json`, `delivery-decision.json`, `apply-plan.json` | Delivery and source writes remain staged, reviewable, and blocked when evidence is insufficient. |
 
 ## Delivery Modes
 
@@ -95,10 +218,30 @@ repair-result.json
 repair-history.jsonl
 evaluation-scorecard.json
 evidence-level-report.md
+human-review-evidence.jsonl
+claim-acceptance-decision.json
+signoff-record.json
 delivery-manifest.json
 ```
 
 The working context packet is ephemeral. A rebuildable SQLite cache may index canonical memory, but never becomes a source of truth.
+
+## Adapter And Scenario Model
+
+Localize Anything separates three adapter layers:
+
+- Format adapters preserve file structure and deterministic round-trip rules
+  such as Android XML, Word OpenXML, PO, XLIFF, CSV, Markdown, or subtitles.
+- Platform overlays describe platform-specific source surfaces such as Android
+  merged dependency resources.
+- Scenario adapters describe task intent, audience, risk, and delivery shape
+  such as software UI localization, institutional publicity documents, or
+  subtitle adaptation.
+
+This separation keeps file parsing out of scenario policy and keeps future
+platform support additive. A future adapter registry should require manifest
+metadata, capability declarations, trust tier, and adapter contract tests before
+an adapter can be treated as stable.
 
 ## Term Governance
 
@@ -421,6 +564,44 @@ Workbench and downstream reviewers read artifact-backed readiness instead of
 inferring quality from UI state. The minimal Workbench path is
 `GET /api/evaluation-scorecard`; a richer visual panel should come after this
 runtime enforcement layer.
+
+## Human Review Evidence And Claim Acceptance
+
+Human Review Evidence Intake records explicit human review in
+`human-review-evidence.jsonl`. It is the only seed artifact that can raise
+E2-E4 evidence levels. Project-owner signoff can accept risk and authorize
+workflow steps, but it does not create bilingual, native-language, or
+professional localization review evidence.
+
+The intake is conservative:
+
+- E2 requires a `bilingual_reviewer` record.
+- E3 requires a `native_language_reviewer` record.
+- E4 requires a `professional_localization_reviewer` record.
+- Limited-scope review remains limited-scope evidence and cannot silently
+  become global review completion.
+- Rejected, stale, superseded, or follow-up review records remain visible and
+  do not support review-complete claims.
+
+Claim Acceptance Gate writes `claim-acceptance-decision.json` from the current
+scorecard plus human-review evidence. It records which claims are accepted,
+accepted only with limitations, rejected, or still forbidden. It cannot override
+scorecard blockers such as unsafe provider policy, stale artifacts, pending
+repairs, failed QA, partial coverage, or missing human review.
+
+`signoff-record.json` is a separate project-owner authorization record. It may
+authorize limited delivery when the scorecard and claim acceptance allow that
+risk, but apply authorization remains blocked when `apply_ready` is forbidden
+or artifacts are stale. This separation keeps human review evidence, claim
+truthfulness, and owner signoff auditable instead of collapsing them into a UI
+checkbox.
+
+Artifact state tracks these three artifacts by content hash. If review evidence,
+scorecard, delivery decision, or claim acceptance changes afterward, downstream
+signoff becomes stale and cannot justify delivery or apply readiness until it is
+refreshed. Workbench exposes artifact-backed API paths for the records; a full
+visual panel should display these runtime artifacts rather than infer quality
+claims in browser state.
 
 ## Localization Brief
 

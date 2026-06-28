@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/signoff-record.schema.json",
+  "title": "Localize Anything Signoff Record",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "signoff_id",
+    "status",
+    "signed_by",
+    "signed_role",
+    "signoff_scope",
+    "requested_authorizations",
+    "delivery_authorized",
+    "apply_authorized",
+    "forbidden_claims_remaining"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-signoff-record-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "signoff_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["accepted", "accepted_with_limitations", "requires_follow_up"] },
+    "signed_by": { "type": "string", "minLength": 1 },
+    "signed_role": { "type": "string", "minLength": 1 },
+    "signed_at": { "type": "string" },
+    "signoff_scope": { "type": "object" },
+    "requested_authorizations": {
+      "type": "object",
+      "required": ["delivery", "apply"],
+      "properties": {
+        "delivery": { "type": "boolean" },
+        "apply": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "delivery_authorized": { "type": "boolean" },
+    "apply_authorized": { "type": "boolean" },
+    "limitations_accepted": { "type": "boolean" },
+    "accepted_claims": { "type": "array", "items": { "type": "string" } },
+    "accepted_with_limitations": { "type": "array", "items": { "type": "string" } },
+    "rejected_claims": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "blocked_authorizations": { "type": "array", "items": { "type": "object" } },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

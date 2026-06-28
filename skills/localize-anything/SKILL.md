@@ -25,15 +25,16 @@ Choose the project mode:
 1. Confirm the actual source material and source locale.
 2. Honor explicit target locales. If missing, ask and recommend likely choices without selecting silently.
 3. Scan runtime capabilities and adapter support.
-4. Select full, layered, light, or skipped deep preflight according to context dependence and scale.
-5. Recommend a workflow depth and let the user choose.
-6. Create or update project memory for standard projects.
-7. Split work by semantic content unit and adapter constraints.
-8. Build an ephemeral working context packet for each batch.
-9. Localize from the original source, preserving unit-level source provenance for mixed-language names and concepts.
-10. Run deterministic QA, agent linguistic review, and targeted repair as required.
-11. Package a draft or review-ready delivery. Never declare final acceptance for the user.
-12. Import reviewer changes and promote memory only within explicitly accepted scope.
+4. Build artifact-backed preflight state before generation: localization brief, term governance, termbase preflight, generation strategy, resolution gate, and generation handoff decision where the runtime supports them.
+5. Check artifact freshness and segment reuse state before trusting prior output.
+6. Recommend a workflow depth and let the user choose.
+7. Create or update project memory for standard projects.
+8. Split work by semantic content unit and adapter constraints.
+9. Build an ephemeral working context packet for each batch.
+10. Localize from the original source, preserving unit-level source provenance for mixed-language names and concepts.
+11. Run deterministic QA, review, repair planning, patch-based repair execution, and evaluation scorecard as required.
+12. Package a draft or review-ready delivery only when the scorecard and claim acceptance support that claim. Never declare final acceptance for the user.
+13. Import reviewer changes, record human review evidence, and promote memory only within explicitly accepted scope.
 
 Read [workflow.md](references/workflow.md) before standard project work. Read only the additional reference needed for the active stage:
 
@@ -52,6 +53,8 @@ Preserve globally understandable dates, currencies, times, and units by default.
 Identify legal, medical, financial, regulatory, religious, and other specialist content. Produce a review draft and risk notes; do not claim specialist certification.
 
 List unprocessed images, audio, visual text, and other non-text assets in QA. Do not imply that text completion means the full experience is localized.
+
+Do not silently upgrade evidence. Provider-backed quality, full coverage, full terminology assurance, review-complete status, delivery readiness, and apply readiness require current supporting artifacts. If evidence is missing, stale, partial, synthetic, or blocked, say so and preserve the downgrade in the scorecard or delivery decision.
 
 ## Use The Runtime When Available
 
