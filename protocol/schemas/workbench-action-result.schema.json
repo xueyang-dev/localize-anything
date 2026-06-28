@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-action-result.schema.json",
+  "title": "Localize Anything Workbench Action Result",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "artifact",
+    "action_id",
+    "action_type",
+    "outcome",
+    "runtime_validation_result",
+    "affected_artifact_references",
+    "refreshed_artifacts",
+    "action_log_artifact",
+    "action_log_record"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-action-result-v1" },
+    "artifact": { "const": "workbench-action-result.json" },
+    "action_id": { "type": "string", "minLength": 1 },
+    "action_type": { "type": "string" },
+    "outcome": { "enum": ["accepted", "rejected", "blocked", "requires_follow_up"] },
+    "runtime_validation_result": { "type": "object" },
+    "affected_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "refreshed_artifacts": { "type": "array", "items": { "type": "string" } },
+    "action_log_artifact": { "const": "workbench-action-log.jsonl" },
+    "action_log_record": { "type": "object" }
+  },
+  "additionalProperties": true
+}

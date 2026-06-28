@@ -39,6 +39,7 @@ from .segment_repair import (
 )
 from .segment_staleness import read_reuse_decision, read_stale_segments
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
+from .workbench_action import perform_workbench_action, read_workbench_action_log
 from .workbench_queue import read_workbench_claim_queue, read_workbench_review_queue, read_workbench_signoff_summary
 
 
@@ -174,6 +175,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/workbench-signoff-summary":
                     self._handle_workbench_signoff_summary_query(parsed.query)
                     return
+                if parsed.path == "/api/workbench-action-log":
+                    self._handle_workbench_action_log_query(parsed.query)
+                    return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -223,6 +227,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/signoff-record":
                     self._handle_signoff_record(payload)
+                    return
+                if parsed.path == "/api/workbench-action":
+                    self._handle_workbench_action(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -473,6 +480,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 raise ValueError(f"Workbench signoff summary is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_signoff_summary": read_workbench_signoff_summary(state_dir)})
 
+        def _handle_workbench_action_log_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench action log is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_log": read_workbench_action_log(state_dir)})
+
         def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
             if not state.is_allowed(state_dir):
@@ -538,6 +551,17 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = create_signoff_record(state_dir, signoff, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "signoff_record": result})
+
+        def _handle_workbench_action(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench action is outside allowed workbench roots: {state_dir}")
+            action = payload.get("action")
+            if not isinstance(action, dict):
+                raise ValueError("action must be a JSON object")
+            result = perform_workbench_action(state_dir, action, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_result": result})
 
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))

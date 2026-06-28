@@ -93,6 +93,7 @@ from .termbase_preflight import record_term_review_decision, run_termbase_prefli
 from .word_adapter import extract_segments as extract_word_segments
 from .word_adapter import rebuild as rebuild_word
 from .word_adapter import validate_pair as validate_word_pair
+from .workbench_action import perform_workbench_action, read_workbench_action_log
 from .workbench_queue import (
     build_workbench_claim_queue,
     build_workbench_review_queue,
@@ -579,6 +580,16 @@ def build_parser() -> argparse.ArgumentParser:
     workbench_signoff_summary_parser = subparsers.add_parser("workbench-signoff-summary", help="Create workbench-signoff-summary.json from signoff evidence")
     workbench_signoff_summary_parser.add_argument("state_dir", type=Path)
     workbench_signoff_summary_parser.add_argument("--output", type=Path)
+
+    workbench_action_parser = subparsers.add_parser("workbench-action", help="Execute one artifact-backed Workbench action from JSON")
+    workbench_action_parser.add_argument("state_dir", type=Path)
+    workbench_action_parser.add_argument("--input", type=Path, required=True)
+    workbench_action_parser.add_argument("--run-id")
+    workbench_action_parser.add_argument("--output", type=Path)
+
+    workbench_action_log_parser = subparsers.add_parser("workbench-action-log", help="Read workbench-action-log.jsonl")
+    workbench_action_log_parser.add_argument("state_dir", type=Path)
+    workbench_action_log_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1325,6 +1336,16 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_workbench_claim_queue(args.state_dir), args.output)
         if args.command == "workbench-signoff-summary":
             return _emit_json(build_workbench_signoff_summary(args.state_dir), args.output)
+        if args.command == "workbench-action":
+            return _emit_json(perform_workbench_action(args.state_dir, read_json(args.input), run_id=args.run_id), args.output)
+        if args.command == "workbench-action-log":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-workbench-action-log-list-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "records": read_workbench_action_log(args.state_dir),
+            }
+            return _emit_json(result, args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":
