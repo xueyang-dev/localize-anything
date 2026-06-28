@@ -93,6 +93,11 @@ from .termbase_preflight import record_term_review_decision, run_termbase_prefli
 from .word_adapter import extract_segments as extract_word_segments
 from .word_adapter import rebuild as rebuild_word
 from .word_adapter import validate_pair as validate_word_pair
+from .workbench_queue import (
+    build_workbench_claim_queue,
+    build_workbench_review_queue,
+    build_workbench_signoff_summary,
+)
 from .wesnoth_adapter import extract_segments as extract_wesnoth_segments
 from .wesnoth_adapter import enrich_segments as enrich_wesnoth_segments
 from .wesnoth_adapter import inventory as inventory_wesnoth
@@ -562,6 +567,18 @@ def build_parser() -> argparse.ArgumentParser:
     signoff_record_parser.add_argument("--input", type=Path)
     signoff_record_parser.add_argument("--run-id")
     signoff_record_parser.add_argument("--output", type=Path)
+
+    workbench_review_queue_parser = subparsers.add_parser("workbench-review-queue", help="Create workbench-review-queue.json from artifact-backed evidence")
+    workbench_review_queue_parser.add_argument("state_dir", type=Path)
+    workbench_review_queue_parser.add_argument("--output", type=Path)
+
+    workbench_claim_queue_parser = subparsers.add_parser("workbench-claim-queue", help="Create workbench-claim-queue.json from scorecard and claim evidence")
+    workbench_claim_queue_parser.add_argument("state_dir", type=Path)
+    workbench_claim_queue_parser.add_argument("--output", type=Path)
+
+    workbench_signoff_summary_parser = subparsers.add_parser("workbench-signoff-summary", help="Create workbench-signoff-summary.json from signoff evidence")
+    workbench_signoff_summary_parser.add_argument("state_dir", type=Path)
+    workbench_signoff_summary_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1302,6 +1319,12 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 result = read_signoff_record(args.state_dir)
             return _emit_json(result, args.output)
+        if args.command == "workbench-review-queue":
+            return _emit_json(build_workbench_review_queue(args.state_dir), args.output)
+        if args.command == "workbench-claim-queue":
+            return _emit_json(build_workbench_claim_queue(args.state_dir), args.output)
+        if args.command == "workbench-signoff-summary":
+            return _emit_json(build_workbench_signoff_summary(args.state_dir), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

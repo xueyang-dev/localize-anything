@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-review-queue.schema.json",
+  "title": "Localize Anything Workbench Review Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "items", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-review-queue-v1" },
+    "artifact": { "const": "workbench-review-queue.json" },
+    "status": { "enum": ["empty", "requires_action"] },
+    "summary": { "type": "object" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "item_type",
+          "severity",
+          "status",
+          "owner_role",
+          "source_artifact_references",
+          "recommended_action",
+          "human_confirmation_required",
+          "stale_evidence_involved"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "item_type": {
+            "enum": [
+              "human_review_required",
+              "native_review_required",
+              "professional_review_required",
+              "claim_acceptance_required",
+              "signoff_required",
+              "stale_review_evidence",
+              "pending_repair",
+              "blocked_handoff",
+              "forbidden_claim_remaining",
+              "delivery_authorization_required",
+              "apply_authorization_required"
+            ]
+          },
+          "severity": { "enum": ["info", "warning", "blocking"] },
+          "status": { "type": "string" },
+          "owner_role": { "type": "string" },
+          "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+          "affected_segment_ids": { "type": "array", "items": { "type": "string" } },
+          "affected_scope": { "type": "object" },
+          "evidence_level_impact": { "type": "array", "items": { "type": "string" } },
+          "forbidden_claims_affected": { "type": "array", "items": { "type": "string" } },
+          "recommended_action": { "type": "string" },
+          "human_confirmation_required": { "type": "boolean" },
+          "stale_evidence_involved": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

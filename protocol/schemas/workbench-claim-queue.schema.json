@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-claim-queue.schema.json",
+  "title": "Localize Anything Workbench Claim Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "claims", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-claim-queue-v1" },
+    "artifact": { "const": "workbench-claim-queue.json" },
+    "status": { "type": "string" },
+    "summary": { "type": "object" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "current_status",
+          "supporting_evidence",
+          "blocking_evidence",
+          "can_be_accepted",
+          "limited_scope_acceptance_possible",
+          "recommended_next_action",
+          "risk_if_accepted"
+        ],
+        "properties": {
+          "claim": { "type": "string" },
+          "current_status": { "type": "string" },
+          "supporting_evidence": { "type": "array", "items": { "type": "string" } },
+          "blocking_evidence": { "type": "array", "items": { "type": "string" } },
+          "related_forbidden_claim": { "type": ["string", "null"] },
+          "can_be_accepted": { "type": "boolean" },
+          "limited_scope_acceptance_possible": { "type": "boolean" },
+          "recommended_next_action": { "type": "string" },
+          "risk_if_accepted": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

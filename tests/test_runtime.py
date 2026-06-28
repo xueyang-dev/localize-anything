@@ -78,6 +78,11 @@ from runtime.localize_anything.json_adapter import extract_segments, rebuild, va
 from runtime.localize_anything.markup_adapter import extract_segments as extract_markup_segments
 from runtime.localize_anything.markup_adapter import rebuild as rebuild_markup, validate_pair as validate_markup_pair
 from runtime.localize_anything.mo_compiler import compile_segments_to_mo
+from runtime.localize_anything.workbench_queue import (
+    build_workbench_claim_queue,
+    build_workbench_review_queue,
+    build_workbench_signoff_summary,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -6002,6 +6007,219 @@ class HumanReviewClaimAcceptanceTests(unittest.TestCase):
                 thread.join(timeout=2)
 
 
+class WorkbenchReviewClaimQueueTests(unittest.TestCase):
+    def test_review_queue_includes_human_review_required_when_e2_to_e4_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+
+            queue = build_workbench_review_queue(state)
+
+            assert_protocol_schema(self, "workbench-review-queue", queue)
+            item_types = {item["item_type"] for item in queue["items"]}
+            self.assertIn("human_review_required", item_types)
+            self.assertIn("native_review_required", item_types)
+            self.assertIn("professional_review_required", item_types)
+
+    def test_review_queue_includes_stale_review_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            _write_artifact_state_with_status(state, "human_review_evidence", "stale")
+
+            queue = build_workbench_review_queue(state)
+
+            stale_items = [item for item in queue["items"] if item["item_type"] == "stale_review_evidence"]
+            self.assertTrue(stale_items)
+            self.assertTrue(stale_items[0]["stale_evidence_involved"])
+
+    def test_claim_queue_preserves_forbidden_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, provider_status="not_run", provider_actual="none")
+
+            queue = build_workbench_claim_queue(state)
+
+            assert_protocol_schema(self, "workbench-claim-queue", queue)
+            claims = {item["claim"]: item for item in queue["claims"]}
+            self.assertEqual(claims["provider_backed_quality"]["current_status"], "blocked")
+            self.assertFalse(claims["provider_backed_quality"]["can_be_accepted"])
+
+    def test_claim_queue_marks_full_coverage_not_acceptable_when_forbidden(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, coverage={"coverage_mode": "source-only", "visible_ui_coverage_warning": True})
+
+            queue = build_workbench_claim_queue(state)
+            full_coverage = next(item for item in queue["claims"] if item["claim"] == "full_coverage")
+
+            self.assertEqual(full_coverage["related_forbidden_claim"], "full_coverage")
+            self.assertFalse(full_coverage["can_be_accepted"])
+
+    def test_claim_queue_limited_scope_delivery_only_when_scorecard_warns(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, coverage={"coverage_mode": "source-only", "visible_ui_coverage_warning": True})
+
+            queue = build_workbench_claim_queue(state)
+            limited = next(item for item in queue["claims"] if item["claim"] == "limited_scope_delivery_ready")
+
+            self.assertTrue(limited["limited_scope_acceptance_possible"])
+            self.assertTrue(limited["can_be_accepted"])
+
+    def test_signoff_summary_does_not_authorize_apply_when_signoff_rejects_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["apply_ready"])
+            _write_signoff_record(state, status="requires_follow_up", apply_authorized=False)
+
+            summary = build_workbench_signoff_summary(state)
+
+            assert_protocol_schema(self, "workbench-signoff-summary", summary)
+            self.assertFalse(summary["apply_authorized"])
+
+    def test_signoff_summary_warns_when_signoff_is_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["apply_ready"])
+            _write_signoff_record(state, status="accepted", apply_authorized=True)
+            _write_artifact_state_with_status(state, "signoff_record", "stale")
+
+            summary = build_workbench_signoff_summary(state)
+
+            self.assertFalse(summary["apply_authorized"])
+            self.assertTrue(summary["stale_or_superseded_signoff_warnings"])
+
+    def test_queues_do_not_infer_e2_to_e4_from_project_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _write_scorecard_state(state)
+            record_human_review_evidence(state, _human_review_record("project_owner", "E2_bilingual_human_spot_check", "full_run"))
+            build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            queue = build_workbench_review_queue(state)
+
+            self.assertIn("human_review_required", {item["item_type"] for item in queue["items"]})
+
+    def test_pending_required_repairs_appear_in_review_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, pending_required_repairs=1)
+            write_json(
+                state / "repair-request.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-repair-request-v1",
+                    "summary": {"request_count": 1, "human_confirmation_required_count": 0, "provider_or_model_required_count": 1},
+                    "requests": [{"repair_id": "repair-s1", "segment_id": "s1", "human_confirmation_required": False}],
+                },
+            )
+
+            queue = build_workbench_review_queue(state)
+
+            item = next(item for item in queue["items"] if item["item_type"] == "pending_repair")
+            self.assertIn("s1", item["affected_segment_ids"])
+
+    def test_blocked_handoff_appears_in_review_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, unresolved_question_count=1)
+
+            queue = build_workbench_review_queue(state)
+
+            self.assertIn("blocked_handoff", {item["item_type"] for item in queue["items"]})
+
+    def test_delivery_package_references_workbench_queue_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _build_scorecard_state(state)
+            build_workbench_review_queue(state)
+            build_workbench_claim_queue(state)
+            build_workbench_signoff_summary(state)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "workbench-queue-delivery-001")
+
+            assets = packaged["manifest"]["assets"]
+            self.assertEqual(assets["workbench_review_queue"], "workbench-review-queue.json")
+            self.assertEqual(assets["workbench_claim_queue"], "workbench-claim-queue.json")
+            self.assertEqual(assets["workbench_signoff_summary"], "workbench-signoff-summary.json")
+
+    def test_run_summary_references_workbench_queue_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _build_scorecard_state(state)
+            build_workbench_review_queue(state)
+            build_workbench_claim_queue(state)
+            build_workbench_signoff_summary(state)
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                ["locales/en-US.json"],
+                output_root=root / "runs",
+                run_id="workbench-queue-summary-001",
+                synthetic_draft=True,
+            )
+
+            self.assertTrue(result["summary"]["workbench_review_queue_present"])
+            self.assertIn("workbench_review_queue", result["artifacts"])
+
+    def test_cli_commands_are_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            review_output = Path(directory) / "review-queue.json"
+            claim_output = Path(directory) / "claim-queue.json"
+            signoff_output = Path(directory) / "signoff-summary.json"
+
+            self.assertEqual(cli_main(["workbench-review-queue", state.as_posix(), "--output", review_output.as_posix()]), 0)
+            self.assertEqual(cli_main(["workbench-claim-queue", state.as_posix(), "--output", claim_output.as_posix()]), 0)
+            self.assertEqual(cli_main(["workbench-signoff-summary", state.as_posix(), "--output", signoff_output.as_posix()]), 0)
+
+            self.assertEqual(read_json(review_output)["schema"], "localize-anything-workbench-review-queue-v1")
+            self.assertEqual(read_json(claim_output)["schema"], "localize-anything-workbench-claim-queue-v1")
+            self.assertEqual(read_json(signoff_output)["schema"], "localize-anything-workbench-signoff-summary-v1")
+
+    def test_api_exposes_workbench_queue_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            build_workbench_review_queue(state)
+            build_workbench_claim_queue(state)
+            build_workbench_signoff_summary(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                review_status, review_body = _http_get(host, port, f"/api/workbench-review-queue?state_dir={state.as_posix()}")
+                claim_status, claim_body = _http_get(host, port, f"/api/workbench-claim-queue?state_dir={state.as_posix()}")
+                signoff_status, signoff_body = _http_get(host, port, f"/api/workbench-signoff-summary?state_dir={state.as_posix()}")
+                self.assertEqual(review_status, 200)
+                self.assertEqual(claim_status, 200)
+                self.assertEqual(signoff_status, 200)
+                self.assertEqual(json.loads(review_body)["workbench_review_queue"]["schema"], "localize-anything-workbench-review-queue-v1")
+                self.assertEqual(json.loads(claim_body)["workbench_claim_queue"]["schema"], "localize-anything-workbench-claim-queue-v1")
+                self.assertEqual(json.loads(signoff_body)["workbench_signoff_summary"]["schema"], "localize-anything-workbench-signoff-summary-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
 def _build_scorecard_state(
     state: Path,
     *,
@@ -6222,6 +6440,54 @@ def _signoff_request(*, delivery: bool = False, apply: bool = False, limitations
         "authorizations": {"delivery": delivery, "apply": apply},
         "limitations_accepted": limitations,
     }
+
+
+def _write_artifact_state_with_status(state: Path, artifact_id: str, status: str) -> None:
+    artifact_state = read_json(state / "artifact-state.json") if (state / "artifact-state.json").is_file() else {}
+    artifact_state.setdefault("protocol_version", "0.1")
+    artifact_state.setdefault("schema", "localize-anything-artifact-state-v1")
+    artifacts = [item for item in artifact_state.get("artifacts", []) if item.get("artifact_id") != artifact_id]
+    artifacts.append(
+        {
+            "artifact_id": artifact_id,
+            "artifact_path": artifact_id.replace("_", "-"),
+            "artifact_type": artifact_id,
+            "status": status,
+            "produced_by": "test",
+            "downstream_affected": [],
+        }
+    )
+    artifact_state["artifacts"] = artifacts
+    artifact_state["status"] = "blocked" if status == "blocked" else "stale" if status in {"stale", "superseded"} else artifact_state.get("status", "current")
+    artifact_state["safe_to_continue"] = status not in {"stale", "superseded", "blocked"}
+    write_json(state / "artifact-state.json", artifact_state)
+
+
+def _write_signoff_record(
+    state: Path,
+    *,
+    status: str = "accepted",
+    delivery_authorized: bool = False,
+    apply_authorized: bool = False,
+) -> None:
+    write_json(
+        state / "signoff-record.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-signoff-record-v1",
+            "run_id": "scorecard-test-001",
+            "artifact": "signoff-record.json",
+            "status": status,
+            "signed_by": "owner@example.com",
+            "signed_role": "project_owner",
+            "signoff_scope": {"scope_type": "limited", "locales": ["zh-CN"]},
+            "delivery_authorized": delivery_authorized,
+            "apply_authorized": apply_authorized,
+            "limitations_accepted": True,
+            "forbidden_claims_remaining": [],
+            "blocked_authorizations": [],
+        },
+    )
 
 
 def _write_apply_delivery(
@@ -6714,7 +6980,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 41)
+        self.assertEqual(result["schemas_checked"], 44)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

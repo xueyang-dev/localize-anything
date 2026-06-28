@@ -8,6 +8,10 @@
   architecture/status docs, and a separate `docs/architecture-roadmap.md` for
   future Locale, non-text, collaboration, evolution, and community-adapter
   direction.
+- Add Workbench review/claim/signoff queue projections with
+  `workbench-review-queue.json`, `workbench-claim-queue.json`, and
+  `workbench-signoff-summary.json`, plus CLI/API read paths and protocol
+  schemas/examples.
 - Add term-governance groundwork with seeded `term-registry.csv`,
   `term-decisions.jsonl`, `forbidden-translations.csv`,
   `term-conflicts.jsonl`, and `term-provenance.jsonl` project artifacts.

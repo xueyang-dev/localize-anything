@@ -1,0 +1,48 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-review-queue-v1",
+  "artifact": "workbench-review-queue.json",
+  "status": "requires_action",
+  "summary": {
+    "item_count": 2,
+    "blocking_count": 1,
+    "requires_human_confirmation_count": 2,
+    "stale_item_count": 0
+  },
+  "items": [
+    {
+      "item_id": "workbench-review-human-review-required",
+      "item_type": "human_review_required",
+      "severity": "blocking",
+      "status": "open",
+      "owner_role": "bilingual_reviewer",
+      "source_artifact_references": ["evaluation-scorecard.json", "human-review-evidence.jsonl"],
+      "affected_segment_ids": [],
+      "affected_scope": {},
+      "evidence_level_impact": ["E2_bilingual_human_spot_check"],
+      "forbidden_claims_affected": ["review_complete", "production_ready"],
+      "recommended_action": "Record explicit bilingual reviewer evidence.",
+      "human_confirmation_required": true,
+      "stale_evidence_involved": false
+    },
+    {
+      "item_id": "workbench-review-forbidden-claim",
+      "item_type": "forbidden_claim_remaining",
+      "severity": "warning",
+      "status": "open",
+      "owner_role": "project_owner",
+      "source_artifact_references": ["evaluation-scorecard.json", "claim-acceptance-decision.json"],
+      "affected_segment_ids": [],
+      "affected_scope": {},
+      "evidence_level_impact": [],
+      "forbidden_claims_affected": ["full_coverage"],
+      "recommended_action": "Do not claim full_coverage until supporting evidence exists.",
+      "human_confirmation_required": false,
+      "stale_evidence_involved": false
+    }
+  ],
+  "source_artifacts": {
+    "evaluation_scorecard": "evaluation-scorecard.json",
+    "human_review_evidence": "human-review-evidence.jsonl"
+  }
+}

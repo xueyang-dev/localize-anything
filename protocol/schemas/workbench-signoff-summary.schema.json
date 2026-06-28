@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-signoff-summary.schema.json",
+  "title": "Localize Anything Workbench Signoff Summary",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "artifact",
+    "current_signoff_status",
+    "accepted_claims",
+    "rejected_claims",
+    "forbidden_claims_remaining",
+    "delivery_authorized",
+    "apply_authorized",
+    "effective_scope",
+    "limitations",
+    "stale_or_superseded_signoff_warnings",
+    "next_action",
+    "source_artifacts"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-signoff-summary-v1" },
+    "artifact": { "const": "workbench-signoff-summary.json" },
+    "current_signoff_status": { "type": "string" },
+    "signer_role": { "type": ["string", "null"] },
+    "accepted_claims": { "type": "array", "items": { "type": "string" } },
+    "rejected_claims": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "delivery_authorized": { "type": "boolean" },
+    "apply_authorized": { "type": "boolean" },
+    "effective_scope": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "stale_or_superseded_signoff_warnings": { "type": "array", "items": { "type": "string" } },
+    "next_action": { "type": "string" },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}
