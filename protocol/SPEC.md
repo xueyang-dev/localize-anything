@@ -4,6 +4,14 @@
 
 Define portable artifacts between agents, runtimes, and adapters. The protocol does not prescribe a model provider or implementation language.
 
+The protocol is the machine-readable part of the optimized architecture's
+Evidence Spine. Runtime, agents, Workbench, and delivery tooling should derive
+readiness from artifacts, not from prompt text or UI state. Architecture
+proposal artifacts such as Document Evidence Pack assets, Personal Knowledge
+Pack assets, locale capability reports, task-intent coverage reports, and
+non-text asset coverage reports are not canonical protocol artifacts until this
+spec adds schemas/examples and the runtime validates them.
+
 ## Canonical Artifacts
 
 - Project configuration selects operational policy.
@@ -129,6 +137,27 @@ JSONL contract for direct provider execution and handoff/import fallback, and
 does not overwrite source project files.
 
 Adapters implement the narrower lifecycle documented in `docs/adapters.md`.
+
+## Evidence Spine And Claims
+
+Every lifecycle gate that affects generation, delivery, or apply readiness
+should produce or consume durable evidence. The protocol deliberately separates:
+
+- task intent evidence (`localization-brief`);
+- terminology evidence (Term Governance and termbase preflight artifacts);
+- strategy and blocker evidence (Generation Strategy, Resolution Gate, and
+  Generation Handoff Enforcement);
+- freshness evidence (`artifact-state`, stale segments, and reuse decisions);
+- repair evidence (regeneration plans, repair requests/results/history);
+- scorecard evidence (`evaluation-scorecard` and evidence-level report);
+- human review evidence, claim acceptance, and signoff;
+- delivery and apply evidence.
+
+Processed files, generated target text, or passing structural QA are not enough
+to claim task completion. Unsupported claims must remain forbidden in
+`evaluation-scorecard.json`, `claim-acceptance-decision.json`, delivery
+decision artifacts, and apply planning until the required upstream evidence is
+current and accepted.
 
 ## Termbase Preflight
 

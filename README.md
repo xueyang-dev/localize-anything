@@ -253,6 +253,9 @@ python benchmarks/v021-mode-system/run.py
 
 ## 核心概念
 
+当前真实架构和能力状态见 [Architecture](docs/architecture.md)。未来路线见
+[Architecture Roadmap](docs/architecture-roadmap.md)；路线图不是当前 release 承诺。
+
 ### 运行模式
 
 | 运行模式 | 适用场景 | 默认参考策略 |

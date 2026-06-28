@@ -253,6 +253,11 @@ Full pipeline: extract → batch → DeepSeek API → collect → stage → QA �
 
 ## Concepts
 
+See [Architecture](docs/architecture.md) for the current architecture and
+capability status. Future direction is tracked in
+[Architecture Roadmap](docs/architecture-roadmap.md); roadmap items are not
+current release claims.
+
 ### Operating modes
 
 | Mode | Intended use | Default reference policy |
