@@ -8030,6 +8030,21 @@ class KnowledgePackConsumptionBridgeTests(unittest.TestCase):
             self.assertEqual([item["target_term"] for item in constraints["term_registry"]], ["本地实验室"])
             self.assertEqual(read_working_context_packet(state)["status"], "blocked")
 
+    def test_project_local_term_decisions_outrank_generic_pack_knowledge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [{"source_term": "Open Lab", "target_term": "决策实验室", "status": "locked", "scope": "scenario-a", "target_locale": "zh-CN"}],
+            )
+            build_working_context_packet(state)
+
+            constraints = select_term_constraints(state, [{"source": "Open Lab"}], "zh-CN", "style_only")
+
+            self.assertEqual([item["target_term"] for item in constraints["term_registry"]], ["决策实验室"])
+            self.assertEqual(read_working_context_packet(state)["status"], "blocked")
+
     def test_conflicting_locked_pack_terms_block_generation_strategy(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = _consumption_state(Path(directory))

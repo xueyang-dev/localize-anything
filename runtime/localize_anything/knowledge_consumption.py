@@ -425,7 +425,7 @@ def _apply_project_term_priority(
     hard: list[dict[str, Any]],
     selection: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    local_rows = _read_csv(state_dir / "term-registry.csv")
+    local_rows = [*_read_csv(state_dir / "term-registry.csv"), *_read_local_term_decisions(state_dir / "term-decisions.jsonl")]
     kept: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     shadowed: list[dict[str, Any]] = []
@@ -459,6 +459,25 @@ def _apply_project_term_priority(
                 "provenance_id": item.get("provenance_id"),
             })
     return kept, conflicts, shadowed
+
+
+def _read_local_term_decisions(path: Path) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for record in _read_jsonl(path):
+        source = str(record.get("source_term") or record.get("term") or record.get("source_value") or "").strip()
+        target = str(record.get("target_term") or record.get("target_value") or record.get("approved_translation") or "").strip()
+        status = str(record.get("status") or record.get("decision") or "").strip()
+        if not source or not target or status not in {"approved", "locked", "scope_specific", "accepted"}:
+            continue
+        rows.append({
+            "source_term": source,
+            "target_term": target,
+            "status": "approved" if status == "accepted" else status,
+            "priority": str(record.get("priority") or "user_confirmed"),
+            "scope": str(record.get("scope") or record.get("effective_scope") or ""),
+            "target_locale": str(record.get("target_locale") or ""),
+        })
+    return rows
 
 
 def _hard_constraint_conflicts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
