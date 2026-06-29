@@ -739,6 +739,50 @@ scorecard evidence changes, the pack becomes stale and must be regenerated or
 reviewed before future loops can rely on it. Pack existence alone never
 upgrades the current run's scorecard, delivery readiness, or apply readiness.
 
+## Knowledge Pack Consumption And Working Context
+
+Knowledge Pack Consumption is the deterministic bridge between reviewed pack
+artifacts and future generation planning. It produces three state artifacts:
+
+- `knowledge-pack-selection.json` records explicit local pack choices, locale,
+  domain, scenario, mode, status, freshness, privacy/sync metadata, provenance,
+  and rejected-pack reasons;
+- `knowledge-eligibility-report.json` classifies each entry without retrieving
+  or generating content;
+- `working-context-packet.json` keeps hard constraints, negative constraints,
+  TM suggestions, style guidance, examples, claim constraints, revision hints,
+  exclusions, and provenance in separate fields.
+
+The packet is deliberately structured rather than flattened into a prompt.
+Approved or locked scoped terms may become hard constraints. Provenanced
+forbidden translations may become negative constraints. Reviewed TM and style
+decisions remain soft context. Reference-only TM/examples remain examples and
+never raise terminology or knowledge assurance. Revision memory is a
+repair/review hint, never an automatic rewrite instruction. Candidate, raw,
+deferred, stale, rejected, superseded, failed, provenance-free, and
+scope-mismatched entries are excluded or require review.
+
+`blind_benchmark` is a context firewall: target-language pack terms, TM, and
+examples are hidden from generation context. A mode change invalidates the
+packet. Locale/domain/scenario compatibility must be exact unless selection
+records an explicit allowance. Team-shared metadata is preserved, but the
+runtime reads local artifacts only and performs no sync or provider call.
+
+Term Governance consumes eligible pack terms as lower-priority imported scoped
+terms. Project-local approved decisions outrank generic pack knowledge;
+conflicting locked targets block Generation Strategy instead of being silently
+overwritten. Generation Strategy records the knowledge policy and packet
+artifacts. Work packets reference the structured packet. Artifact State marks
+eligibility/context/strategy stale when pack, brief, term governance, or mode
+inputs change. Evaluation Scorecard forbids `knowledge_backed_quality` unless a
+future usage artifact plus QA/review evidence can prove that constraints were
+actually applied.
+
+This bridge precedes full RAG because deterministic eligibility and policy
+boundaries must exist before retrieval can be trusted. It does not implement
+semantic search, vector indexes, provider/model generation, repair execution,
+or knowledge-augmented quality claims.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

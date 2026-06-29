@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add the deterministic Personal Knowledge Pack consumption bridge with
+  pack selection, entry eligibility, structured Working Context Packet,
+  Generation Strategy/Term Governance/Scorecard/Artifact State integration,
+  and artifact-backed CLI/API access without provider or semantic retrieval.
 - Add Personal Knowledge Pack Builder seed with local-first pack initialization,
   conservative artifact export, `knowledge-review-queue.json`,
   `knowledge-review-decisions.jsonl`, quality reporting, artifact-state

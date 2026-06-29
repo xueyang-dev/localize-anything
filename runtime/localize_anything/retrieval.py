@@ -10,6 +10,7 @@ from typing import Any
 from . import PROTOCOL_VERSION
 from .generation_handoff_policy import generation_handoff_decision_summary
 from .generation_strategy import generation_strategy_summary
+from .knowledge_consumption import WORKING_CONTEXT_PACKET_JSON
 from .modes import mode_contract, resolve_mode_policy
 from .planning import estimate_tokens
 from .resolution_gate import resolution_gate_summary
@@ -61,17 +62,18 @@ def build_work_packet(
     strategy = generation_strategy_summary(state_dir)
     resolution = resolution_gate_summary(state_dir)
     handoff_decision = generation_handoff_decision_summary(state_dir)
+    working_context = _working_context(state_dir, operating_mode)
 
     trimmed: list[str] = []
-    packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, handoff_decision, limit_tokens, trimmed, operating_mode, reference_policy)
+    packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, handoff_decision, working_context, limit_tokens, trimmed, operating_mode, reference_policy)
     while packet["budget"]["estimated_tokens"] > limit_tokens and tm:
         tm.pop()
         trimmed.append("low_priority_translation_memory")
-        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, handoff_decision, limit_tokens, trimmed, operating_mode, reference_policy)
+        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, handoff_decision, working_context, limit_tokens, trimmed, operating_mode, reference_policy)
     while packet["budget"]["estimated_tokens"] > limit_tokens and glossary:
         glossary.pop()
         trimmed.append("low_priority_glossary")
-        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, handoff_decision, limit_tokens, trimmed, operating_mode, reference_policy)
+        packet = _packet(batch_plan, batch_id, selected, target_locale, context_sections, glossary, tm, hard_constraints, term_review, strategy, resolution, handoff_decision, working_context, limit_tokens, trimmed, operating_mode, reference_policy)
     if packet["budget"]["estimated_tokens"] > limit_tokens:
         trimmed.append("source_or_p0_exceeds_budget_shrink_batch")
         packet["budget"]["trimmed"] = sorted(set(trimmed))
@@ -216,6 +218,7 @@ def _packet(
     strategy: dict[str, Any],
     resolution: dict[str, Any],
     handoff_decision: dict[str, Any],
+    working_context: dict[str, Any],
     limit_tokens: int,
     trimmed: list[str],
     operating_mode: str,
@@ -237,6 +240,7 @@ def _packet(
         "generation_strategy": strategy,
         "resolution_gate": resolution,
         "generation_handoff": handoff_decision,
+        "working_context_packet": working_context,
         "reference_policy": {
             "policy": reference_policy,
             "target_reference_visibility": mode_contract(operating_mode, reference_policy)["target_reference_visibility"],
@@ -265,3 +269,19 @@ def _packet(
             "trimmed": sorted(set(trimmed)),
         },
     }
+
+
+def _working_context(state_dir: Path, operating_mode: str) -> dict[str, Any]:
+    path = state_dir / WORKING_CONTEXT_PACKET_JSON
+    if not path.is_file():
+        return {"status": "not_selected", "artifact": None, "knowledge_policy": {"enabled": False}}
+    context = json.loads(path.read_text(encoding="utf-8"))
+    if context.get("operating_mode") != operating_mode:
+        return {
+            "status": "stale",
+            "artifact": WORKING_CONTEXT_PACKET_JSON,
+            "reason": "operating_mode_changed",
+            "knowledge_policy": {"enabled": False},
+            "excluded_knowledge": [{"reason": "operating_mode_changed"}],
+        }
+    return context

@@ -10,6 +10,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
+from .knowledge_consumption import imported_term_rows
 from .term_governance import (
     FORBIDDEN_TRANSLATION_COLUMNS,
     HARD_TERM_STATUSES,
@@ -134,8 +135,9 @@ def extract_candidate_terms(
     source_locale: str,
     target_locale: str,
 ) -> list[dict[str, Any]]:
-    registry_rows = _read_csv_rows(state_dir / "term-registry.csv")
-    forbidden_rows = _read_csv_rows(state_dir / "forbidden-translations.csv")
+    imported_registry, imported_forbidden = imported_term_rows(state_dir)
+    registry_rows = [*_read_csv_rows(state_dir / "term-registry.csv"), *imported_registry]
+    forbidden_rows = [*_read_csv_rows(state_dir / "forbidden-translations.csv"), *imported_forbidden]
     decision_rows = _read_jsonl_if_exists(state_dir / "term-decisions.jsonl")
     buckets: dict[str, dict[str, Any]] = {}
 

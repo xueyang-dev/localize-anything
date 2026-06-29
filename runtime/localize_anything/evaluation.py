@@ -37,6 +37,7 @@ DIMENSION_NAMES = [
     "structural_qa",
     "provider_status",
     "terminology_assurance",
+    "knowledge_assurance",
     "coverage_assurance",
     "resolution_status",
     "handoff_readiness",
@@ -70,6 +71,7 @@ def build_evaluation_scorecard(
         "structural_qa": _structural_qa_dimension(artifacts),
         "provider_status": _provider_dimension(provider),
         "terminology_assurance": _terminology_dimension(artifacts),
+        "knowledge_assurance": _knowledge_dimension(artifacts),
         "coverage_assurance": _coverage_dimension(coverage, artifacts),
         "resolution_status": _resolution_dimension(artifacts),
         "handoff_readiness": _handoff_dimension(artifacts),
@@ -209,6 +211,9 @@ def _load_artifacts(
         "localization_brief": _read_optional_json(state_dir / "localization-brief.json"),
         "termbase_preflight_report": _read_optional_json(state_dir / "termbase-preflight-report.json"),
         "generation_strategy": _read_optional_json(state_dir / "generation-strategy.json"),
+        "knowledge_pack_selection": _read_optional_json(state_dir / "knowledge-pack-selection.json"),
+        "knowledge_eligibility_report": _read_optional_json(state_dir / "knowledge-eligibility-report.json"),
+        "working_context_packet": _read_optional_json(state_dir / "working-context-packet.json"),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -281,6 +286,34 @@ def _terminology_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     if assurance == "incomplete_review_required" or int(summary.get("high_risk_unreviewed_count", 0) or 0):
         return _dimension("warning", E1, "terminology review is incomplete", warnings=["term_review_incomplete"])
     return _dimension("unknown", E0, "terminology assurance was not checked", warnings=["terminology_assurance_unknown"])
+
+
+def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    selection = artifacts.get("knowledge_pack_selection", {})
+    eligibility = artifacts.get("knowledge_eligibility_report", {})
+    context = artifacts.get("working_context_packet", {})
+    if not selection:
+        return _dimension("not_provided", E0, "knowledge pack was not selected", warnings=["knowledge_pack_not_selected"])
+    if not selection.get("selected_packs"):
+        return _dimension("warning", E0, "no valid knowledge pack was selected", warnings=["knowledge_pack_invalid_or_rejected"])
+    if not eligibility or not context:
+        return _dimension("blocked", E0, "knowledge consumption artifacts are incomplete", blockers=["knowledge_artifacts_incomplete"])
+    if context.get("status") == "blocked":
+        return _dimension("blocked", E1, "knowledge hard constraints conflict", blockers=["knowledge_constraint_conflict"])
+    artifact_state = artifacts.get("artifact_state", {})
+    stale_ids = {str(item.get("artifact_id")) for item in artifact_state.get("stale_artifacts", []) if isinstance(item, dict)}
+    if "working_context_packet" in stale_ids or "knowledge_eligibility_report" in stale_ids:
+        return _dimension("blocked", E1, "knowledge context is stale", blockers=["knowledge_context_stale"])
+    summary = eligibility.get("summary", {}) if isinstance(eligibility.get("summary"), dict) else {}
+    constraint_count = int(summary.get("hard_constraint_count", 0) or 0) + int(summary.get("negative_constraint_count", 0) or 0)
+    if not constraint_count:
+        return _dimension("warning", E0, "selected knowledge is reference-only or ineligible", warnings=["knowledge_reference_only"])
+    return _dimension(
+        "warning",
+        E1,
+        "eligible knowledge constraints exist, but usage plus QA/review evidence was not recorded",
+        warnings=["knowledge_usage_evidence_missing"],
+    )
 
 
 def _coverage_dimension(coverage: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
@@ -502,6 +535,8 @@ def _forbidden_claims(
         claims.add("provider_backed_quality")
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
+    if dimensions["knowledge_assurance"]["status"] != "pass":
+        claims.add("knowledge_backed_quality")
     if dimensions["review_readiness"]["status"] != "pass":
         claims.add("review_complete")
     if dimensions["delivery_readiness"]["status"] != "pass":

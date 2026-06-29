@@ -1,0 +1,33 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-pack-selection-v1",
+  "artifact": "knowledge-pack-selection.json",
+  "status": "selected",
+  "selection_source": "explicit",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "domains": ["institutional_publicity"],
+  "scenario": "institutional_publicity_case",
+  "operating_mode": "greenfield_localization",
+  "selected_by": "project_owner",
+  "selected_pack_ids": ["institutional-zh-cn"],
+  "pack_paths": [".localize-anything/knowledge/packs/institutional-zh-cn"],
+  "selected_packs": [
+    {
+      "pack_id": "institutional-zh-cn",
+      "pack_path": ".localize-anything/knowledge/packs/institutional-zh-cn",
+      "pack_status": "draft",
+      "pack_freshness": "current",
+      "privacy_mode": "local_only",
+      "sync_metadata": {},
+      "source_locale": "en-US",
+      "target_locale": "zh-CN",
+      "domains": ["institutional_publicity"],
+      "supported_scenarios": ["institutional_publicity_case"],
+      "reasons": ["explicit_match"],
+      "source_artifact_references": ["pack.json"]
+    }
+  ],
+  "rejected_packs": [],
+  "source_artifact_references": ["pack.json"]
+}

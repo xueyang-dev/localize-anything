@@ -30,6 +30,11 @@ from .human_review import (
     signoff_summary,
 )
 from .io_utils import read_json, sha256_file, write_json
+from .knowledge_consumption import (
+    KNOWLEDGE_ELIGIBILITY_REPORT_JSON,
+    KNOWLEDGE_PACK_SELECTION_JSON,
+    WORKING_CONTEXT_PACKET_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -89,6 +94,28 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         required_for_handoff=True,
         required_for_delivery=True,
     ),
+    ArtifactSpec("knowledge_pack_selection", "knowledge_pack_selection", KNOWLEDGE_PACK_SELECTION_JSON, "knowledge_pack_consumption"),
+    ArtifactSpec(
+        "knowledge_eligibility_report",
+        "knowledge_eligibility_report",
+        KNOWLEDGE_ELIGIBILITY_REPORT_JSON,
+        "knowledge_pack_consumption",
+        ("knowledge_pack_selection", "localization_brief_json"),
+    ),
+    ArtifactSpec(
+        "working_context_packet",
+        "working_context_packet",
+        WORKING_CONTEXT_PACKET_JSON,
+        "knowledge_pack_consumption",
+        (
+            "knowledge_pack_selection",
+            "knowledge_eligibility_report",
+            "localization_brief_json",
+            "term_registry",
+            "term_decisions",
+            "forbidden_translations",
+        ),
+    ),
     ArtifactSpec(
         "generation_strategy",
         "generation_strategy",
@@ -104,6 +131,9 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "term_decisions",
             "forbidden_translations",
             "termbase_preflight_report",
+            "knowledge_pack_selection",
+            "knowledge_eligibility_report",
+            "working_context_packet",
             "user_resolution_decisions",
         ),
         required_for_handoff=True,
@@ -136,6 +166,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "term_decisions",
             "forbidden_translations",
             "localization_brief_json",
+            "working_context_packet",
         ),
         required_for_handoff=True,
         required_for_delivery=True,
@@ -392,7 +423,8 @@ def build_artifact_state(
         specs.extend(RUN_ARTIFACTS)
     if delivery_dir:
         specs.extend(DELIVERY_ARTIFACTS)
-    for pack_spec in discover_knowledge_pack_artifact_specs(state_dir):
+    pack_specs = discover_knowledge_pack_artifact_specs(state_dir)
+    for pack_spec in pack_specs:
         specs.append(
             ArtifactSpec(
                 pack_spec["artifact_id"],
@@ -415,6 +447,23 @@ def build_artifact_state(
                 ),
             )
         )
+    selected_pack_dependencies = _selected_pack_dependency_ids(state_dir, pack_specs)
+    if selected_pack_dependencies:
+        specs = [
+            ArtifactSpec(
+                spec.artifact_id,
+                spec.artifact_type,
+                spec.path,
+                spec.produced_by,
+                tuple(dict.fromkeys([*spec.dependencies, *selected_pack_dependencies]))
+                if spec.artifact_id in {"knowledge_eligibility_report", "working_context_packet"}
+                else spec.dependencies,
+                spec.required_for_handoff,
+                spec.required_for_delivery,
+                spec.location,
+            )
+            for spec in specs
+        ]
 
     entries: dict[str, dict[str, Any]] = {}
     for spec in specs:
@@ -866,6 +915,21 @@ def _human_review_next_actions(human_review_state: dict[str, Any], signoff_state
 
 def _count_status(artifacts: list[dict[str, Any]], status: str) -> int:
     return sum(item["status"] == status for item in artifacts)
+
+
+def _selected_pack_dependency_ids(state_dir: Path, pack_specs: list[dict[str, str]]) -> tuple[str, ...]:
+    path = state_dir / KNOWLEDGE_PACK_SELECTION_JSON
+    if not path.is_file():
+        return ()
+    selection = read_json(path)
+    selected_ids = {str(value) for value in selection.get("selected_pack_ids", [])}
+    return tuple(
+        sorted(
+            spec["artifact_id"]
+            for spec in pack_specs
+            if any(f"knowledge_pack_{pack_id}_" in spec["artifact_id"] for pack_id in selected_ids)
+        )
+    )
 
 
 def _file_timestamp(path: Path) -> str:
