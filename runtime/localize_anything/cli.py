@@ -24,6 +24,14 @@ from .delivery import package_delivery
 from .delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
 from .document_evidence import build_document_evidence_pack
 from .document_evidence_queue import build_workbench_document_evidence_queue
+from .document_decision import (
+    build_document_claim_resolution,
+    build_document_signoff_summary,
+    read_document_decision_log,
+    read_leadership_review_evidence,
+    record_document_decision,
+    record_leadership_review_evidence,
+)
 from .evaluation import build_evaluation_scorecard, read_evaluation_scorecard
 from .generation import (
     collect_generated_handoff,
@@ -611,6 +619,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     workbench_document_evidence_queue_parser.add_argument("state_dir", type=Path)
     workbench_document_evidence_queue_parser.add_argument("--output", type=Path)
+
+    record_document_decision_parser = subparsers.add_parser("record-document-decision", help="Append a structured document evidence decision")
+    record_document_decision_parser.add_argument("state_dir", type=Path)
+    record_document_decision_parser.add_argument("--input", type=Path, required=True)
+    record_document_decision_parser.add_argument("--run-id")
+    record_document_decision_parser.add_argument("--output", type=Path)
+
+    document_decision_log_parser = subparsers.add_parser("document-decision-log", help="Read document-decision-log.jsonl as deterministic JSON")
+    document_decision_log_parser.add_argument("state_dir", type=Path)
+    document_decision_log_parser.add_argument("--output", type=Path)
+
+    record_leadership_review_parser = subparsers.add_parser("record-leadership-review", help="Append structured leadership review evidence")
+    record_leadership_review_parser.add_argument("state_dir", type=Path)
+    record_leadership_review_parser.add_argument("--input", type=Path, required=True)
+    record_leadership_review_parser.add_argument("--run-id")
+    record_leadership_review_parser.add_argument("--output", type=Path)
+
+    leadership_review_parser = subparsers.add_parser("leadership-review-evidence", help="Read leadership-review-evidence.jsonl as deterministic JSON")
+    leadership_review_parser.add_argument("state_dir", type=Path)
+    leadership_review_parser.add_argument("--output", type=Path)
+
+    document_claim_resolution_parser = subparsers.add_parser("document-claim-resolution", help="Create document-claim-resolution.json from document decisions")
+    document_claim_resolution_parser.add_argument("state_dir", type=Path)
+    document_claim_resolution_parser.add_argument("--run-id")
+    document_claim_resolution_parser.add_argument("--output", type=Path)
+
+    document_signoff_summary_parser = subparsers.add_parser("document-signoff-summary", help="Create document-signoff-summary.json from document decisions and signoff")
+    document_signoff_summary_parser.add_argument("state_dir", type=Path)
+    document_signoff_summary_parser.add_argument("--run-id")
+    document_signoff_summary_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1381,6 +1419,18 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.command == "workbench-document-evidence-queue":
             return _emit_json(build_workbench_document_evidence_queue(args.state_dir), args.output)
+        if args.command == "record-document-decision":
+            return _emit_json(record_document_decision(args.state_dir, read_json(args.input), run_id=args.run_id), args.output)
+        if args.command == "document-decision-log":
+            return _emit_json({"document_decision_log": read_document_decision_log(args.state_dir)}, args.output)
+        if args.command == "record-leadership-review":
+            return _emit_json(record_leadership_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id), args.output)
+        if args.command == "leadership-review-evidence":
+            return _emit_json({"leadership_review_evidence": read_leadership_review_evidence(args.state_dir)}, args.output)
+        if args.command == "document-claim-resolution":
+            return _emit_json(build_document_claim_resolution(args.state_dir, run_id=args.run_id), args.output)
+        if args.command == "document-signoff-summary":
+            return _emit_json(build_document_signoff_summary(args.state_dir, run_id=args.run_id), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

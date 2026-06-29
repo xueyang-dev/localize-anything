@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/document-decision-log.schema.json",
+  "title": "Localize Anything Document Decision Log Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "decision_id", "decision_type", "reviewer_role", "decision_status", "effective_scope", "created_at"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-document-decision-log-record-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "decision_id": { "type": "string", "minLength": 1 },
+    "decision_type": { "type": "string", "minLength": 1 },
+    "reviewer_role": { "type": "string", "minLength": 1 },
+    "reviewer_reference": { "type": "string" },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "affected_segment_ids": { "type": "array", "items": { "type": "string" } },
+    "affected_scope": { "type": "object" },
+    "related_open_decision_id": { "type": ["string", "null"] },
+    "related_claim_metric_risk_id": { "type": ["string", "null"] },
+    "related_publicity_risk_id": { "type": ["string", "null"] },
+    "related_semantic_alignment_id": { "type": ["string", "null"] },
+    "decision_status": { "enum": ["accepted", "accepted_with_limitations", "rejected", "blocked", "requires_follow_up", "superseded", "stale"] },
+    "decision_rationale": { "type": "string" },
+    "accepted_limitation": {},
+    "required_follow_up": {},
+    "effective_scope": { "type": "object" },
+    "created_at": { "type": "string" },
+    "supersedes": { "type": "array" },
+    "superseded_by": { "type": "array" }
+  },
+  "additionalProperties": true
+}

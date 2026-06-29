@@ -15,6 +15,7 @@ from .document_evidence import (
     PUBLICITY_RISK_REPORT_JSON,
     SEMANTIC_ALIGNMENT_JSONL,
 )
+from .document_decision import DOCUMENT_CLAIM_RESOLUTION_JSON, DOCUMENT_DECISION_LOG_JSONL, DOCUMENT_SIGNOFF_SUMMARY_JSON, LEADERSHIP_REVIEW_EVIDENCE_JSONL
 from .io_utils import read_json, read_jsonl, write_json
 
 
@@ -105,6 +106,7 @@ def _intake_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _alignment_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    resolutions = _resolution_lookup(artifacts, "semantic")
     for record in artifacts["semantic_alignment"]:
         mode = str(record.get("alignment_mode") or "unknown")
         if not record.get("human_confirmation_required") and not record.get("risk_flags"):
@@ -118,7 +120,7 @@ def _alignment_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
             _item(
                 item_type,
                 "warning",
-                "open",
+                _queue_status(resolutions.get(str(record.get("alignment_id") or ""))),
                 "document_reviewer",
                 [SEMANTIC_ALIGNMENT_JSONL],
                 affected_segment_ids=[str(record.get("segment_id"))] if record.get("segment_id") else [],
@@ -126,6 +128,10 @@ def _alignment_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
                 forbidden_claims_affected=["review_complete", "delivery_ready", "production_ready"],
                 recommended_action=f"Confirm semantic alignment mode `{mode}` before strong document readiness claims.",
                 human_confirmation_required=bool(record.get("human_confirmation_required")),
+                resolution_status=_resolution_status(resolutions.get(str(record.get("alignment_id") or ""))),
+                resolution_artifact_references=_resolution_artifacts(resolutions.get(str(record.get("alignment_id") or ""))),
+                decision_options=["confirm_alignment_mode", "accept_explanatory_expansion", "reject_explanatory_expansion", "accept_source_omission", "reject_source_omission", "request_follow_up"],
+                action_endpoint_hint="POST /api/workbench-action",
             )
         )
     return items
@@ -133,6 +139,7 @@ def _alignment_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _claim_metric_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    resolutions = _resolution_lookup(artifacts, "claim")
     for check in artifacts["claim_metric_report"].get("checks", []):
         status = str(check.get("status") or "")
         if status not in {"blocked", "warning", "pending"}:
@@ -141,7 +148,7 @@ def _claim_metric_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
             _item(
                 "claim_metric_review_required",
                 "blocking" if status == "blocked" else "warning",
-                "open",
+                _queue_status(resolutions.get(str(check.get("check_id") or ""))),
                 "document_owner",
                 [CLAIM_METRIC_REPORT_JSON],
                 affected_segment_ids=[str(check.get("segment_id"))] if check.get("segment_id") else [],
@@ -156,6 +163,10 @@ def _claim_metric_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
                 forbidden_claims_affected=["review_complete", "delivery_ready", "production_ready"],
                 recommended_action="Resolve or explicitly confirm claim/metric boundary risks before document delivery.",
                 human_confirmation_required=bool(check.get("human_confirmation_required")),
+                resolution_status=_resolution_status(resolutions.get(str(check.get("check_id") or ""))),
+                resolution_artifact_references=_resolution_artifacts(resolutions.get(str(check.get("check_id") or ""))),
+                decision_options=["confirm_metric_boundary", "accept_claim_wording", "reject_claim_wording", "request_rewrite", "request_follow_up"],
+                action_endpoint_hint="POST /api/workbench-action",
             )
         )
     return items
@@ -163,13 +174,14 @@ def _claim_metric_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _publicity_risk_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    resolutions = _resolution_lookup(artifacts, "publicity")
     for risk in artifacts["publicity_risk_report"].get("risks", []):
         severity = "blocking" if risk.get("severity") == "blocking" else "warning"
         items.append(
             _item(
                 "publicity_risk_review_required",
                 severity,
-                "open",
+                _queue_status(resolutions.get(str(risk.get("risk_id") or ""))),
                 "leadership_reviewer",
                 [PUBLICITY_RISK_REPORT_JSON],
                 affected_segment_ids=[str(risk.get("segment_id"))] if risk.get("segment_id") else [],
@@ -183,6 +195,10 @@ def _publicity_risk_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
                 forbidden_claims_affected=["review_complete", "delivery_ready", "production_ready"],
                 recommended_action=str(risk.get("recommended_action") or "Review external-facing publicity risk before delivery."),
                 human_confirmation_required=bool(risk.get("human_confirmation_required", True)),
+                resolution_status=_resolution_status(resolutions.get(str(risk.get("risk_id") or ""))),
+                resolution_artifact_references=_resolution_artifacts(resolutions.get(str(risk.get("risk_id") or ""))),
+                decision_options=["accept_publicity_risk", "reject_publicity_risk", "request_rewrite", "leadership_confirmation", "request_follow_up"],
+                action_endpoint_hint="POST /api/workbench-action",
             )
         )
     return items
@@ -286,6 +302,8 @@ def _load_artifacts(state_dir: Path) -> dict[str, Any]:
         "artifact_state": _read_json_object(state_dir / "artifact-state.json"),
         "evaluation_scorecard": _read_json_object(state_dir / "evaluation-scorecard.json"),
         "signoff_record": _read_json_object(state_dir / "signoff-record.json"),
+        "document_claim_resolution": _read_json_object(state_dir / DOCUMENT_CLAIM_RESOLUTION_JSON),
+        "document_signoff_summary": _read_json_object(state_dir / DOCUMENT_SIGNOFF_SUMMARY_JSON),
     }
 
 
@@ -301,6 +319,10 @@ def _source_artifacts(state_dir: Path) -> dict[str, str]:
         "artifact-state.json",
         "evaluation-scorecard.json",
         "signoff-record.json",
+        DOCUMENT_DECISION_LOG_JSONL,
+        LEADERSHIP_REVIEW_EVIDENCE_JSONL,
+        DOCUMENT_CLAIM_RESOLUTION_JSON,
+        DOCUMENT_SIGNOFF_SUMMARY_JSON,
     )
     return {Path(name).stem.replace("-", "_"): name for name in names if (state_dir / name).is_file()}
 
@@ -335,6 +357,10 @@ def _item(
     recommended_action: str,
     human_confirmation_required: bool,
     stale_evidence_involved: bool = False,
+    resolution_status: str = "unresolved",
+    resolution_artifact_references: list[str] | None = None,
+    decision_options: list[str] | None = None,
+    action_endpoint_hint: str | None = None,
 ) -> dict[str, Any]:
     payload = {
         "item_type": item_type,
@@ -363,6 +389,10 @@ def _item(
         "recommended_action": recommended_action,
         "human_confirmation_required": human_confirmation_required,
         "stale_evidence_involved": stale_evidence_involved,
+        "resolution_status": resolution_status,
+        "resolution_artifact_references": sorted(resolution_artifact_references or []),
+        "decision_options": sorted(decision_options or []),
+        "action_endpoint_hint": action_endpoint_hint,
     }
 
 
@@ -382,3 +412,35 @@ def _dedupe_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _stable_id(prefix: str, value: dict[str, Any]) -> str:
     payload = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
     return f"{prefix}-{hashlib.sha256(payload).hexdigest()[:24]}"
+
+
+def _resolution_lookup(artifacts: dict[str, Any], kind: str) -> dict[str, dict[str, Any]]:
+    resolution = artifacts.get("document_claim_resolution", {})
+    if not isinstance(resolution, dict):
+        return {}
+    if kind == "claim":
+        values = resolution.get("resolved_claim_metric_risks", []) + resolution.get("unresolved_claim_metric_risks", [])
+    elif kind == "publicity":
+        values = resolution.get("accepted_publicity_risks", []) + resolution.get("unresolved_publicity_risks", [])
+    else:
+        values = resolution.get("resolved_semantic_alignment_risks", []) + resolution.get("unresolved_semantic_alignment_risks", [])
+    return {str(item.get("risk_id")): item for item in values if isinstance(item, dict) and item.get("risk_id")}
+
+
+def _resolution_status(item: dict[str, Any] | None) -> str:
+    return str(item.get("resolution_status") or "unresolved") if item else "unresolved"
+
+
+def _queue_status(item: dict[str, Any] | None) -> str:
+    status = _resolution_status(item)
+    if status in {"accepted", "accepted_with_limitations"}:
+        return "resolved"
+    if status in {"rejected", "blocked", "requires_follow_up", "stale"}:
+        return status
+    return "open"
+
+
+def _resolution_artifacts(item: dict[str, Any] | None) -> list[str]:
+    if not item:
+        return []
+    return [str(value) for value in item.get("resolution_artifact_references", []) if value]

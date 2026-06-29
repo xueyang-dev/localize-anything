@@ -583,6 +583,57 @@ and stale-evidence involvement. Workbench exposes it at
 `GET /api/workbench-document-evidence-queue`; write actions remain delegated to
 existing runtime action writers.
 
+### Document Evidence Decision Resolution
+
+Document evidence risks are resolved through explicit artifacts, not by being
+displayed in a queue. `document-decision-log.jsonl` records auditable decisions
+for terms, institution names, partner names, project names, metric boundaries,
+claim wording, publicity risk, rewrite requests, semantic alignment,
+explanatory expansion, source omission, limited-scope delivery, follow-up, and
+leadership confirmation. Supported decision statuses are `accepted`,
+`accepted_with_limitations`, `rejected`, `blocked`, `requires_follow_up`,
+`superseded`, and `stale`.
+
+`leadership-review-evidence.jsonl` records scoped leadership review of
+document artifacts, risks, open decisions, and claims. Leadership review may
+support claim acceptance and document signoff within scope, but it must not be
+treated as E2/E3/E4 language review evidence. It also cannot override stale
+evidence, failed QA, pending required repairs, unsafe provider policy, blocked
+handoff, unsupported scenarios, or missing factual/layout evidence.
+
+`document-claim-resolution.json` summarizes resolved and unresolved
+claim/metric risks, accepted and unresolved publicity risks, semantic
+alignment risk resolution, rejected or blocked claim wording, accepted
+limitations, effective scope, forbidden claims remaining, delivery readiness
+impact, and signoff requirements. Matching is artifact-backed: a risk is
+resolved only when a matching document decision or leadership evidence refers
+to the relevant risk id or alignment id.
+
+`document-signoff-summary.json` summarizes document signoff status,
+leadership review status, accepted and rejected document claims, unresolved
+risks, limitations, effective scope, delivery/apply authorization, remaining
+forbidden claims, stale warnings, and next required action. Limited-scope
+document signoff can support limited delivery only when the broader scorecard,
+artifact-state, signoff, handoff, QA, and repair evidence also allow it.
+Limited-scope approval must not create global `delivery_ready`,
+`apply_ready`, `production_ready`, `review_complete`, or `layout_verified`
+claims.
+
+Workbench/API read paths:
+
+- `GET /api/document-decision-log`
+- `GET /api/leadership-review-evidence`
+- `GET /api/document-claim-resolution`
+- `GET /api/document-signoff-summary`
+
+Workbench/API write paths:
+
+- `POST /api/document-decision-log`
+- `POST /api/leadership-review-evidence`
+
+These POST endpoints write structured artifacts only. They do not call
+providers, infer language review evidence, or bypass runtime gates.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

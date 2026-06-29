@@ -18,6 +18,7 @@ from .document_evidence_queue import (
     WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON,
     workbench_document_evidence_queue_asset_paths,
 )
+from .document_decision import DOCUMENT_DECISION_ASSETS, document_decision_asset_paths
 from .evaluation import EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD, evaluation_asset_paths
 from .generation_handoff_policy import GENERATION_HANDOFF_DECISION_JSON, generation_handoff_decision_asset_paths
 from .generation_strategy import GENERATION_STRATEGY_JSON, generation_strategy_asset_paths
@@ -94,6 +95,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     WORKBENCH_CLAIM_QUEUE_JSON,
     WORKBENCH_SIGNOFF_SUMMARY_JSON,
     WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON,
+    *DOCUMENT_DECISION_ASSETS.values(),
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -210,6 +212,7 @@ def package_delivery(
                 **workbench_action_asset_paths(state_dir),
                 **workbench_queue_asset_paths(state_dir),
                 **workbench_document_evidence_queue_asset_paths(state_dir),
+                **document_decision_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
                 **document_evidence_asset_paths(state_dir),
                 "qa_report": "qa-report.md",

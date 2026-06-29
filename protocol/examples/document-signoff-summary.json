@@ -1,0 +1,33 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-document-signoff-summary-v1",
+  "artifact": "document-signoff-summary.json",
+  "run_id": "doc-decision-example-001",
+  "status": "accepted_with_limitations",
+  "document_signoff_status": "accepted_with_limitations",
+  "leadership_review_status": "provided",
+  "accepted_document_claims": ["limited_scope_delivery_ready"],
+  "rejected_document_claims": [],
+  "unresolved_document_risks": {
+    "claim_metric": [],
+    "publicity": [],
+    "semantic_alignment": []
+  },
+  "limitations": ["limited to reviewed document evidence scope"],
+  "effective_scope": { "scope_type": "limited" },
+  "delivery_authorized": true,
+  "apply_authorized": false,
+  "remaining_forbidden_claims": ["production_ready", "layout_verified"],
+  "stale_or_superseded_warnings": [],
+  "next_required_action": "preserve_limitations_and_continue",
+  "source_artifacts": {
+    "document_claim_resolution": "document-claim-resolution.json",
+    "leadership_review_evidence": "leadership-review-evidence.jsonl"
+  },
+  "summary": {
+    "leadership_review_count": 1,
+    "unresolved_document_risk_count": 0,
+    "accepted_document_claim_count": 1,
+    "remaining_forbidden_claim_count": 2
+  }
+}

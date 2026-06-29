@@ -27,6 +27,16 @@ from .document_evidence import (
     read_semantic_alignment,
 )
 from .document_evidence_queue import read_workbench_document_evidence_queue
+from .document_decision import (
+    build_document_claim_resolution,
+    build_document_signoff_summary,
+    read_document_claim_resolution,
+    read_document_decision_log,
+    read_document_signoff_summary,
+    read_leadership_review_evidence,
+    record_document_decision,
+    record_leadership_review_evidence,
+)
 from .evaluation import read_evaluation_scorecard
 from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
@@ -225,6 +235,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/open-decisions":
                     self._handle_open_decisions_query(parsed.query)
                     return
+                if parsed.path == "/api/document-decision-log":
+                    self._handle_document_decision_log_query(parsed.query)
+                    return
+                if parsed.path == "/api/leadership-review-evidence":
+                    self._handle_leadership_review_evidence_query(parsed.query)
+                    return
+                if parsed.path == "/api/document-claim-resolution":
+                    self._handle_document_claim_resolution_query(parsed.query)
+                    return
+                if parsed.path == "/api/document-signoff-summary":
+                    self._handle_document_signoff_summary_query(parsed.query)
+                    return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -277,6 +299,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-action":
                     self._handle_workbench_action(payload)
+                    return
+                if parsed.path == "/api/document-decision-log":
+                    self._handle_record_document_decision(payload)
+                    return
+                if parsed.path == "/api/leadership-review-evidence":
+                    self._handle_record_leadership_review_evidence(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -475,6 +503,30 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     "workbench_document_evidence_queue": read_workbench_document_evidence_queue(state_dir),
                 }
             )
+
+        def _handle_document_decision_log_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Document decision log is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "document_decision_log": read_document_decision_log(state_dir)})
+
+        def _handle_leadership_review_evidence_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Leadership review evidence is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "leadership_review_evidence": read_leadership_review_evidence(state_dir)})
+
+        def _handle_document_claim_resolution_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Document claim resolution is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "document_claim_resolution": read_document_claim_resolution(state_dir)})
+
+        def _handle_document_signoff_summary_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Document signoff summary is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "document_signoff_summary": read_document_signoff_summary(state_dir)})
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
@@ -690,6 +742,32 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = perform_workbench_action(state_dir, action, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_result": result})
+
+        def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Document decision log is outside allowed workbench roots: {state_dir}")
+            decision = payload.get("decision")
+            if not isinstance(decision, dict):
+                raise ValueError("decision must be a JSON object")
+            result = record_document_decision(state_dir, decision, run_id=_optional_string(payload.get("run_id")))
+            build_document_claim_resolution(state_dir, run_id=_optional_string(payload.get("run_id")))
+            build_document_signoff_summary(state_dir, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
+        def _handle_record_leadership_review_evidence(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Leadership review evidence is outside allowed workbench roots: {state_dir}")
+            evidence = payload.get("evidence")
+            if not isinstance(evidence, dict):
+                raise ValueError("evidence must be a JSON object")
+            result = record_leadership_review_evidence(state_dir, evidence, run_id=_optional_string(payload.get("run_id")))
+            build_document_claim_resolution(state_dir, run_id=_optional_string(payload.get("run_id")))
+            build_document_signoff_summary(state_dir, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
 
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))

@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-leadership-review-evidence-record-v1",
+  "run_id": "doc-decision-example-001",
+  "leadership_review_evidence_id": "leadership-review-example",
+  "reviewer_role": "leadership_reviewer",
+  "reviewer_reference": "leader@example.test",
+  "review_scope": { "scope_type": "limited", "document_scenario": "institutional_publicity_case" },
+  "reviewed_artifacts": ["leadership-review-brief.md", "claim-metric-report.json", "publicity-risk-report.json"],
+  "reviewed_risks": ["claim-metric-s1", "doc-risk-s2"],
+  "reviewed_open_decisions": ["open-decision-1"],
+  "reviewed_claims": ["limited_scope_delivery_ready"],
+  "decision": "accepted_with_limitations",
+  "limitations": ["limited to reviewed document evidence scope"],
+  "accepted_risks": ["doc-risk-s2"],
+  "rejected_claims": ["production_ready"],
+  "required_follow_up": null,
+  "supports_signoff": true,
+  "supports_delivery_readiness": true,
+  "supports_language_review_evidence_levels": [],
+  "created_at": "2026-06-29T00:00:00Z"
+}

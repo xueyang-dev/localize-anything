@@ -22,6 +22,9 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     repair_summary = segment_repair.get("summary", {}) if isinstance(segment_repair, dict) else {}
     document_queue = _read_optional_json(delivery_dir / "workbench-document-evidence-queue.json")
     document_queue_summary = document_queue.get("summary", {}) if isinstance(document_queue, dict) else {}
+    document_claim_resolution = _read_optional_json(delivery_dir / "document-claim-resolution.json")
+    document_claim_summary = document_claim_resolution.get("summary", {}) if isinstance(document_claim_resolution, dict) else {}
+    document_signoff_summary = _read_optional_json(delivery_dir / "document-signoff-summary.json")
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -137,6 +140,28 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 "evidence": {"summary": document_queue_summary},
             }
         )
+    if document_claim_resolution and document_claim_resolution.get("status") in {"blocked", "requires_follow_up", "stale"}:
+        decisions.append(
+            {
+                "id": f"document-decision-{len(decisions) + 1:04d}",
+                "type": "document_claim_resolution",
+                "severity": "blocking" if document_claim_resolution.get("status") in {"blocked", "stale"} else "warning",
+                "status": "blocked" if document_claim_resolution.get("status") in {"blocked", "stale"} else "requires_review",
+                "recommendation": "Resolve document claim/publicity/alignment decisions before strong delivery claims.",
+                "evidence": {"status": document_claim_resolution.get("status"), "summary": document_claim_summary},
+            }
+        )
+    if document_signoff_summary and document_signoff_summary.get("status") in {"blocked", "requires_follow_up", "stale"}:
+        decisions.append(
+            {
+                "id": f"document-signoff-{len(decisions) + 1:04d}",
+                "type": "document_signoff_summary",
+                "severity": "blocking" if document_signoff_summary.get("status") in {"blocked", "stale"} else "warning",
+                "status": "blocked" if document_signoff_summary.get("status") in {"blocked", "stale"} else "requires_review",
+                "recommendation": "Record or refresh document leadership review/signoff before delivery/apply authorization.",
+                "evidence": {"status": document_signoff_summary.get("status"), "summary": document_signoff_summary.get("summary", {})},
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -182,6 +207,10 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "document_evidence_queue": document_queue_summary,
             "document_evidence_queue_item_count": document_queue_summary.get("item_count", 0),
             "document_evidence_queue_blocking_count": document_queue_summary.get("blocking_count", 0),
+            "document_claim_resolution": document_claim_summary,
+            "document_claim_resolution_status": document_claim_resolution.get("status", "not_checked"),
+            "document_signoff_summary": document_signoff_summary.get("summary", {}),
+            "document_signoff_status": document_signoff_summary.get("status", "not_checked"),
         },
         "localization": localization,
         "artifact_state": artifact_state,
