@@ -281,6 +281,7 @@ def _scorecard_apply_block_reason(scorecard: dict[str, Any]) -> str | None:
         "provider_status",
         "handoff_readiness",
         "repair_readiness",
+        "review_readiness",
     ):
         dimension = scorecard.get(dimension_name, {})
         if isinstance(dimension, dict) and dimension.get("status") == "blocked":

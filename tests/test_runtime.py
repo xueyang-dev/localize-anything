@@ -47,6 +47,7 @@ from runtime.localize_anything.document_evidence import (
     read_publicity_risk_report,
     read_semantic_alignment,
 )
+from runtime.localize_anything.document_evidence_queue import build_workbench_document_evidence_queue
 from runtime.localize_anything.evaluation import build_evaluation_scorecard
 from runtime.localize_anything.generation import (
     collect_generated_handoff,
@@ -7075,6 +7076,216 @@ class DocumentEvidencePackTests(unittest.TestCase):
             self.assertEqual(read_json(first)["document_evidence_manifest"]["schema"], "localize-anything-document-evidence-manifest-v1")
 
 
+class DocumentEvidenceEnforcementQueueTests(unittest.TestCase):
+    def test_document_evidence_artifacts_are_tracked_in_artifact_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+
+            artifact_state = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+
+            self.assertIn("document_intake_report", ids)
+            self.assertIn("semantic_alignment", ids)
+            self.assertIn("document_evidence_manifest", ids)
+
+    def test_source_segment_changes_make_document_evidence_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _write_document_evidence_state(root)
+            run_dir = root / "run"
+            run_dir.mkdir()
+            shutil.copy2(state / "segments.jsonl", run_dir / "segments.jsonl")
+            shutil.copy2(state / "generated-segments.jsonl", run_dir / "generated.jsonl")
+            build_document_evidence_pack(state, run_dir=run_dir)
+            build_artifact_state(state, run_dir=run_dir)
+
+            segments = read_jsonl(run_dir / "segments.jsonl")
+            segments[0]["source"] = "Changed source metric 999 person-times."
+            write_jsonl(run_dir / "segments.jsonl", segments)
+            artifact_state = build_artifact_state(state, run_dir=run_dir)
+
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+            self.assertIn("semantic_alignment", stale_ids)
+            self.assertIn("document_evidence_manifest", stale_ids)
+
+    def test_generated_segment_changes_make_document_evidence_and_signoff_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _write_document_evidence_state(root)
+            run_dir = root / "run"
+            run_dir.mkdir()
+            shutil.copy2(state / "segments.jsonl", run_dir / "segments.jsonl")
+            shutil.copy2(state / "generated-segments.jsonl", run_dir / "generated.jsonl")
+            write_json(
+                state / "signoff-record.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-signoff-record-v1",
+                    "status": "accepted",
+                    "delivery_authorized": True,
+                    "apply_authorized": False,
+                },
+            )
+            build_document_evidence_pack(state, run_dir=run_dir)
+            build_artifact_state(state, run_dir=run_dir)
+
+            generated = read_jsonl(run_dir / "generated.jsonl")
+            generated[0]["target"] = "Changed generated target."
+            write_jsonl(run_dir / "generated.jsonl", generated)
+            artifact_state = build_artifact_state(state, run_dir=run_dir)
+
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+            self.assertIn("claim_metric_report", stale_ids)
+            self.assertIn("publicity_risk_report", stale_ids)
+            self.assertIn("signoff_record", stale_ids)
+
+    def test_localization_brief_changes_make_document_intake_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            build_artifact_state(state)
+
+            brief = read_json(state / "localization-brief.json")
+            brief["target_audience"] = ["new audience"]
+            write_json(state / "localization-brief.json", brief)
+            artifact_state = build_artifact_state(state)
+
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+            self.assertIn("document_intake_report", stale_ids)
+            self.assertIn("document_evidence_manifest", stale_ids)
+
+    def test_document_blockers_forbid_strong_scorecard_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            scorecard = build_evaluation_scorecard(state, coverage_diagnostics={"coverage_mode": "source-plus-merged-overlay"})
+
+            self.assertEqual(scorecard["overall_claim"], "blocked")
+            self.assertIn("review_complete", scorecard["forbidden_claims"])
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+            self.assertIn("production_ready", scorecard["forbidden_claims"])
+            self.assertIn("layout_verified", scorecard["forbidden_claims"])
+
+    def test_unsupported_document_scenario_blocks_scorecard(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state, scenario="unsupported_grant_contract")
+            scorecard = build_evaluation_scorecard(state)
+
+            self.assertIn("document_evidence_unsupported", scorecard["review_readiness"]["blockers"])
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+
+    def test_limited_scope_document_evidence_does_not_create_global_delivery_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            scorecard = build_evaluation_scorecard(state)
+
+            self.assertNotEqual(scorecard["overall_claim"], "delivery_ready")
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+
+    def test_workbench_document_evidence_queue_includes_risks_open_decisions_and_stale_items(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            build_artifact_state(state)
+            brief = read_json(state / "localization-brief.json")
+            brief["target_audience"] = ["changed"]
+            write_json(state / "localization-brief.json", brief)
+            build_artifact_state(state)
+
+            queue = build_workbench_document_evidence_queue(state)
+            item_types = {item["item_type"] for item in queue["items"]}
+
+            assert_protocol_schema(self, "workbench-document-evidence-queue", queue)
+            self.assertIn("claim_metric_review_required", item_types)
+            self.assertIn("publicity_risk_review_required", item_types)
+            self.assertIn("open_decision_required", item_types)
+            self.assertIn("document_evidence_stale", item_types)
+
+    def test_api_exposes_artifact_backed_document_evidence_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            build_workbench_document_evidence_queue(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/workbench-document-evidence-queue?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertEqual(
+                    json.loads(body)["workbench_document_evidence_queue"]["schema"],
+                    "localize-anything-workbench-document-evidence-queue-v1",
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_command_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            first = Path(directory) / "doc-queue-1.json"
+            second = Path(directory) / "doc-queue-2.json"
+
+            self.assertEqual(cli_main(["workbench-document-evidence-queue", state.as_posix(), "--output", first.as_posix()]), 0)
+            self.assertEqual(cli_main(["workbench-document-evidence-queue", state.as_posix(), "--output", second.as_posix()]), 0)
+
+            self.assertEqual(first.read_text(encoding="utf-8"), second.read_text(encoding="utf-8"))
+
+    def test_run_summary_and_delivery_package_reference_document_evidence_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            shutil.copytree(FIXTURE_ROOT, project)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_document_evidence_state(root, state=state)
+            build_document_evidence_pack(state)
+            build_workbench_document_evidence_queue(state)
+            summary = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                ["locales/en-US.json"],
+                output_root=root / "runs",
+                run_id="doc-evidence-queue-summary-001",
+                synthetic_draft=True,
+            )
+            staging = root / "staging"
+            staged = staging / "out.txt"
+            staged.parent.mkdir(parents=True)
+            staged.write_text("translated\n", encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "doc-evidence-queue-delivery-001")
+
+            self.assertTrue(summary["summary"]["workbench_document_evidence_queue_present"])
+            self.assertEqual(packaged["manifest"]["assets"]["workbench_document_evidence_queue"], "workbench-document-evidence-queue.json")
+
+    def test_document_evidence_blocks_apply_through_scorecard(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            project.mkdir()
+            (project / "out.txt").write_text("source\n", encoding="utf-8")
+            state = _write_document_evidence_state(root)
+            build_document_evidence_pack(state)
+            build_evaluation_scorecard(state)
+            staging = root / "staging"
+            staged = staging / "out.txt"
+            staged.parent.mkdir(parents=True)
+            staged.write_text("translated\n", encoding="utf-8")
+            delivery = package_delivery(state, staging, root / "deliveries", [], "draft_package", "doc-evidence-apply-001")
+
+            plan = create_apply_plan(Path(delivery["delivery_directory"]), project)
+
+            self.assertTrue(plan["blocked_by_evaluation_scorecard"])
+            self.assertTrue(plan["evaluation_scorecard_apply_block_reason"])
+
+
 def _write_document_evidence_state(
     root: Path,
     *,
@@ -8009,7 +8220,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 51)
+        self.assertEqual(result["schemas_checked"], 52)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

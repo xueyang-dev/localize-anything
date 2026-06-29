@@ -74,6 +74,7 @@ from .tabular_adapter import validate_pair as validate_tabular_pair
 from .termbase_preflight import run_termbase_preflight
 from .word_adapter import extract_segments as extract_word_segments
 from .workbench_action import WORKBENCH_ACTION_LOG_JSONL, WORKBENCH_ACTION_RESULT_JSON
+from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .workbench_queue import WORKBENCH_CLAIM_QUEUE_JSON, WORKBENCH_REVIEW_QUEUE_JSON, WORKBENCH_SIGNOFF_SUMMARY_JSON
 from .word_adapter import validate_pair as validate_word_pair
 from .xcstrings_adapter import extract_segments as extract_xcstrings
@@ -1042,6 +1043,8 @@ def _summary(
         artifacts["workbench_claim_queue"] = (state_dir / WORKBENCH_CLAIM_QUEUE_JSON).as_posix()
     if (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).is_file():
         artifacts["workbench_signoff_summary"] = (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).as_posix()
+    if (state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON).is_file():
+        artifacts["workbench_document_evidence_queue"] = (state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON).as_posix()
     for key, name in (
         ("document_evidence_manifest", DOCUMENT_EVIDENCE_MANIFEST_JSON),
         ("document_intake_report", DOCUMENT_INTAKE_REPORT_JSON),
@@ -1054,6 +1057,7 @@ def _summary(
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
     document_evidence_manifest = read_json(state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON) if (state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON).is_file() else {}
+    document_evidence_queue = read_json(state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON) if (state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON).is_file() else {}
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -1153,6 +1157,9 @@ def _summary(
             "document_open_decision_count": document_evidence_manifest.get("summary", {}).get("open_decision_count", 0),
             "document_publicity_risk_count": document_evidence_manifest.get("summary", {}).get("publicity_risk_count", 0),
             "document_claim_metric_blocking_count": document_evidence_manifest.get("summary", {}).get("claim_metric_blocking_count", 0),
+            "workbench_document_evidence_queue_present": bool(document_evidence_queue),
+            "document_evidence_queue_item_count": document_evidence_queue.get("summary", {}).get("item_count", 0),
+            "document_evidence_queue_blocking_count": document_evidence_queue.get("summary", {}).get("blocking_count", 0),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

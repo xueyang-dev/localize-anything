@@ -23,6 +23,7 @@ from .dashboard import build_delivery_dashboard, render_dashboard_markdown
 from .delivery import package_delivery
 from .delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
 from .document_evidence import build_document_evidence_pack
+from .document_evidence_queue import build_workbench_document_evidence_queue
 from .evaluation import build_evaluation_scorecard, read_evaluation_scorecard
 from .generation import (
     collect_generated_handoff,
@@ -603,6 +604,13 @@ def build_parser() -> argparse.ArgumentParser:
     document_evidence_parser.add_argument("--scenario")
     document_evidence_parser.add_argument("--run-id")
     document_evidence_parser.add_argument("--output", type=Path)
+
+    workbench_document_evidence_queue_parser = subparsers.add_parser(
+        "workbench-document-evidence-queue",
+        help="Create workbench-document-evidence-queue.json from document evidence artifacts",
+    )
+    workbench_document_evidence_queue_parser.add_argument("state_dir", type=Path)
+    workbench_document_evidence_queue_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1371,6 +1379,8 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 args.output,
             )
+        if args.command == "workbench-document-evidence-queue":
+            return _emit_json(build_workbench_document_evidence_queue(args.state_dir), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

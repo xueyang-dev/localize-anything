@@ -1,0 +1,68 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-document-evidence-queue-v1",
+  "artifact": "workbench-document-evidence-queue.json",
+  "status": "requires_action",
+  "summary": {
+    "item_count": 2,
+    "blocking_count": 1,
+    "stale_item_count": 0,
+    "claim_metric_risk_count": 1,
+    "publicity_risk_count": 1,
+    "open_decision_count": 0,
+    "human_confirmation_required_count": 2
+  },
+  "items": [
+    {
+      "item_id": "workbench-document-evidence-claim-risk",
+      "item_type": "claim_metric_review_required",
+      "severity": "blocking",
+      "status": "open",
+      "owner_role": "document_owner",
+      "source_artifact_references": ["claim-metric-report.json"],
+      "affected_segment_ids": ["s1"],
+      "affected_scope": {},
+      "related_claim_metric_risk": {
+        "check_id": "claim-metric-s1",
+        "claim_type": "number",
+        "risk_class": "metric_boundary_change",
+        "status": "blocked",
+        "reason": "target adds or changes a claim/metric boundary"
+      },
+      "related_publicity_risk": {},
+      "related_open_decision": {},
+      "evidence_level_impact": ["E1_automated_semantic_or_policy_review", "E2_bilingual_human_spot_check"],
+      "forbidden_claims_affected": ["delivery_ready", "production_ready", "review_complete"],
+      "recommended_action": "Resolve or explicitly confirm claim/metric boundary risks before document delivery.",
+      "human_confirmation_required": true,
+      "stale_evidence_involved": false
+    },
+    {
+      "item_id": "workbench-document-evidence-publicity-risk",
+      "item_type": "publicity_risk_review_required",
+      "severity": "warning",
+      "status": "open",
+      "owner_role": "leadership_reviewer",
+      "source_artifact_references": ["publicity-risk-report.json"],
+      "affected_segment_ids": ["s2"],
+      "affected_scope": {},
+      "related_claim_metric_risk": {},
+      "related_publicity_risk": {
+        "risk_id": "doc-risk-s2",
+        "risk_class": "institution name uncertainty",
+        "severity": "warning",
+        "reason": "institution name should be confirmed for external-facing use"
+      },
+      "related_open_decision": {},
+      "evidence_level_impact": ["E2_bilingual_human_spot_check"],
+      "forbidden_claims_affected": ["delivery_ready", "production_ready", "review_complete"],
+      "recommended_action": "Confirm wording and claim boundary with the document owner before delivery.",
+      "human_confirmation_required": true,
+      "stale_evidence_involved": false
+    }
+  ],
+  "source_artifacts": {
+    "claim_metric_report": "claim-metric-report.json",
+    "publicity_risk_report": "publicity-risk-report.json"
+  }
+}

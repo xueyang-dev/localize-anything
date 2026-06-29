@@ -20,6 +20,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     segment_summary = segment_staleness.get("summary", {}) if isinstance(segment_staleness, dict) else {}
     segment_repair = artifact_state.get("segment_repair", {}) if isinstance(artifact_state, dict) else {}
     repair_summary = segment_repair.get("summary", {}) if isinstance(segment_repair, dict) else {}
+    document_queue = _read_optional_json(delivery_dir / "workbench-document-evidence-queue.json")
+    document_queue_summary = document_queue.get("summary", {}) if isinstance(document_queue, dict) else {}
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -124,6 +126,17 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 "evidence": {"reason": apply_plan.get("signoff_apply_block_reason")},
             }
         )
+    if document_queue_summary.get("item_count"):
+        decisions.append(
+            {
+                "id": f"document-evidence-{len(decisions) + 1:04d}",
+                "type": "document_evidence_queue",
+                "severity": "blocking" if int(document_queue_summary.get("blocking_count", 0) or 0) else "warning",
+                "status": "blocked" if int(document_queue_summary.get("blocking_count", 0) or 0) else "requires_review",
+                "recommendation": "Resolve Document Evidence Queue items before claiming review, delivery, production, or apply readiness.",
+                "evidence": {"summary": document_queue_summary},
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -166,6 +179,9 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "segment_repair_skipped_not_deterministic_count": repair_summary.get("skipped_not_deterministic_count", 0),
             "blocked_by_evaluation_scorecard": bool(apply_plan.get("blocked_by_evaluation_scorecard")),
             "blocked_by_signoff": bool(apply_plan.get("blocked_by_signoff")),
+            "document_evidence_queue": document_queue_summary,
+            "document_evidence_queue_item_count": document_queue_summary.get("item_count", 0),
+            "document_evidence_queue_blocking_count": document_queue_summary.get("blocking_count", 0),
         },
         "localization": localization,
         "artifact_state": artifact_state,
@@ -283,6 +299,13 @@ def _load_reference_plan_for_delivery(delivery_dir: Path) -> dict[str, Any] | No
         if path.is_file():
             return read_json(path)
     return None
+
+
+def _read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    value = read_json(path)
+    return value if isinstance(value, dict) else {}
 
 
 def _localization_summary(reference_plan: dict[str, Any] | None) -> dict[str, Any]:

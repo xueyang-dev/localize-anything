@@ -75,6 +75,7 @@
           "delivery_ready",
           "apply_ready",
           "production_ready",
+          "layout_verified",
           "full_source_coverage",
           "full_quality_generation",
           "safe_apply_readiness",

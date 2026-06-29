@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-document-evidence-queue.schema.json",
+  "title": "Localize Anything Workbench Document Evidence Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "items", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-document-evidence-queue-v1" },
+    "artifact": { "const": "workbench-document-evidence-queue.json" },
+    "status": { "enum": ["empty", "requires_action"] },
+    "summary": { "type": "object" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "item_type",
+          "severity",
+          "status",
+          "owner_role",
+          "source_artifact_references",
+          "recommended_action",
+          "human_confirmation_required",
+          "stale_evidence_involved"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "item_type": {
+            "enum": [
+              "document_intake_incomplete",
+              "semantic_alignment_risk",
+              "english_only_bridge_review_required",
+              "source_only_omitted_review_required",
+              "claim_metric_review_required",
+              "publicity_risk_review_required",
+              "leadership_review_required",
+              "open_decision_required",
+              "document_evidence_stale",
+              "document_signoff_required",
+              "unsupported_document_scenario"
+            ]
+          },
+          "severity": { "enum": ["info", "warning", "blocking"] },
+          "status": { "type": "string" },
+          "owner_role": { "type": "string" },
+          "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+          "affected_segment_ids": { "type": "array", "items": { "type": "string" } },
+          "affected_scope": { "type": "object" },
+          "related_claim_metric_risk": { "type": "object" },
+          "related_publicity_risk": { "type": "object" },
+          "related_open_decision": { "type": "object" },
+          "evidence_level_impact": { "type": "array", "items": { "type": "string" } },
+          "forbidden_claims_affected": { "type": "array", "items": { "type": "string" } },
+          "recommended_action": { "type": "string" },
+          "human_confirmation_required": { "type": "boolean" },
+          "stale_evidence_involved": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}
