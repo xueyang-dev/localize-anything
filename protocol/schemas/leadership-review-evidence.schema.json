@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/leadership-review-evidence.schema.json",
+  "title": "Localize Anything Leadership Review Evidence Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "leadership_review_evidence_id", "reviewer_role", "review_scope", "decision", "supports_signoff", "supports_delivery_readiness", "supports_language_review_evidence_levels", "created_at"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-leadership-review-evidence-record-v1" },
+    "run_id": { "type": ["string", "null"] },
+    "leadership_review_evidence_id": { "type": "string", "minLength": 1 },
+    "reviewer_role": { "type": "string", "minLength": 1 },
+    "reviewer_reference": { "type": "string" },
+    "review_scope": { "type": "object" },
+    "reviewed_artifacts": { "type": "array", "items": { "type": "string" } },
+    "reviewed_risks": { "type": "array", "items": { "type": "string" } },
+    "reviewed_open_decisions": { "type": "array", "items": { "type": "string" } },
+    "reviewed_claims": { "type": "array", "items": { "type": "string" } },
+    "decision": { "enum": ["accepted", "accepted_with_limitations", "rejected", "blocked", "requires_follow_up", "superseded", "stale"] },
+    "limitations": { "type": "array" },
+    "accepted_risks": { "type": "array" },
+    "rejected_claims": { "type": "array" },
+    "required_follow_up": {},
+    "supports_signoff": { "type": "boolean" },
+    "supports_delivery_readiness": { "type": "boolean" },
+    "supports_language_review_evidence_levels": { "type": "array", "maxItems": 0 },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Document Evidence Decision Resolution with `document-decision-log.jsonl`,
+  `leadership-review-evidence.jsonl`, `document-claim-resolution.json`, and
+  `document-signoff-summary.json`, plus artifact-backed CLI/API paths and
+  scorecard/signoff/Workbench queue integration.
 - Add Document Evidence Pack enforcement with artifact-state staleness tracking,
   scorecard forbidden-claim integration, delivery/apply blockers, and
   `workbench-document-evidence-queue.json` plus CLI/API access for document

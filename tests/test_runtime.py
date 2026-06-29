@@ -48,6 +48,14 @@ from runtime.localize_anything.document_evidence import (
     read_semantic_alignment,
 )
 from runtime.localize_anything.document_evidence_queue import build_workbench_document_evidence_queue
+from runtime.localize_anything.document_decision import (
+    build_document_claim_resolution,
+    build_document_signoff_summary,
+    read_document_decision_log,
+    read_leadership_review_evidence,
+    record_document_decision,
+    record_leadership_review_evidence,
+)
 from runtime.localize_anything.evaluation import build_evaluation_scorecard
 from runtime.localize_anything.generation import (
     collect_generated_handoff,
@@ -7286,6 +7294,314 @@ class DocumentEvidenceEnforcementQueueTests(unittest.TestCase):
             self.assertTrue(plan["evaluation_scorecard_apply_block_reason"])
 
 
+class DocumentDecisionLeadershipReviewTests(unittest.TestCase):
+    def test_document_decision_log_records_accepted_rejected_and_follow_up(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            claim_id = read_claim_metric_report(state)["checks"][0]["check_id"]
+            accepted = record_document_decision(state, _document_decision(claim_id, status="accepted_with_limitations"))
+            rejected = record_document_decision(state, _document_decision(claim_id, decision_type="reject_claim_wording", status="rejected"))
+            follow_up = record_document_decision(state, _document_decision(claim_id, decision_type="request_follow_up", status="requires_follow_up"))
+
+            records = read_document_decision_log(state)
+
+            self.assertEqual(len(records), 3)
+            self.assertEqual(accepted["record"]["decision_status"], "accepted_with_limitations")
+            self.assertEqual(rejected["record"]["decision_status"], "rejected")
+            self.assertEqual(follow_up["record"]["decision_status"], "requires_follow_up")
+            assert_protocol_schema(self, "document-decision-log", records[0])
+
+    def test_leadership_review_records_scope_limitations_without_e2_to_e4(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            result = record_leadership_review_evidence(
+                state,
+                {
+                    "reviewer_role": "leadership_reviewer",
+                    "reviewer_reference": "leader@example.test",
+                    "review_scope": {"scope_type": "limited", "document_scenario": "institutional_publicity_case"},
+                    "reviewed_artifacts": ["leadership-review-brief.md"],
+                    "reviewed_risks": [],
+                    "reviewed_open_decisions": [],
+                    "reviewed_claims": ["limited_scope_delivery_ready"],
+                    "decision": "accepted_with_limitations",
+                    "limitations": ["limited to reviewed document scope"],
+                    "supports_signoff": True,
+                    "supports_delivery_readiness": True,
+                },
+            )
+
+            records = read_leadership_review_evidence(state)
+
+            self.assertEqual(result["record"]["supports_language_review_evidence_levels"], [])
+            self.assertEqual(records[0]["review_scope"]["scope_type"], "limited")
+            assert_protocol_schema(self, "leadership-review-evidence", records[0])
+
+    def test_document_claim_resolution_requires_matching_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            unresolved = build_document_claim_resolution(state)
+            claim_id = read_claim_metric_report(state)["checks"][0]["check_id"]
+            record_document_decision(state, _document_decision(claim_id, status="accepted"))
+            resolved = build_document_claim_resolution(state)
+
+            self.assertGreater(unresolved["summary"]["unresolved_claim_metric_count"], 0)
+            self.assertLess(resolved["summary"]["unresolved_claim_metric_count"], unresolved["summary"]["unresolved_claim_metric_count"])
+            assert_protocol_schema(self, "document-claim-resolution", resolved)
+
+    def test_unresolved_p1_p2_document_risks_keep_delivery_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            build_document_claim_resolution(state)
+            scorecard = build_evaluation_scorecard(state)
+
+            self.assertEqual(scorecard["overall_claim"], "blocked")
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+            self.assertIn("production_ready", scorecard["forbidden_claims"])
+
+    def test_accepted_publicity_risk_preserves_limitations_and_forbidden_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            risk_id = read_publicity_risk_report(state)["risks"][0]["risk_id"]
+            record_document_decision(
+                state,
+                {
+                    **_document_decision("unused", decision_type="accept_publicity_risk", status="accepted_with_limitations"),
+                    "related_claim_metric_risk_id": None,
+                    "related_publicity_risk_id": risk_id,
+                    "accepted_limitation": "accepted only for reviewed public case wording",
+                },
+            )
+            resolution = build_document_claim_resolution(state)
+
+            self.assertIn("accepted only for reviewed public case wording", resolution["accepted_limitations"])
+            self.assertIn("production_ready", resolution["forbidden_claims_remaining"])
+
+    def test_limited_scope_document_decision_does_not_create_global_delivery_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            _resolve_all_document_risks(state, limited=True)
+            write_json(
+                state / "signoff-record.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-signoff-record-v1",
+                    "status": "accepted_with_limitations",
+                    "delivery_authorized": True,
+                    "apply_authorized": False,
+                },
+            )
+            record_leadership_review_evidence(state, _leadership_review(supports_delivery=True))
+            summary = build_document_signoff_summary(state)
+            scorecard = build_evaluation_scorecard(state)
+
+            self.assertTrue(summary["delivery_authorized"])
+            self.assertNotEqual(scorecard["overall_claim"], "delivery_ready")
+            self.assertIn("production_ready", summary["remaining_forbidden_claims"])
+
+    def test_document_signoff_blocks_delivery_when_high_risk_risks_remain(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            record_leadership_review_evidence(state, _leadership_review(supports_delivery=True))
+            write_json(state / "signoff-record.json", {"status": "accepted", "delivery_authorized": True, "apply_authorized": False})
+            summary = build_document_signoff_summary(state)
+
+            self.assertEqual(summary["status"], "blocked")
+            self.assertFalse(summary["apply_authorized"])
+
+    def test_stale_claim_metric_report_makes_claim_resolution_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            build_document_claim_resolution(state)
+            build_artifact_state(state)
+            report = read_claim_metric_report(state)
+            report["checks"].append({**report["checks"][0], "check_id": "changed-claim-risk"})
+            write_json(state / "claim-metric-report.json", report)
+            artifact_state = build_artifact_state(state)
+
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+            self.assertIn("document_claim_resolution", stale_ids)
+
+    def test_scorecard_and_claim_acceptance_consume_document_decision_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            _resolve_all_document_risks(state)
+            build_document_claim_resolution(state)
+            scorecard = build_evaluation_scorecard(state)
+            claim_acceptance = build_claim_acceptance_decision(state, requested_claims=["production_ready"])
+
+            self.assertIn("layout_verified", scorecard["forbidden_claims"])
+            self.assertEqual(claim_acceptance["status"], "blocked")
+
+    def test_artifact_state_tracks_document_decision_signoff_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            build_document_claim_resolution(state)
+            build_document_signoff_summary(state)
+            artifact_state = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+
+            self.assertIn("document_decision_log", ids)
+            self.assertIn("leadership_review_evidence", ids)
+            self.assertIn("document_claim_resolution", ids)
+            self.assertIn("document_signoff_summary", ids)
+
+    def test_workbench_document_evidence_queue_reflects_resolved_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            claim_id = read_claim_metric_report(state)["checks"][0]["check_id"]
+            record_document_decision(state, _document_decision(claim_id, status="accepted"))
+            queue = build_workbench_document_evidence_queue(state)
+
+            claim_items = [item for item in queue["items"] if item["related_claim_metric_risk"].get("check_id") == claim_id]
+            self.assertEqual(claim_items[0]["status"], "resolved")
+            self.assertEqual(claim_items[0]["resolution_status"], "accepted")
+
+    def test_api_endpoints_read_write_document_decisions_without_provider_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            claim_id = read_claim_metric_report(state)["checks"][0]["check_id"]
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    status, _ = _http_post_json(
+                        host,
+                        port,
+                        "/api/document-decision-log",
+                        {"state_dir": state.as_posix(), "decision": _document_decision(claim_id, status="accepted")},
+                    )
+                    self.assertEqual(status, 200)
+                    self.assertFalse(provider_call.called)
+                get_status, body = _http_get(host, port, f"/api/document-decision-log?state_dir={state.as_posix()}")
+                self.assertEqual(get_status, 200)
+                self.assertEqual(len(json.loads(body)["document_decision_log"]), 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_commands_are_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            claim_id = read_claim_metric_report(state)["checks"][0]["check_id"]
+            input_path = Path(directory) / "decision.json"
+            write_json(input_path, _document_decision(claim_id, status="accepted"))
+            record_output = Path(directory) / "record.json"
+            first = Path(directory) / "resolution-1.json"
+            second = Path(directory) / "resolution-2.json"
+
+            self.assertEqual(cli_main(["record-document-decision", state.as_posix(), "--input", input_path.as_posix(), "--output", record_output.as_posix()]), 0)
+            self.assertEqual(cli_main(["document-claim-resolution", state.as_posix(), "--output", first.as_posix()]), 0)
+            self.assertEqual(cli_main(["document-claim-resolution", state.as_posix(), "--output", second.as_posix()]), 0)
+            self.assertEqual(read_json(first), read_json(second))
+
+    def test_run_summary_and_delivery_package_reference_document_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            shutil.copytree(FIXTURE_ROOT, project)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_document_evidence_state(root, state=state)
+            build_document_evidence_pack(state)
+            build_document_claim_resolution(state)
+            build_document_signoff_summary(state)
+            summary = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                ["locales/en-US.json"],
+                output_root=root / "runs",
+                run_id="document-decision-summary-001",
+                synthetic_draft=True,
+            )
+            staging = root / "staging"
+            staged = staging / "out.txt"
+            staged.parent.mkdir(parents=True)
+            staged.write_text("translated\n", encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "document-decision-delivery-001")
+
+            self.assertIn("document_claim_resolution", summary["artifacts"])
+            self.assertEqual(packaged["manifest"]["assets"]["document_claim_resolution"], "document-claim-resolution.json")
+            self.assertEqual(packaged["manifest"]["assets"]["document_signoff_summary"], "document-signoff-summary.json")
+
+
+def _document_decision(claim_id: str, *, decision_type: str = "confirm_metric_boundary", status: str = "accepted") -> dict[str, Any]:
+    return {
+        "decision_type": decision_type,
+        "reviewer_role": "document_owner",
+        "reviewer_reference": "owner@example.test",
+        "source_artifact_references": ["claim-metric-report.json"],
+        "affected_segment_ids": ["s1"],
+        "affected_scope": {"scope_type": "limited", "segments": ["s1"]},
+        "related_claim_metric_risk_id": claim_id,
+        "decision_status": status,
+        "decision_rationale": "Reviewed document evidence risk.",
+        "accepted_limitation": "limited to reviewed document scope" if status == "accepted_with_limitations" else None,
+        "effective_scope": {"scope_type": "limited", "segments": ["s1"]},
+    }
+
+
+def _leadership_review(*, supports_delivery: bool) -> dict[str, Any]:
+    return {
+        "reviewer_role": "leadership_reviewer",
+        "reviewer_reference": "leader@example.test",
+        "review_scope": {"scope_type": "limited", "document_scenario": "institutional_publicity_case"},
+        "reviewed_artifacts": ["leadership-review-brief.md"],
+        "reviewed_risks": [],
+        "reviewed_open_decisions": [],
+        "reviewed_claims": ["limited_scope_delivery_ready"],
+        "decision": "accepted_with_limitations",
+        "limitations": ["limited to reviewed document scope"],
+        "supports_signoff": True,
+        "supports_delivery_readiness": supports_delivery,
+    }
+
+
+def _resolve_all_document_risks(state: Path, *, limited: bool = False) -> None:
+    claim_report = read_claim_metric_report(state)
+    for check in claim_report.get("checks", []):
+        if check.get("status") in {"blocked", "warning", "pending"}:
+            record_document_decision(state, _document_decision(str(check["check_id"]), status="accepted_with_limitations" if limited else "accepted"))
+    publicity = read_publicity_risk_report(state)
+    for risk in publicity.get("risks", []):
+        record_document_decision(
+            state,
+            {
+                **_document_decision("unused", decision_type="accept_publicity_risk", status="accepted_with_limitations" if limited else "accepted"),
+                "related_claim_metric_risk_id": None,
+                "related_publicity_risk_id": risk.get("risk_id"),
+            },
+        )
+    for alignment in read_semantic_alignment(state):
+        if alignment.get("human_confirmation_required") or alignment.get("risk_flags"):
+            record_document_decision(
+                state,
+                {
+                    **_document_decision("unused", decision_type="confirm_alignment_mode", status="accepted_with_limitations" if limited else "accepted"),
+                    "related_claim_metric_risk_id": None,
+                    "related_semantic_alignment_id": alignment.get("alignment_id"),
+                },
+            )
+    build_document_claim_resolution(state)
+
+
 def _write_document_evidence_state(
     root: Path,
     *,
@@ -8220,7 +8536,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 52)
+        self.assertEqual(result["schemas_checked"], 56)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

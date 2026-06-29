@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/document-claim-resolution.schema.json",
+  "title": "Localize Anything Document Claim Resolution",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "forbidden_claims_remaining", "delivery_readiness_impact", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-document-claim-resolution-v1" },
+    "artifact": { "const": "document-claim-resolution.json" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["resolved", "requires_follow_up", "blocked", "stale"] },
+    "resolved_claim_metric_risks": { "type": "array" },
+    "unresolved_claim_metric_risks": { "type": "array" },
+    "accepted_publicity_risks": { "type": "array" },
+    "unresolved_publicity_risks": { "type": "array" },
+    "resolved_semantic_alignment_risks": { "type": "array" },
+    "unresolved_semantic_alignment_risks": { "type": "array" },
+    "rejected_or_blocked_claim_wording": { "type": "array" },
+    "accepted_limitations": { "type": "array" },
+    "effective_scope": { "type": "object" },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "delivery_readiness_impact": { "type": "string" },
+    "signoff_requirements": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

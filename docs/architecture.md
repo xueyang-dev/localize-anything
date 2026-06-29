@@ -666,6 +666,34 @@ source of truth. It is regenerated from runtime artifacts and exposed through
 `GET /api/workbench-document-evidence-queue`. UI code should render this queue
 instead of inferring document readiness locally.
 
+### Document Evidence Decision Resolution
+
+Document evidence risks are resolved only by explicit artifacts. The seed adds
+`document-decision-log.jsonl`, `leadership-review-evidence.jsonl`,
+`document-claim-resolution.json`, and `document-signoff-summary.json`.
+Decision records can confirm or reject institution names, project names,
+metric boundaries, claim wording, publicity risks, alignment modes,
+explanatory expansion, source omission, limited-scope delivery, follow-up
+requests, and leadership confirmation. Each record keeps reviewer role,
+source artifact references, related risk ids, rationale, limitations, scope,
+and supersession metadata where available.
+
+Leadership review evidence can accept institutional, project, claim, or
+publicity risk within an explicit scope and can support claim acceptance or
+document signoff. It does not create E2, E3, or E4 language review evidence.
+Accepted risk is still a limitation, not full assurance, and limited-scope
+approval does not become global delivery readiness.
+
+`document-claim-resolution.json` summarizes resolved and unresolved
+claim/metric risks, accepted and unresolved publicity risks, semantic alignment
+risks, rejected wording, accepted limitations, effective scope, forbidden
+claims remaining, and signoff requirements. `document-signoff-summary.json`
+summarizes whether document-specific delivery can proceed, but it cannot
+override the Evaluation Scorecard, Artifact State, QA, repair, provider
+policy, handoff, or project signoff gates. If document evidence changes, these
+decision artifacts become stale and readiness stays blocked or downgraded
+until refreshed.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

@@ -16,6 +16,12 @@ from .document_evidence import (
     PUBLICITY_RISK_REPORT_JSON,
     SEMANTIC_ALIGNMENT_JSONL,
 )
+from .document_decision import (
+    DOCUMENT_CLAIM_RESOLUTION_JSON,
+    DOCUMENT_DECISION_LOG_JSONL,
+    DOCUMENT_SIGNOFF_SUMMARY_JSON,
+    LEADERSHIP_REVIEW_EVIDENCE_JSONL,
+)
 from .human_review import (
     CLAIM_ACCEPTANCE_DECISION_JSON,
     HUMAN_REVIEW_EVIDENCE_JSONL,
@@ -221,6 +227,38 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         required_for_delivery=True,
     ),
     ArtifactSpec(
+        "document_decision_log",
+        "document_decision_log",
+        DOCUMENT_DECISION_LOG_JSONL,
+        "document_decision_resolution",
+        ("claim_metric_report", "publicity_risk_report", "semantic_alignment", "open_decisions"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "leadership_review_evidence",
+        "leadership_review_evidence",
+        LEADERSHIP_REVIEW_EVIDENCE_JSONL,
+        "document_decision_resolution",
+        ("leadership_review_brief", "claim_metric_report", "publicity_risk_report", "open_decisions"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "document_claim_resolution",
+        "document_claim_resolution",
+        DOCUMENT_CLAIM_RESOLUTION_JSON,
+        "document_decision_resolution",
+        ("document_decision_log", "leadership_review_evidence", "claim_metric_report", "publicity_risk_report", "semantic_alignment", "document_evidence_manifest"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "document_signoff_summary",
+        "document_signoff_summary",
+        DOCUMENT_SIGNOFF_SUMMARY_JSON,
+        "document_decision_resolution",
+        ("document_claim_resolution", "leadership_review_evidence", "evaluation_scorecard", "signoff_record", "artifact_state"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
         "evaluation_scorecard",
         "evaluation_scorecard",
         EVALUATION_SCORECARD_JSON,
@@ -236,6 +274,8 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "publicity_risk_report",
             "open_decisions",
             "document_evidence_manifest",
+            "document_claim_resolution",
+            "document_signoff_summary",
         ),
         required_for_delivery=True,
     ),
@@ -318,6 +358,8 @@ RUN_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "user_resolution_decisions",
             "state_delivery_manifest",
             "document_evidence_manifest",
+            "document_claim_resolution",
+            "document_signoff_summary",
             "claim_metric_report",
             "publicity_risk_report",
             "open_decisions",
@@ -682,8 +724,12 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "leadership_review_brief",
         "open_decisions",
         "document_evidence_manifest",
+        "document_decision_log",
+        "leadership_review_evidence",
+        "document_claim_resolution",
+        "document_signoff_summary",
     }
-    document_consumers = {"signoff_record", "delivery_decision"}
+    document_consumers = {"signoff_record", "delivery_decision", "evaluation_scorecard"}
     stale_dependencies = sorted(
         dependency_id
         for dependency_id in spec.dependencies

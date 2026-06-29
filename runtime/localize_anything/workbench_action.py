@@ -18,6 +18,16 @@ from .human_review import (
 )
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON, build_workbench_document_evidence_queue
+from .document_decision import (
+    DOCUMENT_CLAIM_RESOLUTION_JSON,
+    DOCUMENT_DECISION_LOG_JSONL,
+    DOCUMENT_SIGNOFF_SUMMARY_JSON,
+    LEADERSHIP_REVIEW_EVIDENCE_JSONL,
+    build_document_claim_resolution,
+    build_document_signoff_summary,
+    record_document_decision,
+    record_leadership_review_evidence,
+)
 from .workbench_queue import (
     WORKBENCH_CLAIM_QUEUE_JSON,
     WORKBENCH_REVIEW_QUEUE_JSON,
@@ -42,6 +52,8 @@ ACTION_TYPES = {
     "acknowledge_forbidden_claim",
     "acknowledge_limitation",
     "mark_queue_item_addressed",
+    "record_document_decision",
+    "record_leadership_review",
 }
 
 
@@ -136,6 +148,14 @@ def _delegate_action(
         evidence = payload.get("evidence") if isinstance(payload.get("evidence"), dict) else payload
         result = record_human_review_evidence(state_dir, evidence, run_id=run_id)
         return {"status": "accepted", "result": result}, [HUMAN_REVIEW_EVIDENCE_JSONL], "accepted"
+    if action_type == "record_document_decision":
+        decision = payload.get("decision") if isinstance(payload.get("decision"), dict) else payload
+        result = record_document_decision(state_dir, decision, run_id=run_id)
+        return {"status": "accepted", "result": result}, [DOCUMENT_DECISION_LOG_JSONL, DOCUMENT_CLAIM_RESOLUTION_JSON, DOCUMENT_SIGNOFF_SUMMARY_JSON], "accepted"
+    if action_type == "record_leadership_review":
+        evidence = payload.get("evidence") if isinstance(payload.get("evidence"), dict) else payload
+        result = record_leadership_review_evidence(state_dir, evidence, run_id=run_id)
+        return {"status": "accepted", "result": result}, [LEADERSHIP_REVIEW_EVIDENCE_JSONL, DOCUMENT_CLAIM_RESOLUTION_JSON, DOCUMENT_SIGNOFF_SUMMARY_JSON], "accepted"
     if action_type in {"accept_claim", "reject_claim", "downgrade_claim"}:
         claims = _claims_from_payload(payload)
         accepted_risk = payload.get("accepted_risk") if isinstance(payload.get("accepted_risk"), dict) else {}
@@ -178,6 +198,8 @@ def _delegate_action(
 def _refresh_projection_artifacts(state_dir: Path, run_id: str | None, *, tolerate_errors: bool = False) -> list[str]:
     refreshed: list[str] = []
     for artifact, refresh in (
+        (DOCUMENT_CLAIM_RESOLUTION_JSON, lambda: build_document_claim_resolution(state_dir, run_id=run_id)),
+        (DOCUMENT_SIGNOFF_SUMMARY_JSON, lambda: build_document_signoff_summary(state_dir, run_id=run_id)),
         ("evaluation-scorecard.json", lambda: build_evaluation_scorecard(state_dir, run_id=run_id)),
         (WORKBENCH_REVIEW_QUEUE_JSON, lambda: build_workbench_review_queue(state_dir)),
         (WORKBENCH_CLAIM_QUEUE_JSON, lambda: build_workbench_claim_queue(state_dir)),
@@ -218,6 +240,8 @@ def _status_snapshot(state_dir: Path) -> dict[str, Any]:
         "workbench_claim_queue": _json_status(state_dir / WORKBENCH_CLAIM_QUEUE_JSON, "status"),
         "workbench_signoff_summary": _json_status(state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON, "current_signoff_status"),
         "workbench_document_evidence_queue": _json_status(state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON, "status"),
+        "document_claim_resolution": _json_status(state_dir / DOCUMENT_CLAIM_RESOLUTION_JSON, "status"),
+        "document_signoff_summary": _json_status(state_dir / DOCUMENT_SIGNOFF_SUMMARY_JSON, "status"),
     }
 
 

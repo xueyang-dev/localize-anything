@@ -19,6 +19,7 @@ from .document_evidence import (
     PUBLICITY_RISK_REPORT_JSON,
     SEMANTIC_ALIGNMENT_JSONL,
 )
+from .document_decision import DOCUMENT_CLAIM_RESOLUTION_JSON, DOCUMENT_SIGNOFF_SUMMARY_JSON
 from .io_utils import read_json, read_jsonl, write_json
 
 
@@ -227,6 +228,8 @@ def _load_artifacts(
         "claim_metric_report": _read_optional_json(state_dir / CLAIM_METRIC_REPORT_JSON),
         "publicity_risk_report": _read_optional_json(state_dir / PUBLICITY_RISK_REPORT_JSON),
         "document_evidence_manifest": _read_optional_json(state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON),
+        "document_claim_resolution": _read_optional_json(state_dir / DOCUMENT_CLAIM_RESOLUTION_JSON),
+        "document_signoff_summary": _read_optional_json(state_dir / DOCUMENT_SIGNOFF_SUMMARY_JSON),
         "open_decisions": _read_optional_text(state_dir / OPEN_DECISIONS_MD),
         "generated_segments": _read_optional_jsonl((run_dir / "generated.jsonl") if run_dir else state_dir / "generated-segments.jsonl"),
         "review_result": _first_json(
@@ -520,6 +523,8 @@ def _forbidden_claims(
             }
         )
     document_blockers = _document_evidence_blockers(artifacts)
+    if artifacts.get("document_evidence_manifest"):
+        claims.add("layout_verified")
     if document_blockers:
         claims.update({"review_complete", "delivery_ready", "apply_ready", "production_ready", "layout_verified"})
         if any(reason in document_blockers for reason in {"document_evidence_stale", "document_evidence_unsupported"}):
@@ -644,34 +649,51 @@ def _document_evidence_blockers(artifacts: dict[str, Any]) -> list[str]:
     if not isinstance(manifest, dict) or not manifest:
         return []
     blockers: list[str] = []
+    resolution = artifacts.get("document_claim_resolution", {})
+    document_signoff = artifacts.get("document_signoff_summary", {})
+    resolution_present = isinstance(resolution, dict) and bool(resolution)
+    if resolution_present:
+        if str(resolution.get("status") or "") in {"stale", "blocked"}:
+            blockers.append(f"document_claim_resolution_{resolution.get('status')}")
+        if resolution.get("unresolved_claim_metric_risks"):
+            blockers.append("document_claim_metric_blocker")
+        if resolution.get("unresolved_publicity_risks"):
+            blockers.append("document_publicity_risk_blocker")
+        if resolution.get("unresolved_semantic_alignment_risks"):
+            blockers.append("document_semantic_alignment_review_required")
+        if resolution.get("forbidden_claims_remaining") and str(resolution.get("delivery_readiness_impact") or "") == "blocked":
+            blockers.append("document_resolution_forbids_delivery")
     status = str(manifest.get("status") or "not_checked")
     summary = manifest.get("summary", {}) if isinstance(manifest, dict) else {}
     if status == "unsupported":
         blockers.append("document_evidence_unsupported")
-    elif status == "blocked":
+    elif status == "blocked" and not resolution_present:
         blockers.append("document_evidence_blocked")
-    elif status == "requires_review":
+    elif status == "requires_review" and not resolution_present:
         blockers.append("document_evidence_review_required")
-    if int(summary.get("claim_metric_blocking_count", 0) or 0):
+    if not resolution_present and int(summary.get("claim_metric_blocking_count", 0) or 0):
         blockers.append("document_claim_metric_blocker")
-    if int(summary.get("blocking_decision_count", 0) or 0):
+    if not resolution_present and int(summary.get("blocking_decision_count", 0) or 0):
         blockers.append("document_open_decision_blocker")
-    if int(summary.get("open_decision_count", 0) or 0):
+    if not resolution_present and int(summary.get("open_decision_count", 0) or 0):
         blockers.append("document_open_decision_required")
     publicity = artifacts.get("publicity_risk_report", {})
     publicity_summary = publicity.get("summary", {}) if isinstance(publicity, dict) else {}
-    if int(publicity_summary.get("blocking_count", 0) or 0):
+    if not resolution_present and int(publicity_summary.get("blocking_count", 0) or 0):
         blockers.append("document_publicity_risk_blocker")
     claim_report = artifacts.get("claim_metric_report", {})
     claim_summary = claim_report.get("summary", {}) if isinstance(claim_report, dict) else {}
-    if int(claim_summary.get("pending_count", 0) or 0) or int(claim_summary.get("warning_count", 0) or 0):
+    if not resolution_present and (int(claim_summary.get("pending_count", 0) or 0) or int(claim_summary.get("warning_count", 0) or 0)):
         blockers.append("document_claim_metric_review_required")
     alignment = artifacts.get("semantic_alignment", [])
-    if isinstance(alignment, list) and any(isinstance(item, dict) and item.get("human_confirmation_required") for item in alignment):
+    if not resolution_present and isinstance(alignment, list) and any(isinstance(item, dict) and item.get("human_confirmation_required") for item in alignment):
         blockers.append("document_semantic_alignment_review_required")
     if _document_evidence_stale(artifacts):
         blockers.append("document_evidence_stale")
     signoff = artifacts.get("signoff_record", {})
+    document_signoff_status = str(document_signoff.get("status") or "") if isinstance(document_signoff, dict) else ""
+    if document_signoff_status in {"stale", "blocked", "requires_follow_up"}:
+        blockers.append(f"document_signoff_{document_signoff_status}")
     if not isinstance(signoff, dict) or not signoff:
         blockers.append("document_signoff_missing")
     return sorted(dict.fromkeys(blockers))
@@ -687,6 +709,11 @@ def _document_evidence_has_blocking_condition(blockers: list[str]) -> bool:
             "document_publicity_risk_blocker",
             "document_open_decision_blocker",
             "document_evidence_stale",
+            "document_claim_resolution_stale",
+            "document_claim_resolution_blocked",
+            "document_resolution_forbids_delivery",
+            "document_signoff_stale",
+            "document_signoff_blocked",
         }
         for blocker in blockers
     )
@@ -703,8 +730,10 @@ def _document_evidence_stale(artifacts: dict[str, Any]) -> bool:
         "publicity_risk_report",
         "leadership_review_brief",
         "open_decisions",
-        "document_evidence_manifest",
-    }
+            "document_evidence_manifest",
+            "document_claim_resolution",
+            "document_signoff_summary",
+        }
     for item in state.get("artifacts", []):
         if not isinstance(item, dict):
             continue

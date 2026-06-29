@@ -1,0 +1,33 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-document-claim-resolution-v1",
+  "artifact": "document-claim-resolution.json",
+  "run_id": "doc-decision-example-001",
+  "status": "requires_follow_up",
+  "resolved_claim_metric_risks": [],
+  "unresolved_claim_metric_risks": [],
+  "accepted_publicity_risks": [],
+  "unresolved_publicity_risks": [],
+  "resolved_semantic_alignment_risks": [],
+  "unresolved_semantic_alignment_risks": [],
+  "rejected_or_blocked_claim_wording": [],
+  "accepted_limitations": ["limited to reviewed document evidence scope"],
+  "effective_scope": { "scope_type": "limited" },
+  "forbidden_claims_remaining": ["production_ready", "layout_verified"],
+  "delivery_readiness_impact": "allowed_with_document_limitations",
+  "signoff_requirements": ["accept_document_limitations_in_signoff"],
+  "source_artifacts": {
+    "document_decision_log": "document-decision-log.jsonl",
+    "leadership_review_evidence": "leadership-review-evidence.jsonl"
+  },
+  "summary": {
+    "decision_count": 1,
+    "leadership_review_count": 1,
+    "resolved_claim_metric_count": 1,
+    "unresolved_claim_metric_count": 0,
+    "accepted_publicity_risk_count": 1,
+    "unresolved_publicity_risk_count": 0,
+    "unresolved_alignment_risk_count": 0,
+    "accepted_limitation_count": 1
+  }
+}
