@@ -83,6 +83,22 @@ from runtime.localize_anything.human_review import (
     read_human_review_evidence,
     record_human_review_evidence,
 )
+from runtime.localize_anything.knowledge_pack import (
+    CLAIM_PATTERNS_JSONL,
+    KNOWLEDGE_REVIEW_DECISIONS_JSONL,
+    KNOWLEDGE_REVIEW_QUEUE_JSON,
+    PACK_JSON,
+    PROVENANCE_JSONL,
+    QUALITY_REPORT_MD,
+    REVISION_MEMORY_JSONL,
+    TRANSLATION_MEMORY_JSONL,
+    export_knowledge_pack,
+    init_knowledge_pack,
+    knowledge_pack_dir,
+    read_knowledge_pack,
+    read_knowledge_review_queue,
+    record_knowledge_review_decision,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -7542,6 +7558,343 @@ class DocumentDecisionLeadershipReviewTests(unittest.TestCase):
             self.assertEqual(packaged["manifest"]["assets"]["document_signoff_summary"], "document-signoff-summary.json")
 
 
+class PersonalKnowledgePackBuilderTests(unittest.TestCase):
+    def test_knowledge_pack_init_creates_metadata_and_empty_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            pack = init_knowledge_pack(
+                state,
+                pack_id="institutional-zh-cn",
+                name="Institutional zh-CN",
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["institutional_publicity"],
+                supported_scenarios=["institutional_publicity_case"],
+            )
+            pack_dir = knowledge_pack_dir(state, "institutional-zh-cn")
+
+            self.assertEqual(pack["privacy_mode"], "local_only")
+            self.assertTrue((pack_dir / PACK_JSON).is_file())
+            self.assertTrue((pack_dir / KNOWLEDGE_REVIEW_QUEUE_JSON).is_file())
+            self.assertTrue((pack_dir / QUALITY_REPORT_MD).is_file())
+            assert_protocol_schema(self, "pack", pack)
+
+    def test_export_creates_valid_empty_artifacts_when_no_reviewed_knowledge_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            init_knowledge_pack(state, pack_id="empty")
+            result = export_knowledge_pack(state, "empty")
+            pack_dir = knowledge_pack_dir(state, "empty")
+
+            self.assertEqual(result["status"], "pass")
+            self.assertEqual(read_knowledge_review_queue(state, "empty")["summary"]["candidate_count"], 0)
+            self.assertEqual(read_jsonl(pack_dir / TRANSLATION_MEMORY_JSONL), [])
+            self.assertIn("No reviewed style", (pack_dir / "style-profile.md").read_text(encoding="utf-8"))
+
+    def test_approved_locked_terms_export_into_registry_and_glossary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            _write_csv_rows(
+                state / "term-registry.csv",
+                [
+                    {
+                        "source_term": "Open Lab",
+                        "target_term": "开放实验室",
+                        "type": "institution",
+                        "status": "locked",
+                        "priority": "official",
+                        "scope": "institutional_publicity_case",
+                        "source_locale": "en-US",
+                        "target_locale": "zh-CN",
+                    }
+                ],
+            )
+            export_knowledge_pack(state, "pack")
+            pack_dir = knowledge_pack_dir(state, "pack")
+
+            term_rows = _read_csv_dicts(pack_dir / "term-registry.csv")
+            glossary_rows = _read_csv_dicts(pack_dir / "glossary.csv")
+            self.assertEqual(term_rows[0]["source_term"], "Open Lab")
+            self.assertEqual(term_rows[0]["status"], "locked")
+            self.assertEqual(glossary_rows[0]["target_term"], "开放实验室")
+
+    def test_forbidden_translations_export_with_provenance_and_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            _write_csv_rows(
+                state / "forbidden-translations.csv",
+                [
+                    {
+                        "source_term": "program",
+                        "forbidden_target": "计划",
+                        "target_locale": "zh-CN",
+                        "scope": "grant_publicity",
+                        "reason": "approved institutional term differs",
+                        "status": "approved",
+                        "provenance": "term-decision-1",
+                    }
+                ],
+            )
+            export_knowledge_pack(state, "pack")
+
+            rows = _read_csv_dicts(knowledge_pack_dir(state, "pack") / "forbidden-translations.csv")
+            self.assertEqual(rows[0]["forbidden_target"], "计划")
+            self.assertEqual(rows[0]["scope"], "grant_publicity")
+
+    def test_generated_segments_do_not_become_reviewed_tm_without_review_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(state / "generated-segments.jsonl", [{"segment_id": "s1", "source": "Hello", "target": "你好"}])
+            export_knowledge_pack(state, "pack")
+
+            self.assertEqual(read_jsonl(knowledge_pack_dir(state, "pack") / TRANSLATION_MEMORY_JSONL), [])
+            queue = read_knowledge_review_queue(state, "pack")
+            tm = [item for item in queue["items"] if item["candidate_type"] == "tm_entry"][0]
+            self.assertEqual(tm["proposed_status"], "candidate")
+            self.assertEqual(tm["blocking_reason"], "raw_generated_segment_without_review_evidence")
+
+    def test_reviewed_generated_segments_may_export_as_reviewed_tm(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(state / "generated-segments.jsonl", [{"segment_id": "s1", "source": "Hello", "target": "你好"}])
+            record_human_review_evidence(
+                state,
+                {
+                    "reviewer_role": "bilingual_reviewer",
+                    "reviewer_reference": "reviewer@example.test",
+                    "review_scope": {"scope_type": "full_run"},
+                    "status": "accepted",
+                },
+            )
+            export_knowledge_pack(state, "pack")
+
+            tm = read_jsonl(knowledge_pack_dir(state, "pack") / TRANSLATION_MEMORY_JSONL)
+            self.assertEqual(tm[0]["status"], "approved")
+
+    def test_stale_rejected_superseded_records_are_not_promoted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [{"source_term": "Name", "target_term": "名称", "status": "rejected"}],
+            )
+            write_jsonl(
+                state / "repair-history.jsonl",
+                [{"repair_id": "r1", "segment_id": "s1", "repair_status": "failed_qa", "qa_result": {"status": "fail"}}],
+            )
+            export_knowledge_pack(state, "pack")
+            pack_dir = knowledge_pack_dir(state, "pack")
+
+            self.assertEqual(_read_csv_dicts(pack_dir / "term-registry.csv"), [])
+            self.assertEqual(read_jsonl(pack_dir / REVISION_MEMORY_JSONL), [])
+
+    def test_ineligible_sources_cannot_be_promoted_by_review_or_full_run_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [{"source_term": "Old name", "target_term": "Old target", "status": "approved", "superseded_by": ["term-decision-2"]}],
+            )
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [
+                    {"segment_id": "s1", "source": "Stale", "target": "Stale target", "status": "stale"},
+                    {"segment_id": "s2", "source": "Current", "target": "Current target"},
+                ],
+            )
+            record_human_review_evidence(
+                state,
+                {
+                    "reviewer_role": "bilingual_reviewer",
+                    "reviewer_reference": "reviewer@example.test",
+                    "review_scope": {"scope_type": "full_run"},
+                    "status": "accepted",
+                },
+            )
+            export_knowledge_pack(state, "pack")
+            pack_dir = knowledge_pack_dir(state, "pack")
+
+            self.assertEqual(_read_csv_dicts(pack_dir / "term-registry.csv"), [])
+            self.assertEqual([item["source_value"] for item in read_jsonl(pack_dir / TRANSLATION_MEMORY_JSONL)], ["Current"])
+
+            queue = read_knowledge_review_queue(state, "pack")
+            stale_candidate = next(item for item in queue["items"] if item["source_value"] == "Stale")
+            record_knowledge_review_decision(
+                state,
+                "pack",
+                {"candidate_id": stale_candidate["candidate_id"], "decision": "approve", "reviewer_role": "knowledge_reviewer"},
+            )
+            self.assertEqual([item["source_value"] for item in read_jsonl(pack_dir / TRANSLATION_MEMORY_JSONL)], ["Current"])
+
+    def test_limited_scope_document_decisions_export_scope_specific_knowledge_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            claim_id = read_claim_metric_report(state)["checks"][0]["check_id"]
+            record_document_decision(state, _document_decision(claim_id, status="accepted_with_limitations"))
+            export_knowledge_pack(state, "pack")
+
+            claims = read_jsonl(knowledge_pack_dir(state, "pack") / CLAIM_PATTERNS_JSONL)
+            self.assertEqual(claims[0]["status"], "scope_specific")
+            self.assertEqual(claims[0]["scope"], "limited")
+
+    def test_accepted_repair_history_exports_revision_memory_only_when_qa_passed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(
+                state / "repair-history.jsonl",
+                [
+                    {"repair_id": "r1", "segment_id": "s1", "repair_status": "applied", "repair_reason": "placeholder_patch", "qa_result": {"status": "pass"}},
+                    {"repair_id": "r2", "segment_id": "s2", "repair_status": "applied", "repair_reason": "style_patch", "qa_result": {"status": "fail"}},
+                ],
+            )
+            export_knowledge_pack(state, "pack")
+
+            revision = read_jsonl(knowledge_pack_dir(state, "pack") / REVISION_MEMORY_JSONL)
+            self.assertEqual(len(revision), 1)
+            self.assertEqual(revision[0]["source_value"], "s1")
+
+    def test_claim_publicity_decisions_export_into_claim_patterns_when_scoped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            risk_id = read_publicity_risk_report(state)["risks"][0]["risk_id"]
+            record_document_decision(
+                state,
+                {
+                    **_document_decision("unused", decision_type="accept_publicity_risk", status="accepted_with_limitations"),
+                    "related_claim_metric_risk_id": None,
+                    "related_publicity_risk_id": risk_id,
+                },
+            )
+            export_knowledge_pack(state, "pack")
+
+            claims = read_jsonl(knowledge_pack_dir(state, "pack") / CLAIM_PATTERNS_JSONL)
+            self.assertTrue(any(item["source_value"] == "accept_publicity_risk" for item in claims))
+
+    def test_knowledge_review_queue_includes_candidate_types(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            _write_csv_rows(state / "term-registry.csv", [{"source_term": "Lab", "target_term": "实验室", "status": "suggested"}])
+            write_jsonl(state / "generated-segments.jsonl", [{"segment_id": "s1", "source": "Hello", "target": "你好"}])
+            export_knowledge_pack(state, "pack")
+            queue = read_knowledge_review_queue(state, "pack")
+            types = {item["candidate_type"] for item in queue["items"]}
+
+            self.assertIn("term", types)
+            self.assertIn("tm_entry", types)
+            assert_protocol_schema(self, "knowledge-review-queue", queue)
+
+    def test_knowledge_review_decisions_promote_or_preserve_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            _write_csv_rows(state / "term-registry.csv", [{"source_term": "Lab", "target_term": "实验室", "status": "suggested"}])
+            export_knowledge_pack(state, "pack")
+            candidate_id = read_knowledge_review_queue(state, "pack")["items"][0]["candidate_id"]
+            result = record_knowledge_review_decision(
+                state,
+                "pack",
+                {"candidate_id": candidate_id, "decision": "approve", "reviewer_role": "knowledge_reviewer"},
+            )
+
+            self.assertEqual(result["record"]["decision"], "approve")
+            self.assertEqual(_read_csv_dicts(knowledge_pack_dir(state, "pack") / "term-registry.csv")[0]["status"], "approved")
+            assert_protocol_schema(self, "knowledge-review-decision", read_jsonl(knowledge_pack_dir(state, "pack") / KNOWLEDGE_REVIEW_DECISIONS_JSONL)[0])
+
+    def test_provenance_is_recorded_for_every_exported_item(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            _write_csv_rows(state / "term-registry.csv", [{"source_term": "Lab", "target_term": "实验室", "status": "approved"}])
+            export_knowledge_pack(state, "pack")
+            pack_dir = knowledge_pack_dir(state, "pack")
+            term_rows = _read_csv_dicts(pack_dir / "term-registry.csv")
+            provenance_ids = {item["provenance_id"] for item in read_jsonl(pack_dir / PROVENANCE_JSONL)}
+
+            self.assertIn(term_rows[0]["provenance"], provenance_ids)
+
+    def test_quality_report_summarizes_counts_risks_and_limitations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(state / "generated-segments.jsonl", [{"segment_id": "s1", "source": "Hello", "target": "你好"}])
+            export_knowledge_pack(state, "pack")
+            report = (knowledge_pack_dir(state, "pack") / QUALITY_REPORT_MD).read_text(encoding="utf-8")
+
+            self.assertIn("Raw generated translations are not promoted", report)
+            self.assertIn("skipped or unresolved", report)
+
+    def test_artifact_state_tracks_pack_artifacts_and_marks_stale_when_source_decision_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(state / "term-decisions.jsonl", [{"source_term": "Lab", "target_term": "实验室", "status": "approved"}])
+            export_knowledge_pack(state, "pack")
+            build_artifact_state(state)
+            write_jsonl(state / "term-decisions.jsonl", [{"source_term": "Lab", "target_term": "实验室", "status": "approved"}, {"source_term": "Center", "target_term": "中心", "status": "approved"}])
+            artifact_state = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+
+            self.assertTrue(any(item.startswith("knowledge_pack_pack_") for item in ids))
+            self.assertTrue(any(item.startswith("knowledge_pack_pack_") for item in stale_ids))
+
+    def test_api_endpoints_read_write_pack_artifacts_without_provider_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    status, body = _http_post_json(host, port, "/api/knowledge-pack/init", {"state_dir": state.as_posix(), "pack_id": "pack"})
+                    self.assertEqual(status, 200)
+                    self.assertFalse(provider_call.called)
+                    status, body = _http_post_json(host, port, "/api/knowledge-pack/export", {"state_dir": state.as_posix(), "pack_id": "pack"})
+                    self.assertEqual(status, 200)
+                    self.assertFalse(provider_call.called)
+                get_status, raw = _http_get(host, port, f"/api/knowledge-review-queue?state_dir={state.as_posix()}&pack_id=pack")
+                self.assertEqual(get_status, 200)
+                self.assertIn("knowledge_review_queue", json.loads(raw))
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_commands_are_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            output_one = Path(directory) / "one.json"
+            output_two = Path(directory) / "two.json"
+            report = Path(directory) / "quality.md"
+
+            self.assertEqual(cli_main(["knowledge-pack-init", state.as_posix(), "--pack-id", "pack", "--output", output_one.as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-pack-export", state.as_posix(), "--pack-id", "pack", "--output", output_one.as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-pack-export", state.as_posix(), "--pack-id", "pack", "--output", output_two.as_posix()]), 0)
+            self.assertEqual(read_json(output_one), read_json(output_two))
+            self.assertEqual(cli_main(["knowledge-quality-report", state.as_posix(), "--pack-id", "pack", "--output", report.as_posix()]), 0)
+            self.assertTrue(report.read_text(encoding="utf-8").startswith("# Knowledge Pack Quality Report"))
+
+
+def _knowledge_state(root: Path) -> Path:
+    state = root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    init_knowledge_pack(state, pack_id="pack", source_locale="en-US", target_locale="zh-CN")
+    return state
+
+
+def _write_csv_rows(path: Path, rows: list[dict[str, str]]) -> None:
+    columns = sorted({key for row in rows for key in row})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _read_csv_dicts(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return [{str(key): str(value or "") for key, value in row.items()} for row in csv.DictReader(handle)]
+
+
 def _document_decision(claim_id: str, *, decision_type: str = "confirm_metric_boundary", status: str = "accepted") -> dict[str, Any]:
     return {
         "decision_type": decision_type,
@@ -8536,7 +8889,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 56)
+        self.assertEqual(result["schemas_checked"], 59)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-review-queue.schema.json",
+  "title": "Localize Anything Knowledge Review Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "pack_id", "status", "items", "summary", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-review-queue-v1" },
+    "artifact": { "const": "knowledge-review-queue.json" },
+    "pack_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["empty", "ready", "requires_review"] },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "candidate_type", "source_value", "proposed_status", "confidence", "source_artifact_references", "scope", "risk_level", "recommended_decision", "human_confirmation_required"],
+        "properties": {
+          "candidate_id": { "type": "string", "minLength": 1 },
+          "candidate_type": {
+            "enum": [
+              "term",
+              "forbidden_translation",
+              "tm_entry",
+              "style_rule",
+              "claim_pattern",
+              "alignment_example",
+              "revision_memory",
+              "publicity_safety_rule",
+              "metric_boundary_rule"
+            ]
+          },
+          "source_value": { "type": "string" },
+          "target_value": { "type": "string" },
+          "proposed_status": { "type": "string" },
+          "confidence": { "type": "string" },
+          "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+          "provenance_summary": { "type": "string" },
+          "scope": { "type": "string" },
+          "risk_level": { "type": "string" },
+          "recommended_decision": { "type": "string" },
+          "blocking_reason": { "type": ["string", "null"] },
+          "human_confirmation_required": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": { "type": "object" },
+    "source_artifacts": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

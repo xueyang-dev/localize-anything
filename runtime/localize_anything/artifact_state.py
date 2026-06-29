@@ -30,6 +30,7 @@ from .human_review import (
     signoff_summary,
 )
 from .io_utils import read_json, sha256_file, write_json
+from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
     REPAIR_REQUEST_JSON,
@@ -391,6 +392,29 @@ def build_artifact_state(
         specs.extend(RUN_ARTIFACTS)
     if delivery_dir:
         specs.extend(DELIVERY_ARTIFACTS)
+    for pack_spec in discover_knowledge_pack_artifact_specs(state_dir):
+        specs.append(
+            ArtifactSpec(
+                pack_spec["artifact_id"],
+                pack_spec["artifact_type"],
+                pack_spec["path"],
+                pack_spec["produced_by"],
+                (
+                    "term_registry",
+                    "term_decisions",
+                    "forbidden_translations",
+                    "term_review_decisions",
+                    "document_decision_log",
+                    "leadership_review_evidence",
+                    "document_claim_resolution",
+                    "human_review_evidence",
+                    "claim_acceptance_decision",
+                    "signoff_record",
+                    "evaluation_scorecard",
+                    "review_result",
+                ),
+            )
+        )
 
     entries: dict[str, dict[str, Any]] = {}
     for spec in specs:

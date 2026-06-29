@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-pack-v1",
+  "artifact": "pack.json",
+  "pack_id": "institutional-zh-cn",
+  "name": "Institutional zh-CN Knowledge",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "domains": ["institutional_publicity"],
+  "privacy_mode": "local_only",
+  "created_by": "localize-anything-runtime",
+  "created_at": "2026-01-01T00:00:00Z",
+  "quality_level": "raw",
+  "source_artifact_references": ["term-registry.csv", "document-decision-log.jsonl"],
+  "review_policy": {
+    "promotion_requires_review": true,
+    "raw_generated_segments_are_reference_only": true
+  },
+  "supported_scenarios": ["institutional_publicity_case"],
+  "status": "draft"
+}

@@ -48,6 +48,14 @@ from .human_review import (
     read_signoff_record,
     record_human_review_evidence,
 )
+from .knowledge_pack import (
+    export_knowledge_pack,
+    init_knowledge_pack,
+    read_knowledge_pack,
+    read_knowledge_quality_report,
+    read_knowledge_review_queue,
+    record_knowledge_review_decision,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -247,6 +255,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/document-signoff-summary":
                     self._handle_document_signoff_summary_query(parsed.query)
                     return
+                if parsed.path == "/api/knowledge-pack":
+                    self._handle_knowledge_pack_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-review-queue":
+                    self._handle_knowledge_review_queue_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-quality-report":
+                    self._handle_knowledge_quality_report_query(parsed.query)
+                    return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -305,6 +322,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/leadership-review-evidence":
                     self._handle_record_leadership_review_evidence(payload)
+                    return
+                if parsed.path == "/api/knowledge-pack/init":
+                    self._handle_knowledge_pack_init(payload)
+                    return
+                if parsed.path == "/api/knowledge-pack/export":
+                    self._handle_knowledge_pack_export(payload)
+                    return
+                if parsed.path == "/api/knowledge-review-decision":
+                    self._handle_knowledge_review_decision(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -527,6 +553,27 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Document signoff summary is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "document_signoff_summary": read_document_signoff_summary(state_dir)})
+
+        def _handle_knowledge_pack_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            pack_id = _pack_id_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge pack is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_pack": read_knowledge_pack(state_dir, pack_id)})
+
+        def _handle_knowledge_review_queue_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            pack_id = _pack_id_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge review queue is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_review_queue": read_knowledge_review_queue(state_dir, pack_id)})
+
+        def _handle_knowledge_quality_report_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            pack_id = _pack_id_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge quality report is outside allowed workbench roots: {state_dir}")
+            self._send_text(read_knowledge_quality_report(state_dir, pack_id), "text/markdown; charset=utf-8")
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
@@ -769,6 +816,44 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
 
+        def _handle_knowledge_pack_init(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge pack is outside allowed workbench roots: {state_dir}")
+            result = init_knowledge_pack(
+                state_dir,
+                pack_id=_pack_id_from_payload(payload),
+                name=_optional_string(payload.get("name")),
+                source_locale=_optional_string(payload.get("source_locale")),
+                target_locale=_optional_string(payload.get("target_locale")),
+                domains=[str(item) for item in payload.get("domains", [])] if isinstance(payload.get("domains"), list) else [],
+                privacy_mode=_optional_string(payload.get("privacy_mode")) or "local_only",
+                created_by=_optional_string(payload.get("created_by")) or "localize-anything-runtime",
+                quality_level=_optional_string(payload.get("quality_level")) or "raw",
+                supported_scenarios=[str(item) for item in payload.get("supported_scenarios", [])] if isinstance(payload.get("supported_scenarios"), list) else [],
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_pack": result})
+
+        def _handle_knowledge_pack_export(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge pack export is outside allowed workbench roots: {state_dir}")
+            result = export_knowledge_pack(state_dir, _pack_id_from_payload(payload))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_pack_export": result})
+
+        def _handle_knowledge_review_decision(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge review decision is outside allowed workbench roots: {state_dir}")
+            decision = payload.get("decision")
+            if not isinstance(decision, dict):
+                raise ValueError("decision must be a JSON object")
+            result = record_knowledge_review_decision(state_dir, _pack_id_from_payload(payload), decision, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0:
@@ -825,6 +910,20 @@ def _state_dir_from_query(query: str) -> Path:
     if not project:
         raise ValueError("state_dir or project query parameter is required")
     return Path(project).expanduser().resolve() / ".localize-anything"
+
+
+def _pack_id_from_query(query: str) -> str:
+    value = (parse_qs(query).get("pack_id") or [""])[0].strip()
+    if not value:
+        raise ValueError("pack_id query parameter is required")
+    return value
+
+
+def _pack_id_from_payload(payload: dict[str, Any]) -> str:
+    value = str(payload.get("pack_id") or "").strip()
+    if not value:
+        raise ValueError("pack_id is required")
+    return value
 
 
 def _optional_state_dir_from_query(query: str) -> Path | None:
