@@ -8199,8 +8199,8 @@ class KnowledgeUsageAuditSeedTests(unittest.TestCase):
                 [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问开放实验室"}],
             )
 
-            usage = build_knowledge_usage_report(state)
             audit = build_constraint_application_audit(state)
+            usage = build_knowledge_usage_report(state)
 
             hard = [item for item in usage["usage_entries"] if item["usage_state"] == "applied_hard_constraint"]
             self.assertEqual(hard[0]["source_value"], "Open Lab")
@@ -8230,11 +8230,12 @@ class KnowledgeUsageAuditSeedTests(unittest.TestCase):
                 [{"segment_id": "s1", "source": "Open Lab", "target": "Forbidden target"}],
             )
 
-            usage = build_knowledge_usage_report(state)
             audit = build_constraint_application_audit(state)
+            usage = build_knowledge_usage_report(state)
             strategy = build_generation_strategy(state, _knowledge_batch_plan())
 
-            self.assertTrue(any(item["usage_state"] == "applied_negative_constraint" for item in usage["usage_entries"]))
+            self.assertTrue(any(item["classification"] == "negative_constraint" for item in usage["usage_entries"]))
+            self.assertFalse(any(item["usage_state"] == "applied_negative_constraint" for item in usage["usage_entries"]))
             self.assertGreaterEqual(audit["summary"]["checked_fail_count"], 1)
             self.assertIn("knowledge_context_blocked", strategy["work_packet_policy"]["blocked_reason_codes"])
             self.assertIn("knowledge_constraint_check_failed", strategy["gates"]["knowledge"]["blocking_reasons"])
@@ -8290,9 +8291,9 @@ class KnowledgeUsageAuditSeedTests(unittest.TestCase):
                 state / "generated-segments.jsonl",
                 [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问开放实验室"}],
             )
-            build_knowledge_usage_report(state)
             build_constraint_application_audit(state)
             build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
 
             scorecard = build_evaluation_scorecard(state, write=False)
 
@@ -8304,9 +8305,9 @@ class KnowledgeUsageAuditSeedTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             state = _consumption_state(Path(directory))
             _select_consumption_pack(state)
-            build_knowledge_usage_report(state)
             build_constraint_application_audit(state)
             build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
             initial = build_artifact_state(state)
             ids = {item["artifact_id"] for item in initial["artifacts"]}
 

@@ -22,15 +22,17 @@ def build_knowledge_usage_report(state_dir: Path, *, write: bool = True) -> dict
     selection = _read_optional_json(state_dir / KNOWLEDGE_PACK_SELECTION_JSON)
     eligibility = _read_optional_json(state_dir / KNOWLEDGE_ELIGIBILITY_REPORT_JSON)
     context = _read_optional_json(state_dir / WORKING_CONTEXT_PACKET_JSON)
+    audit = _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON)
     entries = eligibility.get("entries", []) if isinstance(eligibility.get("entries"), list) else []
     context_ids = _context_usage_ids(context)
-    usage_entries = [_usage_entry(item, context_ids) for item in entries if isinstance(item, dict)]
+    audit_ids = _audited_application_ids(audit)
+    usage_entries = [_usage_entry(item, context_ids, audit_ids) for item in entries if isinstance(item, dict)]
     counts = _count_by(usage_entries, "usage_state")
     report = {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-knowledge-usage-report-v1",
         "artifact": KNOWLEDGE_USAGE_REPORT_JSON,
-        "status": _usage_status(selection, eligibility, context, usage_entries),
+        "status": _usage_status(selection, eligibility, context, audit, usage_entries),
         "selected_pack_ids": selection.get("selected_pack_ids", []) if selection else [],
         "selected_packs": selection.get("selected_packs", []) if selection else [],
         "eligible_entry_count": sum(1 for item in usage_entries if not str(item.get("usage_state", "")).startswith("excluded_")),
@@ -132,9 +134,9 @@ def build_knowledge_conflict_report(state_dir: Path, *, write: bool = True) -> d
 
 
 def build_knowledge_usage_evidence(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
-    usage = build_knowledge_usage_report(state_dir, write=write)
     audit = build_constraint_application_audit(state_dir, write=write)
     conflicts = build_knowledge_conflict_report(state_dir, write=write)
+    usage = build_knowledge_usage_report(state_dir, write=write)
     return {
         "knowledge_usage_report": usage,
         "constraint_application_audit": audit,
@@ -166,7 +168,7 @@ def knowledge_usage_asset_paths(state_dir: Path) -> dict[str, str]:
     }
 
 
-def _usage_entry(item: dict[str, Any], context_ids: dict[str, set[str]]) -> dict[str, Any]:
+def _usage_entry(item: dict[str, Any], context_ids: dict[str, set[str]], audit_ids: dict[str, set[str]]) -> dict[str, Any]:
     classification = str(item.get("classification") or "")
     reasons = [str(reason) for reason in item.get("reasons", [])]
     knowledge_id = str(item.get("knowledge_id") or "")
@@ -174,9 +176,9 @@ def _usage_entry(item: dict[str, Any], context_ids: dict[str, set[str]]) -> dict
     if knowledge_id in context_ids["conflicted"]:
         state = "conflicted"
     elif classification == "hard_constraint":
-        state = "applied_hard_constraint" if knowledge_id in context_ids["hard"] else "not_used"
+        state = "applied_hard_constraint" if knowledge_id in context_ids["hard"] and knowledge_id in audit_ids["hard_passed"] else "not_used"
     elif classification == "negative_constraint":
-        state = "applied_negative_constraint" if knowledge_id in context_ids["negative"] else "not_used"
+        state = "applied_negative_constraint" if knowledge_id in context_ids["negative"] and knowledge_id in audit_ids["negative_passed"] else "not_used"
     elif classification == "soft_context":
         state = "used_soft_context" if knowledge_id in context_ids["soft"] else "not_used"
     elif classification == "reference_only":
@@ -218,6 +220,19 @@ def _context_usage_ids(context: dict[str, Any]) -> dict[str, set[str]]:
     for item in context.get("hard_constraints", []):
         if str(item.get("source_value") or "").casefold() in conflict_sources:
             groups["conflicted"].add(str(item.get("knowledge_id") or ""))
+    return groups
+
+
+def _audited_application_ids(audit: dict[str, Any]) -> dict[str, set[str]]:
+    groups = {"hard_passed": set(), "negative_passed": set()}
+    for item in audit.get("audited_constraints", []) if isinstance(audit.get("audited_constraints"), list) else []:
+        if not isinstance(item, dict) or item.get("status") != "checked_pass":
+            continue
+        knowledge_id = str(item.get("source_knowledge_item_id") or "")
+        if item.get("constraint_type") == "forbidden_translation":
+            groups["negative_passed"].add(knowledge_id)
+        else:
+            groups["hard_passed"].add(knowledge_id)
     return groups
 
 
@@ -312,10 +327,12 @@ def _audit_summary(items: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
-def _usage_status(selection: dict[str, Any], eligibility: dict[str, Any], context: dict[str, Any], entries: list[dict[str, Any]]) -> str:
+def _usage_status(selection: dict[str, Any], eligibility: dict[str, Any], context: dict[str, Any], audit: dict[str, Any], entries: list[dict[str, Any]]) -> str:
     if not selection:
         return "not_selected"
     if not eligibility or not context:
+        return "blocked"
+    if audit and int(audit.get("summary", {}).get("checked_fail_count", 0) or 0):
         return "blocked"
     if context.get("status") == "blocked" or any(item.get("usage_state") == "conflicted" for item in entries):
         return "blocked"
