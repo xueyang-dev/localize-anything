@@ -35,6 +35,11 @@ from .knowledge_consumption import (
     KNOWLEDGE_PACK_SELECTION_JSON,
     WORKING_CONTEXT_PACKET_JSON,
 )
+from .knowledge_usage import (
+    CONSTRAINT_APPLICATION_AUDIT_JSON,
+    KNOWLEDGE_CONFLICT_REPORT_JSON,
+    KNOWLEDGE_USAGE_REPORT_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -117,6 +122,27 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         ),
     ),
     ArtifactSpec(
+        "knowledge_usage_report",
+        "knowledge_usage_report",
+        KNOWLEDGE_USAGE_REPORT_JSON,
+        "knowledge_usage_audit",
+        ("knowledge_pack_selection", "knowledge_eligibility_report", "working_context_packet"),
+    ),
+    ArtifactSpec(
+        "constraint_application_audit",
+        "constraint_application_audit",
+        CONSTRAINT_APPLICATION_AUDIT_JSON,
+        "knowledge_usage_audit",
+        ("working_context_packet", "knowledge_usage_report", "generation_strategy", "generated_segments"),
+    ),
+    ArtifactSpec(
+        "knowledge_conflict_report",
+        "knowledge_conflict_report",
+        KNOWLEDGE_CONFLICT_REPORT_JSON,
+        "knowledge_usage_audit",
+        ("working_context_packet", "term_registry", "term_decisions", "forbidden_translations"),
+    ),
+    ArtifactSpec(
         "generation_strategy",
         "generation_strategy",
         "generation-strategy.json",
@@ -134,6 +160,9 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_pack_selection",
             "knowledge_eligibility_report",
             "working_context_packet",
+            "knowledge_usage_report",
+            "constraint_application_audit",
+            "knowledge_conflict_report",
             "user_resolution_decisions",
         ),
         required_for_handoff=True,
@@ -803,13 +832,24 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "document_signoff_summary",
     }
     document_consumers = {"signoff_record", "delivery_decision", "evaluation_scorecard"}
+    knowledge_dependency_ids = {
+        "knowledge_pack_selection",
+        "knowledge_eligibility_report",
+        "working_context_packet",
+        "knowledge_usage_report",
+        "constraint_application_audit",
+        "knowledge_conflict_report",
+    }
+    knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard"}
     stale_dependencies = sorted(
         dependency_id
         for dependency_id in spec.dependencies
         if entries.get(dependency_id, {}).get("status") in {"stale", "superseded", "blocked"}
     )
     relevant_dependencies = sorted(set(stale_dependencies) & document_dependency_ids)
-    if spec.artifact_id not in document_dependency_ids | document_consumers or not relevant_dependencies:
+    if spec.artifact_id in knowledge_dependency_ids | knowledge_consumers:
+        relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & knowledge_dependency_ids))
+    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers or not relevant_dependencies:
         return
     entry["status"] = "stale"
     entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"

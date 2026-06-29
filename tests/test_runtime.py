@@ -109,6 +109,17 @@ from runtime.localize_anything.knowledge_consumption import (
     read_working_context_packet,
     select_knowledge_packs,
 )
+from runtime.localize_anything.knowledge_usage import (
+    CONSTRAINT_APPLICATION_AUDIT_JSON,
+    KNOWLEDGE_CONFLICT_REPORT_JSON,
+    KNOWLEDGE_USAGE_REPORT_JSON,
+    build_constraint_application_audit,
+    build_knowledge_conflict_report,
+    build_knowledge_usage_report,
+    read_constraint_application_audit,
+    read_knowledge_conflict_report,
+    read_knowledge_usage_report,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -8168,6 +8179,173 @@ class KnowledgePackConsumptionBridgeTests(unittest.TestCase):
             self.assertIn("working_context_packet", stale_ids)
 
 
+class KnowledgeUsageAuditSeedTests(unittest.TestCase):
+    def test_selected_pack_without_usage_audit_keeps_knowledge_claim_forbidden(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertIn("knowledge_backed_quality", scorecard["forbidden_claims"])
+            self.assertIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+
+    def test_scope_matching_locked_term_is_applied_hard_constraint_and_audited(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问开放实验室"}],
+            )
+
+            usage = build_knowledge_usage_report(state)
+            audit = build_constraint_application_audit(state)
+
+            hard = [item for item in usage["usage_entries"] if item["usage_state"] == "applied_hard_constraint"]
+            self.assertEqual(hard[0]["source_value"], "Open Lab")
+            self.assertGreaterEqual(audit["summary"]["checked_pass_count"], 1)
+            assert_protocol_schema(self, "knowledge-usage-report", usage)
+            assert_protocol_schema(self, "constraint-application-audit", audit)
+
+    def test_reference_raw_stale_and_rejected_entries_are_not_enforced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+
+            usage = build_knowledge_usage_report(state)
+
+            states = {item["source_value"]: item["usage_state"] for item in usage["usage_entries"]}
+            self.assertEqual(states["Reference term"], "shown_reference_only")
+            self.assertEqual(states["Stale term"], "excluded_stale")
+            self.assertEqual(states["Rejected term"], "excluded_rejected")
+            self.assertEqual(states["Superseded term"], "excluded_superseded")
+
+    def test_forbidden_translation_is_negative_constraint_and_audit_failure_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Open Lab", "target": "Forbidden target"}],
+            )
+
+            usage = build_knowledge_usage_report(state)
+            audit = build_constraint_application_audit(state)
+            strategy = build_generation_strategy(state, _knowledge_batch_plan())
+
+            self.assertTrue(any(item["usage_state"] == "applied_negative_constraint" for item in usage["usage_entries"]))
+            self.assertGreaterEqual(audit["summary"]["checked_fail_count"], 1)
+            self.assertIn("knowledge_context_blocked", strategy["work_packet_policy"]["blocked_reason_codes"])
+            self.assertIn("knowledge_constraint_check_failed", strategy["gates"]["knowledge"]["blocking_reasons"])
+
+    def test_blind_benchmark_exclusions_are_recorded_in_usage_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state, operating_mode="blind_benchmark")
+
+            usage = build_knowledge_usage_report(state)
+
+            self.assertTrue(any(item["usage_state"] == "excluded_blind_benchmark" for item in usage["usage_entries"]))
+
+    def test_project_local_term_override_is_reported_as_excluded_pack_knowledge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [{"source_term": "Open Lab", "target_term": "Local Lab", "status": "locked", "scope": "scenario-a", "target_locale": "zh-CN"}],
+            )
+            build_working_context_packet(state)
+
+            usage = build_knowledge_usage_report(state)
+
+            shadowed = [item for item in usage["usage_entries"] if item["source_value"] == "Open Lab" and item["knowledge_type"] == "term"]
+            self.assertEqual(shadowed[0]["usage_state"], "not_used")
+
+    def test_conflicting_locked_pack_terms_create_conflict_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "Other Lab")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+
+            report = build_knowledge_conflict_report(state)
+
+            self.assertEqual(report["status"], "blocked")
+            self.assertEqual(report["summary"]["blocking_conflict_count"], 1)
+            assert_protocol_schema(self, "knowledge-conflict-report", report)
+
+    def test_successful_audit_supports_limited_constraint_claim_not_full_quality(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问开放实验室"}],
+            )
+            build_knowledge_usage_report(state)
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertEqual(scorecard["knowledge_assurance"]["status"], "pass")
+            self.assertIn("knowledge_backed_quality", scorecard["forbidden_claims"])
+            self.assertNotIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+
+    def test_artifact_state_tracks_usage_audit_and_conflict_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_knowledge_usage_report(state)
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+
+            self.assertTrue({"knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"}.issubset(ids))
+
+            pack_terms = knowledge_pack_dir(state, "pack") / "term-registry.csv"
+            rows = _read_csv_dicts(pack_terms)
+            rows[0]["target_term"] = "Changed"
+            _write_csv_rows(pack_terms, rows)
+            changed = build_artifact_state(state)
+            stale_ids = {item["artifact_id"] for item in changed["stale_artifacts"]}
+
+            self.assertIn("knowledge_usage_report", stale_ids)
+
+    def test_api_and_cli_expose_artifact_backed_usage_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            self.assertEqual(cli_main(["knowledge-usage-report", state.as_posix(), "--output", (Path(directory) / "usage.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["constraint-application-audit", state.as_posix(), "--output", (Path(directory) / "audit.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-conflict-report", state.as_posix(), "--output", (Path(directory) / "conflict.json").as_posix()]), 0)
+            self.assertTrue((state / KNOWLEDGE_USAGE_REPORT_JSON).is_file())
+            self.assertTrue((state / CONSTRAINT_APPLICATION_AUDIT_JSON).is_file())
+            self.assertTrue((state / KNOWLEDGE_CONFLICT_REPORT_JSON).is_file())
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for endpoint in ("knowledge-usage-report", "constraint-application-audit", "knowledge-conflict-report"):
+                    status, _ = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+
 def _consumption_state(root: Path) -> Path:
     state = root / ".localize-anything"
     state.mkdir(parents=True, exist_ok=True)
@@ -9268,7 +9446,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 62)
+        self.assertEqual(result["schemas_checked"], 65)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

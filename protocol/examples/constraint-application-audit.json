@@ -1,0 +1,34 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-constraint-application-audit-v1",
+  "artifact": "constraint-application-audit.json",
+  "status": "pass",
+  "working_context_artifact": "working-context-packet.json",
+  "generated_segments_artifact": "generated-segments.jsonl",
+  "audited_constraints": [
+    {
+      "constraint_id": "constraint-term-open-lab",
+      "source_knowledge_item_id": "term-open-lab",
+      "constraint_type": "term",
+      "source_artifact_references": ["term-registry.csv"],
+      "target_artifact_references": ["generated-segments.jsonl"],
+      "scope": "institutional_publicity_case",
+      "status": "checked_pass",
+      "deterministic_check_performed": "target_contains_approved_term_for_matching_source_segments",
+      "affected_segments": ["segment-001"],
+      "result": "pass",
+      "reason": "approved or locked term appeared in affected target segments",
+      "limitations": ["semantic quality is not verified"]
+    }
+  ],
+  "summary": {
+    "constraint_count": 1,
+    "applied_count": 1,
+    "checked_pass_count": 1,
+    "checked_fail_count": 0,
+    "pending_generation_count": 0,
+    "pending_review_count": 0,
+    "reference_only_not_enforced_count": 0
+  },
+  "limitations": ["audit is deterministic and does not verify semantic translation quality"]
+}

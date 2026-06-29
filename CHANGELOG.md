@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Knowledge Usage Evidence and Constraint Application Audit seed with
+  `knowledge-usage-report.json`, `constraint-application-audit.json`, and
+  `knowledge-conflict-report.json`, plus conservative Generation Strategy,
+  Scorecard, Artifact State, CLI, API, and protocol integration.
 - Add the deterministic Personal Knowledge Pack consumption bridge with
   pack selection, entry eligibility, structured Working Context Packet,
   Generation Strategy/Term Governance/Scorecard/Artifact State integration,

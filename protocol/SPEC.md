@@ -754,6 +754,52 @@ full RAG so retrieval cannot bypass status, scope, provenance, freshness, mode,
 or project-term priority. It performs no semantic/vector retrieval, provider
 generation, provider repair, TM server operation, or quality claim.
 
+## Knowledge Usage Evidence
+
+Knowledge Usage Evidence records how selected pack knowledge affected a run. It
+adds:
+
+- `knowledge-usage-report.json`
+- `constraint-application-audit.json`
+- `knowledge-conflict-report.json`
+
+`knowledge-usage-report.json` classifies every eligible or excluded pack entry
+as `applied_hard_constraint`, `applied_negative_constraint`,
+`used_soft_context`, `shown_reference_only`, `excluded_scope_mismatch`,
+`excluded_stale`, `excluded_rejected`, `excluded_superseded`,
+`excluded_blind_benchmark`, `excluded_raw_or_candidate`, `conflicted`, or
+`not_used`. Pack selection alone is not evidence that knowledge was applied.
+
+`constraint-application-audit.json` records deterministic checks for hard and
+negative constraints. Approved/locked term constraints can be checked against
+matching generated target segments. Forbidden translations can be checked as
+negative constraints. Reference-only entries are recorded as
+`reference_only_not_enforced`. Soft style, revision, alignment, and claim
+context remain pending review unless another deterministic artifact proves
+application.
+
+`knowledge-conflict-report.json` records incompatible pack/project knowledge,
+including conflicting locked terms, forbidden-vs-approved target conflicts,
+scope misuse, stale-current conflicts, and attempts to promote reference-only
+items to hard constraints. Blocking P1/P2 conflicts must block or downgrade
+Generation Strategy and Handoff.
+
+Generation Strategy references these artifacts when present. Artifact State
+marks them stale when selected packs, Working Context Packet, term governance,
+generation strategy, or generated segments change. Evaluation Scorecard keeps
+`knowledge_backed_quality` and `knowledge_review_complete` forbidden in this
+seed; a successful deterministic audit can only support the narrower
+`knowledge_constraints_applied` claim. Workbench/API reads are artifact-backed:
+
+- `GET /api/knowledge-usage-report`
+- `GET /api/constraint-application-audit`
+- `GET /api/knowledge-conflict-report`
+
+CLI commands are `knowledge-usage-report`, `constraint-application-audit`, and
+`knowledge-conflict-report`. The seed performs no semantic retrieval, vector
+search, provider/model generation, provider repair, or Translation Memory
+server operation.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

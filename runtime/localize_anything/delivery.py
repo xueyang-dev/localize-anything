@@ -29,6 +29,7 @@ from .human_review import (
     human_review_asset_paths,
 )
 from .io_utils import read_json, sha256_file, write_json
+from .knowledge_usage import knowledge_usage_asset_paths
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
 from .resolution_gate import (
     BLOCKING_QUESTIONS_JSON,
@@ -203,6 +204,7 @@ def package_delivery(
                 **term_governance_asset_paths(state_dir),
                 **termbase_preflight_asset_paths(state_dir),
                 **generation_strategy_asset_paths(state_dir),
+                **knowledge_usage_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

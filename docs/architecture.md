@@ -783,6 +783,42 @@ boundaries must exist before retrieval can be trusted. It does not implement
 semantic search, vector indexes, provider/model generation, repair execution,
 or knowledge-augmented quality claims.
 
+## Knowledge Usage Evidence And Constraint Audit
+
+Knowledge Usage Evidence is the audit layer after pack selection and Working
+Context Packet creation. It produces:
+
+- `knowledge-usage-report.json`
+- `constraint-application-audit.json`
+- `knowledge-conflict-report.json`
+
+`knowledge-usage-report.json` records selected packs, eligible entries, applied
+hard constraints, applied negative constraints, soft context, reference-only
+context, blind-benchmark exclusions, stale/rejected/superseded exclusions,
+scope mismatches, conflicts, and unused knowledge. It is a proof of routing,
+not a proof of quality.
+
+`constraint-application-audit.json` runs deterministic checks where possible:
+approved/locked terms must appear in matching generated target segments, and
+forbidden targets must not appear. Style guidance, revision hints, examples,
+and claim constraints remain pending review or reference-only unless a
+deterministic check can prove them. Missing generated targets leave checks in
+`pending_generation`; failed hard or negative checks block full-quality
+handoff.
+
+`knowledge-conflict-report.json` mirrors blocking knowledge conflicts such as
+locked pack term conflicts, project-local override conflicts, and incompatible
+pack constraints. Generation Strategy references the usage, audit, and conflict
+artifacts. Artifact State marks them stale when packs, Working Context Packet,
+term governance, strategy, or generated segments change.
+
+Evaluation Scorecard may support the narrow `knowledge_constraints_applied`
+claim only after deterministic usage and audit evidence exists. It still
+forbids `knowledge_backed_quality` and `knowledge_review_complete` in this seed
+because applying constraints does not prove semantic quality, review completion,
+or provider-backed generation. This layer comes before full RAG so retrieval can
+later be audited instead of becoming invisible prompt context.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in
