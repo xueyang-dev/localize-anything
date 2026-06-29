@@ -1,0 +1,33 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-claim-metric-report-v1",
+  "artifact": "claim-metric-report.json",
+  "status": "requires_review",
+  "summary": {
+    "check_count": 1,
+    "passing_count": 0,
+    "pending_count": 1,
+    "warning_count": 0,
+    "blocking_count": 0,
+    "human_confirmation_required_count": 1
+  },
+  "checks": [
+    {
+      "check_id": "claim-metric-example-001",
+      "segment_id": "doc:case-report.docx#p1",
+      "claim_type": "person_times",
+      "status": "pending",
+      "severity": "warning",
+      "risk_class": "not_evaluable",
+      "source_values": ["100"],
+      "target_values": [],
+      "reason": "target text is unavailable; claim/metric boundary is not evaluable",
+      "source_artifact_references": ["segments.jsonl"],
+      "target_artifact_references": [],
+      "human_confirmation_required": true
+    }
+  ],
+  "limitations": [
+    "claim metric checks compare source and target boundaries; they do not verify real-world truth"
+  ]
+}

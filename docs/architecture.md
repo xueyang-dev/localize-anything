@@ -150,6 +150,7 @@ Localization Brief
  -> Targeted Repair
  -> Patch-Based Repair Execution
  -> Evaluation Scorecard
+ -> Document Evidence Pack
  -> Human Review Evidence
  -> Claim Acceptance
  -> Signoff
@@ -171,6 +172,7 @@ Each link has a specific contract:
 | Targeted Repair | `segment-regeneration-plan.json`, `repair-request.json` | Repair scope is segment-level and deterministic before execution. |
 | Patch Repair | `repair-result.json`, `repair-history.jsonl` | Only mechanically safe repairs are applied without providers. |
 | Evaluation | `evaluation-scorecard.json`, `evidence-level-report.md` | Unsupported quality/readiness claims are forbidden. |
+| Document Evidence Pack | `document-intake-report.json`, `semantic-alignment.jsonl`, `claim-metric-report.json`, `publicity-risk-report.json`, `leadership-review-brief.md`, `open-decisions.md`, `document-evidence-manifest.json` | High-context document evidence, claim risk, publicity risk, and leadership review needs are explicit. |
 | Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
 | Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
 | Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
@@ -218,6 +220,13 @@ repair-result.json
 repair-history.jsonl
 evaluation-scorecard.json
 evidence-level-report.md
+document-intake-report.json
+semantic-alignment.jsonl
+claim-metric-report.json
+publicity-risk-report.json
+leadership-review-brief.md
+open-decisions.md
+document-evidence-manifest.json
 human-review-evidence.jsonl
 claim-acceptance-decision.json
 signoff-record.json
@@ -569,6 +578,60 @@ Workbench and downstream reviewers read artifact-backed readiness instead of
 inferring quality from UI state. The minimal Workbench path is
 `GET /api/evaluation-scorecard`; a richer visual panel should come after this
 runtime enforcement layer.
+
+## Document Evidence Pack
+
+Document Evidence Pack is the seed evidence layer for high-context document
+localization. It is not a second translation system. It reads existing
+segments, generated segments when present, Localization Brief, term governance,
+termbase preflight, Evaluation Scorecard, human review, claim acceptance,
+signoff, repair, delivery, and artifact-state evidence, then produces a
+review-ready package for document owners and leadership reviewers.
+
+The initial supported scenario is `institutional_publicity_case`. Other
+document scenarios are marked unsupported or pending rather than forced through
+generic publicity rules. `document-intake-report.json` records document type,
+source genre, target delivery mode, target audience, locales, risk profile,
+required confirmations, limitations, source artifacts, and evidence
+dependencies.
+
+`semantic-alignment.jsonl` records segment-level alignment modes:
+`direct_rendering`, `split`, `merged`, `localized_rewrite`,
+`explanatory_expansion`, `structural_relocation`, `english_only_bridge`,
+`source_only_omitted`, and `unknown`. English-only bridge and source-only
+omission are always flagged. Explanatory expansion requires traceable source
+intent or human confirmation. Missing target text remains pending; the pack
+must not invent target text.
+
+`claim-metric-report.json` checks numbers, years, dates, course counts, school
+counts, student/participant counts, person-times, person-days, awards,
+recognitions, employment intention/outcome, trial use versus official adoption,
+partnership claims, and project status. It does not prove real-world truth; it
+only checks that available target text does not exceed or distort source claim
+boundaries. Missing targets are `pending`/not evaluable.
+
+`publicity-risk-report.json` surfaces external-facing risks such as
+official-recognition overstatement, unsupported claims, achievement inflation,
+metric boundary changes, name uncertainty, policy slogan literalism,
+unconfirmed project status, sensitive wording, promotional tone, and audience
+mismatch. `leadership-review-brief.md` summarizes purpose, audience,
+high-risk terms, claim and publicity risks, open decisions, forbidden claims,
+scorecard status, signoff status, and recommended review actions.
+
+`open-decisions.md` aggregates unresolved blocking questions, term review
+items, human-review gaps, claim-acceptance gaps, signoff gaps, publicity risks,
+claim/metric risks, stale artifacts, and pending repairs. The final
+`document-evidence-manifest.json` references every pack artifact plus existing
+scorecard, human review, claim acceptance, signoff, and delivery evidence when
+present.
+
+Excel or spreadsheet exports are optional future convenience outputs, not the
+primary review workflow and not the source of truth. JSON, JSONL, and Markdown
+artifacts remain the protocol contract. Delivery packages may include the pack,
+but the pack's existence never upgrades delivery/apply readiness. Evaluation
+Scorecard, Human Review Evidence, Claim Acceptance, Signoff, Artifact State,
+Repair, QA, and Handoff gates remain responsible for enforcement. Workbench
+can display the pack later as an artifact-backed review surface.
 
 ## Human Review Evidence And Claim Acceptance
 

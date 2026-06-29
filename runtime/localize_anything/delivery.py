@@ -10,6 +10,10 @@ from typing import Any
 
 from . import PROTOCOL_VERSION, __version__
 from .artifact_state import ARTIFACT_STATE_JSON, artifact_state_asset_paths
+from .document_evidence import (
+    DOCUMENT_EVIDENCE_ASSETS,
+    document_evidence_asset_paths,
+)
 from .evaluation import EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD, evaluation_asset_paths
 from .generation_handoff_policy import GENERATION_HANDOFF_DECISION_JSON, generation_handoff_decision_asset_paths
 from .generation_strategy import GENERATION_STRATEGY_JSON, generation_strategy_asset_paths
@@ -89,6 +93,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
     RESOLUTION_SUMMARY_MD,
+    *DOCUMENT_EVIDENCE_ASSETS.values(),
 )
 
 
@@ -200,6 +205,7 @@ def package_delivery(
                 **workbench_action_asset_paths(state_dir),
                 **workbench_queue_asset_paths(state_dir),
                 **resolution_gate_asset_paths(state_dir),
+                **document_evidence_asset_paths(state_dir),
                 "qa_report": "qa-report.md",
             },
             "qa": {

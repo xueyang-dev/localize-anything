@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/publicity-risk-report.schema.json",
+  "title": "Localize Anything Publicity Risk Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "risks"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-publicity-risk-report-v1" },
+    "artifact": { "const": "publicity-risk-report.json" },
+    "status": { "enum": ["ready", "requires_review", "blocked"] },
+    "summary": { "type": "object" },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "risk_id",
+          "risk_class",
+          "severity",
+          "reason",
+          "supporting_source_artifact",
+          "recommended_action",
+          "human_confirmation_required"
+        ],
+        "properties": {
+          "risk_id": { "type": "string" },
+          "segment_id": { "type": "string" },
+          "scope": { "type": "object" },
+          "risk_class": { "type": "string" },
+          "severity": { "enum": ["info", "warning", "blocking"] },
+          "reason": { "type": "string" },
+          "supporting_source_artifact": { "type": "string" },
+          "affected_claim": {},
+          "recommended_action": { "type": "string" },
+          "human_confirmation_required": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

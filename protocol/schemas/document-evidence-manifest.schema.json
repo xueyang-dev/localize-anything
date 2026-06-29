@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/document-evidence-manifest.schema.json",
+  "title": "Localize Anything Document Evidence Manifest",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "artifact",
+    "status",
+    "document_scenario",
+    "summary",
+    "artifacts",
+    "referenced_evidence",
+    "delivery_readiness_note",
+    "limitations"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-document-evidence-manifest-v1" },
+    "artifact": { "const": "document-evidence-manifest.json" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["ready", "requires_review", "blocked", "unsupported"] },
+    "document_scenario": { "type": "string" },
+    "summary": { "type": "object" },
+    "artifacts": { "type": "object" },
+    "referenced_evidence": { "type": "object" },
+    "delivery_readiness_note": { "type": "string" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

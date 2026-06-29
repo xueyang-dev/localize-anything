@@ -1,0 +1,34 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-document-evidence-manifest-v1",
+  "artifact": "document-evidence-manifest.json",
+  "run_id": "doc-evidence-example-001",
+  "status": "requires_review",
+  "document_scenario": "institutional_publicity_case",
+  "summary": {
+    "alignment_record_count": 1,
+    "pending_alignment_count": 0,
+    "claim_metric_check_count": 1,
+    "claim_metric_blocking_count": 0,
+    "publicity_risk_count": 1,
+    "open_decision_count": 1,
+    "blocking_decision_count": 0
+  },
+  "artifacts": {
+    "document_intake_report": {
+      "path": "document-intake-report.json",
+      "status": "present"
+    },
+    "semantic_alignment": {
+      "path": "semantic-alignment.jsonl",
+      "status": "present"
+    }
+  },
+  "referenced_evidence": {
+    "evaluation_scorecard": "evaluation-scorecard.json"
+  },
+  "delivery_readiness_note": "Document Evidence Pack is evidence only; delivery/apply readiness remains controlled by scorecard, signoff, artifact-state, repair, QA, and handoff gates.",
+  "limitations": [
+    "does not render DOCX or prove real-world factual truth"
+  ]
+}

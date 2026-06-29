@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/document-intake-report.schema.json",
+  "title": "Localize Anything Document Intake Report",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "artifact",
+    "status",
+    "document_type",
+    "source_genre",
+    "target_delivery_mode",
+    "target_audience",
+    "detected_scenario_adapter",
+    "risk_profile",
+    "required_human_confirmations",
+    "known_limitations",
+    "source_artifacts",
+    "evidence_dependencies"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-document-intake-report-v1" },
+    "artifact": { "const": "document-intake-report.json" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["ready", "unsupported"] },
+    "document_type": { "type": "string" },
+    "source_genre": { "type": "string" },
+    "target_delivery_mode": { "type": "string" },
+    "target_audience": { "type": "array" },
+    "detected_scenario_adapter": { "type": "string" },
+    "source_locale": { "type": "string" },
+    "target_locale": { "type": "string" },
+    "risk_profile": { "type": "object" },
+    "required_human_confirmations": { "type": "array" },
+    "known_limitations": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" },
+    "evidence_dependencies": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

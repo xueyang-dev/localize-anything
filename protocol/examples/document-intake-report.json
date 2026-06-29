@@ -1,0 +1,33 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-document-intake-report-v1",
+  "artifact": "document-intake-report.json",
+  "run_id": "doc-evidence-example-001",
+  "status": "ready",
+  "document_type": "institutional_case_report",
+  "source_genre": "chinese_application_summary",
+  "target_delivery_mode": "external_publicity_practice_brief",
+  "target_audience": ["international partners"],
+  "detected_scenario_adapter": "institutional_publicity_case",
+  "source_locale": "zh-CN",
+  "target_locale": "en-US",
+  "risk_profile": {
+    "risk_level": "high",
+    "scenario": "institutional_publicity_case",
+    "requires_claim_metric_review": true,
+    "requires_publicity_review": true,
+    "requires_leadership_review": true
+  },
+  "required_human_confirmations": [],
+  "known_limitations": [
+    "document evidence pack does not render DOCX or inspect layout fidelity in this seed"
+  ],
+  "source_artifacts": {
+    "localization_brief": "localization-brief.json"
+  },
+  "evidence_dependencies": [
+    "localization-brief.json",
+    "segments.jsonl",
+    "generated-segments.jsonl"
+  ]
+}

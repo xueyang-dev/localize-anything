@@ -22,6 +22,7 @@ from .chinese_draft import generate_chinese_draft_file
 from .dashboard import build_delivery_dashboard, render_dashboard_markdown
 from .delivery import package_delivery
 from .delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
+from .document_evidence import build_document_evidence_pack
 from .evaluation import build_evaluation_scorecard, read_evaluation_scorecard
 from .generation import (
     collect_generated_handoff,
@@ -595,6 +596,13 @@ def build_parser() -> argparse.ArgumentParser:
     workbench_console_parser = subparsers.add_parser("workbench-console", help="Render the artifact-backed Workbench Review Console HTML")
     workbench_console_parser.add_argument("state_dir", type=Path)
     workbench_console_parser.add_argument("--output", type=Path)
+
+    document_evidence_parser = subparsers.add_parser("document-evidence-pack", help="Create the artifact-backed Document Evidence Pack")
+    document_evidence_parser.add_argument("state_dir", type=Path)
+    document_evidence_parser.add_argument("--run-dir", type=Path)
+    document_evidence_parser.add_argument("--scenario")
+    document_evidence_parser.add_argument("--run-id")
+    document_evidence_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1353,6 +1361,16 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(result, args.output)
         if args.command == "workbench-console":
             return _emit_text(render_workbench_console_html(args.state_dir), args.output)
+        if args.command == "document-evidence-pack":
+            return _emit_json(
+                build_document_evidence_pack(
+                    args.state_dir,
+                    run_dir=args.run_dir,
+                    scenario=args.scenario,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

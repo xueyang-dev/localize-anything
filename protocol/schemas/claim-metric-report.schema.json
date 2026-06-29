@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/claim-metric-report.schema.json",
+  "title": "Localize Anything Claim Metric Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "checks", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-claim-metric-report-v1" },
+    "artifact": { "const": "claim-metric-report.json" },
+    "status": { "enum": ["ready", "requires_review", "blocked"] },
+    "summary": { "type": "object" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check_id",
+          "segment_id",
+          "claim_type",
+          "status",
+          "severity",
+          "risk_class",
+          "reason",
+          "source_artifact_references",
+          "target_artifact_references",
+          "human_confirmation_required"
+        ],
+        "properties": {
+          "check_id": { "type": "string" },
+          "segment_id": { "type": "string" },
+          "claim_type": { "type": "string" },
+          "status": { "enum": ["pass", "warning", "blocked", "pending"] },
+          "severity": { "enum": ["info", "warning", "blocking"] },
+          "risk_class": { "type": "string" },
+          "source_values": { "type": "array", "items": { "type": "string" } },
+          "target_values": { "type": "array", "items": { "type": "string" } },
+          "reason": { "type": "string" },
+          "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+          "target_artifact_references": { "type": "array", "items": { "type": "string" } },
+          "human_confirmation_required": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

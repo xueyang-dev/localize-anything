@@ -39,6 +39,14 @@ from runtime.localize_anything.dashboard import build_delivery_dashboard, render
 from runtime.localize_anything.delivery import package_delivery
 from runtime.localize_anything.delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
 from runtime.localize_anything.deepseek_provider import _get_api_key, generate_deepseek_batch_file
+from runtime.localize_anything.document_evidence import (
+    build_document_evidence_pack,
+    read_claim_metric_report,
+    read_document_evidence_manifest,
+    read_document_intake_report,
+    read_publicity_risk_report,
+    read_semantic_alignment,
+)
 from runtime.localize_anything.evaluation import build_evaluation_scorecard
 from runtime.localize_anything.generation import (
     collect_generated_handoff,
@@ -6832,6 +6840,415 @@ class WorkbenchReviewConsoleTests(unittest.TestCase):
             self.assertIn("Workbench Review Console", first.read_text(encoding="utf-8"))
 
 
+class DocumentEvidencePackTests(unittest.TestCase):
+    def test_document_intake_report_created_for_institutional_publicity_case(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            result = build_document_evidence_pack(state, run_id="doc-evidence-001")
+            intake = result["document_intake_report"]
+
+            assert_protocol_schema(self, "document-intake-report", intake)
+            self.assertEqual(intake["status"], "ready")
+            self.assertEqual(intake["detected_scenario_adapter"], "institutional_publicity_case")
+            self.assertTrue((state / "document-intake-report.json").is_file())
+
+    def test_unsupported_document_scenario_is_marked_unsupported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state, scenario="unsupported_grant_contract")
+            intake = read_document_intake_report(state)
+
+            self.assertEqual(intake["status"], "unsupported")
+            self.assertEqual(intake["detected_scenario_adapter"], "unsupported_grant_contract")
+
+    def test_semantic_alignment_records_preserve_segment_ids_and_modes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            records = read_semantic_alignment(state)
+
+            self.assertEqual([record["segment_id"] for record in records[:4]], ["s1", "s2", "s3", "s4"])
+            self.assertIn("direct_rendering", {record["alignment_mode"] for record in records})
+            assert_protocol_schema(self, "semantic-alignment", records[0])
+
+    def test_english_only_bridge_is_flagged(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            bridge = next(record for record in read_semantic_alignment(state) if record["segment_id"] == "s2")
+
+            self.assertEqual(bridge["alignment_mode"], "english_only_bridge")
+            self.assertIn("english_only_bridge", bridge["risk_flags"])
+            self.assertTrue(bridge["human_confirmation_required"])
+
+    def test_source_only_omitted_is_flagged(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            omitted = next(record for record in read_semantic_alignment(state) if record["segment_id"] == "s3")
+
+            self.assertEqual(omitted["alignment_mode"], "source_only_omitted")
+            self.assertIn("source_only_omitted", omitted["risk_flags"])
+            self.assertTrue(omitted["human_confirmation_required"])
+
+    def test_explanatory_expansion_requires_source_intent_or_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            expansion = next(record for record in read_semantic_alignment(state) if record["segment_id"] == "s4")
+
+            self.assertEqual(expansion["alignment_mode"], "explanatory_expansion")
+            self.assertIn("requires_traceable_source_intent_or_human_confirmation", expansion["risk_flags"])
+            self.assertTrue(expansion["human_confirmation_required"])
+
+    def test_claim_metric_report_detects_number_person_times_and_person_days_risks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            report = read_claim_metric_report(state)
+            risky = [item for item in report["checks"] if item["status"] == "blocked"]
+
+            assert_protocol_schema(self, "claim-metric-report", report)
+            self.assertTrue(any(item["claim_type"] == "person_times" for item in report["checks"]))
+            self.assertTrue(any(item["claim_type"] == "person_days" for item in report["checks"]))
+            self.assertTrue(any(item["risk_class"] == "metric_boundary_change" for item in risky))
+
+    def test_claim_metric_report_marks_pending_when_target_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory), omit_segment_ids={"s5"})
+
+            build_document_evidence_pack(state)
+            pending = [item for item in read_claim_metric_report(state)["checks"] if item["segment_id"] == "s5"]
+
+            self.assertTrue(pending)
+            self.assertEqual(pending[0]["status"], "pending")
+            self.assertEqual(pending[0]["target_artifact_references"], [])
+
+    def test_publicity_risk_report_detects_official_recognition_and_achievement_inflation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            report = read_publicity_risk_report(state)
+            classes = {item["risk_class"] for item in report["risks"]}
+
+            assert_protocol_schema(self, "publicity-risk-report", report)
+            self.assertIn("official-recognition overstatement", classes)
+            self.assertIn("achievement inflation", classes)
+
+    def test_leadership_review_brief_includes_risks_scorecard_and_signoff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            brief = (state / "leadership-review-brief.md").read_text(encoding="utf-8")
+
+            self.assertIn("Leadership Review Brief", brief)
+            self.assertIn("Weight", brief)
+            self.assertIn("Claim And Metric Risks", brief)
+            self.assertIn("Publicity Risks", brief)
+            self.assertIn("Evidence scorecard", brief)
+            self.assertIn("Signoff status", brief)
+
+    def test_open_decisions_include_unresolved_term_review_claim_and_signoff_risks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            decisions = (state / "open-decisions.md").read_text(encoding="utf-8")
+
+            self.assertIn("Resolve blocking question", decisions)
+            self.assertIn("Review unresolved document terminology", decisions)
+            self.assertIn("Record explicit human review evidence", decisions)
+            self.assertIn("Create final signoff", decisions)
+
+    def test_document_evidence_manifest_references_pack_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+
+            build_document_evidence_pack(state)
+            manifest = read_document_evidence_manifest(state)
+
+            assert_protocol_schema(self, "document-evidence-manifest", manifest)
+            self.assertEqual(manifest["artifacts"]["document_intake_report"]["path"], "document-intake-report.json")
+            self.assertEqual(manifest["artifacts"]["semantic_alignment"]["path"], "semantic-alignment.jsonl")
+            self.assertIn("evaluation_scorecard", manifest["referenced_evidence"])
+
+    def test_run_summary_references_document_evidence_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            shutil.copytree(FIXTURE_ROOT, project)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_document_evidence_state(root, state=state)
+            build_document_evidence_pack(state)
+
+            result = run_localize(
+                project,
+                "en-US",
+                ["zh-CN"],
+                ["locales/en-US.json"],
+                output_root=root / "runs",
+                run_id="document-evidence-summary-001",
+                synthetic_draft=True,
+            )
+
+            self.assertTrue(result["summary"]["document_evidence_pack_present"])
+            self.assertIn("document_evidence_manifest", result["artifacts"])
+
+    def test_delivery_package_references_document_evidence_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _write_document_evidence_state(root)
+            build_document_evidence_pack(state)
+            staging = root / "staging"
+            staged = staging / "out.txt"
+            staged.parent.mkdir(parents=True)
+            staged.write_text("translated\n", encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "doc-evidence-delivery-001")
+            manifest = packaged["manifest"]
+
+            self.assertEqual(manifest["assets"]["document_evidence_manifest"], "document-evidence-manifest.json")
+            self.assertEqual(manifest["assets"]["leadership_review_brief"], "leadership-review-brief.md")
+            self.assertTrue((Path(packaged["delivery_directory"]) / "open-decisions.md").is_file())
+
+    def test_delivery_readiness_is_not_upgraded_because_evidence_pack_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _write_document_evidence_state(root)
+            build_document_evidence_pack(state)
+            staging = root / "staging"
+            staged = staging / "out.txt"
+            staged.parent.mkdir(parents=True)
+            staged.write_text("translated\n", encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "doc-evidence-draft-001")
+
+            self.assertEqual(packaged["manifest"]["delivery_status"], "draft_package")
+            self.assertNotEqual(read_document_evidence_manifest(state)["status"], "ready")
+
+    def test_api_endpoints_expose_artifact_backed_document_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            build_document_evidence_pack(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/document-evidence-manifest?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["document_evidence_manifest"]["schema"], "localize-anything-document-evidence-manifest-v1")
+                intake_status, intake_body = _http_get(host, port, f"/api/document-intake-report?state_dir={state.as_posix()}")
+                self.assertEqual(intake_status, 200)
+                self.assertEqual(json.loads(intake_body)["document_intake_report"]["schema"], "localize-anything-document-intake-report-v1")
+                alignment_status, alignment_body = _http_get(host, port, f"/api/semantic-alignment?state_dir={state.as_posix()}")
+                self.assertEqual(alignment_status, 200)
+                self.assertTrue(json.loads(alignment_body)["semantic_alignment"])
+                brief_status, brief_body = _http_get(host, port, f"/api/leadership-review-brief?state_dir={state.as_posix()}")
+                self.assertEqual(brief_status, 200)
+                self.assertIn("Leadership Review Brief", brief_body)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_document_evidence_pack_command_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _write_document_evidence_state(Path(directory))
+            first = Path(directory) / "doc-evidence-1.json"
+            second = Path(directory) / "doc-evidence-2.json"
+
+            self.assertEqual(cli_main(["document-evidence-pack", state.as_posix(), "--run-id", "doc-cli-001", "--output", first.as_posix()]), 0)
+            self.assertEqual(cli_main(["document-evidence-pack", state.as_posix(), "--run-id", "doc-cli-001", "--output", second.as_posix()]), 0)
+
+            self.assertEqual(first.read_text(encoding="utf-8"), second.read_text(encoding="utf-8"))
+            self.assertEqual(read_json(first)["document_evidence_manifest"]["schema"], "localize-anything-document-evidence-manifest-v1")
+
+
+def _write_document_evidence_state(
+    root: Path,
+    *,
+    state: Path | None = None,
+    omit_segment_ids: set[str] | None = None,
+) -> Path:
+    state = state or root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    omit_segment_ids = omit_segment_ids or set()
+    if not (state / "config.json").is_file():
+        write_json(
+            state / "config.json",
+            {
+                "protocol_version": "0.1",
+                "source_locale": "zh-CN",
+                "target_locales": ["en-US"],
+                "operating_mode": "greenfield_localization",
+                "reference_policy": "style_only",
+            },
+        )
+    (state / "localization-context.md").write_text("# Context\n", encoding="utf-8")
+    (state / "glossary.csv").write_text("source,target,notes\n", encoding="utf-8")
+    (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
+    write_json(
+        state / "localization-brief.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-localization-brief-v1",
+            "status": "draft",
+            "document_type": "institutional_case_report",
+            "source_genre": "chinese_application_summary",
+            "target_mode": "external_publicity_practice_brief",
+            "target_audience": ["international partners"],
+            "task_intent": {
+                "scenario": "document_localization",
+                "source_locale": "zh-CN",
+                "target_locales": ["en-US"],
+                "operating_mode": "greenfield_localization",
+                "reference_policy": "style_only",
+            },
+            "required_human_confirmations": [
+                {"item": "claims_and_metrics", "reason": "publicity document", "status": "required"}
+            ],
+        },
+    )
+    segments = [
+        {
+            "protocol_version": "0.1",
+            "segment_id": "s1",
+            "source": "2024 pilot training served 100 person-times at Example University.",
+            "source_locale": "zh-CN",
+            "source_path": "case.docx",
+            "source_hash": "1" * 64,
+            "context": {},
+            "constraints": {"placeholders": []},
+        },
+        {
+            "protocol_version": "0.1",
+            "segment_id": "s2",
+            "source": "学院合作项目保持试点状态。",
+            "source_locale": "zh-CN",
+            "source_path": "case.docx",
+            "source_hash": "2" * 64,
+            "context": {},
+            "constraints": {"placeholders": []},
+        },
+        {
+            "protocol_version": "0.1",
+            "segment_id": "s3",
+            "source": "该段仅用于内部说明。",
+            "source_locale": "zh-CN",
+            "source_path": "case.docx",
+            "source_hash": "3" * 64,
+            "context": {},
+            "constraints": {"placeholders": []},
+        },
+        {
+            "protocol_version": "0.1",
+            "segment_id": "s4",
+            "source": "项目形成阶段性成果。",
+            "source_locale": "zh-CN",
+            "source_path": "case.docx",
+            "source_hash": "4" * 64,
+            "context": {},
+            "constraints": {"placeholders": []},
+        },
+        {
+            "protocol_version": "0.1",
+            "segment_id": "s5",
+            "source": "In 2025, 6 courses covered 200 person-days.",
+            "source_locale": "zh-CN",
+            "source_path": "case.docx",
+            "source_hash": "5" * 64,
+            "context": {},
+            "constraints": {"placeholders": []},
+        },
+        {
+            "protocol_version": "0.1",
+            "segment_id": "s6",
+            "source": "The workshop recorded 40 person-days.",
+            "source_locale": "zh-CN",
+            "source_path": "case.docx",
+            "source_hash": "6" * 64,
+            "context": {},
+            "constraints": {"placeholders": []},
+        },
+    ]
+    generated = [
+        {
+            **segments[0],
+            "target_locale": "en-US",
+            "target": "In 2024, the officially recognized program trained 120 students at Example University.",
+            "status": "generated",
+        },
+        {
+            **segments[1],
+            "target_locale": "en-US",
+            "target": "English bridge text for the college pilot program.",
+            "alignment_mode": "english_only_bridge",
+            "status": "generated",
+        },
+        {
+            **segments[2],
+            "target_locale": "en-US",
+            "target": "",
+            "alignment_mode": "source_only_omitted",
+            "status": "omitted",
+        },
+        {
+            **segments[3],
+            "target_locale": "en-US",
+            "target": "The leading project has produced phased results, including a broader explanatory context that must be confirmed against the source intent before external publication.",
+            "alignment_mode": "explanatory_expansion",
+            "status": "generated",
+        },
+        {
+            **segments[4],
+            "target_locale": "en-US",
+            "target": "In 2025, 6 courses covered 200 person-days.",
+            "status": "generated",
+        },
+        {
+            **segments[5],
+            "target_locale": "en-US",
+            "target": "The workshop recorded 40 participants.",
+            "status": "generated",
+        },
+    ]
+    write_jsonl(state / "segments.jsonl", segments)
+    write_jsonl(state / "generated-segments.jsonl", [item for item in generated if item["segment_id"] not in omit_segment_ids])
+    write_json(
+        state / "term-review-queue.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-term-review-queue-v1",
+            "status": "requires_review",
+            "items": [{"term_id": "term-weight", "term": "Weight", "status": "needs_review", "risk_level": "high"}],
+        },
+    )
+    _build_scorecard_state(state, unresolved_question_count=1)
+    write_json(
+        state / "claim-acceptance-decision.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-claim-acceptance-decision-v1",
+            "status": "blocked",
+            "accepted_claims": [],
+            "rejected_claims": ["full_coverage"],
+            "forbidden_claims_remaining": ["full_coverage", "review_complete"],
+        },
+    )
+    return state
+
+
 def _build_scorecard_state(
     state: Path,
     *,
@@ -7592,7 +8009,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 46)
+        self.assertEqual(result["schemas_checked"], 51)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
