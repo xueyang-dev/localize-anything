@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/semantic-alignment.schema.json",
+  "title": "Localize Anything Semantic Alignment Record",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "alignment_id",
+    "segment_id",
+    "source_hash",
+    "alignment_mode",
+    "information_function",
+    "risk_flags",
+    "source_artifact_references",
+    "target_artifact_references",
+    "review_status",
+    "human_confirmation_required",
+    "limitations"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-semantic-alignment-record-v1" },
+    "alignment_id": { "type": "string", "minLength": 1 },
+    "segment_id": { "type": "string", "minLength": 1 },
+    "source_text": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "target_text_hash": { "type": ["string", "null"] },
+    "alignment_mode": {
+      "enum": [
+        "direct_rendering",
+        "split",
+        "merged",
+        "localized_rewrite",
+        "explanatory_expansion",
+        "structural_relocation",
+        "english_only_bridge",
+        "source_only_omitted",
+        "unknown"
+      ]
+    },
+    "information_function": { "type": "string" },
+    "risk_flags": { "type": "array", "items": { "type": "string" } },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "target_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "review_status": { "type": "string" },
+    "human_confirmation_required": { "type": "boolean" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

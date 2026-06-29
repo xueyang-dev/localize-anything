@@ -478,6 +478,76 @@ artifacts. The deterministic CLI command is `evaluation-scorecard`. Workbench
 exposes `GET /api/evaluation-scorecard`, which returns the artifact-backed
 scorecard only; UI must not hide scoring policy in browser state.
 
+## Document Evidence Pack
+
+Document Evidence Pack adds review evidence for high-context document
+localization without becoming a second translation system. The deterministic
+CLI command is `document-evidence-pack`. It reads existing artifacts in a state
+directory and writes:
+
+- `document-intake-report.json`
+- `semantic-alignment.jsonl`
+- `claim-metric-report.json`
+- `publicity-risk-report.json`
+- `leadership-review-brief.md`
+- `open-decisions.md`
+- `document-evidence-manifest.json`
+
+The initial supported scenario is `institutional_publicity_case`. Unsupported
+document scenarios are marked unsupported or pending. `document-intake-report`
+records the document type, source genre, target delivery mode, audience,
+scenario adapter, locales, risk profile, required confirmations, limitations,
+source artifacts, and evidence dependencies.
+
+`semantic-alignment` is a JSONL artifact with one
+`localize-anything-semantic-alignment-record-v1` object per segment. Alignment
+modes are `direct_rendering`, `split`, `merged`, `localized_rewrite`,
+`explanatory_expansion`, `structural_relocation`, `english_only_bridge`,
+`source_only_omitted`, and `unknown`. English-only bridge and source-only
+omission must be flagged. Explanatory expansion must require traceable source
+intent or human confirmation. Missing target text stays pending; target text
+must not be fabricated.
+
+`claim-metric-report` checks source/target claim boundaries for numbers, years,
+dates, course/school/student/participant counts, person-times, person-days,
+awards, official recognitions, employment intention/outcome, trial use versus
+official adoption, partnership claims, and project status. It does not prove
+real-world truth. When target text is unavailable, checks are pending/not
+evaluable.
+
+`publicity-risk-report` records external-facing risks including
+official-recognition overstatement, unsupported external-facing claims,
+achievement inflation, metric boundary changes, institution/partner/award name
+uncertainty, policy slogan literalism, unconfirmed project status, sensitive
+wording, promotional tone, and audience mismatch.
+
+`leadership-review-brief.md` is the concise human-readable brief. It summarizes
+purpose, target audience, high-risk terms, claim/metric risks, publicity risks,
+open decisions, forbidden claims, scorecard status, signoff status, and
+recommended review actions. `open-decisions.md` lists unresolved items from
+blocking questions, term review, human review, claim acceptance, signoff,
+publicity risks, claim/metric risks, stale artifacts, and pending repairs.
+
+`document-evidence-manifest` references every pack artifact plus scorecard,
+evidence-level report, human review, claim acceptance, signoff, and delivery
+decision evidence when present. Delivery packages may include the pack, but
+its existence does not upgrade delivery/apply readiness. Enforcement remains
+with the scorecard, handoff, artifact-state, repair, QA, signoff, and delivery
+gates.
+
+Workbench exposes artifact-backed read paths:
+
+- `GET /api/document-evidence-manifest`
+- `GET /api/document-intake-report`
+- `GET /api/semantic-alignment`
+- `GET /api/claim-metric-report`
+- `GET /api/publicity-risk-report`
+- `GET /api/leadership-review-brief`
+- `GET /api/open-decisions`
+
+Spreadsheet exports, including CSV, are optional future outputs only. JSON,
+JSONL, and Markdown artifacts are the source of truth.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

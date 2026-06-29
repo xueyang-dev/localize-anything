@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-semantic-alignment-record-v1",
+  "alignment_id": "align-example-001",
+  "segment_id": "doc:case-report.docx#p1",
+  "source_text": "2024年开展试点培训100人次。",
+  "source_hash": "example-source-hash",
+  "target_text_hash": "example-target-hash",
+  "alignment_mode": "direct_rendering",
+  "information_function": "claim_or_metric",
+  "risk_flags": [],
+  "source_artifact_references": ["segments.jsonl"],
+  "target_artifact_references": ["generated-segments.jsonl"],
+  "review_status": "not_reviewed",
+  "human_confirmation_required": false,
+  "limitations": []
+}

@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add Document Evidence Pack seed with `document-intake-report.json`,
+  `semantic-alignment.jsonl`, `claim-metric-report.json`,
+  `publicity-risk-report.json`, `leadership-review-brief.md`,
+  `open-decisions.md`, and `document-evidence-manifest.json` for
+  institutional publicity document review evidence.
 - Add a minimal Workbench Review Console with artifact-backed scorecard,
   review queue, claim queue, signoff, forbidden claim, stale evidence, repair,
   action log, and action result views plus `workbench-console` CLI output.

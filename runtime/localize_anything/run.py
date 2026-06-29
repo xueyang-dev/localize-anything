@@ -18,6 +18,15 @@ from .apply import create_apply_plan, render_apply_plan_markdown
 from .dashboard import build_delivery_dashboard, render_dashboard_markdown
 from .delivery import package_delivery
 from .delivery_decision import create_delivery_decision_report, render_delivery_decision_markdown
+from .document_evidence import (
+    CLAIM_METRIC_REPORT_JSON,
+    DOCUMENT_EVIDENCE_MANIFEST_JSON,
+    DOCUMENT_INTAKE_REPORT_JSON,
+    LEADERSHIP_REVIEW_BRIEF_MD,
+    OPEN_DECISIONS_MD,
+    PUBLICITY_RISK_REPORT_JSON,
+    SEMANTIC_ALIGNMENT_JSONL,
+)
 from .evaluation import (
     EVALUATION_SCORECARD_JSON,
     EVIDENCE_LEVEL_REPORT_MD,
@@ -1033,6 +1042,18 @@ def _summary(
         artifacts["workbench_claim_queue"] = (state_dir / WORKBENCH_CLAIM_QUEUE_JSON).as_posix()
     if (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).is_file():
         artifacts["workbench_signoff_summary"] = (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).as_posix()
+    for key, name in (
+        ("document_evidence_manifest", DOCUMENT_EVIDENCE_MANIFEST_JSON),
+        ("document_intake_report", DOCUMENT_INTAKE_REPORT_JSON),
+        ("semantic_alignment", SEMANTIC_ALIGNMENT_JSONL),
+        ("claim_metric_report", CLAIM_METRIC_REPORT_JSON),
+        ("publicity_risk_report", PUBLICITY_RISK_REPORT_JSON),
+        ("leadership_review_brief", LEADERSHIP_REVIEW_BRIEF_MD),
+        ("open_decisions", OPEN_DECISIONS_MD),
+    ):
+        if (state_dir / name).is_file():
+            artifacts[key] = (state_dir / name).as_posix()
+    document_evidence_manifest = read_json(state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON) if (state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON).is_file() else {}
 
     summary = {
         "protocol_version": PROTOCOL_VERSION,
@@ -1127,6 +1148,11 @@ def _summary(
             "workbench_review_queue_present": (state_dir / WORKBENCH_REVIEW_QUEUE_JSON).is_file(),
             "workbench_claim_queue_present": (state_dir / WORKBENCH_CLAIM_QUEUE_JSON).is_file(),
             "workbench_signoff_summary_present": (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).is_file(),
+            "document_evidence_pack_present": bool(document_evidence_manifest),
+            "document_evidence_status": document_evidence_manifest.get("status", "not_checked"),
+            "document_open_decision_count": document_evidence_manifest.get("summary", {}).get("open_decision_count", 0),
+            "document_publicity_risk_count": document_evidence_manifest.get("summary", {}).get("publicity_risk_count", 0),
+            "document_claim_metric_blocking_count": document_evidence_manifest.get("summary", {}).get("claim_metric_blocking_count", 0),
             **(reference_summary or {}),
         },
         "artifacts": artifacts,

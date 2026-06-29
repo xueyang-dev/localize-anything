@@ -17,6 +17,15 @@ from urllib.parse import parse_qs, urlparse
 from . import __version__
 from .agent import run_agent
 from .artifact_state import read_artifact_state
+from .document_evidence import (
+    read_claim_metric_report,
+    read_document_evidence_manifest,
+    read_document_intake_report,
+    read_leadership_review_brief,
+    read_open_decisions,
+    read_publicity_risk_report,
+    read_semantic_alignment,
+)
 from .evaluation import read_evaluation_scorecard
 from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
@@ -190,6 +199,27 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-console":
                     self._handle_workbench_console_query(parsed.query)
+                    return
+                if parsed.path == "/api/document-evidence-manifest":
+                    self._handle_document_evidence_manifest_query(parsed.query)
+                    return
+                if parsed.path == "/api/document-intake-report":
+                    self._handle_document_intake_report_query(parsed.query)
+                    return
+                if parsed.path == "/api/semantic-alignment":
+                    self._handle_semantic_alignment_query(parsed.query)
+                    return
+                if parsed.path == "/api/claim-metric-report":
+                    self._handle_claim_metric_report_query(parsed.query)
+                    return
+                if parsed.path == "/api/publicity-risk-report":
+                    self._handle_publicity_risk_report_query(parsed.query)
+                    return
+                if parsed.path == "/api/leadership-review-brief":
+                    self._handle_leadership_review_brief_query(parsed.query)
+                    return
+                if parsed.path == "/api/open-decisions":
+                    self._handle_open_decisions_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -387,6 +417,48 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Workbench review console is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_console": build_workbench_console_view(state_dir)})
+
+        def _handle_document_evidence_manifest_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Document evidence manifest is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "document_evidence_manifest": read_document_evidence_manifest(state_dir)})
+
+        def _handle_document_intake_report_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Document intake report is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "document_intake_report": read_document_intake_report(state_dir)})
+
+        def _handle_semantic_alignment_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Semantic alignment is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "semantic_alignment": read_semantic_alignment(state_dir)})
+
+        def _handle_claim_metric_report_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Claim metric report is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "claim_metric_report": read_claim_metric_report(state_dir)})
+
+        def _handle_publicity_risk_report_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Publicity risk report is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "publicity_risk_report": read_publicity_risk_report(state_dir)})
+
+        def _handle_leadership_review_brief_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Leadership review brief is outside allowed workbench roots: {state_dir}")
+            self._send_text(read_leadership_review_brief(state_dir), "text/markdown; charset=utf-8")
+
+        def _handle_open_decisions_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Open decisions are outside allowed workbench roots: {state_dir}")
+            self._send_text(read_open_decisions(state_dir), "text/markdown; charset=utf-8")
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)

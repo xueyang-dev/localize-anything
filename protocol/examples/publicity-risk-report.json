@@ -1,0 +1,28 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-publicity-risk-report-v1",
+  "artifact": "publicity-risk-report.json",
+  "status": "blocked",
+  "summary": {
+    "risk_count": 1,
+    "blocking_count": 1,
+    "human_confirmation_required_count": 1
+  },
+  "risks": [
+    {
+      "risk_id": "doc-risk-example-001",
+      "segment_id": "doc:case-report.docx#p1",
+      "scope": {
+        "scope_type": "segment",
+        "segment_ids": ["doc:case-report.docx#p1"]
+      },
+      "risk_class": "official-recognition overstatement",
+      "severity": "blocking",
+      "reason": "target states or implies official recognition beyond the source",
+      "supporting_source_artifact": "segments.jsonl",
+      "affected_claim": "official_recognition",
+      "recommended_action": "Confirm wording and claim boundary with the document owner before delivery.",
+      "human_confirmation_required": true
+    }
+  ]
+}
