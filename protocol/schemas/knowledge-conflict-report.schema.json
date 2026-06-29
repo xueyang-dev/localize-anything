@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-conflict-report.schema.json",
+  "title": "Localize Anything Knowledge Conflict Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "conflicts", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-conflict-report-v1" },
+    "artifact": { "const": "knowledge-conflict-report.json" },
+    "status": { "enum": ["pass", "review_required", "blocked"] },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["conflict_id", "severity", "type", "blocking", "recommended_resolution", "handoff_impact"],
+        "properties": {
+          "conflict_id": { "type": "string" },
+          "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+          "type": { "type": "string" },
+          "blocking": { "type": "boolean" },
+          "recommended_resolution": { "type": "string" },
+          "handoff_impact": { "enum": ["blocked", "review_required", "allowed_with_warnings"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

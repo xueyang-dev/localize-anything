@@ -10,6 +10,11 @@ from .knowledge_consumption import (
     KNOWLEDGE_PACK_SELECTION_JSON,
     WORKING_CONTEXT_PACKET_JSON,
 )
+from .knowledge_usage import (
+    CONSTRAINT_APPLICATION_AUDIT_JSON,
+    KNOWLEDGE_CONFLICT_REPORT_JSON,
+    KNOWLEDGE_USAGE_REPORT_JSON,
+)
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .termbase_preflight import TERMBASE_PREFLIGHT_REPORT_JSON
 
@@ -291,6 +296,9 @@ def _generation_strategy_asset_paths(
         ("knowledge_pack_selection", KNOWLEDGE_PACK_SELECTION_JSON),
         ("knowledge_eligibility_report", KNOWLEDGE_ELIGIBILITY_REPORT_JSON),
         ("working_context_packet", WORKING_CONTEXT_PACKET_JSON),
+        ("knowledge_usage_report", KNOWLEDGE_USAGE_REPORT_JSON),
+        ("constraint_application_audit", CONSTRAINT_APPLICATION_AUDIT_JSON),
+        ("knowledge_conflict_report", KNOWLEDGE_CONFLICT_REPORT_JSON),
     ):
         if knowledge_gate["selected"] and (state_dir / name).is_file():
             artifacts[key] = name
@@ -301,6 +309,9 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     selection = _read_optional_json(state_dir / KNOWLEDGE_PACK_SELECTION_JSON)
     eligibility = _read_optional_json(state_dir / KNOWLEDGE_ELIGIBILITY_REPORT_JSON)
     context = _read_optional_json(state_dir / WORKING_CONTEXT_PACKET_JSON)
+    usage = _read_optional_json(state_dir / KNOWLEDGE_USAGE_REPORT_JSON)
+    audit = _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON)
+    conflicts = _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON)
     if not selection:
         return {
             "status": "not_selected",
@@ -322,6 +333,12 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
         blocking.append("operating_mode_changed")
     if context and context.get("status") == "blocked":
         blocking.append("hard_constraint_conflict")
+    if selection.get("selected_packs") and (not usage or not audit or not conflicts):
+        warnings.append("knowledge_usage_audit_missing")
+    if conflicts and int(conflicts.get("summary", {}).get("blocking_conflict_count", 0) or 0):
+        blocking.append("knowledge_conflict_unresolved")
+    if audit and int(audit.get("summary", {}).get("checked_fail_count", 0) or 0):
+        blocking.append("knowledge_constraint_check_failed")
     if context and _knowledge_inputs_changed(state_dir, eligibility or {}, context):
         blocking.append("working_context_inputs_changed")
     artifact_state = _read_optional_json(state_dir / "artifact-state.json") or {}
@@ -331,6 +348,9 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     )
     if context_state.get("status") in {"stale", "blocked", "superseded"}:
         blocking.append("working_context_stale")
+    stale_ids = {str(item.get("artifact_id")) for item in artifact_state.get("stale_artifacts", []) if isinstance(item, dict)}
+    if stale_ids.intersection({"knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"}):
+        blocking.append("knowledge_usage_audit_stale")
     allowed = sorted(set((context or {}).get("knowledge_policy", {}).get("allowed_classes", [])))
     enabled = bool((context or {}).get("knowledge_policy", {}).get("enabled")) and not blocking
     constraint_count = len((context or {}).get("hard_constraints", [])) + len((context or {}).get("negative_constraints", []))
@@ -348,6 +368,9 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
             "selection": KNOWLEDGE_PACK_SELECTION_JSON,
             "eligibility": KNOWLEDGE_ELIGIBILITY_REPORT_JSON if eligibility else None,
             "working_context": WORKING_CONTEXT_PACKET_JSON if context else None,
+            "usage_report": KNOWLEDGE_USAGE_REPORT_JSON if usage else None,
+            "constraint_audit": CONSTRAINT_APPLICATION_AUDIT_JSON if audit else None,
+            "conflict_report": KNOWLEDGE_CONFLICT_REPORT_JSON if conflicts else None,
         },
     }
 

@@ -1,0 +1,29 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-conflict-report-v1",
+  "artifact": "knowledge-conflict-report.json",
+  "status": "blocked",
+  "conflicts": [
+    {
+      "conflict_id": "knowledge-conflict-0001",
+      "severity": "P1",
+      "type": "conflicting_pack_hard_constraints",
+      "involved_knowledge_items": ["pack-a", "pack-b"],
+      "involved_project_artifacts": ["working-context-packet.json"],
+      "source_term": "Open Lab",
+      "targets": ["Open Lab", "Innovation Lab"],
+      "priority_decision": "requires_human_resolution",
+      "blocking": true,
+      "recommended_resolution": "Resolve or explicitly scope the conflicting locked knowledge before full-quality generation.",
+      "handoff_impact": "blocked"
+    }
+  ],
+  "summary": {
+    "conflict_count": 1,
+    "blocking_conflict_count": 1
+  },
+  "source_artifacts": {
+    "working_context_packet": "working-context-packet.json",
+    "knowledge_eligibility_report": "knowledge-eligibility-report.json"
+  }
+}

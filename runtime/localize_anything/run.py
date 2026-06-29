@@ -48,6 +48,11 @@ from .human_review import CLAIM_ACCEPTANCE_DECISION_JSON, HUMAN_REVIEW_EVIDENCE_
 from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import validate_pair as validate_po_pair
 from .io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
+from .knowledge_usage import (
+    CONSTRAINT_APPLICATION_AUDIT_JSON,
+    KNOWLEDGE_CONFLICT_REPORT_JSON,
+    KNOWLEDGE_USAGE_REPORT_JSON,
+)
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -1051,6 +1056,13 @@ def _summary(
         artifacts["workbench_signoff_summary"] = (state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON).as_posix()
     if (state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON).is_file():
         artifacts["workbench_document_evidence_queue"] = (state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON).as_posix()
+    for key, name in (
+        ("knowledge_usage_report", KNOWLEDGE_USAGE_REPORT_JSON),
+        ("constraint_application_audit", CONSTRAINT_APPLICATION_AUDIT_JSON),
+        ("knowledge_conflict_report", KNOWLEDGE_CONFLICT_REPORT_JSON),
+    ):
+        if (state_dir / name).is_file():
+            artifacts[key] = (state_dir / name).as_posix()
     for key, name in (
         ("document_decision_log", DOCUMENT_DECISION_LOG_JSONL),
         ("leadership_review_evidence", LEADERSHIP_REVIEW_EVIDENCE_JSONL),

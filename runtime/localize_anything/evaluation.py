@@ -21,6 +21,11 @@ from .document_evidence import (
 )
 from .document_decision import DOCUMENT_CLAIM_RESOLUTION_JSON, DOCUMENT_SIGNOFF_SUMMARY_JSON
 from .io_utils import read_json, read_jsonl, write_json
+from .knowledge_usage import (
+    CONSTRAINT_APPLICATION_AUDIT_JSON,
+    KNOWLEDGE_CONFLICT_REPORT_JSON,
+    KNOWLEDGE_USAGE_REPORT_JSON,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -214,6 +219,9 @@ def _load_artifacts(
         "knowledge_pack_selection": _read_optional_json(state_dir / "knowledge-pack-selection.json"),
         "knowledge_eligibility_report": _read_optional_json(state_dir / "knowledge-eligibility-report.json"),
         "working_context_packet": _read_optional_json(state_dir / "working-context-packet.json"),
+        "knowledge_usage_report": _read_optional_json(state_dir / KNOWLEDGE_USAGE_REPORT_JSON),
+        "constraint_application_audit": _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON),
+        "knowledge_conflict_report": _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -292,6 +300,9 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     selection = artifacts.get("knowledge_pack_selection", {})
     eligibility = artifacts.get("knowledge_eligibility_report", {})
     context = artifacts.get("working_context_packet", {})
+    usage = artifacts.get("knowledge_usage_report", {})
+    audit = artifacts.get("constraint_application_audit", {})
+    conflicts = artifacts.get("knowledge_conflict_report", {})
     if not selection:
         return _dimension("not_provided", E0, "knowledge pack was not selected", warnings=["knowledge_pack_not_selected"])
     if not selection.get("selected_packs"):
@@ -300,14 +311,30 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
         return _dimension("blocked", E0, "knowledge consumption artifacts are incomplete", blockers=["knowledge_artifacts_incomplete"])
     if context.get("status") == "blocked":
         return _dimension("blocked", E1, "knowledge hard constraints conflict", blockers=["knowledge_constraint_conflict"])
+    if conflicts and int(conflicts.get("summary", {}).get("blocking_conflict_count", 0) or 0):
+        return _dimension("blocked", E1, "knowledge conflicts are unresolved", blockers=["knowledge_conflict_unresolved"])
+    if audit and int(audit.get("summary", {}).get("checked_fail_count", 0) or 0):
+        return _dimension("blocked", E1, "knowledge hard constraint checks failed", blockers=["knowledge_constraint_check_failed"])
     artifact_state = artifacts.get("artifact_state", {})
     stale_ids = {str(item.get("artifact_id")) for item in artifact_state.get("stale_artifacts", []) if isinstance(item, dict)}
-    if "working_context_packet" in stale_ids or "knowledge_eligibility_report" in stale_ids:
+    if stale_ids.intersection({"working_context_packet", "knowledge_eligibility_report", "knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"}):
         return _dimension("blocked", E1, "knowledge context is stale", blockers=["knowledge_context_stale"])
     summary = eligibility.get("summary", {}) if isinstance(eligibility.get("summary"), dict) else {}
     constraint_count = int(summary.get("hard_constraint_count", 0) or 0) + int(summary.get("negative_constraint_count", 0) or 0)
     if not constraint_count:
         return _dimension("warning", E0, "selected knowledge is reference-only or ineligible", warnings=["knowledge_reference_only"])
+    if not usage or not audit or not conflicts:
+        return _dimension("warning", E1, "eligible knowledge constraints exist, but usage audit evidence is missing", warnings=["knowledge_usage_evidence_missing"])
+    audit_summary = audit.get("summary", {}) if isinstance(audit.get("summary"), dict) else {}
+    if int(audit_summary.get("pending_generation_count", 0) or 0):
+        return _dimension("warning", E1, "knowledge constraints are eligible but pending generated target checks", warnings=["knowledge_constraint_audit_pending_generation"])
+    if int(audit_summary.get("checked_pass_count", 0) or 0):
+        return _dimension(
+            "pass",
+            E1,
+            "knowledge constraints were deterministically applied and checked; full knowledge-backed quality is still not proven",
+            warnings=["knowledge_backed_quality_not_proven"],
+        )
     return _dimension(
         "warning",
         E1,
@@ -536,7 +563,9 @@ def _forbidden_claims(
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
     if dimensions["knowledge_assurance"]["status"] != "pass":
-        claims.add("knowledge_backed_quality")
+        claims.update({"knowledge_backed_quality", "knowledge_constraints_applied", "knowledge_review_complete"})
+    else:
+        claims.update({"knowledge_backed_quality", "knowledge_review_complete"})
     if dimensions["review_readiness"]["status"] != "pass":
         claims.add("review_complete")
     if dimensions["delivery_readiness"]["status"] != "pass":
@@ -884,6 +913,9 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "localization_brief": state_dir / "localization-brief.json",
         "termbase_preflight_report": state_dir / "termbase-preflight-report.json",
         "generation_strategy": state_dir / "generation-strategy.json",
+        "knowledge_usage_report": state_dir / KNOWLEDGE_USAGE_REPORT_JSON,
+        "constraint_application_audit": state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON,
+        "knowledge_conflict_report": state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON,
         "blocking_questions": state_dir / "blocking-questions.json",
         "resolution_options": state_dir / "resolution-options.json",
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",

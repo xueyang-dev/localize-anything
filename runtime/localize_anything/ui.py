@@ -62,6 +62,11 @@ from .knowledge_consumption import (
     read_working_context_packet,
     select_knowledge_packs,
 )
+from .knowledge_usage import (
+    read_constraint_application_audit,
+    read_knowledge_conflict_report,
+    read_knowledge_usage_report,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -278,6 +283,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/working-context-packet":
                     self._handle_working_context_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-usage-report":
+                    self._handle_knowledge_usage_query(parsed.query)
+                    return
+                if parsed.path == "/api/constraint-application-audit":
+                    self._handle_constraint_audit_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-conflict-report":
+                    self._handle_knowledge_conflict_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -610,6 +624,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Working Context Packet is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "working_context_packet": read_working_context_packet(state_dir)})
+
+        def _handle_knowledge_usage_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge usage report is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_usage_report": read_knowledge_usage_report(state_dir)})
+
+        def _handle_constraint_audit_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Constraint application audit is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "constraint_application_audit": read_constraint_application_audit(state_dir)})
+
+        def _handle_knowledge_conflict_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge conflict report is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_conflict_report": read_knowledge_conflict_report(state_dir)})
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)

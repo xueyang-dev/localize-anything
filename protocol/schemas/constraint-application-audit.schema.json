@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/constraint-application-audit.schema.json",
+  "title": "Localize Anything Constraint Application Audit",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "audited_constraints", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-constraint-application-audit-v1" },
+    "artifact": { "const": "constraint-application-audit.json" },
+    "status": { "enum": ["pass", "blocked", "pending_generation"] },
+    "audited_constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["constraint_id", "source_knowledge_item_id", "constraint_type", "scope", "status", "deterministic_check_performed", "affected_segments", "result", "reason"],
+        "properties": {
+          "constraint_id": { "type": "string" },
+          "source_knowledge_item_id": { "type": "string" },
+          "constraint_type": { "type": "string" },
+          "scope": { "type": "string" },
+          "status": {
+            "enum": [
+              "applied",
+              "checked_pass",
+              "checked_fail",
+              "not_applicable",
+              "blocked",
+              "conflicted",
+              "superseded_by_project_term",
+              "reference_only_not_enforced",
+              "pending_generation",
+              "pending_review"
+            ]
+          },
+          "deterministic_check_performed": { "type": "string" },
+          "affected_segments": { "type": "array", "items": { "type": "string" } },
+          "result": { "enum": ["pass", "fail", "not_applicable"] },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

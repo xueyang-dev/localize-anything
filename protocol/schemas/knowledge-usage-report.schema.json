@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-usage-report.schema.json",
+  "title": "Localize Anything Knowledge Usage Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "selected_pack_ids", "usage_entries", "summary", "quality_claim_support"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-usage-report-v1" },
+    "artifact": { "const": "knowledge-usage-report.json" },
+    "status": { "enum": ["pass", "blocked", "not_selected"] },
+    "selected_pack_ids": { "type": "array", "items": { "type": "string" } },
+    "usage_entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["knowledge_id", "pack_id", "knowledge_type", "classification", "usage_state", "scope", "reasons", "provenance_id"],
+        "properties": {
+          "knowledge_id": { "type": "string" },
+          "pack_id": { "type": "string" },
+          "knowledge_type": { "type": "string" },
+          "classification": { "type": "string" },
+          "usage_state": {
+            "enum": [
+              "applied_hard_constraint",
+              "applied_negative_constraint",
+              "used_soft_context",
+              "shown_reference_only",
+              "excluded_scope_mismatch",
+              "excluded_stale",
+              "excluded_rejected",
+              "excluded_superseded",
+              "excluded_blind_benchmark",
+              "excluded_raw_or_candidate",
+              "conflicted",
+              "not_used"
+            ]
+          },
+          "scope": { "type": "string" },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "provenance_id": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": { "type": "object" },
+    "quality_claim_support": { "type": "object" }
+  },
+  "additionalProperties": true
+}

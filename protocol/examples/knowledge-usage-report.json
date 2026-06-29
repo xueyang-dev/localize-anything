@@ -1,0 +1,44 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-usage-report-v1",
+  "artifact": "knowledge-usage-report.json",
+  "status": "pass",
+  "selected_pack_ids": ["institutional-zh-cn"],
+  "selected_packs": [{"pack_id": "institutional-zh-cn"}],
+  "eligible_entry_count": 1,
+  "usage_entries": [
+    {
+      "knowledge_id": "term-open-lab",
+      "pack_id": "institutional-zh-cn",
+      "knowledge_type": "term",
+      "source_artifact": "term-registry.csv",
+      "source_value": "Open Lab",
+      "target_value_present": true,
+      "classification": "hard_constraint",
+      "usage_state": "applied_hard_constraint",
+      "scope": "institutional_publicity_case",
+      "reasons": ["approved_scoped_term"],
+      "provenance_id": "prov-open-lab"
+    }
+  ],
+  "summary": {
+    "entry_count": 1,
+    "applied_hard_constraint_count": 1,
+    "applied_negative_constraint_count": 0,
+    "used_soft_context_count": 0,
+    "shown_reference_only_count": 0,
+    "excluded_count": 0,
+    "conflicted_count": 0,
+    "not_used_count": 0
+  },
+  "affected_artifacts": {
+    "knowledge_pack_selection": "knowledge-pack-selection.json",
+    "knowledge_eligibility_report": "knowledge-eligibility-report.json",
+    "working_context_packet": "working-context-packet.json"
+  },
+  "quality_claim_support": {
+    "knowledge_backed_quality": false,
+    "knowledge_constraints_applied": true,
+    "limitations": ["pack selection does not prove generation quality"]
+  }
+}
