@@ -4,6 +4,9 @@
 
 ### Added
 
+- Add a minimal Workbench Review Console with artifact-backed scorecard,
+  review queue, claim queue, signoff, forbidden claim, stale evidence, repair,
+  action log, and action result views plus `workbench-console` CLI output.
 - Add Workbench Action Surface seed with `workbench-action-log.jsonl`,
   `workbench-action-result.json`, deterministic CLI/API actions, and runtime
   delegation for human review, claim acceptance, signoff, follow-up, and

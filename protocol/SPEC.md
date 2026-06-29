@@ -582,11 +582,34 @@ Workbench APIs expose these artifacts through:
 
 - `POST /api/workbench-action`
 - `GET /api/workbench-action-log`
+- `GET /api/workbench-action-result`
 
 The POST endpoint only delegates to the runtime action surface and must not
 call providers. It cannot remove scorecard `forbidden_claims`, infer E2/E3/E4
 from project-owner signoff, turn limited-scope acceptance into global
 readiness, or authorize delivery/apply when runtime gates remain blocked.
+
+## Workbench Review Console
+
+`workbench-console` renders a deterministic HTML review console for a state
+directory. The Workbench server exposes the same surface at
+`GET /workbench-review-console?state_dir=...` and a JSON projection at
+`GET /api/workbench-console`.
+
+The console reads current evidence from existing artifact-backed endpoints and
+artifacts: Evaluation Scorecard, Evidence Level Report, Workbench review queue,
+claim queue, signoff summary, human review evidence, claim acceptance, signoff,
+artifact-state, repair artifacts, generation handoff status, action log, and
+latest action result. It does not add a protocol schema because it is a view,
+not durable state.
+
+Writes from the console must go through `POST /api/workbench-action`. The UI
+may display suggested actions and submit action requests, but it must display
+the runtime result exactly and refresh artifact views after submission. It must
+not locally resolve queue items, hide forbidden claims, infer readiness, infer
+E2/E3/E4 from project-owner signoff, or allow limited-scope acceptance to appear
+as global readiness. Forbidden claims and stale evidence remain visible until
+the underlying runtime artifacts change.
 
 ## Localization Modes
 

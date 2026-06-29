@@ -82,6 +82,7 @@ from runtime.localize_anything.workbench_action import (
     perform_workbench_action,
     read_workbench_action_log,
 )
+from runtime.localize_anything.workbench_console import render_workbench_console_html
 from runtime.localize_anything.workbench_queue import (
     build_workbench_claim_queue,
     build_workbench_review_queue,
@@ -6552,6 +6553,283 @@ class WorkbenchActionSurfaceTests(unittest.TestCase):
             self.assertEqual(packaged["manifest"]["assets"]["workbench_action_result"], "workbench-action-result.json")
             self.assertTrue(result["summary"]["workbench_action_log_present"])
             self.assertIn("workbench_action_result", result["artifacts"])
+
+
+class WorkbenchReviewConsoleTests(unittest.TestCase):
+    def test_console_page_renders_evaluation_scorecard_data(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/workbench-review-console?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertIn("Evaluation Scorecard", body)
+                self.assertIn("overall_claim", body)
+                self.assertIn("apply_ready", body)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_console_renders_review_queue_items(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            build_workbench_review_queue(state)
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Workbench Review Queue", html)
+            self.assertIn("human_review_required", html)
+
+    def test_console_renders_claim_queue_and_forbidden_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, provider_status="not_run", provider_actual="none")
+            build_workbench_claim_queue(state)
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Workbench Claim Queue", html)
+            self.assertIn("Forbidden Claims", html)
+            self.assertIn("provider_backed_quality", html)
+
+    def test_console_renders_signoff_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            build_claim_acceptance_decision(state, requested_claims=["review_ready"])
+            create_signoff_record(state, _signoff_request(delivery=True))
+            build_workbench_signoff_summary(state)
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Workbench Signoff Summary", html)
+            self.assertIn("delivery_authorized", html)
+
+    def test_console_renders_action_log_and_action_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            perform_workbench_action(
+                state,
+                {
+                    "action_id": "console-action-001",
+                    "action_type": "acknowledge_limitation",
+                    "actor_role": "project_owner",
+                    "payload": {"claim": "draft_only"},
+                },
+            )
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Action Log", html)
+            self.assertIn("Action Result", html)
+            self.assertIn("console-action-001", html)
+
+    def test_console_action_form_delegates_to_workbench_action_endpoint(self) -> None:
+        html = render_workbench_console_html()
+
+        self.assertIn('fetch("/api/workbench-action"', html)
+        self.assertIn("workbench-action-result-data", html)
+        self.assertIn("Submit Runtime Action", html)
+        self.assertIn("Action JSON", html)
+
+    def test_console_does_not_mark_queue_item_resolved_without_runtime_artifact_update(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            queue = build_workbench_review_queue(state)
+            item_id = next(item["item_id"] for item in queue["items"] if item["item_type"] == "human_review_required")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/workbench-action",
+                    {
+                        "state_dir": state.as_posix(),
+                        "action": {
+                            "action_type": "mark_queue_item_addressed",
+                            "actor_role": "project_owner",
+                            "payload": {"queue_item_id": item_id},
+                        },
+                    },
+                )
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["workbench_action_result"]["outcome"], "blocked")
+                page_status, body = _http_get(host, port, f"/workbench-review-console?state_dir={state.as_posix()}")
+                self.assertEqual(page_status, 200)
+                self.assertIn(item_id, body)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_forbidden_claims_remain_visible_after_acknowledgement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, provider_status="not_run", provider_actual="none")
+            build_workbench_claim_queue(state)
+            perform_workbench_action(
+                state,
+                {
+                    "action_type": "acknowledge_forbidden_claim",
+                    "actor_role": "project_owner",
+                    "payload": {"claim": "provider_backed_quality"},
+                },
+            )
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Forbidden Claims", html)
+            self.assertIn("provider_backed_quality", html)
+
+    def test_limited_scope_acceptance_does_not_display_global_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, coverage={"coverage_mode": "source-only", "visible_ui_coverage_warning": True})
+            build_claim_acceptance_decision(
+                state,
+                requested_claims=["limited_scope_delivery_ready"],
+                accepted_risk={"accepts_limitations": True},
+            )
+            build_workbench_claim_queue(state)
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("limited_scope_delivery_ready", html)
+            self.assertIn("full_coverage", html)
+            self.assertNotIn('"overall_claim": "delivery_ready"', html)
+
+    def test_owner_signoff_does_not_display_e2_to_e4_review_level(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            create_signoff_record(state, _signoff_request(delivery=True))
+            build_workbench_signoff_summary(state)
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("E2_bilingual_human_spot_check", html)
+            self.assertIn("not_provided", html)
+
+    def test_stale_evidence_warnings_are_visible(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, artifact_status="stale", stale_count=1)
+            write_json(
+                state / "artifact-state.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-artifact-state-v1",
+                    "status": "stale",
+                    "safe_to_continue": False,
+                    "summary": {"stale_count": 1, "blocked_count": 0},
+                    "artifacts": [
+                        {
+                            "artifact_path": "localization-brief.json",
+                            "artifact_type": "localization_brief",
+                            "status": "stale",
+                            "blocking_reason": "localization_brief_changed",
+                        }
+                    ],
+                },
+            )
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Stale Artifact Warnings", html)
+            self.assertIn("localization-brief.json", html)
+
+    def test_pending_repairs_and_blocked_handoff_are_visible(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, pending_required_repairs=1, unresolved_question_count=1)
+            write_json(
+                state / "repair-request.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-repair-request-v1",
+                    "summary": {"request_count": 1, "human_confirmation_required_count": 0, "provider_or_model_required_count": 1},
+                    "requests": [{"repair_id": "repair-s1", "segment_id": "s1", "human_confirmation_required": False}],
+                },
+            )
+
+            html = render_workbench_console_html(state)
+
+            self.assertIn("Pending Repairs", html)
+            self.assertIn("repair-s1", html)
+            self.assertIn("Generation Handoff", html)
+            self.assertIn("handoff_allowed", html)
+            self.assertIn("false", html)
+
+    def test_console_api_does_not_call_providers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    status, body = _http_get(host, port, f"/workbench-review-console?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+                    api_status, api_body = _http_get(host, port, f"/api/workbench-console?state_dir={state.as_posix()}")
+                    self.assertEqual(api_status, 200)
+                    self.assertEqual(json.loads(api_body)["workbench_console"]["schema"], "localize-anything-workbench-console-view-v1")
+                    provider_call.assert_not_called()
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_action_result_endpoint_returns_artifact_backed_runtime_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            perform_workbench_action(
+                state,
+                {
+                    "action_id": "console-result-001",
+                    "action_type": "acknowledge_limitation",
+                    "actor_role": "project_owner",
+                    "payload": {"claim": "draft_only"},
+                },
+            )
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/workbench-action-result?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["workbench_action_result"]["action_id"], "console-result-001")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_console_command_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state, review_evidence="E2_bilingual_human_spot_check")
+            first = Path(directory) / "console-1.html"
+            second = Path(directory) / "console-2.html"
+
+            self.assertEqual(cli_main(["workbench-console", state.as_posix(), "--output", first.as_posix()]), 0)
+            self.assertEqual(cli_main(["workbench-console", state.as_posix(), "--output", second.as_posix()]), 0)
+
+            self.assertEqual(first.read_text(encoding="utf-8"), second.read_text(encoding="utf-8"))
+            self.assertIn("Workbench Review Console", first.read_text(encoding="utf-8"))
 
 
 def _build_scorecard_state(
