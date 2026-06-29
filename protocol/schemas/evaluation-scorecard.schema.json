@@ -55,6 +55,7 @@
     "structural_qa": { "type": "object" },
     "provider_status": { "type": "object" },
     "terminology_assurance": { "type": "object" },
+    "knowledge_assurance": { "type": "object" },
     "coverage_assurance": { "type": "object" },
     "resolution_status": { "type": "object" },
     "handoff_readiness": { "type": "object" },
@@ -79,7 +80,8 @@
           "full_source_coverage",
           "full_quality_generation",
           "safe_apply_readiness",
-          "review_complete_status"
+          "review_complete_status",
+          "knowledge_backed_quality"
         ]
       },
       "uniqueItems": true

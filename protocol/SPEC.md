@@ -697,6 +697,63 @@ The seed does not implement hybrid retrieval or knowledge-augmented generation.
 It only creates reviewed, auditable pack artifacts so future generation loops
 can consume knowledge without treating raw previous output as truth.
 
+## Knowledge Pack Consumption
+
+Knowledge Pack Consumption reads local Personal Knowledge Pack artifacts and
+produces:
+
+- `knowledge-pack-selection.json`
+- `knowledge-eligibility-report.json`
+- `working-context-packet.json`
+
+Selection records pack ids and paths, selection source, locales, domains,
+scenario, operating mode, pack status/freshness, selector, reasons, rejected
+packs, privacy/sync metadata, and source artifact references. Invalid metadata,
+locale mismatch, unallowed domain/scenario mismatch, stale packs, and
+unallowed experimental packs reject selection. `team_shared` metadata remains
+visible, but selection is local-first and does not sync.
+
+Eligibility classifications are `hard_constraint`, `soft_context`,
+`reference_only`, `negative_constraint`, `review_required`, `not_eligible`,
+`stale`, `scope_mismatch`, and `rejected`. Approved/locked scoped terms may be
+hard constraints. Provenanced forbidden translations may be negative
+constraints. Reviewed TM is soft context. Reference TM/examples never become
+hard constraints. Approved scoped style and claim decisions become guidance or
+review constraints. Revision memory remains a repair/review hint. Raw,
+candidate, deferred, stale, rejected, superseded, failed, provenance-free, and
+scope-mismatched entries cannot become constraints.
+
+The Working Context Packet has separate `hard_constraints`,
+`negative_constraints`, `tm_suggestions`, `style_guidance`,
+`retrieved_examples`, `claim_constraints`, `revision_hints`, `risk_notes`,
+`scenario_rules`, `excluded_knowledge`, and `provenance` fields. Consumers must
+not flatten these classes into a single prompt string. `blind_benchmark` hides
+target-language pack terms, TM, and examples from generation context.
+
+Eligible pack terms enter Term Governance as imported scoped terms with
+provenance and lower priority than project-local approved decisions. Locked
+target conflicts appear as blocking Generation Strategy evidence. Generation
+Strategy records whether knowledge is enabled, allowed classes, and the three
+artifact references. A stale, mode-mismatched, or conflicting packet blocks or
+downgrades handoff. Pack existence and reference-only context never upgrade run
+readiness or authorize `knowledge_backed_quality`; Evaluation Scorecard keeps
+that claim forbidden without usage plus QA/review evidence.
+
+Artifact State tracks all three artifacts. Pack changes stale eligibility and
+context; brief changes may stale both; term governance changes stale context and
+strategy; mode mismatch blocks strategy. Workbench/API paths are artifact-backed:
+
+- `GET|POST /api/knowledge-pack-selection`
+- `GET /api/knowledge-eligibility-report`
+- `GET /api/working-context-packet`
+
+CLI commands are `knowledge-pack-select`, `knowledge-eligibility-report`, and
+`working-context-packet`. Selection POST/CLI performs only deterministic local
+validation, classification, and packet construction. This bridge comes before
+full RAG so retrieval cannot bypass status, scope, provenance, freshness, mode,
+or project-term priority. It performs no semantic/vector retrieval, provider
+generation, provider repair, TM server operation, or quality claim.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

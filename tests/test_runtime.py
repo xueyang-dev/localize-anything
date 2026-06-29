@@ -99,6 +99,16 @@ from runtime.localize_anything.knowledge_pack import (
     read_knowledge_review_queue,
     record_knowledge_review_decision,
 )
+from runtime.localize_anything.knowledge_consumption import (
+    KNOWLEDGE_ELIGIBILITY_REPORT_JSON,
+    KNOWLEDGE_PACK_SELECTION_JSON,
+    WORKING_CONTEXT_PACKET_JSON,
+    build_knowledge_eligibility_report,
+    build_working_context_packet,
+    read_knowledge_eligibility_report,
+    read_working_context_packet,
+    select_knowledge_packs,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -7874,6 +7884,375 @@ class PersonalKnowledgePackBuilderTests(unittest.TestCase):
             self.assertTrue(report.read_text(encoding="utf-8").startswith("# Knowledge Pack Quality Report"))
 
 
+class KnowledgePackConsumptionBridgeTests(unittest.TestCase):
+    def test_valid_pack_selection_matches_locale_domain_scenario_and_preserves_sharing_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            pack_path = knowledge_pack_dir(state, "pack") / PACK_JSON
+            pack = read_json(pack_path)
+            pack["privacy_mode"] = "team_shared"
+            pack["sync_metadata"] = {"sync_enabled": False, "storage": "local"}
+            write_json(pack_path, pack)
+
+            selection = _select_consumption_pack(state)
+
+            self.assertEqual(selection["selected_pack_ids"], ["pack"])
+            self.assertEqual(selection["selected_packs"][0]["privacy_mode"], "team_shared")
+            self.assertEqual(selection["selected_packs"][0]["sync_metadata"]["storage"], "local")
+
+    def test_stale_invalid_and_experimental_packs_are_rejected_for_constraints(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            pack_path = knowledge_pack_dir(state, "pack") / PACK_JSON
+            pack = read_json(pack_path)
+            pack["freshness"] = "stale"
+            write_json(pack_path, pack)
+            _add_locked_pack(state, "experimental-pack", "实验")
+            experimental_path = knowledge_pack_dir(state, "experimental-pack") / PACK_JSON
+            experimental = read_json(experimental_path)
+            experimental["privacy_mode"] = "experimental"
+            write_json(experimental_path, experimental)
+            invalid = Path(directory) / "invalid-pack"
+            invalid.mkdir()
+
+            selection = select_knowledge_packs(
+                state,
+                pack_ids=["pack", "experimental-pack"],
+                pack_paths=[invalid],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+
+            self.assertEqual(selection["selected_packs"], [])
+            reasons = {reason for item in selection["rejected_packs"] for reason in item["reasons"]}
+            self.assertIn("pack_not_current", reasons)
+            self.assertIn("missing_pack_metadata", reasons)
+            self.assertIn("experimental_pack_not_allowed", reasons)
+
+    def test_approved_locked_terms_become_hard_constraints_when_scope_matches(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            report = read_knowledge_eligibility_report(state)
+
+            hard = [item for item in report["entries"] if item["classification"] == "hard_constraint" and item["knowledge_type"] == "term"]
+            self.assertEqual([item["source_value"] for item in hard], ["Open Lab"])
+
+    def test_reference_terms_and_tm_never_become_hard_constraints(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            report = read_knowledge_eligibility_report(state)
+
+            reference = [item for item in report["entries"] if item["classification"] == "reference_only"]
+            self.assertTrue(any(item["source_value"] == "Reference term" for item in reference))
+            self.assertFalse(any(item["source_value"] in {"Reference term", "Reference TM"} and item["classification"] == "hard_constraint" for item in report["entries"]))
+
+    def test_forbidden_translations_become_negative_constraints_with_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            context = read_working_context_packet(state)
+
+            self.assertEqual(context["negative_constraints"][0]["target_value"], "Forbidden target")
+            self.assertTrue(context["negative_constraints"][0]["provenance"])
+
+    def test_stale_rejected_and_superseded_entries_are_excluded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            report = read_knowledge_eligibility_report(state)
+
+            classifications = {item["source_value"]: item["classification"] for item in report["entries"]}
+            self.assertEqual(classifications["Stale term"], "stale")
+            self.assertEqual(classifications["Rejected term"], "rejected")
+            self.assertEqual(classifications["Superseded term"], "rejected")
+
+    def test_limited_scope_entries_are_excluded_on_scope_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            report = read_knowledge_eligibility_report(state)
+
+            mismatch = next(item for item in report["entries"] if item["source_value"] == "Other scope")
+            self.assertEqual(mismatch["classification"], "scope_mismatch")
+
+    def test_blind_benchmark_hides_target_language_tm_examples_and_terms(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state, operating_mode="blind_benchmark")
+            report = read_knowledge_eligibility_report(state)
+            context = read_working_context_packet(state)
+
+            hidden = [item for item in report["entries"] if "blind_benchmark_target_context_hidden" in item["reasons"]]
+            self.assertTrue(any(item["knowledge_type"] == "translation_memory" for item in hidden))
+            self.assertEqual(context["tm_suggestions"], [])
+            self.assertEqual(context["retrieved_examples"], [])
+
+    def test_working_context_separates_constraints_context_examples_and_exclusions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            context = read_working_context_packet(state)
+
+            self.assertTrue(context["hard_constraints"])
+            self.assertTrue(context["negative_constraints"])
+            self.assertTrue(context["tm_suggestions"])
+            self.assertTrue(context["style_guidance"])
+            self.assertTrue(context["retrieved_examples"])
+            self.assertTrue(context["excluded_knowledge"])
+            self.assertNotIn("prompt", context)
+
+    def test_pack_terms_feed_term_governance_with_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+
+            constraints = select_term_constraints(state, [{"source": "Visit the Open Lab"}], "zh-CN", "style_only")
+
+            self.assertEqual(constraints["term_registry"][0]["target_term"], "开放实验室")
+            self.assertTrue(constraints["term_registry"][0]["provenance"])
+
+    def test_project_local_terms_outrank_generic_pack_knowledge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            _write_csv_rows(
+                state / "term-registry.csv",
+                [{"source_term": "Open Lab", "target_term": "本地实验室", "status": "locked", "priority": "user_confirmed", "scope": "scenario-a", "target_locale": "zh-CN"}],
+            )
+            build_working_context_packet(state)
+
+            constraints = select_term_constraints(state, [{"source": "Open Lab"}], "zh-CN", "style_only")
+
+            self.assertEqual([item["target_term"] for item in constraints["term_registry"]], ["本地实验室"])
+            self.assertEqual(read_working_context_packet(state)["status"], "blocked")
+
+    def test_project_local_term_decisions_outrank_generic_pack_knowledge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [{"source_term": "Open Lab", "target_term": "决策实验室", "status": "locked", "scope": "scenario-a", "target_locale": "zh-CN"}],
+            )
+            build_working_context_packet(state)
+
+            constraints = select_term_constraints(state, [{"source": "Open Lab"}], "zh-CN", "style_only")
+
+            self.assertEqual([item["target_term"] for item in constraints["term_registry"]], ["决策实验室"])
+            self.assertEqual(read_working_context_packet(state)["status"], "blocked")
+
+    def test_conflicting_locked_pack_terms_block_generation_strategy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "开放中心")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+
+            context = read_working_context_packet(state)
+            strategy = build_generation_strategy(state, _knowledge_batch_plan())
+
+            self.assertEqual(context["status"], "blocked")
+            self.assertIn("knowledge_context_blocked", strategy["work_packet_policy"]["blocked_reason_codes"])
+
+    def test_generation_strategy_and_work_packet_reference_structured_knowledge_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            strategy = build_generation_strategy(state, _knowledge_batch_plan())
+            packet = build_work_packet(_knowledge_batch_plan(), "batch-1", [_knowledge_segment()], state, "zh-CN")
+
+            self.assertTrue(strategy["gates"]["knowledge"]["enabled"])
+            self.assertEqual(strategy["artifacts"]["working_context_packet"], WORKING_CONTEXT_PACKET_JSON)
+            self.assertFalse(strategy["draft_request_policy"]["knowledge_backed_quality_claim_allowed"])
+            self.assertIn("hard_constraints", packet["memory"]["working_context_packet"])
+
+    def test_stale_working_context_blocks_generation_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_artifact_state(state)
+            _write_csv_rows(state / "term-registry.csv", [{"source_term": "New", "target_term": "新", "status": "approved"}])
+            artifact_state = build_artifact_state(state)
+            strategy = build_generation_strategy(state, _knowledge_batch_plan())
+
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+            self.assertIn("working_context_packet", stale_ids)
+            self.assertFalse(strategy["work_packet_policy"]["allow_generation"])
+
+    def test_scorecard_forbids_knowledge_quality_when_missing_stale_or_reference_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            state.mkdir()
+            missing = build_evaluation_scorecard(state, write=False)
+            self.assertIn("knowledge_backed_quality", missing["forbidden_claims"])
+
+            state = _consumption_state(Path(directory) / "reference")
+            pack_dir = knowledge_pack_dir(state, "pack")
+            _write_csv_rows(pack_dir / "term-registry.csv", [])
+            _write_csv_rows(pack_dir / "forbidden-translations.csv", [])
+            write_jsonl(pack_dir / "translation-memory.jsonl", [{"knowledge_id": "tm-ref", "source_value": "Only reference", "target_value": "仅参考", "status": "reference", "scope": "scenario-a", "provenance_id": "p-ref"}])
+            write_jsonl(pack_dir / PROVENANCE_JSONL, [{"provenance_id": "p-ref", "source_artifact_references": ["review.json"]}])
+            _select_consumption_pack(state)
+            reference = build_evaluation_scorecard(state, write=False)
+            self.assertIn("knowledge_backed_quality", reference["forbidden_claims"])
+
+            context = read_working_context_packet(state)
+            context["status"] = "blocked"
+            write_json(state / WORKING_CONTEXT_PACKET_JSON, context)
+            stale = build_evaluation_scorecard(state, write=False)
+            self.assertIn("knowledge_backed_quality", stale["forbidden_claims"])
+
+    def test_api_endpoints_are_artifact_backed_and_do_not_call_providers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    status, _ = _http_post_json(
+                        host,
+                        port,
+                        "/api/knowledge-pack-selection",
+                        {"state_dir": state.as_posix(), "pack_id": "pack", "source_locale": "en-US", "target_locale": "zh-CN", "domains": ["domain-a"], "scenario": "scenario-a"},
+                    )
+                    self.assertEqual(status, 200)
+                    self.assertFalse(provider_call.called)
+                for endpoint in ("knowledge-pack-selection", "knowledge-eligibility-report", "working-context-packet"):
+                    get_status, _ = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(get_status, 200)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_commands_are_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            one = Path(directory) / "one.json"
+            two = Path(directory) / "two.json"
+            args = [state.as_posix(), "--pack-id", "pack", "--source-locale", "en-US", "--target-locale", "zh-CN", "--domain", "domain-a", "--scenario", "scenario-a"]
+
+            self.assertEqual(cli_main(["knowledge-pack-select", *args, "--output", one.as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-pack-select", *args, "--output", two.as_posix()]), 0)
+            self.assertEqual(read_json(one), read_json(two))
+            self.assertEqual(cli_main(["knowledge-eligibility-report", state.as_posix(), "--output", one.as_posix()]), 0)
+            self.assertEqual(cli_main(["working-context-packet", state.as_posix(), "--output", two.as_posix()]), 0)
+
+    def test_artifact_state_tracks_selection_eligibility_context_and_pack_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+            self.assertTrue({"knowledge_pack_selection", "knowledge_eligibility_report", "working_context_packet"}.issubset(ids))
+
+            pack_terms = knowledge_pack_dir(state, "pack") / "term-registry.csv"
+            rows = _read_csv_dicts(pack_terms)
+            rows[0]["target_term"] = "变更"
+            _write_csv_rows(pack_terms, rows)
+            changed = build_artifact_state(state)
+            stale_ids = {item["artifact_id"] for item in changed["stale_artifacts"]}
+            self.assertIn("knowledge_eligibility_report", stale_ids)
+            self.assertIn("working_context_packet", stale_ids)
+
+
+def _consumption_state(root: Path) -> Path:
+    state = root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    init_knowledge_pack(
+        state,
+        pack_id="pack",
+        source_locale="en-US",
+        target_locale="zh-CN",
+        domains=["domain-a"],
+        supported_scenarios=["scenario-a"],
+        status="approved",
+    )
+    pack_dir = knowledge_pack_dir(state, "pack")
+    _write_csv_rows(
+        pack_dir / "term-registry.csv",
+        [
+            {"source_term": "Open Lab", "target_term": "开放实验室", "status": "locked", "priority": "official", "scope": "scenario-a", "source_locale": "en-US", "target_locale": "zh-CN", "provenance": "p-term"},
+            {"source_term": "Reference term", "target_term": "参考术语", "status": "reference", "scope": "scenario-a", "provenance": "p-reference-term"},
+            {"source_term": "Stale term", "target_term": "陈旧", "status": "stale", "scope": "scenario-a", "provenance": "p-stale"},
+            {"source_term": "Rejected term", "target_term": "拒绝", "status": "rejected", "scope": "scenario-a", "provenance": "p-rejected"},
+            {"source_term": "Superseded term", "target_term": "取代", "status": "superseded", "scope": "scenario-a", "provenance": "p-superseded"},
+            {"source_term": "Other scope", "target_term": "其他", "status": "approved", "scope": "scenario-b", "provenance": "p-other"},
+        ],
+    )
+    _write_csv_rows(
+        pack_dir / "forbidden-translations.csv",
+        [{"source_term": "Open Lab", "forbidden_target": "Forbidden target", "target_locale": "zh-CN", "scope": "scenario-a", "reason": "reviewed", "status": "locked", "provenance": "p-forbidden"}],
+    )
+    write_jsonl(
+        pack_dir / TRANSLATION_MEMORY_JSONL,
+        [
+            {"knowledge_id": "tm-approved", "source_value": "Reviewed TM", "target_value": "已审记忆", "status": "approved", "scope": "scenario-a", "provenance_id": "p-tm"},
+            {"knowledge_id": "tm-reference", "source_value": "Reference TM", "target_value": "参考记忆", "status": "reference", "scope": "scenario-a", "provenance_id": "p-tm-reference"},
+        ],
+    )
+    write_jsonl(pack_dir / "examples.jsonl", [{"knowledge_id": "example-1", "source_value": "Example", "target_value": "示例", "status": "reference", "scope": "scenario-a", "provenance_id": "p-example"}])
+    write_jsonl(pack_dir / "style-decisions.jsonl", [{"knowledge_id": "style-1", "source_value": "Tone", "target_value": "正式", "status": "approved", "scope": "scenario-a", "provenance_id": "p-style"}])
+    write_jsonl(pack_dir / CLAIM_PATTERNS_JSONL, [{"knowledge_id": "claim-1", "source_value": "metric claim", "target_value": "verify boundary", "status": "approved", "scope": "scenario-a", "provenance_id": "p-claim"}])
+    write_jsonl(pack_dir / REVISION_MEMORY_JSONL, [{"knowledge_id": "revision-1", "source_value": "repair hint", "target_value": "check placeholders", "status": "approved", "scope": "scenario-a", "provenance_id": "p-revision"}])
+    provenance_ids = ["p-term", "p-reference-term", "p-stale", "p-rejected", "p-superseded", "p-other", "p-forbidden", "p-tm", "p-tm-reference", "p-example", "p-style", "p-claim", "p-revision"]
+    write_jsonl(pack_dir / PROVENANCE_JSONL, [{"provenance_id": value, "source_artifact_references": ["reviewed-source.json"]} for value in provenance_ids])
+    return state
+
+
+def _select_consumption_pack(state: Path, *, operating_mode: str = "greenfield_localization") -> dict[str, Any]:
+    return select_knowledge_packs(
+        state,
+        pack_ids=["pack"],
+        source_locale="en-US",
+        target_locale="zh-CN",
+        domains=["domain-a"],
+        scenario="scenario-a",
+        operating_mode=operating_mode,
+    )
+
+
+def _add_locked_pack(state: Path, pack_id: str, target: str) -> None:
+    init_knowledge_pack(
+        state,
+        pack_id=pack_id,
+        source_locale="en-US",
+        target_locale="zh-CN",
+        domains=["domain-a"],
+        supported_scenarios=["scenario-a"],
+        status="approved",
+    )
+    pack_dir = knowledge_pack_dir(state, pack_id)
+    _write_csv_rows(pack_dir / "term-registry.csv", [{"source_term": "Open Lab", "target_term": target, "status": "locked", "scope": "scenario-a", "provenance": f"p-{pack_id}"}])
+    write_jsonl(pack_dir / PROVENANCE_JSONL, [{"provenance_id": f"p-{pack_id}", "source_artifact_references": ["approved-review.json"]}])
+
+
+def _knowledge_batch_plan() -> dict[str, Any]:
+    return {
+        "source_locale": "en-US",
+        "target_locales": ["zh-CN"],
+        "operating_mode": "greenfield_localization",
+        "reference_policy": "style_only",
+        "batches": [{"batch_id": "batch-1", "segment_ids": ["s1"], "segment_count": 1, "target_locale": "zh-CN"}],
+    }
+
+
+def _knowledge_segment() -> dict[str, Any]:
+    return {"segment_id": "s1", "source": "Visit the Open Lab", "context": {"scenario": "scenario-a"}}
+
+
 def _knowledge_state(root: Path) -> Path:
     state = root / ".localize-anything"
     state.mkdir(parents=True, exist_ok=True)
@@ -8889,7 +9268,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 59)
+        self.assertEqual(result["schemas_checked"], 62)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

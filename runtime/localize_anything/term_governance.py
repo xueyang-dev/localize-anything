@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .knowledge_consumption import imported_term_rows
+
 
 TERM_REGISTRY_COLUMNS = [
     "source_term",
@@ -96,13 +98,22 @@ def select_term_constraints(
         }
 
     source_text = "\n".join(str(segment.get("source", "")) for segment in segments).casefold()
+    local_registry = [*_read_csv_rows(state_dir / "term-registry.csv"), *_read_term_decision_rows(state_dir / "term-decisions.jsonl")]
+    imported_registry, imported_forbidden = imported_term_rows(state_dir)
+    local_sources = {
+        row.get("source_term", "").casefold()
+        for row in local_registry
+        if row.get("status") in HARD_TERM_STATUSES and _locale_matches(row.get("target_locale", ""), target_locale)
+    }
+    registry_rows = [*local_registry, *[row for row in imported_registry if row.get("source_term", "").casefold() not in local_sources]]
     terms = [
         _term_constraint(row)
-        for row in _read_csv_rows(state_dir / "term-registry.csv")
+        for row in registry_rows
         if _term_row_matches(row, source_text, target_locale)
     ]
     forbidden = _forbidden_from_registry(state_dir / "term-registry.csv", source_text, target_locale)
     forbidden.extend(_forbidden_from_file(state_dir / "forbidden-translations.csv", source_text, target_locale))
+    forbidden.extend(_forbidden_from_rows(imported_forbidden, source_text, target_locale))
     terms.sort(key=_term_sort_key)
     forbidden.sort(
         key=lambda item: (
@@ -133,6 +144,36 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
             {str(key): str(value or "").strip() for key, value in row.items() if key}
             for row in csv.DictReader(handle)
         ]
+
+
+def _read_term_decision_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, str]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            source = str(record.get("source_term") or record.get("term") or record.get("source_value") or "").strip()
+            target = str(record.get("target_term") or record.get("target_value") or record.get("approved_translation") or "").strip()
+            status = str(record.get("status") or record.get("decision") or "").strip()
+            if not source or not target or status not in {"approved", "locked", "accepted"}:
+                continue
+            rows.append({
+                "source_term": source,
+                "target_term": target,
+                "type": str(record.get("type") or record.get("term_type") or ""),
+                "status": "approved" if status == "accepted" else status,
+                "priority": str(record.get("priority") or "user_confirmed"),
+                "scope": str(record.get("scope") or record.get("effective_scope") or ""),
+                "notes": str(record.get("notes") or ""),
+                "source_locale": str(record.get("source_locale") or ""),
+                "target_locale": str(record.get("target_locale") or ""),
+                "forbidden_targets": "",
+                "provenance": json.dumps(record.get("provenance") or [], ensure_ascii=False),
+            })
+    return rows
 
 
 def _term_row_matches(row: dict[str, str], source_text: str, target_locale: str) -> bool:
@@ -207,6 +248,10 @@ def _forbidden_from_registry(path: Path, source_text: str, target_locale: str) -
 
 
 def _forbidden_from_file(path: Path, source_text: str, target_locale: str) -> list[dict[str, Any]]:
+    return _forbidden_from_rows(_read_csv_rows(path), source_text, target_locale)
+
+
+def _forbidden_from_rows(rows: list[dict[str, str]], source_text: str, target_locale: str) -> list[dict[str, Any]]:
     return [
         {
             "source_term": row.get("source_term", ""),
@@ -217,7 +262,7 @@ def _forbidden_from_file(path: Path, source_text: str, target_locale: str) -> li
             "status": row.get("status", ""),
             "provenance": _parse_provenance(row.get("provenance", "")),
         }
-        for row in _read_csv_rows(path)
+        for row in rows
         if _forbidden_row_matches(row, source_text, target_locale)
     ]
 

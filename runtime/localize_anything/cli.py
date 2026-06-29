@@ -66,6 +66,11 @@ from .knowledge_pack import (
     read_knowledge_review_queue,
     record_knowledge_review_decision,
 )
+from .knowledge_consumption import (
+    build_knowledge_eligibility_report,
+    build_working_context_packet,
+    select_knowledge_packs,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -697,6 +702,31 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_quality_report_parser.add_argument("state_dir", type=Path)
     knowledge_quality_report_parser.add_argument("--pack-id", required=True)
     knowledge_quality_report_parser.add_argument("--output", type=Path)
+
+    knowledge_pack_select_parser = subparsers.add_parser("knowledge-pack-select", help="Select local knowledge packs and build deterministic eligibility/context artifacts")
+    knowledge_pack_select_parser.add_argument("state_dir", type=Path)
+    knowledge_pack_select_parser.add_argument("--pack-id", action="append", default=[], dest="pack_ids")
+    knowledge_pack_select_parser.add_argument("--pack-path", action="append", type=Path, default=[], dest="pack_paths")
+    knowledge_pack_select_parser.add_argument("--source-locale", required=True)
+    knowledge_pack_select_parser.add_argument("--target-locale", required=True)
+    knowledge_pack_select_parser.add_argument("--domain", action="append", default=[], dest="domains")
+    knowledge_pack_select_parser.add_argument("--scenario", default="")
+    knowledge_pack_select_parser.add_argument("--operating-mode", choices=OPERATING_MODES, default="greenfield_localization")
+    knowledge_pack_select_parser.add_argument("--selection-source", default="explicit")
+    knowledge_pack_select_parser.add_argument("--selected-by", default="localize-anything-runtime")
+    knowledge_pack_select_parser.add_argument("--allow-experimental", action="store_true")
+    knowledge_pack_select_parser.add_argument("--allowed-domain", action="append", default=[], dest="allowed_domains")
+    knowledge_pack_select_parser.add_argument("--allowed-scenario", action="append", default=[], dest="allowed_scenarios")
+    knowledge_pack_select_parser.add_argument("--compatible-locale", action="append", default=[], dest="compatible_locales")
+    knowledge_pack_select_parser.add_argument("--output", type=Path)
+
+    knowledge_eligibility_parser = subparsers.add_parser("knowledge-eligibility-report", help="Rebuild knowledge-eligibility-report.json deterministically")
+    knowledge_eligibility_parser.add_argument("state_dir", type=Path)
+    knowledge_eligibility_parser.add_argument("--output", type=Path)
+
+    working_context_parser = subparsers.add_parser("working-context-packet", help="Rebuild working-context-packet.json deterministically")
+    working_context_parser.add_argument("state_dir", type=Path)
+    working_context_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1505,6 +1535,30 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(record_knowledge_review_decision(args.state_dir, args.pack_id, read_json(args.input), run_id=args.run_id), args.output)
         if args.command == "knowledge-quality-report":
             return _emit_text(read_knowledge_quality_report(args.state_dir, args.pack_id), args.output)
+        if args.command == "knowledge-pack-select":
+            return _emit_json(
+                select_knowledge_packs(
+                    args.state_dir,
+                    pack_ids=args.pack_ids,
+                    pack_paths=args.pack_paths,
+                    source_locale=args.source_locale,
+                    target_locale=args.target_locale,
+                    domains=args.domains,
+                    scenario=args.scenario,
+                    operating_mode=args.operating_mode,
+                    selection_source=args.selection_source,
+                    selected_by=args.selected_by,
+                    allow_experimental=args.allow_experimental,
+                    allowed_domains=args.allowed_domains,
+                    allowed_scenarios=args.allowed_scenarios,
+                    compatible_locales=args.compatible_locales,
+                ),
+                args.output,
+            )
+        if args.command == "knowledge-eligibility-report":
+            return _emit_json(build_knowledge_eligibility_report(args.state_dir), args.output)
+        if args.command == "working-context-packet":
+            return _emit_json(build_working_context_packet(args.state_dir), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

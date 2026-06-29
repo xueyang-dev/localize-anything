@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-eligibility-report.schema.json",
+  "title": "Localize Anything Knowledge Eligibility Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "selection_artifact", "source_locale", "target_locale", "domains", "scenario", "operating_mode", "entries", "summary", "source_artifact_references"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-eligibility-report-v1" },
+    "artifact": { "const": "knowledge-eligibility-report.json" },
+    "status": { "enum": ["pass", "not_selected"] },
+    "selection_artifact": { "const": "knowledge-pack-selection.json" },
+    "source_locale": { "type": "string" },
+    "target_locale": { "type": "string" },
+    "domains": { "type": "array", "items": { "type": "string" } },
+    "scenario": { "type": "string" },
+    "operating_mode": { "type": "string" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["knowledge_id", "pack_id", "pack_path", "knowledge_type", "source_artifact", "source_value", "target_value", "status", "scope", "classification", "reasons", "provenance_id", "provenance", "priority", "source_locale", "target_locale"],
+        "properties": {
+          "classification": { "enum": ["hard_constraint", "soft_context", "reference_only", "negative_constraint", "review_required", "not_eligible", "stale", "scope_mismatch", "rejected"] },
+          "knowledge_id": { "type": "string" },
+          "pack_id": { "type": "string" },
+          "knowledge_type": { "type": "string" },
+          "source_artifact": { "type": "string" },
+          "source_value": { "type": "string" },
+          "target_value": { "type": "string" },
+          "status": { "type": "string" },
+          "scope": { "type": "string" },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "provenance_id": { "type": "string" },
+          "provenance": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": { "type": "object" },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

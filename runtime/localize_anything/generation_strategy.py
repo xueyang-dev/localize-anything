@@ -4,7 +4,12 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION
-from .io_utils import read_json, write_json
+from .io_utils import read_json, sha256_file, write_json
+from .knowledge_consumption import (
+    KNOWLEDGE_ELIGIBILITY_REPORT_JSON,
+    KNOWLEDGE_PACK_SELECTION_JSON,
+    WORKING_CONTEXT_PACKET_JSON,
+)
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .termbase_preflight import TERMBASE_PREFLIGHT_REPORT_JSON
 
@@ -27,6 +32,7 @@ def build_generation_strategy(
 
     brief = _read_optional_json(state_dir / LOCALIZATION_BRIEF_JSON)
     term_report = _read_optional_json(state_dir / TERMBASE_PREFLIGHT_REPORT_JSON)
+    knowledge_gate = _knowledge_gate(state_dir, operating_mode)
 
     blockers: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
@@ -94,6 +100,27 @@ def build_generation_strategy(
         )
         reason_codes.append("localization_brief_missing")
 
+    if knowledge_gate["status"] == "blocked":
+        blockers.append(
+            {
+                "code": "knowledge_context_blocked",
+                "message": "Working Context Packet is stale, mode-mismatched, or contains hard-constraint conflicts.",
+                "artifact": WORKING_CONTEXT_PACKET_JSON,
+                "reasons": knowledge_gate["blocking_reasons"],
+            }
+        )
+        reason_codes.append("knowledge_context_blocked")
+    elif knowledge_gate["status"] == "review_required":
+        warnings.append(
+            {
+                "code": "knowledge_context_review_required",
+                "message": "Selected pack knowledge is not eligible for constraint-backed assurance.",
+                "artifact": WORKING_CONTEXT_PACKET_JSON,
+                "reasons": knowledge_gate["warning_reasons"],
+            }
+        )
+        reason_codes.append("knowledge_context_review_required")
+
     if blockers:
         status = "blocked"
         route = "blocked"
@@ -134,12 +161,15 @@ def build_generation_strategy(
         "gates": {
             "localization_brief": brief_gate,
             "terminology": term_gate,
+            "knowledge": knowledge_gate,
         },
         "work_packet_policy": {
             "allow_generation": allow_generation,
             "include_hard_constraints": True,
             "include_terminology_review": True,
             "include_generation_strategy": True,
+            "include_working_context_packet": knowledge_gate["enabled"],
+            "knowledge_classes_allowed": knowledge_gate["allowed_classes"],
             "blocked_reason_codes": [item["code"] for item in blockers],
             "warning_codes": [item["code"] for item in warnings],
         },
@@ -147,14 +177,16 @@ def build_generation_strategy(
             "provider_agnostic": True,
             "provider_call_performed": False,
             "quality_claim": "no_full_assurance_until_reviews_complete" if warnings or blockers else "strategy_ready",
+            "knowledge_backed_quality_claim_allowed": False,
         },
         "blockers": blockers,
         "warnings": warnings,
-        "artifacts": _generation_strategy_asset_paths(state_dir, brief, term_report),
+        "artifacts": _generation_strategy_asset_paths(state_dir, brief, term_report, knowledge_gate),
         "limitations": [
             "strategy is deterministic and does not perform translation",
             "review_required still permits handoff generation but cannot claim full review or terminology assurance",
             "blocked strategy prevents generation handoff until blocking governance conflicts are resolved",
+            "knowledge context is structured and does not imply knowledge-augmented quality",
         ],
     }
 
@@ -248,13 +280,88 @@ def _generation_strategy_asset_paths(
     state_dir: Path,
     brief: dict[str, Any] | None,
     term_report: dict[str, Any] | None,
+    knowledge_gate: dict[str, Any],
 ) -> dict[str, str]:
     artifacts = {"generation_strategy": GENERATION_STRATEGY_JSON}
     if brief is not None and (state_dir / LOCALIZATION_BRIEF_JSON).is_file():
         artifacts["localization_brief"] = LOCALIZATION_BRIEF_JSON
     if term_report is not None and (state_dir / TERMBASE_PREFLIGHT_REPORT_JSON).is_file():
         artifacts["termbase_preflight_report"] = TERMBASE_PREFLIGHT_REPORT_JSON
+    for key, name in (
+        ("knowledge_pack_selection", KNOWLEDGE_PACK_SELECTION_JSON),
+        ("knowledge_eligibility_report", KNOWLEDGE_ELIGIBILITY_REPORT_JSON),
+        ("working_context_packet", WORKING_CONTEXT_PACKET_JSON),
+    ):
+        if knowledge_gate["selected"] and (state_dir / name).is_file():
+            artifacts[key] = name
     return artifacts
+
+
+def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
+    selection = _read_optional_json(state_dir / KNOWLEDGE_PACK_SELECTION_JSON)
+    eligibility = _read_optional_json(state_dir / KNOWLEDGE_ELIGIBILITY_REPORT_JSON)
+    context = _read_optional_json(state_dir / WORKING_CONTEXT_PACKET_JSON)
+    if not selection:
+        return {
+            "status": "not_selected",
+            "selected": False,
+            "enabled": False,
+            "allowed_classes": [],
+            "blocking_reasons": [],
+            "warning_reasons": [],
+            "knowledge_augmented_quality_claim_allowed": False,
+            "artifacts": {},
+        }
+    blocking: list[str] = []
+    warnings: list[str] = []
+    if not selection.get("selected_packs"):
+        warnings.append("no_valid_pack_selected")
+    if not eligibility or not context:
+        warnings.append("knowledge_artifacts_incomplete")
+    if context and context.get("operating_mode") != operating_mode:
+        blocking.append("operating_mode_changed")
+    if context and context.get("status") == "blocked":
+        blocking.append("hard_constraint_conflict")
+    if context and _knowledge_inputs_changed(state_dir, eligibility or {}, context):
+        blocking.append("working_context_inputs_changed")
+    artifact_state = _read_optional_json(state_dir / "artifact-state.json") or {}
+    context_state = next(
+        (item for item in artifact_state.get("artifacts", []) if item.get("artifact_id") == "working_context_packet"),
+        {},
+    )
+    if context_state.get("status") in {"stale", "blocked", "superseded"}:
+        blocking.append("working_context_stale")
+    allowed = sorted(set((context or {}).get("knowledge_policy", {}).get("allowed_classes", [])))
+    enabled = bool((context or {}).get("knowledge_policy", {}).get("enabled")) and not blocking
+    constraint_count = len((context or {}).get("hard_constraints", [])) + len((context or {}).get("negative_constraints", []))
+    if selection.get("selected_packs") and not constraint_count and not blocking:
+        warnings.append("no_eligible_constraints")
+    return {
+        "status": "blocked" if blocking else "review_required" if warnings else "ready",
+        "selected": True,
+        "enabled": enabled,
+        "allowed_classes": allowed,
+        "blocking_reasons": sorted(set(blocking)),
+        "warning_reasons": sorted(set(warnings)),
+        "knowledge_augmented_quality_claim_allowed": False,
+        "artifacts": {
+            "selection": KNOWLEDGE_PACK_SELECTION_JSON,
+            "eligibility": KNOWLEDGE_ELIGIBILITY_REPORT_JSON if eligibility else None,
+            "working_context": WORKING_CONTEXT_PACKET_JSON if context else None,
+        },
+    }
+
+
+def _knowledge_inputs_changed(state_dir: Path, eligibility: dict[str, Any], context: dict[str, Any]) -> bool:
+    for name, expected in context.get("input_hashes", {}).items():
+        path = state_dir / str(name)
+        if not path.is_file() or sha256_file(path) != expected:
+            return True
+    for item in eligibility.get("source_artifact_hashes", []):
+        path = Path(str(item.get("path") or ""))
+        if not path.is_file() or sha256_file(path) != item.get("sha256"):
+            return True
+    return False
 
 
 def _read_optional_json(path: Path) -> dict[str, Any] | None:

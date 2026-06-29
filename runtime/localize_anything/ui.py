@@ -56,6 +56,12 @@ from .knowledge_pack import (
     read_knowledge_review_queue,
     record_knowledge_review_decision,
 )
+from .knowledge_consumption import (
+    read_knowledge_eligibility_report,
+    read_knowledge_pack_selection,
+    read_working_context_packet,
+    select_knowledge_packs,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -264,6 +270,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/knowledge-quality-report":
                     self._handle_knowledge_quality_report_query(parsed.query)
                     return
+                if parsed.path == "/api/knowledge-pack-selection":
+                    self._handle_knowledge_pack_selection_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-eligibility-report":
+                    self._handle_knowledge_eligibility_query(parsed.query)
+                    return
+                if parsed.path == "/api/working-context-packet":
+                    self._handle_working_context_query(parsed.query)
+                    return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send_json({"status": "fail", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -331,6 +346,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/knowledge-review-decision":
                     self._handle_knowledge_review_decision(payload)
+                    return
+                if parsed.path == "/api/knowledge-pack-selection":
+                    self._handle_knowledge_pack_selection(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -574,6 +592,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Knowledge quality report is outside allowed workbench roots: {state_dir}")
             self._send_text(read_knowledge_quality_report(state_dir, pack_id), "text/markdown; charset=utf-8")
+
+        def _handle_knowledge_pack_selection_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge pack selection is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_pack_selection": read_knowledge_pack_selection(state_dir)})
+
+        def _handle_knowledge_eligibility_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge eligibility report is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_eligibility_report": read_knowledge_eligibility_report(state_dir)})
+
+        def _handle_working_context_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Working Context Packet is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "working_context_packet": read_working_context_packet(state_dir)})
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
@@ -853,6 +889,34 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = record_knowledge_review_decision(state_dir, _pack_id_from_payload(payload), decision, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
+        def _handle_knowledge_pack_selection(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge pack selection is outside allowed workbench roots: {state_dir}")
+            pack_ids = payload.get("pack_ids") if isinstance(payload.get("pack_ids"), list) else [payload["pack_id"]] if payload.get("pack_id") else []
+            pack_paths = payload.get("pack_paths") if isinstance(payload.get("pack_paths"), list) else [payload["pack_path"]] if payload.get("pack_path") else []
+            resolved_pack_paths = [Path(str(item)).expanduser().resolve() for item in pack_paths]
+            if any(not state.is_allowed(path) for path in resolved_pack_paths):
+                raise ValueError("Knowledge pack path is outside allowed workbench roots")
+            result = select_knowledge_packs(
+                state_dir,
+                pack_ids=[str(item) for item in pack_ids],
+                pack_paths=resolved_pack_paths,
+                source_locale=str(payload.get("source_locale") or ""),
+                target_locale=str(payload.get("target_locale") or ""),
+                domains=[str(item) for item in payload.get("domains", [])] if isinstance(payload.get("domains"), list) else [],
+                scenario=str(payload.get("scenario") or ""),
+                operating_mode=str(payload.get("operating_mode") or "greenfield_localization"),
+                selection_source=str(payload.get("selection_source") or "workbench_api"),
+                selected_by=str(payload.get("selected_by") or "workbench_api"),
+                allow_experimental=bool(payload.get("allow_experimental")),
+                allowed_domains=[str(item) for item in payload.get("allowed_domains", [])] if isinstance(payload.get("allowed_domains"), list) else [],
+                allowed_scenarios=[str(item) for item in payload.get("allowed_scenarios", [])] if isinstance(payload.get("allowed_scenarios"), list) else [],
+                compatible_locales=[str(item) for item in payload.get("compatible_locales", [])] if isinstance(payload.get("compatible_locales"), list) else [],
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_pack_selection": result})
 
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))

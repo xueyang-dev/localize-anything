@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-pack-selection.schema.json",
+  "title": "Localize Anything Knowledge Pack Selection",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "selection_source", "source_locale", "target_locale", "domains", "scenario", "operating_mode", "selected_by", "selected_pack_ids", "pack_paths", "selected_packs", "rejected_packs", "source_artifact_references"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-pack-selection-v1" },
+    "artifact": { "const": "knowledge-pack-selection.json" },
+    "status": { "enum": ["selected", "none_selected"] },
+    "selection_source": { "type": "string" },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "domains": { "type": "array", "items": { "type": "string" } },
+    "scenario": { "type": "string" },
+    "operating_mode": { "type": "string" },
+    "selected_by": { "type": "string" },
+    "selected_pack_ids": { "type": "array", "items": { "type": "string" } },
+    "pack_paths": { "type": "array", "items": { "type": "string" } },
+    "selected_packs": { "type": "array", "items": { "type": "object" } },
+    "rejected_packs": { "type": "array", "items": { "type": "object" } },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
