@@ -26,6 +26,7 @@ from .knowledge_usage import (
     KNOWLEDGE_CONFLICT_REPORT_JSON,
     KNOWLEDGE_USAGE_REPORT_JSON,
 )
+from .knowledge_audit_enforcement import KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -222,6 +223,7 @@ def _load_artifacts(
         "knowledge_usage_report": _read_optional_json(state_dir / KNOWLEDGE_USAGE_REPORT_JSON),
         "constraint_application_audit": _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON),
         "knowledge_conflict_report": _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON),
+        "knowledge_audit_enforcement_decision": _read_optional_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -303,10 +305,19 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     usage = artifacts.get("knowledge_usage_report", {})
     audit = artifacts.get("constraint_application_audit", {})
     conflicts = artifacts.get("knowledge_conflict_report", {})
+    enforcement = artifacts.get("knowledge_audit_enforcement_decision", {})
     if not selection:
         return _dimension("not_provided", E0, "knowledge pack was not selected", warnings=["knowledge_pack_not_selected"])
     if not selection.get("selected_packs"):
         return _dimension("warning", E0, "no valid knowledge pack was selected", warnings=["knowledge_pack_invalid_or_rejected"])
+    if enforcement:
+        enforcement_status = str(enforcement.get("status") or "")
+        if enforcement_status == "blocked":
+            return _dimension("blocked", E1, "knowledge audit enforcement is blocked", blockers=["knowledge_audit_enforcement_blocked"])
+        if enforcement_status == "stale":
+            return _dimension("blocked", E1, "knowledge audit enforcement evidence is stale", blockers=["knowledge_audit_enforcement_stale"])
+        if enforcement_status == "review_required":
+            return _dimension("warning", E1, "knowledge audit enforcement requires review", warnings=["knowledge_audit_review_required"])
     if not eligibility or not context:
         return _dimension("blocked", E0, "knowledge consumption artifacts are incomplete", blockers=["knowledge_artifacts_incomplete"])
     if context.get("status") == "blocked":
@@ -566,6 +577,11 @@ def _forbidden_claims(
         claims.update({"knowledge_backed_quality", "knowledge_constraints_applied", "knowledge_review_complete"})
     else:
         claims.update({"knowledge_backed_quality", "knowledge_review_complete"})
+    enforcement = artifacts.get("knowledge_audit_enforcement_decision", {})
+    if isinstance(enforcement, dict) and enforcement:
+        claims.update(str(claim) for claim in enforcement.get("forbidden_claims", []) if claim)
+        if str(enforcement.get("status") or "") in {"blocked", "stale", "review_required"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
     if dimensions["review_readiness"]["status"] != "pass":
         claims.add("review_complete")
     if dimensions["delivery_readiness"]["status"] != "pass":
@@ -916,6 +932,7 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "knowledge_usage_report": state_dir / KNOWLEDGE_USAGE_REPORT_JSON,
         "constraint_application_audit": state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON,
         "knowledge_conflict_report": state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON,
+        "knowledge_audit_enforcement_decision": state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
         "blocking_questions": state_dir / "blocking-questions.json",
         "resolution_options": state_dir / "resolution-options.json",
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",

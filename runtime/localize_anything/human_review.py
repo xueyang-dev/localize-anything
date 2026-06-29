@@ -38,6 +38,9 @@ CLAIMS = (
     "limited_scope_delivery_ready",
     "apply_ready",
     "production_ready",
+    "knowledge_backed_quality",
+    "knowledge_constraints_applied",
+    "knowledge_review_complete",
 )
 
 
@@ -379,7 +382,7 @@ def _claim_decision(
         return {"claim": claim, "status": "accepted", "reason": "scorecard_supports_review_ready"}
     if claim in {"delivery_ready_with_warnings", "limited_scope_delivery_ready"} and overall == "delivery_ready_with_warnings" and accepts_limitations:
         return {"claim": claim, "status": "accepted_with_limitations", "reason": "explicit_limitations_acceptance"}
-    if claim in {"full_coverage", "provider_backed_quality", "full_terminology_assurance", "review_complete"}:
+    if claim in {"full_coverage", "provider_backed_quality", "full_terminology_assurance", "review_complete", "knowledge_backed_quality", "knowledge_constraints_applied", "knowledge_review_complete"}:
         return {"claim": claim, "status": "accepted", "reason": "scorecard_does_not_forbid_claim"}
     return {"claim": claim, "status": "rejected", "reason": f"scorecard_overall_claim_is_{overall}"}
 

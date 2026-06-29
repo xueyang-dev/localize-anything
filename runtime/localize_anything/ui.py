@@ -67,6 +67,10 @@ from .knowledge_usage import (
     read_knowledge_conflict_report,
     read_knowledge_usage_report,
 )
+from .knowledge_audit_enforcement import (
+    read_knowledge_audit_enforcement_decision,
+    read_workbench_knowledge_review_queue,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -292,6 +296,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/knowledge-conflict-report":
                     self._handle_knowledge_conflict_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-audit-enforcement-decision":
+                    self._handle_knowledge_audit_enforcement_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-knowledge-review-queue":
+                    self._handle_workbench_knowledge_review_queue_query(parsed.query)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -642,6 +652,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Knowledge conflict report is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_conflict_report": read_knowledge_conflict_report(state_dir)})
+
+        def _handle_knowledge_audit_enforcement_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge audit enforcement decision is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "knowledge_audit_enforcement_decision": read_knowledge_audit_enforcement_decision(state_dir)})
+
+        def _handle_workbench_knowledge_review_queue_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench knowledge review queue is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_knowledge_review_queue": read_workbench_knowledge_review_queue(state_dir)})
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)

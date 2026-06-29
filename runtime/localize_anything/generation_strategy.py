@@ -15,6 +15,10 @@ from .knowledge_usage import (
     KNOWLEDGE_CONFLICT_REPORT_JSON,
     KNOWLEDGE_USAGE_REPORT_JSON,
 )
+from .knowledge_audit_enforcement import (
+    KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+    build_knowledge_audit_enforcement_decision,
+)
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .termbase_preflight import TERMBASE_PREFLIGHT_REPORT_JSON
 
@@ -299,6 +303,7 @@ def _generation_strategy_asset_paths(
         ("knowledge_usage_report", KNOWLEDGE_USAGE_REPORT_JSON),
         ("constraint_application_audit", CONSTRAINT_APPLICATION_AUDIT_JSON),
         ("knowledge_conflict_report", KNOWLEDGE_CONFLICT_REPORT_JSON),
+        ("knowledge_audit_enforcement_decision", KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
     ):
         if knowledge_gate["selected"] and (state_dir / name).is_file():
             artifacts[key] = name
@@ -312,6 +317,7 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     usage = _read_optional_json(state_dir / KNOWLEDGE_USAGE_REPORT_JSON)
     audit = _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON)
     conflicts = _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON)
+    enforcement = _read_optional_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON)
     if not selection:
         return {
             "status": "not_selected",
@@ -335,6 +341,15 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
         blocking.append("hard_constraint_conflict")
     if selection.get("selected_packs") and (not usage or not audit or not conflicts):
         warnings.append("knowledge_usage_audit_missing")
+    if selection.get("selected_packs") and not enforcement:
+        enforcement = build_knowledge_audit_enforcement_decision(state_dir)
+    enforcement_status = str(enforcement.get("status") or "")
+    if enforcement_status == "blocked":
+        blocking.append("knowledge_audit_enforcement_blocked")
+    elif enforcement_status == "stale":
+        blocking.append("knowledge_audit_enforcement_stale")
+    elif enforcement_status == "review_required":
+        warnings.append("knowledge_audit_review_required")
     if conflicts and int(conflicts.get("summary", {}).get("blocking_conflict_count", 0) or 0):
         blocking.append("knowledge_conflict_unresolved")
     if audit and int(audit.get("summary", {}).get("checked_fail_count", 0) or 0):
@@ -371,6 +386,7 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
             "usage_report": KNOWLEDGE_USAGE_REPORT_JSON if usage else None,
             "constraint_audit": CONSTRAINT_APPLICATION_AUDIT_JSON if audit else None,
             "conflict_report": KNOWLEDGE_CONFLICT_REPORT_JSON if conflicts else None,
+            "knowledge_audit_enforcement_decision": KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON if enforcement else None,
         },
     }
 

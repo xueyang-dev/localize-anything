@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Knowledge Audit Enforcement / Delivery Apply Gate seed with
+  `knowledge-audit-enforcement-decision.json`,
+  `workbench-knowledge-review-queue.json`, conservative scorecard/handoff/
+  delivery/apply integration, and artifact-backed CLI/API access.
 - Add Knowledge Usage Evidence and Constraint Application Audit seed with
   `knowledge-usage-report.json`, `constraint-application-audit.json`, and
   `knowledge-conflict-report.json`, plus conservative Generation Strategy,

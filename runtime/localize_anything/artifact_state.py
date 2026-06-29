@@ -40,6 +40,10 @@ from .knowledge_usage import (
     KNOWLEDGE_CONFLICT_REPORT_JSON,
     KNOWLEDGE_USAGE_REPORT_JSON,
 )
+from .knowledge_audit_enforcement import (
+    KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+    WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -143,6 +147,28 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         ("working_context_packet", "term_registry", "term_decisions", "forbidden_translations"),
     ),
     ArtifactSpec(
+        "knowledge_audit_enforcement_decision",
+        "knowledge_audit_enforcement_decision",
+        KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+        "knowledge_audit_enforcement",
+        (
+            "knowledge_pack_selection",
+            "knowledge_eligibility_report",
+            "working_context_packet",
+            "knowledge_usage_report",
+            "constraint_application_audit",
+            "knowledge_conflict_report",
+            "generated_segments",
+        ),
+    ),
+    ArtifactSpec(
+        "workbench_knowledge_review_queue",
+        "workbench_knowledge_review_queue",
+        WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
+        "knowledge_audit_enforcement",
+        ("knowledge_audit_enforcement_decision", "knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"),
+    ),
+    ArtifactSpec(
         "generation_strategy",
         "generation_strategy",
         "generation-strategy.json",
@@ -163,6 +189,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_usage_report",
             "constraint_application_audit",
             "knowledge_conflict_report",
+            "knowledge_audit_enforcement_decision",
             "user_resolution_decisions",
         ),
         required_for_handoff=True,
@@ -839,8 +866,10 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "knowledge_usage_report",
         "constraint_application_audit",
         "knowledge_conflict_report",
+        "knowledge_audit_enforcement_decision",
+        "workbench_knowledge_review_queue",
     }
-    knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard"}
+    knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard", "signoff_record"}
     stale_dependencies = sorted(
         dependency_id
         for dependency_id in spec.dependencies

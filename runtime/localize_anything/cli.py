@@ -76,6 +76,10 @@ from .knowledge_usage import (
     build_knowledge_conflict_report,
     build_knowledge_usage_report,
 )
+from .knowledge_audit_enforcement import (
+    build_knowledge_audit_enforcement_decision,
+    build_workbench_knowledge_review_queue,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -744,6 +748,14 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_conflict_parser = subparsers.add_parser("knowledge-conflict-report", help="Rebuild knowledge-conflict-report.json deterministically")
     knowledge_conflict_parser.add_argument("state_dir", type=Path)
     knowledge_conflict_parser.add_argument("--output", type=Path)
+
+    knowledge_enforcement_parser = subparsers.add_parser("knowledge-audit-enforcement-decision", help="Rebuild knowledge-audit-enforcement-decision.json deterministically")
+    knowledge_enforcement_parser.add_argument("state_dir", type=Path)
+    knowledge_enforcement_parser.add_argument("--output", type=Path)
+
+    workbench_knowledge_queue_parser = subparsers.add_parser("workbench-knowledge-review-queue", help="Create workbench-knowledge-review-queue.json from knowledge audit evidence")
+    workbench_knowledge_queue_parser.add_argument("state_dir", type=Path)
+    workbench_knowledge_queue_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1582,6 +1594,10 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_constraint_application_audit(args.state_dir), args.output)
         if args.command == "knowledge-conflict-report":
             return _emit_json(build_knowledge_conflict_report(args.state_dir), args.output)
+        if args.command == "knowledge-audit-enforcement-decision":
+            return _emit_json(build_knowledge_audit_enforcement_decision(args.state_dir), args.output)
+        if args.command == "workbench-knowledge-review-queue":
+            return _emit_json(build_workbench_knowledge_review_queue(args.state_dir), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

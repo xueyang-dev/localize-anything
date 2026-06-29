@@ -819,6 +819,45 @@ because applying constraints does not prove semantic quality, review completion,
 or provider-backed generation. This layer comes before full RAG so retrieval can
 later be audited instead of becoming invisible prompt context.
 
+## Knowledge Audit Enforcement And Workbench Queue
+
+Knowledge Audit Enforcement turns the usage/audit/conflict evidence into a
+single gate artifact:
+
+- `knowledge-audit-enforcement-decision.json`
+- `workbench-knowledge-review-queue.json`
+
+The enforcement decision checks whether the selected pack, Working Context
+Packet, usage report, constraint audit, and conflict report are present, fresh,
+and safe to use. It blocks or downgrades full-quality handoff, delivery, apply,
+and scorecard claims when usage evidence is missing, Working Context Packet is
+stale, hard/negative constraint audit is missing or failed, P1/P2 conflicts are
+unresolved, reference-only knowledge leaks into hard constraints,
+blind-benchmark target context is exposed, scope-specific knowledge is used
+outside scope, or project-local priority is violated.
+
+The decision can be `clear`, `clear_with_warnings`, `review_required`,
+`blocked`, `stale`, or `not_applicable`. A clear deterministic audit may support
+the narrow `knowledge_constraints_applied` claim, but it still does not prove
+`knowledge_backed_quality` or `knowledge_review_complete`. Deterministic audit
+is evidence that constraints were checked, not evidence that the translation is
+semantically correct.
+
+`workbench-knowledge-review-queue.json` is a projection over enforcement
+issues. It exposes missing usage reports, stale working context, missing or
+failed audits, negative constraint failures, unresolved conflicts, reference-only
+leakage, blind-benchmark firewall risk, project-priority conflicts, and
+unsupported knowledge claims. The queue is not a source of truth and does not
+resolve issues by display alone.
+
+Generation Strategy consumes the enforcement decision for handoff readiness.
+Evaluation Scorecard consumes it for forbidden claims. Claim acceptance and
+signoff inherit those forbidden claims, so a user decision cannot silently
+accept unsupported knowledge-backed quality. Delivery packages and run summaries
+reference the enforcement artifacts when present. This gate comes before full
+RAG/model generation because retrieval output must be enforceable before it can
+be expanded.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

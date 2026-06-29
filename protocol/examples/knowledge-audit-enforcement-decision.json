@@ -1,0 +1,62 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-audit-enforcement-decision-v1",
+  "artifact": "knowledge-audit-enforcement-decision.json",
+  "status": "review_required",
+  "knowledge_pack_selection_status": "selected",
+  "working_context_freshness": "current",
+  "usage_report_status": "pass",
+  "constraint_audit_status": "pending_generation",
+  "conflict_report_status": "pass",
+  "hard_constraint_application_status": "pending",
+  "negative_constraint_check_status": "not_applicable",
+  "reference_only_leakage_status": "clear",
+  "blind_benchmark_firewall_status": "clear",
+  "unresolved_conflicts": [],
+  "failed_audits": [],
+  "pending_reviews": [
+    {
+      "constraint_id": "constraint-term-001",
+      "status": "pending_generation",
+      "reason": "no generated targets available"
+    }
+  ],
+  "stale_evidence": [],
+  "issues": [
+    {
+      "issue_type": "knowledge_review_required",
+      "severity": "warning",
+      "status": "requires_review",
+      "reason": "no generated targets available",
+      "source_artifact_references": ["term-registry.csv"],
+      "affected_knowledge_item_ids": ["term-001"],
+      "affected_segment_ids": [],
+      "related_constraint_id": "constraint-term-001",
+      "related_conflict_id": "",
+      "related_forbidden_claim": "knowledge_review_complete",
+      "readiness_impact": "requires_review"
+    }
+  ],
+  "readiness_impact": {
+    "generation_handoff": "knowledge_review_required",
+    "delivery": "downgraded",
+    "apply": "blocked",
+    "scorecard": "knowledge_claims_forbidden"
+  },
+  "forbidden_claims": [
+    "apply_ready",
+    "delivery_ready",
+    "knowledge_backed_quality",
+    "knowledge_constraints_applied",
+    "knowledge_review_complete",
+    "production_ready"
+  ],
+  "required_next_actions": ["Review knowledge audit evidence before stronger readiness claims."],
+  "source_artifacts": {
+    "knowledge_pack_selection": "knowledge-pack-selection.json",
+    "working_context_packet": "working-context-packet.json",
+    "knowledge_usage_report": "knowledge-usage-report.json",
+    "constraint_application_audit": "constraint-application-audit.json",
+    "knowledge_conflict_report": "knowledge-conflict-report.json"
+  }
+}
