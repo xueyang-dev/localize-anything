@@ -7,6 +7,15 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .evaluation import EVALUATION_SCORECARD_JSON, EVIDENCE_LEVEL_REPORT_MD
+from .document_evidence import (
+    CLAIM_METRIC_REPORT_JSON,
+    DOCUMENT_EVIDENCE_MANIFEST_JSON,
+    DOCUMENT_INTAKE_REPORT_JSON,
+    LEADERSHIP_REVIEW_BRIEF_MD,
+    OPEN_DECISIONS_MD,
+    PUBLICITY_RISK_REPORT_JSON,
+    SEMANTIC_ALIGNMENT_JSONL,
+)
 from .human_review import (
     CLAIM_ACCEPTANCE_DECISION_JSON,
     HUMAN_REVIEW_EVIDENCE_JSONL,
@@ -137,11 +146,97 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("repair_result", "repair_result", REPAIR_RESULT_JSON, "targeted_repair", ("repair_request",)),
     ArtifactSpec("repair_history", "repair_history", REPAIR_HISTORY_JSONL, "targeted_repair", ("repair_result",)),
     ArtifactSpec(
+        "document_intake_report",
+        "document_intake_report",
+        DOCUMENT_INTAKE_REPORT_JSON,
+        "document_evidence_pack",
+        ("localization_brief_json",),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "semantic_alignment",
+        "semantic_alignment",
+        SEMANTIC_ALIGNMENT_JSONL,
+        "document_evidence_pack",
+        ("segments", "generated_segments", "localization_brief_json", "document_intake_report"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "claim_metric_report",
+        "claim_metric_report",
+        CLAIM_METRIC_REPORT_JSON,
+        "document_evidence_pack",
+        (
+            "segments",
+            "generated_segments",
+            "localization_brief_json",
+            "semantic_alignment",
+            "term_registry",
+            "term_decisions",
+            "term_review_decisions",
+        ),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "publicity_risk_report",
+        "publicity_risk_report",
+        PUBLICITY_RISK_REPORT_JSON,
+        "document_evidence_pack",
+        ("segments", "generated_segments", "localization_brief_json", "semantic_alignment", "claim_metric_report", "term_registry", "term_decisions"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "leadership_review_brief",
+        "leadership_review_brief",
+        LEADERSHIP_REVIEW_BRIEF_MD,
+        "document_evidence_pack",
+        ("document_intake_report", "claim_metric_report", "publicity_risk_report", "evaluation_scorecard", "signoff_record"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "open_decisions",
+        "open_decisions",
+        OPEN_DECISIONS_MD,
+        "document_evidence_pack",
+        ("blocking_questions", "term_review_queue", "claim_acceptance_decision", "signoff_record", "claim_metric_report", "publicity_risk_report", "artifact_state"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "document_evidence_manifest",
+        "document_evidence_manifest",
+        DOCUMENT_EVIDENCE_MANIFEST_JSON,
+        "document_evidence_pack",
+        (
+            "document_intake_report",
+            "semantic_alignment",
+            "claim_metric_report",
+            "publicity_risk_report",
+            "leadership_review_brief",
+            "open_decisions",
+            "evaluation_scorecard",
+            "claim_acceptance_decision",
+            "signoff_record",
+            "delivery_decision",
+        ),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
         "evaluation_scorecard",
         "evaluation_scorecard",
         EVALUATION_SCORECARD_JSON,
         "evaluation_scorecard",
-        ("termbase_preflight_report", "generation_handoff_decision", "repair_result", "human_review_evidence"),
+        (
+            "termbase_preflight_report",
+            "generation_handoff_decision",
+            "repair_result",
+            "human_review_evidence",
+            "document_intake_report",
+            "semantic_alignment",
+            "claim_metric_report",
+            "publicity_risk_report",
+            "open_decisions",
+            "document_evidence_manifest",
+        ),
         required_for_delivery=True,
     ),
     ArtifactSpec("evidence_level_report", "evidence_level_report", EVIDENCE_LEVEL_REPORT_MD, "evaluation_scorecard", ("evaluation_scorecard",), required_for_delivery=True),
@@ -166,7 +261,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         "signoff_record",
         SIGNOFF_RECORD_JSON,
         "signoff",
-        ("claim_acceptance_decision", "evaluation_scorecard", "human_review_evidence", "state_delivery_manifest", "delivery_decision"),
+        ("claim_acceptance_decision", "evaluation_scorecard", "human_review_evidence", "document_evidence_manifest", "state_delivery_manifest", "delivery_decision"),
         required_for_delivery=True,
     ),
     ArtifactSpec(
@@ -222,6 +317,10 @@ RUN_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "forbidden_translations",
             "user_resolution_decisions",
             "state_delivery_manifest",
+            "document_evidence_manifest",
+            "claim_metric_report",
+            "publicity_risk_report",
+            "open_decisions",
         ),
         required_for_delivery=True,
         location="run",
@@ -263,6 +362,7 @@ def build_artifact_state(
         entry["source_dependency_hashes"] = _dependency_hashes(spec, entries)
         _apply_content_status(entry)
         _apply_previous_state_status(entry, previous.get(spec.artifact_id, {}), entries)
+        _apply_dependency_status(entry, spec, entries)
 
     artifacts = [_public_entry(entries[spec.artifact_id]) for spec in specs]
     stale_artifacts = [item for item in artifacts if item["status"] == "stale"]
@@ -569,6 +669,33 @@ def _apply_previous_state_status(
     entry["status"] = "stale"
     entry["blocking_reason"] = "upstream_dependency_changed"
     entry["stale_dependency_ids"] = changed_dependencies
+
+
+def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries: dict[str, dict[str, Any]]) -> None:
+    if entry["status"] == "missing":
+        return
+    document_dependency_ids = {
+        "document_intake_report",
+        "semantic_alignment",
+        "claim_metric_report",
+        "publicity_risk_report",
+        "leadership_review_brief",
+        "open_decisions",
+        "document_evidence_manifest",
+    }
+    document_consumers = {"signoff_record", "delivery_decision"}
+    stale_dependencies = sorted(
+        dependency_id
+        for dependency_id in spec.dependencies
+        if entries.get(dependency_id, {}).get("status") in {"stale", "superseded", "blocked"}
+    )
+    relevant_dependencies = sorted(set(stale_dependencies) & document_dependency_ids)
+    if spec.artifact_id not in document_dependency_ids | document_consumers or not relevant_dependencies:
+        return
+    entry["status"] = "stale"
+    entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"
+    existing = set(entry.get("stale_dependency_ids", []))
+    entry["stale_dependency_ids"] = sorted(existing | set(relevant_dependencies))
 
 
 def _downstream_map(specs: list[ArtifactSpec]) -> dict[str, list[str]]:

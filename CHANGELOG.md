@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Document Evidence Pack enforcement with artifact-state staleness tracking,
+  scorecard forbidden-claim integration, delivery/apply blockers, and
+  `workbench-document-evidence-queue.json` plus CLI/API access for document
+  evidence review actions.
 - Add Document Evidence Pack seed with `document-intake-report.json`,
   `semantic-alignment.jsonl`, `claim-metric-report.json`,
   `publicity-risk-report.json`, `leadership-review-brief.md`,

@@ -17,6 +17,7 @@ from .human_review import (
     record_human_review_evidence,
 )
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
+from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON, build_workbench_document_evidence_queue
 from .workbench_queue import (
     WORKBENCH_CLAIM_QUEUE_JSON,
     WORKBENCH_REVIEW_QUEUE_JSON,
@@ -181,6 +182,7 @@ def _refresh_projection_artifacts(state_dir: Path, run_id: str | None, *, tolera
         (WORKBENCH_REVIEW_QUEUE_JSON, lambda: build_workbench_review_queue(state_dir)),
         (WORKBENCH_CLAIM_QUEUE_JSON, lambda: build_workbench_claim_queue(state_dir)),
         (WORKBENCH_SIGNOFF_SUMMARY_JSON, lambda: build_workbench_signoff_summary(state_dir)),
+        (WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON, lambda: build_workbench_document_evidence_queue(state_dir)),
     ):
         try:
             refresh()
@@ -215,6 +217,7 @@ def _status_snapshot(state_dir: Path) -> dict[str, Any]:
         "workbench_review_queue": _json_status(state_dir / WORKBENCH_REVIEW_QUEUE_JSON, "status"),
         "workbench_claim_queue": _json_status(state_dir / WORKBENCH_CLAIM_QUEUE_JSON, "status"),
         "workbench_signoff_summary": _json_status(state_dir / WORKBENCH_SIGNOFF_SUMMARY_JSON, "current_signoff_status"),
+        "workbench_document_evidence_queue": _json_status(state_dir / WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON, "status"),
     }
 
 

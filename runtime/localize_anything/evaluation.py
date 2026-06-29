@@ -11,6 +11,14 @@ from .human_review import (
     summarize_human_review_evidence,
     summarize_signoff_record,
 )
+from .document_evidence import (
+    CLAIM_METRIC_REPORT_JSON,
+    DOCUMENT_EVIDENCE_MANIFEST_JSON,
+    DOCUMENT_INTAKE_REPORT_JSON,
+    OPEN_DECISIONS_MD,
+    PUBLICITY_RISK_REPORT_JSON,
+    SEMANTIC_ALIGNMENT_JSONL,
+)
 from .io_utils import read_json, read_jsonl, write_json
 
 
@@ -214,6 +222,12 @@ def _load_artifacts(
         "repair_request": _read_optional_json(state_dir / "repair-request.json"),
         "repair_result": _read_optional_json(state_dir / "repair-result.json"),
         "repair_history": _read_optional_jsonl(state_dir / "repair-history.jsonl"),
+        "document_intake_report": _read_optional_json(state_dir / DOCUMENT_INTAKE_REPORT_JSON),
+        "semantic_alignment": _read_optional_jsonl(state_dir / SEMANTIC_ALIGNMENT_JSONL),
+        "claim_metric_report": _read_optional_json(state_dir / CLAIM_METRIC_REPORT_JSON),
+        "publicity_risk_report": _read_optional_json(state_dir / PUBLICITY_RISK_REPORT_JSON),
+        "document_evidence_manifest": _read_optional_json(state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON),
+        "open_decisions": _read_optional_text(state_dir / OPEN_DECISIONS_MD),
         "generated_segments": _read_optional_jsonl((run_dir / "generated.jsonl") if run_dir else state_dir / "generated-segments.jsonl"),
         "review_result": _first_json(
             [
@@ -271,6 +285,14 @@ def _coverage_dimension(coverage: dict[str, Any], artifacts: dict[str, Any]) -> 
     forbidden = set(handoff.get("forbidden_quality_claims", [])) if isinstance(handoff, dict) else set()
     visible_warning = bool(coverage.get("visible_ui_coverage_warning"))
     mode = str(coverage.get("coverage_mode") or "unknown")
+    document_blockers = _document_evidence_blockers(artifacts)
+    if any(reason in document_blockers for reason in {"document_evidence_stale", "document_evidence_unsupported"}):
+        return _dimension(
+            "warning",
+            E0,
+            f"coverage is {mode} and document evidence is not complete",
+            warnings=["full_coverage_not_proven", *document_blockers],
+        )
     if visible_warning or "full_source_coverage" in forbidden or mode in {"source-only", "unknown"}:
         return _dimension("warning", E0, f"coverage is {mode} or downgraded", warnings=["full_coverage_not_proven"])
     if mode == "source-plus-merged-overlay" or coverage.get("full_coverage_claim") is True:
@@ -359,6 +381,11 @@ def _review_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
         return _dimension("warning", E1, "human review evidence is rejected, stale, or requires follow-up", warnings=["human_review_not_current"])
     term = _terminology_dimension(artifacts)
     repair = _repair_dimension(artifacts)
+    document_blockers = _document_evidence_blockers(artifacts)
+    if document_blockers:
+        if _document_evidence_has_blocking_condition(document_blockers):
+            return _dimension("blocked", E1, "document evidence has blocking or stale review evidence", blockers=document_blockers)
+        return _dimension("warning", E1, "document evidence requires review or signoff", warnings=document_blockers)
     if term["status"] in {"blocked", "warning"} or repair["status"] == "blocked":
         return _dimension("warning", E1, "review is incomplete or required", warnings=["review_required"])
     if artifacts.get("review_result") or artifacts.get("delivery_decision"):
@@ -492,6 +519,11 @@ def _forbidden_claims(
                 "production_ready",
             }
         )
+    document_blockers = _document_evidence_blockers(artifacts)
+    if document_blockers:
+        claims.update({"review_complete", "delivery_ready", "apply_ready", "production_ready", "layout_verified"})
+        if any(reason in document_blockers for reason in {"document_evidence_stale", "document_evidence_unsupported"}):
+            claims.add("full_coverage")
     handoff = artifacts.get("generation_handoff_decision", {})
     for claim in handoff.get("forbidden_quality_claims", []) if isinstance(handoff, dict) else []:
         claims.update(_claim_aliases(str(claim)))
@@ -527,6 +559,8 @@ def _recommended_next_actions(
         actions.append("Run a real provider successfully before claiming provider-backed quality.")
     if "review_complete" in forbidden_claims:
         actions.append("Record explicit qualified human review evidence before claiming review completion.")
+    if _document_evidence_blockers(artifacts):
+        actions.append("Resolve or refresh Document Evidence Pack blockers before document delivery, production, or layout claims.")
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         actions.append("Resolve blocked claim acceptance before delivery or apply readiness claims.")
@@ -592,6 +626,7 @@ def _upstream_readiness_blockers(artifacts: dict[str, Any]) -> list[str]:
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         blockers.append("claim_acceptance_blocked")
+    blockers.extend(_document_evidence_blockers(artifacts))
     signoff = artifacts.get("signoff_record", {})
     if isinstance(signoff, dict) and signoff:
         signoff_status = str(signoff.get("status") or "")
@@ -602,6 +637,80 @@ def _upstream_readiness_blockers(artifacts: dict[str, Any]) -> list[str]:
         if signoff.get("apply_authorized") is False and signoff.get("requested_authorizations", {}).get("apply"):
             blockers.append("apply_signoff_not_authorized")
     return list(dict.fromkeys(blockers))
+
+
+def _document_evidence_blockers(artifacts: dict[str, Any]) -> list[str]:
+    manifest = artifacts.get("document_evidence_manifest", {})
+    if not isinstance(manifest, dict) or not manifest:
+        return []
+    blockers: list[str] = []
+    status = str(manifest.get("status") or "not_checked")
+    summary = manifest.get("summary", {}) if isinstance(manifest, dict) else {}
+    if status == "unsupported":
+        blockers.append("document_evidence_unsupported")
+    elif status == "blocked":
+        blockers.append("document_evidence_blocked")
+    elif status == "requires_review":
+        blockers.append("document_evidence_review_required")
+    if int(summary.get("claim_metric_blocking_count", 0) or 0):
+        blockers.append("document_claim_metric_blocker")
+    if int(summary.get("blocking_decision_count", 0) or 0):
+        blockers.append("document_open_decision_blocker")
+    if int(summary.get("open_decision_count", 0) or 0):
+        blockers.append("document_open_decision_required")
+    publicity = artifacts.get("publicity_risk_report", {})
+    publicity_summary = publicity.get("summary", {}) if isinstance(publicity, dict) else {}
+    if int(publicity_summary.get("blocking_count", 0) or 0):
+        blockers.append("document_publicity_risk_blocker")
+    claim_report = artifacts.get("claim_metric_report", {})
+    claim_summary = claim_report.get("summary", {}) if isinstance(claim_report, dict) else {}
+    if int(claim_summary.get("pending_count", 0) or 0) or int(claim_summary.get("warning_count", 0) or 0):
+        blockers.append("document_claim_metric_review_required")
+    alignment = artifacts.get("semantic_alignment", [])
+    if isinstance(alignment, list) and any(isinstance(item, dict) and item.get("human_confirmation_required") for item in alignment):
+        blockers.append("document_semantic_alignment_review_required")
+    if _document_evidence_stale(artifacts):
+        blockers.append("document_evidence_stale")
+    signoff = artifacts.get("signoff_record", {})
+    if not isinstance(signoff, dict) or not signoff:
+        blockers.append("document_signoff_missing")
+    return sorted(dict.fromkeys(blockers))
+
+
+def _document_evidence_has_blocking_condition(blockers: list[str]) -> bool:
+    return any(
+        blocker
+        in {
+            "document_evidence_unsupported",
+            "document_evidence_blocked",
+            "document_claim_metric_blocker",
+            "document_publicity_risk_blocker",
+            "document_open_decision_blocker",
+            "document_evidence_stale",
+        }
+        for blocker in blockers
+    )
+
+
+def _document_evidence_stale(artifacts: dict[str, Any]) -> bool:
+    state = artifacts.get("artifact_state", {})
+    if not isinstance(state, dict):
+        return False
+    document_artifacts = {
+        "document_intake_report",
+        "semantic_alignment",
+        "claim_metric_report",
+        "publicity_risk_report",
+        "leadership_review_brief",
+        "open_decisions",
+        "document_evidence_manifest",
+    }
+    for item in state.get("artifacts", []):
+        if not isinstance(item, dict):
+            continue
+        if item.get("artifact_id") in document_artifacts and item.get("status") in {"stale", "superseded", "blocked", "requires_human_review"}:
+            return True
+    return False
 
 
 def _qa_summary(delivery_manifest: dict[str, Any], qa_result_paths: list[Path] | None) -> dict[str, Any]:
@@ -725,6 +834,12 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "repair_request": state_dir / "repair-request.json",
         "repair_result": state_dir / "repair-result.json",
         "repair_history": state_dir / "repair-history.jsonl",
+        "document_intake_report": state_dir / DOCUMENT_INTAKE_REPORT_JSON,
+        "semantic_alignment": state_dir / SEMANTIC_ALIGNMENT_JSONL,
+        "claim_metric_report": state_dir / CLAIM_METRIC_REPORT_JSON,
+        "publicity_risk_report": state_dir / PUBLICITY_RISK_REPORT_JSON,
+        "document_evidence_manifest": state_dir / DOCUMENT_EVIDENCE_MANIFEST_JSON,
+        "open_decisions": state_dir / OPEN_DECISIONS_MD,
         "generated_segments": (run_dir / "generated.jsonl") if run_dir else state_dir / "generated-segments.jsonl",
         "delivery_decision": (run_dir / "delivery-decision.json") if run_dir else state_dir / "delivery-decision.json",
         "apply_plan": (run_dir / "apply-plan.json") if run_dir else state_dir / "apply-plan.json",
@@ -751,3 +866,9 @@ def _read_optional_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     return [item for item in read_jsonl(path) if isinstance(item, dict)]
+
+
+def _read_optional_text(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8")

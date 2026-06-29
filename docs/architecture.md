@@ -633,6 +633,39 @@ Scorecard, Human Review Evidence, Claim Acceptance, Signoff, Artifact State,
 Repair, QA, and Handoff gates remain responsible for enforcement. Workbench
 can display the pack later as an artifact-backed review surface.
 
+### Document Evidence Enforcement And Queue
+
+Document Evidence Pack artifacts now participate in the same enforcement chain
+as generation, repair, scorecard, and signoff artifacts. `artifact-state.json`
+tracks `document-intake-report.json`, `semantic-alignment.jsonl`,
+`claim-metric-report.json`, `publicity-risk-report.json`,
+`leadership-review-brief.md`, `open-decisions.md`, and
+`document-evidence-manifest.json`. Source, generated segment, Localization
+Brief, term governance, claim/signoff, and delivery evidence changes can mark
+document evidence and downstream decisions stale. Staleness is content-hash
+driven; filesystem timestamp is not the source of truth.
+
+The Evaluation Scorecard consumes document evidence conservatively. Open
+claim/metric blockers, publicity blockers, unresolved open decisions,
+unsupported scenarios, stale document evidence, or missing document signoff can
+block or downgrade `review_readiness`, `delivery_readiness`,
+`apply_readiness`, and `overall_claim`. Unsupported document evidence forbids
+strong claims instead of pretending that a generic adapter reviewed the
+document. Because this seed does not perform DOCX layout/render verification
+or real-world factual truth verification, `layout_verified`,
+`review_complete`, `delivery_ready`, `apply_ready`, and `production_ready`
+remain forbidden when current evidence does not support them.
+
+`workbench-document-evidence-queue.json` is a Workbench-facing projection over
+the evidence artifacts. It surfaces unsupported scenarios, semantic alignment
+risks, English-only bridge review, source-only omissions, claim/metric risks,
+publicity risks, leadership review requirements, open decisions, stale
+document evidence, and document signoff requirements. The queue is not a second
+source of truth. It is regenerated from runtime artifacts and exposed through
+`workbench-document-evidence-queue` and
+`GET /api/workbench-document-evidence-queue`. UI code should render this queue
+instead of inferring document readiness locally.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

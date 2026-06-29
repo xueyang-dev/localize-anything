@@ -26,6 +26,7 @@ from .document_evidence import (
     read_publicity_risk_report,
     read_semantic_alignment,
 )
+from .document_evidence_queue import read_workbench_document_evidence_queue
 from .evaluation import read_evaluation_scorecard
 from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
@@ -190,6 +191,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-signoff-summary":
                     self._handle_workbench_signoff_summary_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-document-evidence-queue":
+                    self._handle_workbench_document_evidence_queue_query(parsed.query)
                     return
                 if parsed.path == "/api/workbench-action-log":
                     self._handle_workbench_action_log_query(parsed.query)
@@ -459,6 +463,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Open decisions are outside allowed workbench roots: {state_dir}")
             self._send_text(read_open_decisions(state_dir), "text/markdown; charset=utf-8")
+
+        def _handle_workbench_document_evidence_queue_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench document evidence queue is outside allowed workbench roots: {state_dir}")
+            self._send_json(
+                {
+                    "status": "pass",
+                    "state_dir": state_dir.as_posix(),
+                    "workbench_document_evidence_queue": read_workbench_document_evidence_queue(state_dir),
+                }
+            )
 
         def _handle_blocking_questions_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)

@@ -548,6 +548,41 @@ Workbench exposes artifact-backed read paths:
 Spreadsheet exports, including CSV, are optional future outputs only. JSON,
 JSONL, and Markdown artifacts are the source of truth.
 
+### Document Evidence Enforcement
+
+Document evidence artifacts are tracked by `artifact-state.json` once present.
+Source segment/source inventory changes make semantic alignment, claim/metric
+reports, publicity reports, leadership briefs, open decisions, the document
+evidence manifest, scorecard, and delivery decisions stale. Generated segment,
+Localization Brief, term-governance, claim-acceptance, signoff, and delivery
+changes similarly require recomputation or review where those hashes are
+recorded. Stale document evidence must not be treated as valid proof for
+generation, delivery, or apply decisions.
+
+The Evaluation Scorecard consumes document evidence as evidence, not
+completion. Open high-risk document decisions, unresolved claim/metric
+blockers, unresolved publicity blockers, unsupported scenarios, stale document
+evidence, or missing document signoff block or downgrade review, delivery, and
+apply readiness. The scorecard must forbid unsupported claims including
+`review_complete`, `delivery_ready`, `apply_ready`, `production_ready`, and
+`layout_verified` when document evidence is incomplete, stale, unsupported, or
+unsigned. This protocol does not claim DOCX layout/render verification or
+real-world factual truth verification.
+
+`workbench-document-evidence-queue.json` is an artifact-backed projection with
+items for `document_intake_incomplete`, `semantic_alignment_risk`,
+`english_only_bridge_review_required`, `source_only_omitted_review_required`,
+`claim_metric_review_required`, `publicity_risk_review_required`,
+`leadership_review_required`, `open_decision_required`,
+`document_evidence_stale`, `document_signoff_required`, and
+`unsupported_document_scenario`. Each item records stable id, severity, owner
+role, source artifact references, affected segments or scope, related
+claim/metric or publicity risk, related open decision, evidence-level impact,
+affected forbidden claims, recommended action, human confirmation requirement,
+and stale-evidence involvement. Workbench exposes it at
+`GET /api/workbench-document-evidence-queue`; write actions remain delegated to
+existing runtime action writers.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per
