@@ -7,10 +7,9 @@ Define portable artifacts between agents, runtimes, and adapters. The protocol d
 The protocol is the machine-readable part of the optimized architecture's
 Evidence Spine. Runtime, agents, Workbench, and delivery tooling should derive
 readiness from artifacts, not from prompt text or UI state. Architecture
-proposal artifacts such as Document Evidence Pack assets, Personal Knowledge
-Pack assets, locale capability reports, task-intent coverage reports, and
-non-text asset coverage reports are not canonical protocol artifacts until this
-spec adds schemas/examples and the runtime validates them.
+proposal artifacts such as locale capability reports, task-intent coverage
+reports, and non-text asset coverage reports are not canonical protocol
+artifacts until this spec adds schemas/examples and the runtime validates them.
 
 ## Canonical Artifacts
 
@@ -63,6 +62,12 @@ spec adds schemas/examples and the runtime validates them.
   authorization after claim acceptance. Signoff can accept scoped risk, but it
   cannot override stale artifacts, unsafe provider policy, failed QA, pending
   repairs, or scorecard-forbidden claims.
+- Personal Knowledge Pack artifacts live under
+  `.localize-anything/knowledge/packs/<pack-id>/`. The pack builder exports
+  reviewed, scoped, provenance-backed localization knowledge from existing
+  artifacts and keeps raw extracted knowledge in `knowledge-review-queue.json`
+  until an explicit `knowledge-review-decisions.jsonl` decision promotes,
+  locks, rejects, defers, or scope-limits it.
 - Workbench queue artifacts project existing evidence into UI-ready read models:
   `workbench-review-queue.json`, `workbench-claim-queue.json`, and
   `workbench-signoff-summary.json`. They are views over runtime artifacts, not
@@ -633,6 +638,64 @@ Workbench/API write paths:
 
 These POST endpoints write structured artifacts only. They do not call
 providers, infer language review evidence, or bypass runtime gates.
+
+## Personal Knowledge Pack Builder
+
+Personal Knowledge Pack Builder is a local-first export pipeline. It creates
+`.localize-anything/knowledge/packs/<pack-id>/pack.json` and companion pack
+artifacts for reusable localization knowledge:
+
+- `term-registry.csv`
+- `glossary.csv`
+- `translation-memory.jsonl`
+- `examples.jsonl`
+- `style-profile.md`
+- `forbidden-translations.csv`
+- `claim-patterns.jsonl`
+- `style-decisions.jsonl`
+- `alignment-examples.jsonl`
+- `revision-memory.jsonl`
+- `provenance.jsonl`
+- `quality-report.md`
+- `knowledge-review-queue.json`
+- `knowledge-review-decisions.jsonl`
+
+The builder is conservative. It may export approved or locked term decisions as
+hard constraints, reviewed forbidden translations as negative constraints, and
+scoped document/leadership decisions as claim, style, or alignment knowledge.
+Repair history becomes revision memory only when the repair was applied or
+accepted and deterministic QA passed. Generated segments do not become reviewed
+translation memory unless explicit human review or signoff evidence supports
+that status; otherwise they remain candidate or reference-only entries.
+
+`knowledge-review-queue.json` exposes candidate knowledge with stable ids,
+source/target values, proposed status, confidence, provenance, scope, risk,
+recommended decision, blocking reason, and whether human confirmation is
+required. `knowledge-review-decisions.jsonl` records explicit `approve`,
+`lock`, `reject`, `defer`, `scope_limit`, `mark_reference_only`,
+`mark_obsolete`, `merge_duplicate`, or `requires_follow_up` decisions. Only
+approved, locked, or scope-specific decisions can become hard constraints.
+
+Pack quality is summarized in `quality-report.md`. It lists source artifacts,
+approved/locked/reference/rejected counts, skipped or stale inputs, limitations,
+and whether the pack is safe for scoped hard constraints. Pack existence never
+upgrades the current run's scorecard, delivery readiness, or apply readiness.
+Artifact State tracks generated pack artifacts and marks them stale when source
+term governance, document decisions, review evidence, claim acceptance, signoff,
+or scorecard evidence changes.
+
+Workbench/API paths are artifact-backed:
+
+- `GET /api/knowledge-pack`
+- `POST /api/knowledge-pack/init`
+- `POST /api/knowledge-pack/export`
+- `GET /api/knowledge-review-queue`
+- `POST /api/knowledge-review-decision`
+- `GET /api/knowledge-quality-report`
+
+The seed does not implement hybrid retrieval or knowledge-augmented generation.
+It only creates reviewed, auditable pack artifacts so future generation loops
+can consume knowledge without treating raw previous output as truth.
 
 ## Human Review Evidence, Claim Acceptance, And Signoff
 

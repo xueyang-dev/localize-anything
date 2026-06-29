@@ -1,0 +1,32 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-review-queue-v1",
+  "artifact": "knowledge-review-queue.json",
+  "pack_id": "institutional-zh-cn",
+  "status": "requires_review",
+  "items": [
+    {
+      "candidate_id": "knowledge-candidate-example",
+      "candidate_type": "term",
+      "source_value": "Open Lab",
+      "target_value": "开放实验室",
+      "proposed_status": "approved",
+      "confidence": "high",
+      "source_artifact_references": ["term-registry.csv"],
+      "provenance_summary": "term-registry.csv",
+      "scope": "institutional_publicity_case",
+      "risk_level": "low",
+      "recommended_decision": "approve",
+      "blocking_reason": null,
+      "human_confirmation_required": false
+    }
+  ],
+  "summary": {
+    "candidate_count": 1,
+    "human_confirmation_required_count": 0,
+    "approved_or_locked_candidate_count": 1,
+    "reference_only_candidate_count": 0,
+    "blocked_candidate_count": 0
+  },
+  "source_artifacts": ["term-registry.csv"]
+}

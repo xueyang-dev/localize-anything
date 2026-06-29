@@ -58,6 +58,14 @@ from .gettext_adapter import extract_segments as extract_po_segments
 from .gettext_adapter import rebuild as rebuild_po
 from .gettext_adapter import validate_pair as validate_po_pair
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
+from .knowledge_pack import (
+    export_knowledge_pack,
+    init_knowledge_pack,
+    read_knowledge_pack,
+    read_knowledge_quality_report,
+    read_knowledge_review_queue,
+    record_knowledge_review_decision,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -649,6 +657,46 @@ def build_parser() -> argparse.ArgumentParser:
     document_signoff_summary_parser.add_argument("state_dir", type=Path)
     document_signoff_summary_parser.add_argument("--run-id")
     document_signoff_summary_parser.add_argument("--output", type=Path)
+
+    knowledge_pack_init_parser = subparsers.add_parser("knowledge-pack-init", help="Initialize a local-first Personal Knowledge Pack")
+    knowledge_pack_init_parser.add_argument("state_dir", type=Path)
+    knowledge_pack_init_parser.add_argument("--pack-id", required=True)
+    knowledge_pack_init_parser.add_argument("--name")
+    knowledge_pack_init_parser.add_argument("--source-locale")
+    knowledge_pack_init_parser.add_argument("--target-locale")
+    knowledge_pack_init_parser.add_argument("--domain", action="append", default=[], dest="domains")
+    knowledge_pack_init_parser.add_argument("--privacy-mode", default="local_only")
+    knowledge_pack_init_parser.add_argument("--created-by", default="localize-anything-runtime")
+    knowledge_pack_init_parser.add_argument("--quality-level", default="raw")
+    knowledge_pack_init_parser.add_argument("--scenario", action="append", default=[], dest="supported_scenarios")
+    knowledge_pack_init_parser.add_argument("--output", type=Path)
+
+    knowledge_pack_export_parser = subparsers.add_parser("knowledge-pack-export", help="Export reviewed candidate knowledge into a Personal Knowledge Pack")
+    knowledge_pack_export_parser.add_argument("state_dir", type=Path)
+    knowledge_pack_export_parser.add_argument("--pack-id", required=True)
+    knowledge_pack_export_parser.add_argument("--output", type=Path)
+
+    knowledge_pack_parser = subparsers.add_parser("knowledge-pack", help="Read pack.json for a Personal Knowledge Pack")
+    knowledge_pack_parser.add_argument("state_dir", type=Path)
+    knowledge_pack_parser.add_argument("--pack-id", required=True)
+    knowledge_pack_parser.add_argument("--output", type=Path)
+
+    knowledge_review_queue_parser = subparsers.add_parser("knowledge-review-queue", help="Read knowledge-review-queue.json")
+    knowledge_review_queue_parser.add_argument("state_dir", type=Path)
+    knowledge_review_queue_parser.add_argument("--pack-id", required=True)
+    knowledge_review_queue_parser.add_argument("--output", type=Path)
+
+    knowledge_review_decision_parser = subparsers.add_parser("knowledge-review-decision", help="Append a structured knowledge review decision")
+    knowledge_review_decision_parser.add_argument("state_dir", type=Path)
+    knowledge_review_decision_parser.add_argument("--pack-id", required=True)
+    knowledge_review_decision_parser.add_argument("--input", type=Path, required=True)
+    knowledge_review_decision_parser.add_argument("--run-id")
+    knowledge_review_decision_parser.add_argument("--output", type=Path)
+
+    knowledge_quality_report_parser = subparsers.add_parser("knowledge-quality-report", help="Read quality-report.md for a Personal Knowledge Pack")
+    knowledge_quality_report_parser.add_argument("state_dir", type=Path)
+    knowledge_quality_report_parser.add_argument("--pack-id", required=True)
+    knowledge_quality_report_parser.add_argument("--output", type=Path)
 
     draft_request_parser = subparsers.add_parser("draft-request", help="Create a provider-agnostic LLM draft request from a work packet")
     draft_request_parser.add_argument("work_packet", type=Path)
@@ -1431,6 +1479,32 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_document_claim_resolution(args.state_dir, run_id=args.run_id), args.output)
         if args.command == "document-signoff-summary":
             return _emit_json(build_document_signoff_summary(args.state_dir, run_id=args.run_id), args.output)
+        if args.command == "knowledge-pack-init":
+            return _emit_json(
+                init_knowledge_pack(
+                    args.state_dir,
+                    pack_id=args.pack_id,
+                    name=args.name,
+                    source_locale=args.source_locale,
+                    target_locale=args.target_locale,
+                    domains=args.domains,
+                    privacy_mode=args.privacy_mode,
+                    created_by=args.created_by,
+                    quality_level=args.quality_level,
+                    supported_scenarios=args.supported_scenarios,
+                ),
+                args.output,
+            )
+        if args.command == "knowledge-pack-export":
+            return _emit_json(export_knowledge_pack(args.state_dir, args.pack_id), args.output)
+        if args.command == "knowledge-pack":
+            return _emit_json(read_knowledge_pack(args.state_dir, args.pack_id), args.output)
+        if args.command == "knowledge-review-queue":
+            return _emit_json(read_knowledge_review_queue(args.state_dir, args.pack_id), args.output)
+        if args.command == "knowledge-review-decision":
+            return _emit_json(record_knowledge_review_decision(args.state_dir, args.pack_id, read_json(args.input), run_id=args.run_id), args.output)
+        if args.command == "knowledge-quality-report":
+            return _emit_text(read_knowledge_quality_report(args.state_dir, args.pack_id), args.output)
         if args.command == "draft-request":
             return _emit_json(create_draft_request(read_json(args.work_packet)), args.output)
         if args.command == "render-draft-prompt":

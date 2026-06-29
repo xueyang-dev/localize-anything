@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Personal Knowledge Pack Builder seed with local-first pack initialization,
+  conservative artifact export, `knowledge-review-queue.json`,
+  `knowledge-review-decisions.jsonl`, quality reporting, artifact-state
+  tracking, and deterministic CLI/API access.
 - Add Document Evidence Decision Resolution with `document-decision-log.jsonl`,
   `leadership-review-evidence.jsonl`, `document-claim-resolution.json`, and
   `document-signoff-summary.json`, plus artifact-backed CLI/API paths and

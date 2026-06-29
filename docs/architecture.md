@@ -694,6 +694,51 @@ policy, handoff, or project signoff gates. If document evidence changes, these
 decision artifacts become stale and readiness stays blocked or downgraded
 until refreshed.
 
+## Personal Knowledge Pack Builder
+
+Personal Knowledge Pack Builder is the first local-first reuse layer. It exports
+scoped, provenance-backed localization knowledge from existing run artifacts
+into `.localize-anything/knowledge/packs/<pack-id>/`. The pack contains
+`pack.json`, term/glossary CSVs, translation-memory and example JSONL files,
+style and claim decision records, revision memory, provenance, a quality
+report, and a knowledge review queue.
+
+This is deliberately not RAG and not knowledge-augmented generation. The seed
+only builds a pack structure and a deterministic extraction/export pipeline.
+Raw generated output, unresolved document risks, stale decisions, rejected
+records, superseded records, blocked artifacts, and failed-QA repairs are not
+promoted to approved knowledge. They remain candidate or reference-only
+knowledge until a reviewer records an explicit decision.
+
+`knowledge-review-queue.json` is the Workbench-ready surface for candidate
+knowledge. It includes stable candidate ids, candidate type, source/target
+values, proposed status, confidence, source artifact references, provenance,
+scope, risk level, recommended decision, blocking reason, and whether human
+confirmation is required. `knowledge-review-decisions.jsonl` records explicit
+review outcomes such as approve, lock, reject, defer, scope-limit,
+reference-only, obsolete, duplicate merge, or follow-up. Only approved, locked,
+or scope-specific items can become hard constraints in pack artifacts.
+
+Promotion rules stay tied to the Evidence Spine:
+
+- approved or locked term governance can export to pack term registry and
+  glossary;
+- forbidden translations need provenance and scope before becoming hard
+  negative constraints;
+- document and leadership decisions export only within explicit scope;
+- accepted repair history exports to revision memory only after deterministic
+  QA passes;
+- generated segments do not become reviewed translation memory without
+  explicit human review or signoff evidence;
+- limited-scope decisions remain limited-scope and never become global
+  delivery readiness.
+
+Artifact State dynamically tracks generated pack files. If source term
+governance, document decisions, review evidence, claim acceptance, signoff, or
+scorecard evidence changes, the pack becomes stale and must be regenerated or
+reviewed before future loops can rely on it. Pack existence alone never
+upgrades the current run's scorecard, delivery readiness, or apply readiness.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

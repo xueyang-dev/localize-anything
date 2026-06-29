@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/pack.schema.json",
+  "title": "Localize Anything Personal Knowledge Pack",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "pack_id", "name", "privacy_mode", "quality_level", "status"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-pack-v1" },
+    "artifact": { "const": "pack.json" },
+    "pack_id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "source_locale": { "type": "string" },
+    "target_locale": { "type": "string" },
+    "domains": { "type": "array", "items": { "type": "string" } },
+    "privacy_mode": { "enum": ["local_only", "team_shared", "experimental"] },
+    "created_by": { "type": "string" },
+    "created_at": { "type": "string" },
+    "quality_level": { "enum": ["raw", "mixed", "reviewed", "approved", "locked_scope_specific"] },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "review_policy": { "type": "object" },
+    "supported_scenarios": { "type": "array", "items": { "type": "string" } },
+    "status": { "type": "string" }
+  },
+  "additionalProperties": true
+}
