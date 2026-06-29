@@ -72,9 +72,19 @@ DECISIONS = {
     "requires_follow_up",
 }
 
-PROMOTABLE_DECISIONS = {"approve", "lock", "scope_limit", "mark_reference_only"}
+PROMOTABLE_DECISIONS = {"approve", "lock", "scope_limit"}
 APPROVED_STATUSES = {"approved", "locked", "scope_specific"}
-BAD_SOURCE_STATUSES = {"stale", "rejected", "superseded", "blocked", "failed_qa", "unresolved"}
+BAD_SOURCE_STATUSES = {
+    "stale",
+    "rejected",
+    "superseded",
+    "obsolete",
+    "blocked",
+    "fail",
+    "failed",
+    "failed_qa",
+    "unresolved",
+}
 
 
 def knowledge_pack_dir(state_dir: Path, pack_id: str) -> Path:
@@ -434,7 +444,7 @@ def _generated_segment_candidates(state_dir: Path, pack: dict[str, Any]) -> list
                 recommended_decision="approve" if reviewed else "mark_reference_only",
                 blocking_reason=None if reviewed or signed else "raw_generated_segment_without_review_evidence",
                 human_confirmation_required=not reviewed,
-                metadata={"segment_id": record.get("segment_id"), "reviewed": reviewed, "signed": signed},
+                metadata={**record, "reviewed": reviewed, "signed": signed},
             )
         )
     return items
@@ -500,6 +510,10 @@ def _apply_review_decision(candidate: dict[str, Any], decisions: list[dict[str, 
     updated = dict(candidate)
     updated["review_decision"] = value
     updated["review_decision_id"] = decision.get("decision_id")
+    if value in PROMOTABLE_DECISIONS and updated.get("source_ineligible_reason"):
+        updated["blocking_reason"] = updated["source_ineligible_reason"]
+        updated["human_confirmation_required"] = True
+        return updated
     if value == "approve":
         updated["proposed_status"] = "approved"
         updated["blocking_reason"] = None
@@ -565,6 +579,7 @@ def _candidate(
     human_confirmation_required: bool,
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
+    source_ineligible_reason = _source_ineligible_reason(metadata)
     payload = {
         "candidate_type": candidate_type,
         "source_value": source_value,
@@ -585,8 +600,9 @@ def _candidate(
         "scope": scope or "limited",
         "risk_level": risk_level,
         "recommended_decision": recommended_decision,
-        "blocking_reason": blocking_reason,
-        "human_confirmation_required": human_confirmation_required,
+        "blocking_reason": source_ineligible_reason or blocking_reason,
+        "human_confirmation_required": human_confirmation_required or bool(source_ineligible_reason),
+        "source_ineligible_reason": source_ineligible_reason,
         "metadata": metadata,
     }
 
@@ -830,6 +846,18 @@ def _provenance_summary(source_artifacts: list[str], metadata: dict[str, Any]) -
         if metadata.get(key)
     ]
     return ", ".join([*source_artifacts, *ids])
+
+
+def _source_ineligible_reason(record: dict[str, Any]) -> str | None:
+    if record.get("superseded_by"):
+        return "source_superseded"
+    if record.get("stale") is True or record.get("is_stale") is True:
+        return "source_status_stale"
+    for key in ("status", "decision_status", "repair_status", "generation_status", "review_status", "artifact_status"):
+        status = str(record.get(key) or "").strip().lower()
+        if status in BAD_SOURCE_STATUSES:
+            return f"source_status_{status}"
+    return None
 
 
 def _document_candidate_type(decision_type: str) -> str:

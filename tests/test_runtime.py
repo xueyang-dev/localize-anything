@@ -7688,6 +7688,44 @@ class PersonalKnowledgePackBuilderTests(unittest.TestCase):
             self.assertEqual(_read_csv_dicts(pack_dir / "term-registry.csv"), [])
             self.assertEqual(read_jsonl(pack_dir / REVISION_MEMORY_JSONL), [])
 
+    def test_ineligible_sources_cannot_be_promoted_by_review_or_full_run_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_state(Path(directory))
+            write_jsonl(
+                state / "term-decisions.jsonl",
+                [{"source_term": "Old name", "target_term": "Old target", "status": "approved", "superseded_by": ["term-decision-2"]}],
+            )
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [
+                    {"segment_id": "s1", "source": "Stale", "target": "Stale target", "status": "stale"},
+                    {"segment_id": "s2", "source": "Current", "target": "Current target"},
+                ],
+            )
+            record_human_review_evidence(
+                state,
+                {
+                    "reviewer_role": "bilingual_reviewer",
+                    "reviewer_reference": "reviewer@example.test",
+                    "review_scope": {"scope_type": "full_run"},
+                    "status": "accepted",
+                },
+            )
+            export_knowledge_pack(state, "pack")
+            pack_dir = knowledge_pack_dir(state, "pack")
+
+            self.assertEqual(_read_csv_dicts(pack_dir / "term-registry.csv"), [])
+            self.assertEqual([item["source_value"] for item in read_jsonl(pack_dir / TRANSLATION_MEMORY_JSONL)], ["Current"])
+
+            queue = read_knowledge_review_queue(state, "pack")
+            stale_candidate = next(item for item in queue["items"] if item["source_value"] == "Stale")
+            record_knowledge_review_decision(
+                state,
+                "pack",
+                {"candidate_id": stale_candidate["candidate_id"], "decision": "approve", "reviewer_role": "knowledge_reviewer"},
+            )
+            self.assertEqual([item["source_value"] for item in read_jsonl(pack_dir / TRANSLATION_MEMORY_JSONL)], ["Current"])
+
     def test_limited_scope_document_decisions_export_scope_specific_knowledge_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = _write_document_evidence_state(Path(directory))
