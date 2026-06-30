@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-repair-impact-report-v1",
+  "artifact": "knowledge-repair-impact-report.json",
+  "run_id": "knowledge-repair-example-001",
+  "status": "repair_required",
+  "summary": { "repair_item_count": 1, "deterministic_repair_candidate_count": 1, "human_review_required_count": 0, "provider_model_pending_count": 0, "blocked_count": 0, "cleared_item_count": 0, "request_count": 1 },
+  "affected_segments": ["segment-1"],
+  "affected_claims": ["knowledge_constraints_applied", "delivery_ready", "apply_ready"],
+  "affected_scorecard_dimensions": ["knowledge_assurance", "terminology_assurance", "review_readiness", "delivery_readiness", "apply_readiness"],
+  "artifacts_to_regenerate_after_repair": ["constraint-application-audit.json", "knowledge-usage-report.json", "evaluation-scorecard.json"],
+  "delivery_apply_readiness_impact": "blocked",
+  "open_decisions_or_confirmations_required": [],
+  "knowledge_repair_plan_path": "knowledge-repair-plan.json",
+  "knowledge_repair_request_path": "knowledge-repair-request.json",
+  "limitations": ["pending candidates are not repaired until matching repair result and QA evidence exist"]
+}

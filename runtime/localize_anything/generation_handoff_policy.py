@@ -7,6 +7,7 @@ from . import PROTOCOL_VERSION
 from .artifact_state import ARTIFACT_STATE_JSON, artifact_state_summary
 from .generation_strategy import GENERATION_STRATEGY_JSON
 from .io_utils import read_json, read_jsonl, write_json
+from .knowledge_repair import KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON, knowledge_repair_summary
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .resolution_gate import BLOCKING_QUESTIONS_JSON, RESOLUTION_OPTIONS_JSON, USER_RESOLUTION_DECISIONS_JSONL
 from .segment_repair import SEGMENT_REGENERATION_PLAN_JSON, segment_repair_summary
@@ -65,6 +66,7 @@ def build_generation_handoff_decision(
     _check_coverage(coverage_policy, continuation_decisions, warnings, forbidden_claims)
     _check_artifact_state(state_dir, blockers, warnings, forbidden_claims)
     _check_segment_repair_plan(state_dir, blockers, warnings, forbidden_claims)
+    _check_knowledge_repair_plan(state_dir, blockers, forbidden_claims)
     provider_backed_allowed = _check_provider_policy(provider_policy, blockers, warnings, forbidden_claims)
 
     hard_blocked = bool(blockers)
@@ -525,9 +527,39 @@ def _artifact_affects_handoff(item: dict[str, Any]) -> bool:
         "segment_regeneration_plan",
         "repair_request",
         "repair_result",
+        "knowledge_repair_plan",
+        "knowledge_repair_request",
+        "knowledge_repair_impact_report",
     }:
         return True
     return "generation_handoff_decision" in item.get("downstream_affected", [])
+
+
+def _check_knowledge_repair_plan(
+    state_dir: Path,
+    blockers: list[dict[str, Any]],
+    forbidden_claims: set[str],
+) -> None:
+    summary = knowledge_repair_summary(state_dir)
+    if not summary.get("pending_required_count"):
+        return
+    blockers.append(
+        _issue(
+            "pending_knowledge_repairs_block_handoff",
+            "Knowledge repair planning found unresolved required repairs; planning alone does not clear the blocker.",
+            KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+            knowledge_repair_summary=summary,
+        )
+    )
+    forbidden_claims.update(
+        {
+            FULL_QUALITY_FORBIDDEN_CLAIM,
+            "knowledge_constraints_applied",
+            "knowledge_review_complete",
+            "safe_apply_readiness",
+            "review_complete_status",
+        }
+    )
 
 
 def _handoff_mode(

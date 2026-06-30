@@ -4,6 +4,7 @@ import base64
 import csv
 import json
 import gettext
+import hashlib
 import http.client
 import importlib.util
 import io
@@ -137,6 +138,17 @@ from runtime.localize_anything.knowledge_review_confirmation import (
     read_knowledge_constraint_review_evidence,
     record_knowledge_audit_resolution,
     record_knowledge_constraint_review_evidence,
+)
+from runtime.localize_anything.knowledge_repair import (
+    KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+    KNOWLEDGE_REPAIR_PLAN_JSON,
+    KNOWLEDGE_REPAIR_REQUEST_JSON,
+    build_knowledge_repair_impact_report,
+    build_knowledge_repair_plan,
+    build_knowledge_repair_request,
+    read_knowledge_repair_impact_report,
+    read_knowledge_repair_plan,
+    read_knowledge_repair_request,
 )
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
@@ -8999,6 +9011,295 @@ class KnowledgeReviewConfirmationSeedTests(unittest.TestCase):
             self.assertEqual(assets["knowledge_assurance_summary"], KNOWLEDGE_ASSURANCE_SUMMARY_JSON)
 
 
+class KnowledgeAssistedRepairPlanningTests(unittest.TestCase):
+    def test_failed_hard_term_creates_deterministic_scoped_plan_and_request(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+
+            plan = build_knowledge_repair_plan(state, run_id="knowledge-repair-001")
+            request = read_knowledge_repair_request(state)
+            impact = read_knowledge_repair_impact_report(state)
+
+            item = plan["repair_items"][0]
+            self.assertEqual(item["issue_type"], "hard_term_constraint_failed")
+            self.assertEqual(item["repair_action"], "term_patch")
+            self.assertTrue(item["deterministic_eligibility"])
+            self.assertEqual(request["requests"][0]["preferred_replacement"], "开放实验室")
+            self.assertEqual(impact["summary"]["deterministic_repair_candidate_count"], 1)
+            assert_protocol_schema(self, "knowledge-repair-plan", plan)
+            assert_protocol_schema(self, "knowledge-repair-request", request)
+            assert_protocol_schema(self, "knowledge-repair-impact-report", impact)
+
+    def test_forbidden_translation_request_preserves_pattern_and_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("negative_constraint_failed", knowledge_id="p-forbidden")])
+
+            request = build_knowledge_repair_request(state)
+
+            item = request["requests"][0]
+            self.assertEqual(item["request_type"], "forbidden_translation_patch")
+            self.assertEqual(item["forbidden_target_pattern"], "Forbidden target")
+            self.assertEqual(item["preferred_replacement"], "开放实验室")
+            self.assertEqual(item["source_knowledge_provenance"]["knowledge_item_ids"], ["p-forbidden"])
+
+    def test_conflict_priority_and_scope_issues_block_or_limit_execution(self) -> None:
+        issues = [
+            _knowledge_repair_issue("knowledge_conflict_unresolved", conflict_id="conflict-1"),
+            _knowledge_repair_issue("project_priority_conflict", conflict_id="conflict-2"),
+            _knowledge_repair_issue("scope_mismatch"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), issues)
+
+            plan = build_knowledge_repair_plan(state)
+            requests = read_knowledge_repair_request(state)["requests"]
+
+            actions = {item["issue_type"]: item["repair_action"] for item in plan["repair_items"]}
+            self.assertEqual(actions["knowledge_conflict_unresolved"], "block_until_conflict_resolved")
+            self.assertEqual(actions["project_priority_violation"], "block_until_conflict_resolved")
+            self.assertEqual(actions["scope_mismatch"], "scope_limit_required")
+            self.assertTrue(all(item["status"] == "blocked" for item in requests))
+
+    def test_reference_only_and_blind_firewall_never_create_automatic_repair(self) -> None:
+        issues = [
+            _knowledge_repair_issue("reference_only_leakage", knowledge_id="p-reference"),
+            _knowledge_repair_issue("blind_benchmark_firewall_risk", knowledge_id="p-tm"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), issues)
+
+            plan = build_knowledge_repair_plan(state)
+            request = read_knowledge_repair_request(state)
+
+            by_type = {item["issue_type"]: item for item in plan["repair_items"]}
+            self.assertFalse(by_type["reference_only_leakage"]["deterministic_eligibility"])
+            self.assertEqual(by_type["reference_only_leakage"]["repair_action"], "human_review_required")
+            self.assertEqual(by_type["blind_benchmark_firewall_violation"]["repair_action"], "no_repair_applicable")
+            self.assertTrue(any("automatic_hard_constraint_repair" in item["blocked_repair_modes"] for item in request["requests"]))
+
+    def test_ambiguous_or_semantic_change_is_not_marked_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed", knowledge_id="missing")])
+
+            plan = build_knowledge_repair_plan(state)
+            request = read_knowledge_repair_request(state)["requests"][0]
+
+            self.assertFalse(plan["repair_items"][0]["deterministic_eligibility"])
+            self.assertEqual(request["request_type"], "human_rewrite_required")
+            self.assertNotIn("provider_call", request["allowed_repair_modes"])
+
+    def test_pending_repairs_block_scorecard_strategy_and_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+
+            strategy = build_generation_strategy(state, _knowledge_batch_plan())
+            write_generation_strategy(state, strategy)
+            handoff = build_generation_handoff_decision(state, provider_policy={"mode": "host_agent", "provider_controlled": False})
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertEqual(strategy["gates"]["knowledge_repair"]["status"], "repair_required")
+            self.assertIn("knowledge_repairs_pending", strategy["gates"]["knowledge"]["blocking_reasons"])
+            self.assertTrue(any(item["code"] == "pending_knowledge_repairs_block_handoff" for item in handoff["blockers"]))
+            self.assertIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+            self.assertIn("production_ready", scorecard["forbidden_claims"])
+
+    def test_matching_current_hash_provenance_and_qa_clear_item(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            first = build_knowledge_repair_plan(state)
+            item = first["repair_items"][0]
+            target_hash = hashlib.sha256("访问错误实验室".encode("utf-8")).hexdigest()
+            write_json(
+                state / "repair-result.json",
+                {
+                    "status": "completed",
+                    "results": [{
+                        "repair_id": "repair-1",
+                        "segment_id": "s1",
+                        "repair_status": "completed",
+                        "new_target_hash": target_hash,
+                        "knowledge_repair_item_id": item["repair_item_id"],
+                        "source_knowledge_item_ids": ["p-term"],
+                        "qa": {"status": "pass"},
+                    }],
+                },
+            )
+
+            refreshed = build_knowledge_repair_plan(state)
+
+            self.assertEqual(refreshed["status"], "clear")
+            self.assertEqual(refreshed["summary"]["cleared_count"], 1)
+
+    def test_stale_or_unproven_repair_result_does_not_clear_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            first = build_knowledge_repair_plan(state)
+            write_json(
+                state / "repair-result.json",
+                {
+                    "status": "completed",
+                    "results": [{
+                        "repair_id": "repair-stale",
+                        "segment_id": "s1",
+                        "repair_status": "completed",
+                        "new_target_hash": "stale-hash",
+                        "knowledge_repair_item_id": first["repair_items"][0]["repair_item_id"],
+                        "source_knowledge_item_ids": ["p-term"],
+                        "qa": {"status": "pass"},
+                    }],
+                },
+            )
+
+            refreshed = build_knowledge_repair_plan(state)
+
+            self.assertEqual(refreshed["summary"]["repair_item_count"], 1)
+            self.assertEqual(refreshed["summary"]["cleared_count"], 0)
+
+    def test_artifact_state_tracks_and_stales_knowledge_repair_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+            self.assertTrue({"knowledge_repair_plan", "knowledge_repair_request", "knowledge_repair_impact_report"}.issubset(ids))
+            audit = read_json(state / CONSTRAINT_APPLICATION_AUDIT_JSON)
+            audit["changed"] = True
+            write_json(state / CONSTRAINT_APPLICATION_AUDIT_JSON, audit)
+
+            refreshed = build_artifact_state(state)
+            stale = {item["artifact_id"] for item in refreshed["stale_artifacts"]}
+
+            self.assertIn("knowledge_repair_plan", stale)
+            self.assertIn("knowledge_repair_impact_report", stale)
+
+    def test_api_endpoints_are_artifact_backed_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    for endpoint in ("knowledge-repair-plan", "knowledge-repair-request", "knowledge-repair-impact-report"):
+                        status, _ = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                        self.assertEqual(status, 200)
+                    self.assertFalse(provider_call.called)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_commands_are_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            outputs = [Path(directory) / name for name in ("plan.json", "request.json", "impact.json")]
+
+            self.assertEqual(cli_main(["knowledge-repair-plan", state.as_posix(), "--output", outputs[0].as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-repair-request", state.as_posix(), "--output", outputs[1].as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-repair-impact-report", state.as_posix(), "--output", outputs[2].as_posix()]), 0)
+
+            self.assertEqual(read_json(outputs[0]), read_knowledge_repair_plan(state))
+            self.assertEqual(read_json(outputs[1]), read_knowledge_repair_request(state))
+            self.assertEqual(read_json(outputs[2]), read_knowledge_repair_impact_report(state))
+
+    def test_delivery_package_and_run_summary_reference_knowledge_repair_impact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_knowledge_repair_fixture(state, [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "knowledge-repair-delivery-001")
+            run = run_localize(project, "en-US", ["zh-CN"], output_root=root / "out", run_id="knowledge-repair-run-001", handoff_only=True)
+
+            self.assertEqual(packaged["manifest"]["assets"]["knowledge_repair_impact_report"], KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON)
+            self.assertIn("knowledge_repair_plan", run["artifacts"])
+            self.assertIn("knowledge_repair_impact_report", run["artifacts"])
+
+
+def _knowledge_repair_issue(
+    issue_type: str,
+    *,
+    knowledge_id: str = "p-term",
+    conflict_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "issue_type": issue_type,
+        "severity": "blocking" if issue_type not in {"scope_mismatch", "knowledge_review_required"} else "warning",
+        "status": "blocked" if issue_type not in {"scope_mismatch", "knowledge_review_required"} else "requires_review",
+        "reason": f"test issue: {issue_type}",
+        "source_artifact_references": ["constraint-application-audit.json"],
+        "affected_knowledge_item_ids": [knowledge_id],
+        "affected_segment_ids": ["s1"],
+        "related_constraint_id": "constraint-term-1" if not conflict_id else "",
+        "related_conflict_id": conflict_id,
+        "related_forbidden_claim": "knowledge_constraints_applied",
+        "readiness_impact": "blocks_delivery_apply",
+    }
+
+
+def _knowledge_repair_state(root: Path, issues: list[dict[str, Any]]) -> Path:
+    state = root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    _write_knowledge_repair_fixture(state, issues)
+    return state
+
+
+def _write_knowledge_repair_fixture(state: Path, issues: list[dict[str, Any]]) -> None:
+    state.mkdir(parents=True, exist_ok=True)
+    write_json(state / KNOWLEDGE_PACK_SELECTION_JSON, {"status": "selected", "selected_packs": [{"pack_id": "pack"}]})
+    write_json(state / KNOWLEDGE_ELIGIBILITY_REPORT_JSON, {"status": "eligible", "eligible_entries": []})
+    write_json(
+        state / WORKING_CONTEXT_PACKET_JSON,
+        {
+            "status": "ready",
+            "operating_mode": "greenfield_localization",
+            "knowledge_policy": {"enabled": True, "allowed_classes": ["hard_constraint", "negative_constraint"]},
+            "hard_constraints": [{"knowledge_id": "p-term", "knowledge_type": "term", "source_value": "Open Lab", "target_value": "开放实验室", "status": "locked"}],
+            "negative_constraints": [{"knowledge_id": "p-forbidden", "knowledge_type": "forbidden_translation", "source_value": "Open Lab", "target_value": "Forbidden target", "status": "locked"}],
+            "tm_suggestions": [{"knowledge_id": "p-tm", "knowledge_type": "translation_memory", "target_value": "参考"}],
+            "retrieved_examples": [],
+            "excluded_knowledge": [{"knowledge_id": "p-reference", "classification": "reference_only"}],
+        },
+    )
+    write_json(state / KNOWLEDGE_USAGE_REPORT_JSON, {"status": "pass", "usage_entries": []})
+    write_json(state / CONSTRAINT_APPLICATION_AUDIT_JSON, {"status": "fail", "audited_constraints": [], "summary": {"checked_fail_count": len(issues)}})
+    write_json(state / KNOWLEDGE_CONFLICT_REPORT_JSON, {"status": "blocked" if any(item.get("related_conflict_id") for item in issues) else "clear", "conflicts": []})
+    write_json(
+        state / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+        {"status": "blocked", "issues": issues, "forbidden_claims": ["knowledge_constraints_applied", "delivery_ready", "apply_ready"]},
+    )
+    write_json(
+        state / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
+        {
+            "status": "requires_action",
+            "items": [
+                {
+                    "item_id": f"knowledge-review-{index:04d}",
+                    "item_type": issue["issue_type"],
+                    "status": issue["status"],
+                    "severity": issue["severity"],
+                    "affected_scope": {"scenario": "scenario-a"},
+                    "related_constraint_id": issue.get("related_constraint_id", ""),
+                    "related_conflict_id": issue.get("related_conflict_id", ""),
+                }
+                for index, issue in enumerate(issues, 1)
+            ],
+        },
+    )
+    write_json(state / KNOWLEDGE_ASSURANCE_SUMMARY_JSON, {"status": "blocked", "supported_claims": [], "forbidden_claims_remaining": ["knowledge_constraints_applied"]})
+    write_jsonl(state / "generated-segments.jsonl", [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问错误实验室"}])
+
+
 def _consumption_state(root: Path) -> Path:
     state = root / ".localize-anything"
     state.mkdir(parents=True, exist_ok=True)
@@ -10099,7 +10400,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 71)
+        self.assertEqual(result["schemas_checked"], 74)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

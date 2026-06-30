@@ -28,6 +28,11 @@ from .knowledge_usage import (
 )
 from .knowledge_audit_enforcement import KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON
 from .knowledge_review_confirmation import KNOWLEDGE_ASSURANCE_SUMMARY_JSON
+from .knowledge_repair import (
+    KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+    KNOWLEDGE_REPAIR_PLAN_JSON,
+    KNOWLEDGE_REPAIR_REQUEST_JSON,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -226,6 +231,9 @@ def _load_artifacts(
         "knowledge_conflict_report": _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON),
         "knowledge_audit_enforcement_decision": _read_optional_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
         "knowledge_assurance_summary": _read_optional_json(state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON),
+        "knowledge_repair_plan": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_PLAN_JSON),
+        "knowledge_repair_request": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_REQUEST_JSON),
+        "knowledge_repair_impact_report": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -309,10 +317,13 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     conflicts = artifacts.get("knowledge_conflict_report", {})
     enforcement = artifacts.get("knowledge_audit_enforcement_decision", {})
     assurance = artifacts.get("knowledge_assurance_summary", {})
+    repair_impact = artifacts.get("knowledge_repair_impact_report", {})
     if not selection:
         return _dimension("not_provided", E0, "knowledge pack was not selected", warnings=["knowledge_pack_not_selected"])
     if not selection.get("selected_packs"):
         return _dimension("warning", E0, "no valid knowledge pack was selected", warnings=["knowledge_pack_invalid_or_rejected"])
+    if int(repair_impact.get("summary", {}).get("repair_item_count", 0) or 0):
+        return _dimension("blocked", E1, "required knowledge repairs are pending", blockers=["knowledge_repair_pending"])
     if assurance:
         assurance_status = str(assurance.get("status") or "")
         if assurance_status in {"blocked", "stale"}:
@@ -450,7 +461,8 @@ def _repair_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     pending = int(summary.get("pending_required_repair_count", 0) or 0) + int(summary.get("pending_provider_or_model_repair_count", 0) or 0)
     failed = int(summary.get("failed_qa_count", 0) or 0) + int(summary.get("blocked_count", 0) or 0)
     skipped = int(summary.get("skipped_not_deterministic_count", 0) or 0)
-    if pending or failed or skipped:
+    knowledge_pending = int(artifacts.get("knowledge_repair_impact_report", {}).get("summary", {}).get("repair_item_count", 0) or 0)
+    if pending or failed or skipped or knowledge_pending:
         return _dimension("blocked", E1, "required repairs are pending, blocked, skipped, or failed QA", blockers=["repair_not_ready"])
     if repair:
         return _dimension("pass", E1, "repair result has no required pending repairs")
@@ -603,6 +615,18 @@ def _forbidden_claims(
             claims.discard("knowledge_constraints_applied")
         if str(assurance.get("status") or "") in {"blocked", "stale"}:
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    knowledge_repair = artifacts.get("knowledge_repair_impact_report", {})
+    if int(knowledge_repair.get("summary", {}).get("repair_item_count", 0) or 0):
+        claims.update(
+            {
+                "knowledge_constraints_applied",
+                "knowledge_review_complete",
+                "review_complete",
+                "delivery_ready",
+                "apply_ready",
+                "production_ready",
+            }
+        )
     if dimensions["review_readiness"]["status"] != "pass":
         claims.add("review_complete")
     if dimensions["delivery_readiness"]["status"] != "pass":
@@ -667,6 +691,8 @@ def _recommended_next_actions(
         actions.append("Record explicit qualified human review evidence before claiming review completion.")
     if _document_evidence_blockers(artifacts):
         actions.append("Resolve or refresh Document Evidence Pack blockers before document delivery, production, or layout claims.")
+    if int(artifacts.get("knowledge_repair_impact_report", {}).get("summary", {}).get("repair_item_count", 0) or 0):
+        actions.append("Complete knowledge repair requests, record matching repair results, and rerun QA and knowledge audit evidence.")
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         actions.append("Resolve blocked claim acceptance before delivery or apply readiness claims.")
@@ -955,6 +981,9 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "knowledge_conflict_report": state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON,
         "knowledge_audit_enforcement_decision": state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
         "knowledge_assurance_summary": state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+        "knowledge_repair_plan": state_dir / KNOWLEDGE_REPAIR_PLAN_JSON,
+        "knowledge_repair_request": state_dir / KNOWLEDGE_REPAIR_REQUEST_JSON,
+        "knowledge_repair_impact_report": state_dir / KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
         "blocking_questions": state_dir / "blocking-questions.json",
         "resolution_options": state_dir / "resolution-options.json",
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-repair-impact-report.schema.json",
+  "title": "Localize Anything Knowledge Repair Impact Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "affected_segments", "affected_claims", "affected_scorecard_dimensions", "artifacts_to_regenerate_after_repair", "delivery_apply_readiness_impact", "open_decisions_or_confirmations_required"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-repair-impact-report-v1" },
+    "artifact": { "const": "knowledge-repair-impact-report.json" },
+    "status": { "enum": ["clear", "repair_required", "blocked"] },
+    "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "affected_segments": { "type": "array", "items": { "type": "string" } },
+    "affected_claims": { "type": "array", "items": { "type": "string" } },
+    "affected_scorecard_dimensions": { "type": "array", "items": { "type": "string" } },
+    "artifacts_to_regenerate_after_repair": { "type": "array", "items": { "type": "string" } },
+    "delivery_apply_readiness_impact": { "enum": ["clear", "blocked"] },
+    "open_decisions_or_confirmations_required": { "type": "array", "items": { "type": "string" } },
+    "knowledge_repair_plan_path": { "const": "knowledge-repair-plan.json" },
+    "knowledge_repair_request_path": { "const": "knowledge-repair-request.json" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

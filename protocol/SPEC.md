@@ -873,9 +873,10 @@ statuses are `accepted`, `accepted_with_limitations`, `rejected`, `blocked`,
 
 `knowledge-constraint-review-evidence.jsonl` records scoped human review of
 constraints, negative constraints, usage entries, conflicts, and generated or
-staged segments. It may support the narrow
-`knowledge_constraints_applied` claim when the reviewed scope is explicit. It
-does not automatically support `knowledge_backed_quality`,
+staged segments. It may confirm the narrow
+`knowledge_constraints_applied` claim only when deterministic enforcement is
+already clear; it cannot replace missing or failed audit evidence. It does not
+automatically support `knowledge_backed_quality`,
 `knowledge_review_complete`, semantic quality, or delivery/apply readiness.
 
 `knowledge-conflict-resolution.json` summarizes resolved and unresolved
@@ -912,6 +913,54 @@ CLI commands are `record-knowledge-audit-resolution`,
 `knowledge-assurance-summary`. This seed still performs no full RAG, vector
 search, provider/model generation, provider/model repair, or TM server
 operation.
+
+## Knowledge-Assisted Targeted Repair Planning
+
+Knowledge repair is a planning layer between audit evidence and the existing
+segment repair workflow. It adds:
+
+- `knowledge-repair-plan.json`
+- `knowledge-repair-request.json`
+- `knowledge-repair-impact-report.json`
+
+The plan deterministically maps failed hard terms, forbidden translations,
+negative constraints, unresolved conflicts, project-priority violations, scope
+mismatches, reference-only leakage, blind-benchmark firewall violations,
+stale/raw knowledge use, and review follow-up into stable repair items. Each
+item retains segment/scope, knowledge, constraint, conflict, queue, provenance,
+readiness, and downstream refresh references.
+
+Only an unambiguous scoped replacement may produce a deterministic `term_patch`
+or `forbidden_translation_patch` request. Semantic changes remain human,
+provider, or model pending. Reference-only leakage cannot create an automatic
+hard repair, blind-benchmark firewall violations block context repair, and
+unresolved locked-term conflicts block execution until a scoped provenance-
+backed conflict decision exists.
+
+These artifacts enrich rather than replace `segment-regeneration-plan.json`,
+`repair-request.json`, `repair-result.json`, and `repair-history.jsonl`.
+Planning never invokes repair execution. A repair item is cleared only by a
+matching current target hash, linked knowledge provenance, and passing QA
+evidence; stale repair results do not clear current blockers. Completed repairs
+require regeneration of constraint audit, usage evidence, scorecard, signoff,
+delivery decision, and apply readiness as applicable.
+
+Generation Strategy and generation handoff reference pending repair plans.
+Evaluation Scorecard forbids `knowledge_constraints_applied`,
+`knowledge_review_complete`, `review_complete`, `delivery_ready`, `apply_ready`,
+and `production_ready` while required repairs remain. Artifact State makes the
+three repair artifacts stale when audit, conflict, assurance, generated segment,
+or repair-result inputs change.
+
+Workbench/API reads are artifact-backed:
+
+- `GET /api/knowledge-repair-plan`
+- `GET /api/knowledge-repair-request`
+- `GET /api/knowledge-repair-impact-report`
+
+CLI commands are `knowledge-repair-plan`, `knowledge-repair-request`, and
+`knowledge-repair-impact-report`. No endpoint or command performs provider/model
+generation or repair.
 
 ## Human Review Evidence, Claim Acceptance, And Signoff
 

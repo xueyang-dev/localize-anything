@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-repair-request.schema.json",
+  "title": "Localize Anything Knowledge Repair Request",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "knowledge_repair_plan_path", "summary", "requests", "provider_or_model_execution_performed"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-repair-request-v1" },
+    "artifact": { "const": "knowledge-repair-request.json" },
+    "status": { "enum": ["ready", "pending", "blocked"] },
+    "knowledge_repair_plan_path": { "const": "knowledge-repair-plan.json" },
+    "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["request_id", "knowledge_repair_item_id", "request_type", "affected_segment_ids", "current_target_hashes", "source_knowledge_provenance", "required_reviewer_role", "allowed_repair_modes", "blocked_repair_modes", "expected_validation_checks", "status", "limitations"],
+        "properties": {
+          "request_id": { "type": "string", "minLength": 1 },
+          "knowledge_repair_item_id": { "type": "string", "minLength": 1 },
+          "request_type": { "type": "string" },
+          "affected_segment_ids": { "type": "array", "items": { "type": "string" } },
+          "current_target_hashes": { "type": "object", "additionalProperties": { "type": "string" } },
+          "source_knowledge_provenance": { "type": "object" },
+          "required_reviewer_role": { "type": "string" },
+          "allowed_repair_modes": { "type": "array", "items": { "type": "string" } },
+          "blocked_repair_modes": { "type": "array", "items": { "type": "string" } },
+          "expected_validation_checks": { "type": "array", "items": { "type": "string" } },
+          "status": { "enum": ["pending", "blocked"] },
+          "limitations": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "provider_or_model_execution_performed": { "const": false }
+  },
+  "additionalProperties": true
+}

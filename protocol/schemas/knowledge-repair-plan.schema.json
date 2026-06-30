@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-repair-plan.schema.json",
+  "title": "Localize Anything Knowledge Repair Plan",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "repair_items", "cleared_items", "forbidden_claims", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-repair-plan-v1" },
+    "artifact": { "const": "knowledge-repair-plan.json" },
+    "run_id": { "type": ["string", "null"] },
+    "status": { "enum": ["clear", "repair_required", "blocked"] },
+    "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "repair_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["repair_item_id", "affected_segment_ids", "source_knowledge_item_ids", "issue_type", "severity", "repair_action", "deterministic_eligibility", "required_human_confirmation", "required_provider_model_repair_status", "expected_downstream_artifacts_to_refresh", "forbidden_claims_affected", "readiness_impact", "source_artifact_references"],
+        "properties": {
+          "repair_item_id": { "type": "string", "minLength": 1 },
+          "affected_segment_ids": { "type": "array", "items": { "type": "string" } },
+          "source_knowledge_item_ids": { "type": "array", "items": { "type": "string" } },
+          "issue_type": { "enum": ["hard_term_constraint_failed", "forbidden_translation_detected", "negative_constraint_failed", "knowledge_conflict_unresolved", "project_priority_violation", "scope_mismatch", "reference_only_leakage", "blind_benchmark_firewall_violation", "stale_knowledge_used", "raw_candidate_knowledge_used", "knowledge_review_required", "constraint_review_follow_up_required"] },
+          "repair_action": { "enum": ["term_patch", "forbidden_translation_patch", "placeholder_safe_patch", "markup_safe_patch", "escape_safe_patch", "human_review_required", "human_rewrite_required", "provider_repair_pending", "model_repair_pending", "block_until_conflict_resolved", "scope_limit_required", "regenerate_with_constraints", "no_repair_applicable"] },
+          "severity": { "type": "string" },
+          "deterministic_eligibility": { "type": "boolean" },
+          "required_human_confirmation": { "type": "boolean" },
+          "required_provider_model_repair_status": { "enum": ["not_required", "pending", "blocked"] },
+          "expected_downstream_artifacts_to_refresh": { "type": "array", "items": { "type": "string" } },
+          "forbidden_claims_affected": { "type": "array", "items": { "type": "string" } },
+          "readiness_impact": { "type": "string" },
+          "source_artifact_references": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "cleared_items": { "type": "array", "items": { "type": "object" } },
+    "existing_repair_workflow": { "type": "object" },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
