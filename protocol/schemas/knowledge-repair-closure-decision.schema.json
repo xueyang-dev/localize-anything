@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-repair-closure-decision.schema.json",
+  "title": "Localize Anything Knowledge Repair Closure Decision",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "repair_plan_status", "qa_report_status", "reconciliation_status", "cleared_blockers", "still_blocked_items", "required_recomputation", "downstream_readiness_impact", "forbidden_claims_remaining", "final_closure_status", "source_artifacts", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-repair-closure-decision-v1" },
+    "artifact": { "const": "knowledge-repair-closure-decision.json" },
+    "status": { "enum": ["closed", "closed_with_warnings", "partially_closed", "still_blocked", "requires_recompute", "requires_human_review", "stale", "not_applicable"] },
+    "repair_plan_status": { "type": "string" },
+    "qa_report_status": { "type": "string" },
+    "reconciliation_status": { "type": "string" },
+    "cleared_blockers": { "type": "array", "items": { "type": "object" } },
+    "still_blocked_items": { "type": "array", "items": { "type": "object" } },
+    "required_recomputation": { "type": "array", "items": { "type": "object" } },
+    "downstream_readiness_impact": { "type": "object" },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "final_closure_status": { "type": "string" },
+    "source_artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

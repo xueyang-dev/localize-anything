@@ -50,6 +50,13 @@ from .knowledge_repair_result import (
     KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
     knowledge_repair_result_asset_paths,
 )
+from .knowledge_repair_closure import (
+    KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
+    KNOWLEDGE_RECOMPUTE_PLAN_JSON,
+    KNOWLEDGE_RECOMPUTE_RESULT_JSON,
+    KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
+    knowledge_repair_closure_asset_paths,
+)
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
 from .resolution_gate import (
     BLOCKING_QUESTIONS_JSON,
@@ -127,6 +134,10 @@ OPTIONAL_CANONICAL_ASSETS = (
     KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
     KNOWLEDGE_REPAIR_QA_REPORT_JSON,
     KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
+    KNOWLEDGE_RECOMPUTE_PLAN_JSON,
+    KNOWLEDGE_RECOMPUTE_RESULT_JSON,
+    KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
+    KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -239,6 +250,7 @@ def package_delivery(
                 **knowledge_review_confirmation_asset_paths(state_dir),
                 **knowledge_repair_asset_paths(state_dir),
                 **knowledge_repair_result_asset_paths(state_dir),
+                **knowledge_repair_closure_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

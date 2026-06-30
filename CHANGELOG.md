@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add Knowledge Repair Closure / Recompute Orchestration with
+  `knowledge-repair-closure-decision.json`, `knowledge-recompute-plan.json`,
+  `knowledge-recompute-result.json`, and
+  `knowledge-readiness-impact-report.json`, plus deterministic provider-free
+  recompute commands, conservative scorecard/handoff/delivery/signoff gates,
+  artifact-state tracking, protocol schemas, and artifact-backed API access.
 - Add Knowledge Repair Result Intake / QA Reconciliation with artifact-backed
   result intake, deterministic request/hash/provenance/constraint QA,
   conservative blocker reconciliation, CLI/API access, and scorecard,

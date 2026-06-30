@@ -1014,6 +1014,58 @@ CLI commands are `record-knowledge-repair-result`,
 `knowledge-repair-reconciliation`. No command or endpoint performs semantic,
 provider, or model repair.
 
+## Knowledge Repair Closure And Recompute Orchestration
+
+Knowledge repair closure is the deterministic orchestration layer after repair
+result QA and reconciliation. It records that a QA-passed repair result is not
+the same as accepted readiness. Downstream evidence must be refreshed, or kept
+explicitly stale/limited.
+
+The seed adds:
+
+- `knowledge-repair-closure-decision.json`
+- `knowledge-recompute-plan.json`
+- `knowledge-recompute-result.json`
+- `knowledge-readiness-impact-report.json`
+
+`knowledge-recompute-plan.json` lists downstream artifacts affected by repair
+reconciliation, including constraint audit, usage/conflict reports,
+enforcement, assurance, Workbench queues, scorecard, artifact-state, claim
+acceptance, signoff, delivery decision, run summary, and delivery metadata.
+Each item records dependencies, order, deterministic/manual status, and the
+blocking effect if it is not recomputed.
+
+`knowledge-recompute-result.json` records deterministic refresh attempts. It may
+refresh existing derived artifacts, but it never calls providers, applies repair
+patches, executes semantic rewrites, or renews human-owned authorization
+artifacts. Claim acceptance, signoff, delivery package metadata, and apply
+authorization remain explicit follow-up.
+
+`knowledge-repair-closure-decision.json` may be `closed`,
+`closed_with_warnings`, `partially_closed`, `still_blocked`,
+`requires_recompute`, `requires_human_review`, `stale`, or `not_applicable`.
+`closed` requires clear reconciliation, passing QA, no unresolved blocking
+conflicts, and completed required deterministic recomputation. Stale
+reconciliation, failed QA, semantic/high-risk repair without review, partial
+recompute, or missing recompute keeps strong claims blocked or downgraded.
+
+`knowledge-readiness-impact-report.json` summarizes before/after blockers,
+forbidden claims, scorecard readiness, signoff/claim staleness, remaining
+review and repair requirements, limitations, and recommended next actions.
+
+Workbench/API endpoints are artifact-backed:
+
+- `GET /api/knowledge-repair-closure-decision`
+- `GET /api/knowledge-recompute-plan`
+- `GET /api/knowledge-recompute-result`
+- `GET /api/knowledge-readiness-impact-report`
+
+CLI commands are `knowledge-repair-closure-decision`,
+`knowledge-recompute-plan`, `knowledge-recompute-result`,
+`knowledge-readiness-impact-report`, and `knowledge-repair-recompute`.
+`knowledge-repair-recompute` is provider-free and repair-application-free; it
+only orchestrates deterministic recomputation of existing derived artifacts.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

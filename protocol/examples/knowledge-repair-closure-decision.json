@@ -1,0 +1,23 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-repair-closure-decision-v1",
+  "artifact": "knowledge-repair-closure-decision.json",
+  "status": "requires_recompute",
+  "repair_plan_status": "repair_required",
+  "repair_request_status": "ready",
+  "result_intake_status": "provided",
+  "qa_report_status": "passed",
+  "reconciliation_status": "clear",
+  "cleared_blockers": [{ "blocker_id": "knowledge-repair-1111111111111111", "reconciliation_status": "cleared" }],
+  "partially_cleared_blockers": [],
+  "still_blocked_items": [],
+  "stale_results": [],
+  "unresolved_conflicts": [],
+  "human_review_required_items": [],
+  "required_recomputation": [{ "target_artifact": "evaluation-scorecard.json", "current_status": "pending" }],
+  "downstream_readiness_impact": { "generation_handoff": "blocked_or_downgraded", "delivery": "blocked", "apply": "blocked" },
+  "forbidden_claims_remaining": ["knowledge_backed_quality", "delivery_ready", "apply_ready"],
+  "final_closure_status": "requires_recompute",
+  "source_artifacts": { "knowledge_repair_reconciliation_json": { "path": "knowledge-repair-reconciliation.json", "sha256": "abc" } },
+  "limitations": ["QA-passed repair evidence does not by itself authorize delivery or apply"]
+}

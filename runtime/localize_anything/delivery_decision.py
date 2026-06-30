@@ -29,6 +29,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     knowledge_repair_impact = _read_optional_json(delivery_dir / "knowledge-repair-impact-report.json")
     knowledge_repair_qa = _read_optional_json(delivery_dir / "knowledge-repair-qa-report.json")
     knowledge_repair_reconciliation = _read_optional_json(delivery_dir / "knowledge-repair-reconciliation.json")
+    knowledge_repair_closure = _read_optional_json(delivery_dir / "knowledge-repair-closure-decision.json")
+    knowledge_readiness_impact = _read_optional_json(delivery_dir / "knowledge-readiness-impact-report.json")
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -216,6 +218,28 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 },
             }
         )
+    if str(knowledge_repair_closure.get("status") or "") in {
+        "requires_recompute",
+        "requires_human_review",
+        "partially_closed",
+        "still_blocked",
+        "stale",
+    }:
+        decisions.append(
+            {
+                "id": f"knowledge-repair-closure-{len(decisions) + 1:04d}",
+                "type": "knowledge_repair_closure",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Complete deterministic repair recomputation and renew affected authorization evidence before delivery/apply.",
+                "evidence": {
+                    "closure_status": knowledge_repair_closure.get("status", "not_checked"),
+                    "required_recomputation": knowledge_repair_closure.get("required_recomputation", []),
+                    "forbidden_claims_remaining": knowledge_repair_closure.get("forbidden_claims_remaining", []),
+                    "readiness_impact_status": knowledge_readiness_impact.get("status", "not_checked"),
+                },
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -270,6 +294,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "pending_knowledge_repair_count": knowledge_repair_impact.get("summary", {}).get("repair_item_count", 0),
             "knowledge_repair_qa_status": knowledge_repair_qa.get("status", "not_checked"),
             "knowledge_repair_reconciliation_status": knowledge_repair_reconciliation.get("status", "not_checked"),
+            "knowledge_repair_closure_status": knowledge_repair_closure.get("status", "not_checked"),
+            "knowledge_readiness_impact_status": knowledge_readiness_impact.get("status", "not_checked"),
         },
         "localization": localization,
         "artifact_state": artifact_state,

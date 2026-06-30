@@ -9,6 +9,7 @@ from .generation_strategy import GENERATION_STRATEGY_JSON
 from .io_utils import read_json, read_jsonl, write_json
 from .knowledge_repair import KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON, knowledge_repair_summary
 from .knowledge_repair_result import KNOWLEDGE_REPAIR_RECONCILIATION_JSON, knowledge_repair_reconciliation_summary
+from .knowledge_repair_closure import KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, knowledge_repair_closure_summary
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .resolution_gate import BLOCKING_QUESTIONS_JSON, RESOLUTION_OPTIONS_JSON, USER_RESOLUTION_DECISIONS_JSONL
 from .segment_repair import SEGMENT_REGENERATION_PLAN_JSON, segment_repair_summary
@@ -546,17 +547,24 @@ def _check_knowledge_repair_plan(
 ) -> None:
     summary = knowledge_repair_summary(state_dir)
     reconciliation = knowledge_repair_reconciliation_summary(state_dir)
+    closure = knowledge_repair_closure_summary(state_dir)
+    if closure.get("status") in {"closed", "closed_with_warnings", "not_applicable"}:
+        closure_blocked = False
+    else:
+        closure_blocked = closure.get("status") != "not_run"
     if not summary.get("pending_required_count") and reconciliation.get("status") not in {"blocked", "partial", "stale"}:
-        return
-    if reconciliation.get("status") == "clear":
+        if not closure_blocked:
+            return
+    if reconciliation.get("status") == "clear" and not closure_blocked:
         return
     blockers.append(
         _issue(
             "pending_knowledge_repairs_block_handoff",
-            "Knowledge repair planning found unresolved required repairs; planning alone does not clear the blocker.",
-            KNOWLEDGE_REPAIR_RECONCILIATION_JSON if reconciliation.get("status") != "not_run" else KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+            "Knowledge repair closure is incomplete; QA/reconciliation alone does not clear the handoff blocker.",
+            KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON if closure_blocked else KNOWLEDGE_REPAIR_RECONCILIATION_JSON if reconciliation.get("status") != "not_run" else KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
             knowledge_repair_summary=summary,
             knowledge_repair_reconciliation=reconciliation,
+            knowledge_repair_closure=closure,
         )
     )
     forbidden_claims.update(

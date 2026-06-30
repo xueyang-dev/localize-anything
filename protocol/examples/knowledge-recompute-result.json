@@ -1,0 +1,35 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-recompute-result-v1",
+  "artifact": "knowledge-recompute-result.json",
+  "status": "partial",
+  "recompute_plan_id": "knowledge-recompute-plan.json",
+  "recompute_items_attempted": [
+    {
+      "recompute_item_id": "knowledge-recompute-1111111111111111",
+      "target_artifact": "constraint-application-audit.json",
+      "status": "completed",
+      "reason": "deterministic artifact refreshed",
+      "provider_or_model_called": false,
+      "repair_applied": false
+    },
+    {
+      "recompute_item_id": "knowledge-recompute-2222222222222222",
+      "target_artifact": "signoff-record.json",
+      "status": "requires_human_review",
+      "reason": "target is human-owned or delivery-context-specific and is not rewritten by deterministic recompute",
+      "provider_or_model_called": false,
+      "repair_applied": false
+    }
+  ],
+  "recompute_items_completed": [],
+  "recompute_items_skipped": [],
+  "recompute_items_failed": [],
+  "recompute_items_requiring_human_review": [],
+  "target_artifacts_refreshed": ["constraint-application-audit.json"],
+  "remaining_stale_artifacts": [],
+  "remaining_blockers": [],
+  "readiness_impact": { "scorecard": "limited", "delivery": "review_required", "apply": "review_required" },
+  "source_artifacts": {},
+  "limitations": ["recompute does not call providers, apply repairs, or execute semantic rewrites"]
+}

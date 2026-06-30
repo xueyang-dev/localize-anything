@@ -38,6 +38,12 @@ from .knowledge_repair_result import (
     KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
     KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
 )
+from .knowledge_repair_closure import (
+    KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
+    KNOWLEDGE_RECOMPUTE_PLAN_JSON,
+    KNOWLEDGE_RECOMPUTE_RESULT_JSON,
+    KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -242,6 +248,10 @@ def _load_artifacts(
         "knowledge_repair_result_intake": _read_optional_jsonl(state_dir / KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL),
         "knowledge_repair_qa_report": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_QA_REPORT_JSON),
         "knowledge_repair_reconciliation": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON),
+        "knowledge_recompute_plan": _read_optional_json(state_dir / KNOWLEDGE_RECOMPUTE_PLAN_JSON),
+        "knowledge_recompute_result": _read_optional_json(state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON),
+        "knowledge_repair_closure_decision": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON),
+        "knowledge_readiness_impact_report": _read_optional_json(state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -326,6 +336,7 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     enforcement = artifacts.get("knowledge_audit_enforcement_decision", {})
     assurance = artifacts.get("knowledge_assurance_summary", {})
     repair_impact = artifacts.get("knowledge_repair_impact_report", {})
+    closure = artifacts.get("knowledge_repair_closure_decision", {})
     if not selection:
         return _dimension("not_provided", E0, "knowledge pack was not selected", warnings=["knowledge_pack_not_selected"])
     if not selection.get("selected_packs"):
@@ -338,6 +349,9 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
         return _dimension("blocked", E1, "knowledge repair reconciliation has active blockers", blockers=["knowledge_repair_reconciliation_blocked"])
     if int(repair_impact.get("summary", {}).get("repair_item_count", 0) or 0) and reconciliation.get("status") != "clear":
         return _dimension("blocked", E1, "required knowledge repairs are pending", blockers=["knowledge_repair_pending"])
+    closure_status = str(closure.get("status") or "")
+    if closure_status in {"stale", "still_blocked", "partially_closed", "requires_human_review", "requires_recompute"}:
+        return _dimension("blocked", E1, "knowledge repair closure or recompute is incomplete", blockers=["knowledge_repair_closure_incomplete"])
     if assurance:
         assurance_status = str(assurance.get("status") or "")
         if assurance_status in {"blocked", "stale"}:
@@ -486,7 +500,9 @@ def _repair_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
         "requires_human_review",
         "stale",
     }
-    if pending or failed or skipped or knowledge_pending or knowledge_qa_blocked:
+    closure_status = str(artifacts.get("knowledge_repair_closure_decision", {}).get("status") or "")
+    closure_blocked = closure_status in {"stale", "still_blocked", "partially_closed", "requires_human_review", "requires_recompute"}
+    if pending or failed or skipped or knowledge_pending or knowledge_qa_blocked or closure_blocked:
         return _dimension("blocked", E1, "required repairs are pending, blocked, skipped, or failed QA", blockers=["repair_not_ready"])
     if repair:
         return _dimension("pass", E1, "repair result has no required pending repairs")
@@ -652,6 +668,13 @@ def _forbidden_claims(
                 "production_ready",
             }
         )
+    closure = artifacts.get("knowledge_repair_closure_decision", {})
+    if isinstance(closure, dict) and closure:
+        claims.update(str(claim) for claim in closure.get("forbidden_claims_remaining", []) if claim)
+        if str(closure.get("status") or "") in {"stale", "still_blocked", "partially_closed", "requires_human_review", "requires_recompute"}:
+            claims.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
+        if str(closure.get("status") or "") != "closed":
+            claims.add("knowledge_backed_quality")
     if dimensions["review_readiness"]["status"] != "pass":
         claims.add("review_complete")
     if dimensions["delivery_readiness"]["status"] != "pass":
@@ -721,6 +744,9 @@ def _recommended_next_actions(
         and artifacts.get("knowledge_repair_reconciliation", {}).get("status") != "clear"
     ):
         actions.append("Complete knowledge repair requests, record matching repair results, and rerun QA and knowledge audit evidence.")
+    closure = artifacts.get("knowledge_repair_closure_decision", {})
+    if isinstance(closure, dict) and closure.get("status") in {"requires_recompute", "partially_closed", "still_blocked", "requires_human_review", "stale"}:
+        actions.append("Run knowledge repair recompute orchestration and renew affected scorecard, claim, signoff, delivery, or apply evidence.")
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         actions.append("Resolve blocked claim acceptance before delivery or apply readiness claims.")
@@ -1015,6 +1041,10 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "knowledge_repair_result_intake": state_dir / KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
         "knowledge_repair_qa_report": state_dir / KNOWLEDGE_REPAIR_QA_REPORT_JSON,
         "knowledge_repair_reconciliation": state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
+        "knowledge_recompute_plan": state_dir / KNOWLEDGE_RECOMPUTE_PLAN_JSON,
+        "knowledge_recompute_result": state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON,
+        "knowledge_repair_closure_decision": state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
+        "knowledge_readiness_impact_report": state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
         "blocking_questions": state_dir / "blocking-questions.json",
         "resolution_options": state_dir / "resolution-options.json",
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",

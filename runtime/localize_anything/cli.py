@@ -99,6 +99,12 @@ from .knowledge_repair_result import (
     read_knowledge_repair_result_intake,
     record_knowledge_repair_result,
 )
+from .knowledge_repair_closure import (
+    build_knowledge_readiness_impact_report,
+    build_knowledge_recompute_plan,
+    build_knowledge_recompute_result,
+    build_knowledge_repair_closure_decision,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -637,6 +643,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     knowledge_repair_reconciliation_parser.add_argument("state_dir", type=Path)
     knowledge_repair_reconciliation_parser.add_argument("--output", type=Path)
+
+    knowledge_recompute_plan_parser = subparsers.add_parser(
+        "knowledge-recompute-plan", help="Create deterministic knowledge-recompute-plan.json"
+    )
+    knowledge_recompute_plan_parser.add_argument("state_dir", type=Path)
+    knowledge_recompute_plan_parser.add_argument("--output", type=Path)
+
+    knowledge_recompute_result_parser = subparsers.add_parser(
+        "knowledge-recompute-result", help="Create deterministic knowledge-recompute-result.json"
+    )
+    knowledge_recompute_result_parser.add_argument("state_dir", type=Path)
+    knowledge_recompute_result_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_closure_parser = subparsers.add_parser(
+        "knowledge-repair-closure-decision", help="Create deterministic knowledge-repair-closure-decision.json"
+    )
+    knowledge_repair_closure_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_closure_parser.add_argument("--output", type=Path)
+
+    knowledge_readiness_impact_parser = subparsers.add_parser(
+        "knowledge-readiness-impact-report", help="Create deterministic knowledge-readiness-impact-report.json"
+    )
+    knowledge_readiness_impact_parser.add_argument("state_dir", type=Path)
+    knowledge_readiness_impact_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_recompute_parser = subparsers.add_parser(
+        "knowledge-repair-recompute", help="Run provider-free deterministic knowledge repair recompute orchestration"
+    )
+    knowledge_repair_recompute_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_recompute_parser.add_argument("--output", type=Path)
 
     evaluation_parser = subparsers.add_parser("evaluation-scorecard", help="Create evaluation-scorecard.json and evidence-level-report.md")
     evaluation_parser.add_argument("state_dir", type=Path)
@@ -1575,6 +1611,27 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_knowledge_repair_qa_report(args.state_dir), args.output)
         if args.command == "knowledge-repair-reconciliation":
             return _emit_json(build_knowledge_repair_reconciliation(args.state_dir), args.output)
+        if args.command == "knowledge-recompute-plan":
+            return _emit_json(build_knowledge_recompute_plan(args.state_dir), args.output)
+        if args.command == "knowledge-recompute-result":
+            return _emit_json(build_knowledge_recompute_result(args.state_dir), args.output)
+        if args.command == "knowledge-repair-closure-decision":
+            return _emit_json(build_knowledge_repair_closure_decision(args.state_dir), args.output)
+        if args.command == "knowledge-readiness-impact-report":
+            return _emit_json(build_knowledge_readiness_impact_report(args.state_dir), args.output)
+        if args.command == "knowledge-repair-recompute":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-knowledge-repair-recompute-command-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "recompute_plan": build_knowledge_recompute_plan(args.state_dir),
+                "recompute_result": build_knowledge_recompute_result(args.state_dir),
+                "closure_decision": build_knowledge_repair_closure_decision(args.state_dir),
+                "readiness_impact_report": build_knowledge_readiness_impact_report(args.state_dir),
+                "provider_or_model_called": False,
+                "repair_applied": False,
+            }
+            return _emit_json(result, args.output)
         if args.command == "evaluation-scorecard":
             scorecard = build_evaluation_scorecard(
                 args.state_dir,

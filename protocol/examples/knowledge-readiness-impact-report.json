@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-readiness-impact-report-v1",
+  "artifact": "knowledge-readiness-impact-report.json",
+  "status": "blocked",
+  "before": { "blocker_count": 1, "forbidden_claims": ["delivery_ready"], "scorecard_overall_claim": "unknown" },
+  "after": { "blocker_count": 0, "forbidden_claims": ["knowledge_backed_quality"], "scorecard_overall_claim": "review_required" },
+  "delivery_apply_readiness_impact": { "delivery": "review_required", "apply": "review_required" },
+  "signoff_staleness_impact": "signoff_requires_reconfirmation_if_claim_basis_changed",
+  "claim_acceptance_staleness_impact": "claim_acceptance_requires_reconfirmation_if_claim_basis_changed",
+  "remaining_review_requirements": [],
+  "remaining_repair_requirements": [],
+  "remaining_knowledge_conflicts": [],
+  "limitations": ["limited-scope clearance does not create global readiness"],
+  "recommended_next_actions": ["Renew claim acceptance and signoff with limitations preserved before delivery/apply."],
+  "source_artifacts": {}
+}

@@ -965,6 +965,41 @@ scorecard, claim acceptance, signoff, delivery decision, and apply readiness
 still require recomputation. Passing repair QA does not prove broad
 `knowledge_backed_quality`.
 
+## Knowledge Repair Closure And Recompute Orchestration
+
+The repair-closure seed turns reconciliation outcomes into explicit downstream
+orchestration evidence. It adds `knowledge-recompute-plan.json`,
+`knowledge-recompute-result.json`, `knowledge-repair-closure-decision.json`,
+and `knowledge-readiness-impact-report.json`.
+
+The recompute plan identifies derived artifacts that must be refreshed or
+invalidated after repair reconciliation: constraint audit, usage/conflict
+reports, enforcement, assurance, Workbench knowledge queues, Evaluation
+Scorecard, Artifact State, claim acceptance, signoff, delivery decision, run
+summary, delivery metadata, and apply readiness where present.
+
+The recompute result runs only deterministic refreshes that already exist in
+runtime modules. It never calls providers, applies repair patches, executes
+semantic rewrites, mutates generated segments, or renews human-owned
+authorization artifacts. Claim acceptance, signoff, delivery package metadata,
+and apply authorization are recorded as manual follow-up when their evidence
+basis changes.
+
+The closure decision is conservative. A repair can be `closed` only when
+reconciliation is clear, deterministic QA passed, blocking conflicts are gone,
+and required downstream recomputation completed. It remains
+`requires_recompute`, `requires_human_review`, `partially_closed`,
+`still_blocked`, or `stale` when evidence is incomplete, stale, failed, scoped,
+or human-gated. The readiness impact report carries before/after blocker
+counts, forbidden claims, scorecard impact, signoff/claim staleness, remaining
+limitations, and next actions.
+
+Generation Strategy, generation handoff, Evaluation Scorecard, Claim
+Acceptance, Signoff, delivery decisions, delivery packaging, run summary, and
+Artifact State consume these closure artifacts. QA-passed repair evidence is
+therefore not allowed to silently become delivery readiness, apply readiness, or
+knowledge-backed quality.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in
