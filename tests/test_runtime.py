@@ -9658,6 +9658,31 @@ class KnowledgeRepairClosureRecomputeTests(unittest.TestCase):
             self.assertIn("knowledge_recompute_plan", stale)
             self.assertIn("knowledge_repair_closure_decision", stale)
 
+    def test_claim_acceptance_and_signoff_stale_when_closure_basis_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            build_knowledge_recompute_plan(state)
+            build_knowledge_recompute_result(state)
+            build_knowledge_repair_closure_decision(state)
+            build_knowledge_readiness_impact_report(state)
+            build_evaluation_scorecard(state)
+            build_claim_acceptance_decision(state, requested_claims=["delivery_ready"])
+            create_signoff_record(
+                state,
+                {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": False, "limitations_accepted": True},
+            )
+            build_artifact_state(state)
+            closure = read_knowledge_repair_closure_decision(state)
+            closure["status"] = "stale"
+            write_json(state / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, closure)
+
+            refreshed = build_artifact_state(state)
+            stale = {item["artifact_id"] for item in refreshed["stale_artifacts"]}
+
+            self.assertIn("claim_acceptance_decision", stale)
+            self.assertIn("signoff_record", stale)
+
     def test_api_and_cli_expose_closure_recompute_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state, request = _knowledge_repair_result_state(Path(directory))
