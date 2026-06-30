@@ -1,0 +1,35 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-knowledge-review-queue-v1",
+  "artifact": "workbench-knowledge-review-queue.json",
+  "status": "requires_action",
+  "summary": {
+    "item_count": 1,
+    "blocking_count": 0,
+    "review_required_count": 1,
+    "stale_count": 0
+  },
+  "items": [
+    {
+      "item_id": "knowledge-review-0001",
+      "item_type": "knowledge_review_required",
+      "severity": "warning",
+      "status": "requires_review",
+      "owner_role": "localization_reviewer",
+      "source_artifact_references": ["term-registry.csv"],
+      "affected_knowledge_item_ids": ["term-001"],
+      "affected_segment_ids": [],
+      "affected_scope": {},
+      "related_constraint_id": "constraint-term-001",
+      "related_conflict_id": "",
+      "related_forbidden_claim": "knowledge_review_complete",
+      "readiness_impact": "requires_review",
+      "recommended_action": "Record review evidence for knowledge-affected constraints.",
+      "human_confirmation_required": true,
+      "stale_evidence_involved": false
+    }
+  ],
+  "source_artifacts": {
+    "knowledge_audit_enforcement_decision": "knowledge-audit-enforcement-decision.json"
+  }
+}

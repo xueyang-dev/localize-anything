@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-knowledge-review-queue.schema.json",
+  "title": "Localize Anything Workbench Knowledge Review Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "items", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-knowledge-review-queue-v1" },
+    "artifact": { "const": "workbench-knowledge-review-queue.json" },
+    "status": { "enum": ["empty", "requires_action"] },
+    "summary": { "type": "object" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "item_type",
+          "severity",
+          "status",
+          "owner_role",
+          "source_artifact_references",
+          "recommended_action",
+          "human_confirmation_required",
+          "stale_evidence_involved"
+        ],
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "item_type": {
+            "enum": [
+              "knowledge_usage_missing",
+              "working_context_stale",
+              "constraint_audit_missing",
+              "hard_constraint_failed",
+              "negative_constraint_failed",
+              "knowledge_conflict_unresolved",
+              "reference_only_leakage",
+              "scope_mismatch",
+              "blind_benchmark_firewall_risk",
+              "project_priority_conflict",
+              "knowledge_review_required",
+              "knowledge_claim_not_supported",
+              "stale_knowledge_evidence"
+            ]
+          },
+          "severity": { "enum": ["info", "warning", "blocking"] },
+          "status": { "type": "string" },
+          "owner_role": { "type": "string" },
+          "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+          "affected_knowledge_item_ids": { "type": "array", "items": { "type": "string" } },
+          "affected_segment_ids": { "type": "array", "items": { "type": "string" } },
+          "affected_scope": { "type": "object" },
+          "related_constraint_id": { "type": "string" },
+          "related_conflict_id": { "type": "string" },
+          "related_forbidden_claim": { "type": "string" },
+          "readiness_impact": { "type": "string" },
+          "recommended_action": { "type": "string" },
+          "human_confirmation_required": { "type": "boolean" },
+          "stale_evidence_involved": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

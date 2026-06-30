@@ -120,6 +120,12 @@ from runtime.localize_anything.knowledge_usage import (
     read_knowledge_conflict_report,
     read_knowledge_usage_report,
 )
+from runtime.localize_anything.knowledge_audit_enforcement import (
+    KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+    WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
+    build_knowledge_audit_enforcement_decision,
+    build_workbench_knowledge_review_queue,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -8347,6 +8353,232 @@ class KnowledgeUsageAuditSeedTests(unittest.TestCase):
                 thread.join(timeout=2)
 
 
+class KnowledgeAuditEnforcementGateTests(unittest.TestCase):
+    def test_selected_pack_without_usage_report_blocks_knowledge_backed_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            for name in (KNOWLEDGE_USAGE_REPORT_JSON, CONSTRAINT_APPLICATION_AUDIT_JSON, KNOWLEDGE_CONFLICT_REPORT_JSON):
+                (state / name).unlink(missing_ok=True)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertEqual(decision["status"], "review_required")
+            self.assertIn("knowledge_backed_quality", decision["forbidden_claims"])
+            self.assertIn("knowledge_backed_quality", scorecard["forbidden_claims"])
+            assert_protocol_schema(self, "knowledge-audit-enforcement-decision", decision)
+
+    def test_missing_constraint_audit_blocks_hard_constraint_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+            (state / CONSTRAINT_APPLICATION_AUDIT_JSON).unlink(missing_ok=True)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+
+            self.assertEqual(decision["status"], "review_required")
+            self.assertIn("knowledge_constraints_applied", decision["forbidden_claims"])
+            self.assertTrue(any(issue["issue_type"] == "constraint_audit_missing" for issue in decision["issues"]))
+
+    def test_failed_hard_constraint_audit_blocks_full_quality_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问错误实验室"}],
+            )
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+            strategy = build_generation_strategy(state, _knowledge_batch_plan())
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("knowledge_audit_enforcement_blocked", strategy["gates"]["knowledge"]["blocking_reasons"])
+            self.assertFalse(strategy["work_packet_policy"]["allow_generation"])
+
+    def test_failed_forbidden_translation_check_blocks_delivery_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Open Lab", "target": "Forbidden target"}],
+            )
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertTrue(any(issue["issue_type"] == "negative_constraint_failed" for issue in decision["issues"]))
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+            self.assertIn("apply_ready", scorecard["forbidden_claims"])
+
+    def test_unresolved_knowledge_conflict_creates_enforcement_blocker_and_queue_item(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "Other Lab")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+            queue = build_workbench_knowledge_review_queue(state)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertTrue(any(item["item_type"] == "knowledge_conflict_unresolved" for item in queue["items"]))
+            assert_protocol_schema(self, "workbench-knowledge-review-queue", queue)
+
+    def test_reference_only_leakage_creates_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            context = read_working_context_packet(state)
+            context["hard_constraints"].append(
+                {"knowledge_id": "ref-leak", "knowledge_type": "term", "classification": "reference_only", "status": "reference", "source_value": "Reference", "target_value": "参考"}
+            )
+            write_json(state / WORKING_CONTEXT_PACKET_JSON, context)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertEqual(decision["reference_only_leakage_status"], "blocked")
+            self.assertTrue(any(issue["issue_type"] == "reference_only_leakage" for issue in decision["issues"]))
+
+    def test_blind_benchmark_firewall_risk_blocks_target_language_examples(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state, operating_mode="blind_benchmark")
+            context = read_working_context_packet(state)
+            context["retrieved_examples"].append(
+                {"knowledge_id": "tm-leak", "knowledge_type": "translation_memory", "classification": "reference_only", "source_value": "Example", "target_value": "示例"}
+            )
+            write_json(state / WORKING_CONTEXT_PACKET_JSON, context)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+            queue = build_workbench_knowledge_review_queue(state)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertEqual(decision["blind_benchmark_firewall_status"], "blocked")
+            self.assertTrue(any(item["item_type"] == "blind_benchmark_firewall_risk" for item in queue["items"]))
+
+    def test_successful_audit_supports_narrow_constraints_but_not_review_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问开放实验室"}],
+            )
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+
+            decision = build_knowledge_audit_enforcement_decision(state)
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertEqual(decision["status"], "clear")
+            self.assertNotIn("knowledge_constraints_applied", decision["forbidden_claims"])
+            self.assertNotIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+            self.assertIn("knowledge_review_complete", scorecard["forbidden_claims"])
+
+    def test_claim_acceptance_cannot_accept_blocked_knowledge_backed_quality(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_knowledge_audit_enforcement_decision(state)
+            build_evaluation_scorecard(state)
+
+            decision = build_claim_acceptance_decision(state, requested_claims=["knowledge_backed_quality"], write=False)
+
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("knowledge_backed_quality", decision["rejected_claims"])
+
+    def test_artifact_state_tracks_and_stales_enforcement_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+            build_knowledge_audit_enforcement_decision(state)
+            build_workbench_knowledge_review_queue(state)
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+            self.assertIn("knowledge_audit_enforcement_decision", ids)
+            self.assertIn("workbench_knowledge_review_queue", ids)
+
+            build_knowledge_usage_report(state)
+            usage = read_json(state / KNOWLEDGE_USAGE_REPORT_JSON)
+            usage["status"] = "blocked"
+            write_json(state / KNOWLEDGE_USAGE_REPORT_JSON, usage)
+            stale = build_artifact_state(state)
+            stale_ids = {item["artifact_id"] for item in stale["stale_artifacts"]}
+            self.assertIn("knowledge_audit_enforcement_decision", stale_ids)
+
+    def test_api_and_cli_expose_artifact_backed_enforcement_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            decision_output = Path(directory) / "decision.json"
+            queue_output = Path(directory) / "queue.json"
+
+            self.assertEqual(cli_main(["knowledge-audit-enforcement-decision", state.as_posix(), "--output", decision_output.as_posix()]), 0)
+            self.assertEqual(cli_main(["workbench-knowledge-review-queue", state.as_posix(), "--output", queue_output.as_posix()]), 0)
+            self.assertEqual(read_json(decision_output)["schema"], "localize-anything-knowledge-audit-enforcement-decision-v1")
+            self.assertEqual(read_json(queue_output)["schema"], "localize-anything-workbench-knowledge-review-queue-v1")
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for endpoint in ("knowledge-audit-enforcement-decision", "workbench-knowledge-review-queue"):
+                    status, body = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+                    self.assertIn(endpoint.replace("-", "_"), body)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_delivery_package_and_run_summary_reference_knowledge_enforcement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            self.assertEqual(_consumption_state(project), state)
+            _select_consumption_pack(state)
+            build_knowledge_audit_enforcement_decision(state)
+            build_workbench_knowledge_review_queue(state)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "knowledge-enforcement-delivery-001")
+
+            assets = packaged["manifest"]["assets"]
+            self.assertEqual(assets["knowledge_audit_enforcement_decision"], KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON)
+            self.assertEqual(assets["workbench_knowledge_review_queue"], WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON)
+
+
 def _consumption_state(root: Path) -> Path:
     state = root / ".localize-anything"
     state.mkdir(parents=True, exist_ok=True)
@@ -9447,7 +9679,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 65)
+        self.assertEqual(result["schemas_checked"], 67)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

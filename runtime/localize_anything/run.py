@@ -53,6 +53,10 @@ from .knowledge_usage import (
     KNOWLEDGE_CONFLICT_REPORT_JSON,
     KNOWLEDGE_USAGE_REPORT_JSON,
 )
+from .knowledge_audit_enforcement import (
+    KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+    WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
+)
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -1060,6 +1064,8 @@ def _summary(
         ("knowledge_usage_report", KNOWLEDGE_USAGE_REPORT_JSON),
         ("constraint_application_audit", CONSTRAINT_APPLICATION_AUDIT_JSON),
         ("knowledge_conflict_report", KNOWLEDGE_CONFLICT_REPORT_JSON),
+        ("knowledge_audit_enforcement_decision", KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
+        ("workbench_knowledge_review_queue", WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1175,6 +1181,12 @@ def _summary(
             "signoff_delivery_authorized": bool((evaluation_scorecard or {}).get("signoff", {}).get("delivery_authorized", False)),
             "signoff_apply_authorized": bool((evaluation_scorecard or {}).get("signoff", {}).get("apply_authorized", False)),
             "forbidden_claim_count": len((evaluation_scorecard or {}).get("forbidden_claims", [])),
+            "knowledge_audit_enforcement_status": (
+                read_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON).is_file()
+                else "not_checked"
+            ),
+            "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),
             "workbench_action_log_present": (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file(),
             "workbench_action_result_present": (state_dir / WORKBENCH_ACTION_RESULT_JSON).is_file(),
             "workbench_review_queue_present": (state_dir / WORKBENCH_REVIEW_QUEUE_JSON).is_file(),

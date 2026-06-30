@@ -800,6 +800,59 @@ CLI commands are `knowledge-usage-report`, `constraint-application-audit`, and
 search, provider/model generation, provider repair, or Translation Memory
 server operation.
 
+## Knowledge Audit Enforcement
+
+Knowledge Audit Enforcement makes selected pack usage enforceable downstream.
+It adds:
+
+- `knowledge-audit-enforcement-decision.json`
+- `workbench-knowledge-review-queue.json`
+
+`knowledge-audit-enforcement-decision.json` summarizes pack selection status,
+Working Context freshness, usage report status, constraint audit status,
+conflict report status, hard and negative constraint check status,
+reference-only leakage, blind-benchmark firewall status, unresolved conflicts,
+failed audits, pending reviews, stale evidence, readiness impact, forbidden
+claims, and required next actions.
+
+Decision status is one of `clear`, `clear_with_warnings`, `review_required`,
+`blocked`, `stale`, or `not_applicable`. Full-quality handoff, delivery, apply,
+and strong scorecard claims are blocked or downgraded when selected knowledge is
+missing usage evidence, audit evidence is missing/stale/failed, the Working
+Context Packet is stale, P1/P2 conflicts remain unresolved, reference-only
+knowledge leaks into constraints, target-language knowledge leaks in
+`blind_benchmark`, scope mismatches affect constraints, or project-local
+priority is violated.
+
+`workbench-knowledge-review-queue.json` is an artifact-backed projection over
+the enforcement decision. Supported item types include
+`knowledge_usage_missing`, `working_context_stale`,
+`constraint_audit_missing`, `hard_constraint_failed`,
+`negative_constraint_failed`, `knowledge_conflict_unresolved`,
+`reference_only_leakage`, `scope_mismatch`,
+`blind_benchmark_firewall_risk`, `project_priority_conflict`,
+`knowledge_review_required`, `knowledge_claim_not_supported`, and
+`stale_knowledge_evidence`.
+
+Generation Strategy references enforcement for handoff readiness. Evaluation
+Scorecard uses it to forbid unsupported `knowledge_backed_quality`,
+`knowledge_constraints_applied`, `knowledge_review_complete`, `delivery_ready`,
+`apply_ready`, and `production_ready` claims. Claim acceptance and signoff
+consume those forbidden claims rather than bypassing them. A successful
+deterministic audit can support only the narrow
+`knowledge_constraints_applied` claim; it is not semantic review and does not
+prove full knowledge-backed quality.
+
+Workbench/API reads are artifact-backed:
+
+- `GET /api/knowledge-audit-enforcement-decision`
+- `GET /api/workbench-knowledge-review-queue`
+
+CLI commands are `knowledge-audit-enforcement-decision` and
+`workbench-knowledge-review-queue`. The seed performs no semantic retrieval,
+vector search, provider/model generation, provider repair, or TM server
+operation.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per
