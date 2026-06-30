@@ -230,22 +230,40 @@ def _repair_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
         + int(summary.get("pending_provider_or_model_repair_count", 0) or 0)
         + int(summary.get("pending_human_count", 0) or 0)
     )
-    if not request_items and not pending_count:
-        return []
+    items: list[dict[str, Any]] = []
     affected = [str(item.get("segment_id")) for item in request_items if item.get("segment_id")]
-    return [
-        _item(
-            "pending_repair",
-            "blocking",
-            "open",
-            "developer",
-            ["repair-request.json", "repair-result.json"],
-            affected_segment_ids=affected,
-            forbidden_claims_affected=["delivery_ready", "apply_ready", "production_ready"],
-            recommended_action="Complete deterministic repairs, provider/model repairs, or required human repair confirmation.",
-            human_confirmation_required=any(bool(item.get("human_confirmation_required")) for item in request_items),
+    if request_items or pending_count:
+        items.append(
+            _item(
+                "pending_repair",
+                "blocking",
+                "open",
+                "developer",
+                ["repair-request.json", "repair-result.json"],
+                affected_segment_ids=affected,
+                forbidden_claims_affected=["delivery_ready", "apply_ready", "production_ready"],
+                recommended_action="Complete deterministic repairs, provider/model repairs, or required human repair confirmation.",
+                human_confirmation_required=any(bool(item.get("human_confirmation_required")) for item in request_items),
+            )
         )
-    ]
+    knowledge_request = artifacts["knowledge_repair_request"]
+    reconciliation = artifacts["knowledge_repair_reconciliation"]
+    knowledge_requests = knowledge_request.get("requests", []) if isinstance(knowledge_request, dict) else []
+    if knowledge_requests and reconciliation.get("status") != "clear":
+        items.append(
+            _item(
+                "knowledge_repair_reconciliation_required",
+                "blocking",
+                "open",
+                "localization_reviewer",
+                ["knowledge-repair-request.json", "knowledge-repair-qa-report.json", "knowledge-repair-reconciliation.json"],
+                affected_segment_ids=sorted({str(segment) for request in knowledge_requests for segment in request.get("affected_segment_ids", [])}),
+                forbidden_claims_affected=["knowledge_constraints_applied", "knowledge_review_complete", "delivery_ready", "apply_ready", "production_ready"],
+                recommended_action="Submit a matching repair result, resolve QA failures, and refresh reconciliation.",
+                human_confirmation_required=int(reconciliation.get("summary", {}).get("human_review_required_count", 0) or 0) > 0,
+            )
+        )
+    return items
 
 
 def _handoff_items(artifacts: dict[str, Any]) -> list[dict[str, Any]]:
@@ -448,6 +466,8 @@ def _load_artifacts(state_dir: Path) -> dict[str, Any]:
         "generation_handoff_decision": _read_json_object(state_dir / "generation-handoff-decision.json"),
         "repair_request": _read_json_object(state_dir / "repair-request.json"),
         "repair_result": _read_json_object(state_dir / "repair-result.json"),
+        "knowledge_repair_request": _read_json_object(state_dir / "knowledge-repair-request.json"),
+        "knowledge_repair_reconciliation": _read_json_object(state_dir / "knowledge-repair-reconciliation.json"),
         "artifact_state": _read_json_object(state_dir / "artifact-state.json"),
         "delivery_decision": _read_json_object(state_dir / "delivery-decision.json"),
     }
@@ -464,6 +484,9 @@ def _source_artifacts(state_dir: Path) -> dict[str, str]:
         "generation-handoff-decision.json",
         "repair-request.json",
         "repair-result.json",
+        "knowledge-repair-request.json",
+        "knowledge-repair-qa-report.json",
+        "knowledge-repair-reconciliation.json",
         "artifact-state.json",
         "delivery-decision.json",
     )

@@ -143,6 +143,9 @@ def build_claim_acceptance_decision(
     review = human_review_summary(state_dir)
     claims = _requested_claims(requested_claims)
     forbidden = set(scorecard.get("forbidden_claims", [])) if isinstance(scorecard, dict) else set()
+    repair_reconciliation = _read_optional_json(state_dir / "knowledge-repair-reconciliation.json")
+    if (state_dir / "knowledge-repair-plan.json").is_file() and str(repair_reconciliation.get("status") or "not_run") != "clear":
+        forbidden.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
     overall = str(scorecard.get("overall_claim") or "not_ready")
     accepted_risk = accepted_risk or {}
     accepts_limitations = bool(accepted_risk.get("accepts_limitations") or accepted_risk.get("accepts_partial_or_limited_scope"))
@@ -205,6 +208,9 @@ def create_signoff_record(
     artifact_state = _read_optional_json(state_dir / "artifact-state.json")
     requested = _authorization_requests(signoff)
     forbidden = set(scorecard.get("forbidden_claims", [])) if scorecard else set()
+    repair_reconciliation = _read_optional_json(state_dir / "knowledge-repair-reconciliation.json")
+    if (state_dir / "knowledge-repair-plan.json").is_file() and str(repair_reconciliation.get("status") or "not_run") != "clear":
+        forbidden.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
     overall = str(scorecard.get("overall_claim") or "not_ready")
     claim_status = str(claim_decision.get("status") or "missing")
     stale_state = str(artifact_state.get("status") or "") in {"stale", "blocked"} if artifact_state else False

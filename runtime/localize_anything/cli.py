@@ -93,6 +93,12 @@ from .knowledge_repair import (
     build_knowledge_repair_plan,
     build_knowledge_repair_request,
 )
+from .knowledge_repair_result import (
+    build_knowledge_repair_qa_report,
+    build_knowledge_repair_reconciliation,
+    read_knowledge_repair_result_intake,
+    record_knowledge_repair_result,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -605,6 +611,32 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_repair_impact_parser.add_argument("state_dir", type=Path)
     knowledge_repair_impact_parser.add_argument("--run-id")
     knowledge_repair_impact_parser.add_argument("--output", type=Path)
+
+    record_knowledge_repair_result_parser = subparsers.add_parser(
+        "record-knowledge-repair-result", help="Append a repair result intake record and refresh deterministic QA/reconciliation"
+    )
+    record_knowledge_repair_result_parser.add_argument("state_dir", type=Path)
+    record_knowledge_repair_result_parser.add_argument("--input", type=Path, required=True)
+    record_knowledge_repair_result_parser.add_argument("--run-id")
+    record_knowledge_repair_result_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_intake_parser = subparsers.add_parser(
+        "knowledge-repair-result-intake", help="Read knowledge-repair-result-intake.jsonl"
+    )
+    knowledge_repair_intake_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_intake_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_qa_parser = subparsers.add_parser(
+        "knowledge-repair-qa-report", help="Create deterministic knowledge-repair-qa-report.json"
+    )
+    knowledge_repair_qa_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_qa_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_reconciliation_parser = subparsers.add_parser(
+        "knowledge-repair-reconciliation", help="Create deterministic knowledge-repair-reconciliation.json"
+    )
+    knowledge_repair_reconciliation_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_reconciliation_parser.add_argument("--output", type=Path)
 
     evaluation_parser = subparsers.add_parser("evaluation-scorecard", help="Create evaluation-scorecard.json and evidence-level-report.md")
     evaluation_parser.add_argument("state_dir", type=Path)
@@ -1524,6 +1556,25 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_knowledge_repair_request(args.state_dir, run_id=args.run_id), args.output)
         if args.command == "knowledge-repair-impact-report":
             return _emit_json(build_knowledge_repair_impact_report(args.state_dir, run_id=args.run_id), args.output)
+        if args.command == "record-knowledge-repair-result":
+            return _emit_json(
+                record_knowledge_repair_result(args.state_dir, read_json(args.input), run_id=args.run_id),
+                args.output,
+            )
+        if args.command == "knowledge-repair-result-intake":
+            return _emit_json(
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-knowledge-repair-result-intake-list-v1",
+                    "state_dir": args.state_dir.as_posix(),
+                    "results": read_knowledge_repair_result_intake(args.state_dir),
+                },
+                args.output,
+            )
+        if args.command == "knowledge-repair-qa-report":
+            return _emit_json(build_knowledge_repair_qa_report(args.state_dir), args.output)
+        if args.command == "knowledge-repair-reconciliation":
+            return _emit_json(build_knowledge_repair_reconciliation(args.state_dir), args.output)
         if args.command == "evaluation-scorecard":
             scorecard = build_evaluation_scorecard(
                 args.state_dir,

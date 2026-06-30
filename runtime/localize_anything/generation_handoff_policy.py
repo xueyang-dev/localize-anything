@@ -8,6 +8,7 @@ from .artifact_state import ARTIFACT_STATE_JSON, artifact_state_summary
 from .generation_strategy import GENERATION_STRATEGY_JSON
 from .io_utils import read_json, read_jsonl, write_json
 from .knowledge_repair import KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON, knowledge_repair_summary
+from .knowledge_repair_result import KNOWLEDGE_REPAIR_RECONCILIATION_JSON, knowledge_repair_reconciliation_summary
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .resolution_gate import BLOCKING_QUESTIONS_JSON, RESOLUTION_OPTIONS_JSON, USER_RESOLUTION_DECISIONS_JSONL
 from .segment_repair import SEGMENT_REGENERATION_PLAN_JSON, segment_repair_summary
@@ -530,6 +531,9 @@ def _artifact_affects_handoff(item: dict[str, Any]) -> bool:
         "knowledge_repair_plan",
         "knowledge_repair_request",
         "knowledge_repair_impact_report",
+        "knowledge_repair_result_intake",
+        "knowledge_repair_qa_report",
+        "knowledge_repair_reconciliation",
     }:
         return True
     return "generation_handoff_decision" in item.get("downstream_affected", [])
@@ -541,14 +545,18 @@ def _check_knowledge_repair_plan(
     forbidden_claims: set[str],
 ) -> None:
     summary = knowledge_repair_summary(state_dir)
-    if not summary.get("pending_required_count"):
+    reconciliation = knowledge_repair_reconciliation_summary(state_dir)
+    if not summary.get("pending_required_count") and reconciliation.get("status") not in {"blocked", "partial", "stale"}:
+        return
+    if reconciliation.get("status") == "clear":
         return
     blockers.append(
         _issue(
             "pending_knowledge_repairs_block_handoff",
             "Knowledge repair planning found unresolved required repairs; planning alone does not clear the blocker.",
-            KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+            KNOWLEDGE_REPAIR_RECONCILIATION_JSON if reconciliation.get("status") != "not_run" else KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
             knowledge_repair_summary=summary,
+            knowledge_repair_reconciliation=reconciliation,
         )
     )
     forbidden_claims.update(

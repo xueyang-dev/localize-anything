@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-repair-reconciliation.schema.json",
+  "title": "Localize Anything Knowledge Repair Reconciliation",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "blockers", "forbidden_claims_remaining", "recompute_required", "generic_repair_evidence", "source_artifacts", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-repair-reconciliation-v1" },
+    "artifact": { "const": "knowledge-repair-reconciliation.json" },
+    "status": { "enum": ["clear", "partial", "blocked", "stale"] },
+    "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["blocker_id", "issue_type", "matching_result_ids", "qa_status", "reconciliation_status", "cleared_constraints", "remaining_constraints", "remaining_conflicts", "stale_evidence", "required_follow_up", "readiness_impact", "affected_forbidden_claims"],
+        "properties": {
+          "reconciliation_status": { "enum": ["cleared", "partially_cleared", "still_blocked", "failed_qa", "stale_result", "provenance_mismatch", "hash_mismatch", "requires_human_review", "requires_follow_up", "not_applicable"] },
+          "stale_evidence": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "recompute_required": { "type": "array", "items": { "type": "string" } },
+    "generic_repair_evidence": { "type": "object" },
+    "source_artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

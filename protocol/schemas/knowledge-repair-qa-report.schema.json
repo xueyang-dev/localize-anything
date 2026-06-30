@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-repair-qa-report.schema.json",
+  "title": "Localize Anything Knowledge Repair QA Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary", "results", "qa_items", "source_artifacts", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-repair-qa-report-v1" },
+    "artifact": { "const": "knowledge-repair-qa-report.json" },
+    "status": { "enum": ["passed", "blocked", "warning", "requires_human_review", "not_applicable", "stale"] },
+    "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "results": { "type": "array", "items": { "type": "object" } },
+    "qa_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["qa_item_id", "result_id", "repair_request_id", "affected_segment_ids", "affected_scope", "check_type", "status", "reason", "source_artifact_references", "target_artifact_references", "blocking", "limitations"],
+        "properties": {
+          "qa_item_id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["passed", "failed", "warning", "not_applicable", "requires_human_review", "stale", "blocked"] },
+          "blocking": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
