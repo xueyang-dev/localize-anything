@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-result-intake.schema.json",
+  "title": "Localize Anything Provider Result Intake Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "result_id", "result_source", "status", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-result-intake-record-v1" },
+    "result_id": { "type": "string" },
+    "request_id": { "type": "string" },
+    "result_source": { "enum": ["real_provider", "external_provider_result", "external_model_result", "synthetic", "mock", "dry_run", "skipped", "failed", "unknown"] },
+    "status": { "type": "string" },
+    "provenance": { "type": "object" },
+    "provider_or_model_called_by_runtime": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

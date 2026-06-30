@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-execution-ledger-record-v1",
+  "ledger_id": "provider-ledger-example",
+  "run_id": "run-example",
+  "request_id": "provider-request-example",
+  "execution_mode": "dry_run",
+  "outcome": "dry_run",
+  "provider_name": "",
+  "model_name": "",
+  "result_artifact_references": [],
+  "source_artifact_references": ["provider-handoff-request.json"],
+  "provider_or_model_called_by_runtime": false,
+  "error_kind": "",
+  "created_at": "2026-06-30T00:00:00+00:00",
+  "limitations": ["ledger records handoff/external evidence status; this runtime did not call providers in this seed"]
+}

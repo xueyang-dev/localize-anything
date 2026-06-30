@@ -86,7 +86,8 @@ STAGES: tuple[dict[str, Any], ...] = (
     _stage("termbase_preflight", "Termbase preflight", inputs=("localization-brief.json",), outputs=("termbase-preflight-report.json",), dependencies=("localization_brief", "term_governance")),
     _stage("generation_strategy", "Generation strategy", inputs=("localization-brief.json", "termbase-preflight-report.json"), outputs=("generation-strategy.json",), dependencies=("termbase_preflight",)),
     _stage("resolution_gate", "Resolution gate", inputs=("generation-strategy.json",), outputs=("blocking-questions.json", "user-resolution-decisions.jsonl"), dependencies=("generation_strategy",), human=True),
-    _stage("generation_handoff", "Generation handoff", inputs=("generation-handoff-decision.json",), outputs=("generated-segments.jsonl",), dependencies=("resolution_gate",), provider=True),
+    _stage("provider_evidence", "Provider evidence", inputs=("generation-handoff-decision.json",), outputs=("provider-execution-policy.json", "provider-handoff-request.json", "provider-execution-ledger.jsonl", "provider-evidence-reconciliation.json"), dependencies=("resolution_gate",), builder="provider_evidence"),
+    _stage("generation_handoff", "Generation handoff", inputs=("generation-handoff-decision.json", "provider-evidence-reconciliation.json"), outputs=("generated-segments.jsonl",), dependencies=("provider_evidence",), provider=True),
     _stage("artifact_state", "Artifact state", outputs=("artifact-state.json",), builder="artifact_state"),
     _stage("segment_staleness", "Segment staleness", inputs=("generated-segments.jsonl",), outputs=("stale-segments.jsonl",), dependencies=("generation_handoff",)),
     _stage("reuse_decision", "Reuse decision", inputs=("stale-segments.jsonl",), outputs=("reuse-decision.json",), dependencies=("segment_staleness",)),
@@ -111,7 +112,7 @@ STAGES: tuple[dict[str, Any], ...] = (
     _stage(
         "readiness_authorization",
         "Readiness authorization",
-        inputs=("artifact-state.json", "evaluation-scorecard.json", "claim-acceptance-decision.json", "signoff-record.json", "document-evidence-manifest.json", "knowledge-audit-enforcement-decision.json", "knowledge-repair-closure-decision.json", "generation-handoff-decision.json"),
+        inputs=("artifact-state.json", "evaluation-scorecard.json", "claim-acceptance-decision.json", "signoff-record.json", "document-evidence-manifest.json", "knowledge-audit-enforcement-decision.json", "knowledge-repair-closure-decision.json", "generation-handoff-decision.json", "provider-evidence-reconciliation.json"),
         outputs=("readiness-authorization-matrix.json", "manual-followup-gap-report.json", "delivery-readiness-report.json", "apply-readiness-report.json"),
         dependencies=("artifact_state", "evaluation_scorecard", "claim_acceptance", "signoff", "document_decision_resolution", "knowledge_audit_enforcement", "knowledge_repair_closure_recompute"),
         builder="readiness_authorization",
@@ -124,7 +125,7 @@ STAGES: tuple[dict[str, Any], ...] = (
 _STAGE_BY_TYPE = {stage["stage_type"]: stage for stage in STAGES}
 
 MODE_STAGES = {
-    "diagnose_only": {"artifact_state", "evaluation_scorecard", "readiness_authorization", "workbench_projection"},
+    "diagnose_only": {"artifact_state", "provider_evidence", "evaluation_scorecard", "readiness_authorization", "workbench_projection"},
     "preflight_only": {"source_discovery", "coverage_diagnostics", "localization_brief", "term_governance", "termbase_preflight", "generation_strategy", "resolution_gate", "artifact_state"},
     "review_ready_document": {"artifact_state", "evaluation_scorecard", "human_review", "claim_acceptance", "signoff", "document_evidence_pack", "document_decision_resolution", "readiness_authorization", "workbench_projection"},
     "delivery_readiness_check": {"artifact_state", "evaluation_scorecard", "claim_acceptance", "signoff", "document_decision_resolution", "knowledge_audit_enforcement", "knowledge_repair_closure_recompute", "readiness_authorization", "workbench_projection", "delivery_package"},
@@ -612,6 +613,7 @@ def _builders(state_dir: Path, run_id: str | None) -> dict[str, Callable[[], Any
     from .knowledge_repair_closure import build_knowledge_readiness_impact_report, build_knowledge_recompute_plan, build_knowledge_recompute_result, build_knowledge_repair_closure_decision
     from .knowledge_repair_result import build_knowledge_repair_qa_report, build_knowledge_repair_reconciliation
     from .knowledge_usage import build_constraint_application_audit, build_knowledge_conflict_report, build_knowledge_usage_report
+    from .provider_evidence import build_provider_evidence_reconciliation, build_provider_execution_policy, build_provider_handoff_request
     from .readiness_action import build_workbench_readiness_action_queue
     from .readiness_authorization import build_readiness_reports
     from .workbench_queue import build_workbench_claim_queue, build_workbench_review_queue, build_workbench_signoff_summary
@@ -648,6 +650,11 @@ def _builders(state_dir: Path, run_id: str | None) -> dict[str, Callable[[], Any
         build_document_claim_resolution(state_dir, run_id=run_id)
         build_document_signoff_summary(state_dir, run_id=run_id)
 
+    def provider_evidence() -> None:
+        build_provider_execution_policy(state_dir, {"execution_mode": "disabled"}, run_id=run_id)
+        build_provider_handoff_request(state_dir, {"execution_mode": "dry_run"}, run_id=run_id)
+        build_provider_evidence_reconciliation(state_dir, run_id=run_id)
+
     def workbench_projection() -> None:
         build_workbench_review_queue(state_dir)
         build_workbench_claim_queue(state_dir)
@@ -664,6 +671,7 @@ def _builders(state_dir: Path, run_id: str | None) -> dict[str, Callable[[], Any
         "knowledge_repair_planning": repair_planning,
         "knowledge_repair_result_reconciliation": repair_reconciliation,
         "knowledge_repair_closure_recompute": repair_closure,
+        "provider_evidence": provider_evidence,
         "readiness_authorization": lambda: build_readiness_reports(state_dir, run_id=run_id),
         "workbench_projection": workbench_projection,
     }

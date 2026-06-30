@@ -7,6 +7,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, sha256_file, write_json
+from .provider_evidence import PROVIDER_EVIDENCE_RECONCILIATION_JSON
 
 
 READINESS_AUTHORIZATION_MATRIX_JSON = "readiness-authorization-matrix.json"
@@ -335,6 +336,7 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "workflow_recovery_plan": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-recovery-plan.json")),
         "workflow_recovery_result": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-recovery-result.json")),
         "workflow_idempotency_report": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-idempotency-report.json")),
+        "provider_evidence_reconciliation": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_EVIDENCE_RECONCILIATION_JSON)),
     }
 
 
@@ -494,6 +496,13 @@ def _provider_status(artifacts: dict[str, Any]) -> dict[str, Any]:
     manifest = artifacts["delivery_manifest"]
     generation = manifest.get("generation", {}) if isinstance(manifest, dict) else {}
     provider_dimension = artifacts["evaluation_scorecard"].get("provider_status", {})
+    reconciliation = artifacts.get("provider_evidence_reconciliation", {})
+    if isinstance(reconciliation, dict) and reconciliation:
+        reconciliation_status = str(reconciliation.get("status") or "")
+        if reconciliation_status in {"blocked", "failed", "stale"}:
+            return {"status": BLOCKED if reconciliation_status != "stale" else STALE, "domain": "provider", "summary": "provider evidence reconciliation blocks strong readiness"}
+        if reconciliation_status in {"clear_with_warnings", "not_applicable"}:
+            return {"status": REVIEW_REQUIRED, "domain": "provider", "summary": "provider evidence is limited or not applicable"}
     status = str(provider_dimension.get("status") or "")
     if generation.get("apply_allowed") is False or generation.get("provider_status") == "failed" or generation.get("provider_actual") == "synthetic_fallback":
         return {"status": BLOCKED, "domain": "provider", "summary": "provider policy or fallback blocks strong readiness"}

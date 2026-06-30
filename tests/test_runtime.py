@@ -256,6 +256,19 @@ from runtime.localize_anything.workflow_hardening import (
     record_workflow_transaction,
     run_workflow_recovery,
 )
+from runtime.localize_anything.provider_evidence import (
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_EXECUTION_LEDGER_JSONL,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+    PROVIDER_RESULT_INTAKE_JSONL,
+    append_provider_execution_ledger_entry,
+    build_provider_evidence_reconciliation,
+    build_provider_execution_policy,
+    build_provider_handoff_request,
+    read_provider_result_intake,
+    record_provider_result_intake,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -11547,7 +11560,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 104)
+        self.assertEqual(result["schemas_checked"], 109)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12567,6 +12580,136 @@ class WorkflowHardeningTests(unittest.TestCase):
                 self.assertIn(key, packaged["manifest"]["assets"])
                 self.assertIn(key, summary["artifacts"])
             self.assertIn("workflow_lock_status", summary["summary"])
+
+
+class ProviderEvidenceTests(unittest.TestCase):
+    def test_disabled_policy_and_dry_run_request_forbid_provider_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            policy = build_provider_execution_policy(state, {"execution_mode": "disabled"})
+            request = build_provider_handoff_request(state, {"execution_mode": "dry_run"})
+            reconciliation = build_provider_evidence_reconciliation(state)
+
+            self.assertEqual(policy["status"], "disabled")
+            self.assertEqual(request["status"], "dry_run")
+            self.assertFalse(policy["provider_backed_execution_allowed"])
+            self.assertFalse(request["provider_backed_claim_supported"])
+            self.assertIn("provider_backed_quality", reconciliation["forbidden_claims_remaining"])
+
+    def test_blocked_real_provider_handoff_is_not_provider_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": False, "allow_real_provider": False})
+            request = build_provider_handoff_request(state, {"execution_mode": "real_provider"})
+
+            self.assertEqual(request["status"], "blocked")
+            self.assertFalse(request["provider_backed_claim_supported"])
+            self.assertTrue(any(item["code"] == "provider_policy_not_allowed" for item in request["blockers"]))
+
+    def test_synthetic_and_failed_results_do_not_support_provider_backed_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": True, "allow_real_provider": True})
+            request = build_provider_handoff_request(state, {"execution_mode": "real_provider"})
+            record_provider_result_intake(state, {"request_id": request["request_id"], "result_source": "synthetic", "provider_status": "synthetic_test"})
+            failed = record_provider_result_intake(state, {"request_id": request["request_id"], "result_source": "failed", "provider_status": "failed", "provenance": {"provider_name": "example"}})
+            reconciliation = build_provider_evidence_reconciliation(state)
+
+            self.assertEqual(failed["status"], "received_failed")
+            self.assertEqual(reconciliation["status"], "blocked")
+            self.assertFalse(reconciliation["provider_execution_complete_supported"])
+            self.assertIn("provider_backed_quality", reconciliation["forbidden_claims_remaining"])
+
+    def test_external_provider_result_requires_provenance_and_qa(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            policy = build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": True, "allow_real_provider": True, "provider_name": "external"})
+            request = build_provider_handoff_request(state, {"execution_mode": "real_provider"})
+            append_provider_execution_ledger_entry(state, {"request_id": request["request_id"], "execution_mode": "real_provider", "outcome": "external_imported"})
+            bad = record_provider_result_intake(state, {"request_id": request["request_id"], "result_source": "external_provider_result", "qa_status": "pass"})
+            good = record_provider_result_intake(
+                state,
+                {
+                    "request_id": request["request_id"],
+                    "result_source": "external_provider_result",
+                    "qa_status": "pass",
+                    "provenance": {"provider_name": policy["provider_name"], "external_reference": "ticket-1"},
+                },
+            )
+            reconciliation = build_provider_evidence_reconciliation(state)
+
+            self.assertEqual(bad["status"], "rejected_provenance")
+            self.assertEqual(good["status"], "received")
+            self.assertEqual(reconciliation["status"], "clear_with_warnings")
+            self.assertTrue(reconciliation["provider_execution_complete_supported"])
+            self.assertFalse(reconciliation["provider_backed_quality_supported"])
+            self.assertIn("provider_backed_quality", reconciliation["forbidden_claims_remaining"])
+
+    def test_scorecard_claim_and_signoff_consume_provider_reconciliation_conservatively(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": True, "allow_real_provider": True})
+            build_provider_handoff_request(state, {"execution_mode": "real_provider"})
+            record_provider_result_intake(state, {"result_source": "synthetic", "provider_status": "synthetic_test"})
+            build_provider_evidence_reconciliation(state)
+            scorecard = build_evaluation_scorecard(state)
+            claim = build_claim_acceptance_decision(state, requested_claims=["provider_backed_quality", "provider_execution_complete"])
+            signoff = create_signoff_record(state, {"signed_by": "owner", "requested_authorizations": {"delivery": True, "apply": True}, "delivery_authorized": True, "apply_authorized": True})
+
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertIn("provider_execution_complete", scorecard["forbidden_claims"])
+            self.assertEqual(claim["status"], "blocked")
+            self.assertIn("provider_backed_quality", signoff["forbidden_claims_remaining"])
+
+    def test_artifact_state_and_readiness_surface_provider_evidence_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=[])
+            build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": True, "allow_real_provider": True})
+            build_provider_handoff_request(state, {"execution_mode": "real_provider"})
+            record_provider_result_intake(state, {"result_source": "failed", "provider_status": "failed", "provenance": {"provider_name": "example"}})
+            artifact_state = build_artifact_state(state)
+            reports = build_readiness_reports(state)
+
+            provider_artifact = next(item for item in artifact_state["artifacts"] if item["artifact_id"] == "provider_evidence_reconciliation")
+            self.assertEqual(provider_artifact["status"], "blocked")
+            self.assertEqual(reports["readiness_authorization_matrix"]["provider_policy_status"]["status"], "blocked")
+
+    def test_cli_and_api_provider_evidence_are_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            policy_input = Path(directory) / "policy.json"
+            result_input = Path(directory) / "result.json"
+            policy_input.write_text(json.dumps({"execution_mode": "disabled"}), encoding="utf-8")
+            result_input.write_text(json.dumps({"result_source": "external_provider_result"}), encoding="utf-8")
+
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                self.assertEqual(cli_main(["provider-execution-policy", state.as_posix(), "--input", policy_input.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-handoff-request", state.as_posix(), "--input", policy_input.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-result-intake", state.as_posix(), "--input", result_input.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-evidence-reconciliation", state.as_posix()]), 0)
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    post_status, post_body = _http_post_json(host, port, "/api/provider-execution-policy", {"state_dir": state.as_posix(), "policy": {"execution_mode": "disabled"}})
+                    get_status, get_body = _http_get(host, port, f"/api/provider-evidence-reconciliation?state_dir={state.as_posix()}")
+                    self.assertEqual((post_status, get_status), (200, 200))
+                    self.assertFalse(post_body["provider_or_model_called"])
+                    self.assertEqual(json.loads(get_body)["provider_evidence_reconciliation"]["schema"], "localize-anything-provider-evidence-reconciliation-v1")
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+
+            self.assertFalse(provider.called)
+            self.assertTrue((state / PROVIDER_EXECUTION_POLICY_JSON).is_file())
+            self.assertTrue((state / PROVIDER_HANDOFF_REQUEST_JSON).is_file())
+            self.assertTrue((state / PROVIDER_EXECUTION_LEDGER_JSONL).is_file())
+            self.assertTrue((state / PROVIDER_RESULT_INTAKE_JSONL).is_file())
+            self.assertTrue((state / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file())
+            self.assertEqual(read_provider_result_intake(state)[0]["status"], "rejected_provenance")
 
 
 class WorkflowOrchestrationTests(unittest.TestCase):

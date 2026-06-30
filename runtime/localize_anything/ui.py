@@ -134,6 +134,15 @@ from .workflow_hardening import (
     read_workflow_transaction_manifest,
     run_workflow_recovery,
 )
+from .provider_evidence import (
+    build_provider_execution_policy,
+    read_provider_evidence_reconciliation,
+    read_provider_execution_ledger,
+    read_provider_execution_policy,
+    read_provider_handoff_request,
+    read_provider_result_intake,
+    record_provider_result_intake,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -312,6 +321,21 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/delivery-readiness-report":
                     self._handle_readiness_authorization_query(parsed.query, "delivery")
+                    return
+                if parsed.path == "/api/provider-execution-policy":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_policy", read_provider_execution_policy)
+                    return
+                if parsed.path == "/api/provider-handoff-request":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_handoff_request", read_provider_handoff_request)
+                    return
+                if parsed.path == "/api/provider-execution-ledger":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_ledger", lambda state_dir: {"records": read_provider_execution_ledger(state_dir)})
+                    return
+                if parsed.path == "/api/provider-result-intake":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_intake", lambda state_dir: {"records": read_provider_result_intake(state_dir)})
+                    return
+                if parsed.path == "/api/provider-evidence-reconciliation":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_evidence_reconciliation", read_provider_evidence_reconciliation)
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -551,6 +575,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workflow-recover":
                     self._handle_workflow_recover(payload)
+                    return
+                if parsed.path == "/api/provider-execution-policy":
+                    self._handle_provider_execution_policy(payload)
+                    return
+                if parsed.path == "/api/provider-result-intake":
+                    self._handle_provider_result_intake(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -1299,6 +1329,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             )
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workflow_recovery_result": result})
+
+        def _handle_provider_execution_policy(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Provider policy is outside allowed workbench roots: {state_dir}")
+            policy = payload.get("policy") if isinstance(payload.get("policy"), dict) else payload
+            result = build_provider_execution_policy(state_dir, policy, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_execution_policy": result, "provider_or_model_called": False})
+
+        def _handle_provider_result_intake(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Provider result intake is outside allowed workbench roots: {state_dir}")
+            result_payload = payload.get("result") if isinstance(payload.get("result"), dict) else payload
+            result = record_provider_result_intake(state_dir, result_payload, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_result_intake": result, "provider_or_model_called": False})
 
         def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

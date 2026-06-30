@@ -11,6 +11,11 @@ from .knowledge_repair import KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON, knowledge_rep
 from .knowledge_repair_result import KNOWLEDGE_REPAIR_RECONCILIATION_JSON, knowledge_repair_reconciliation_summary
 from .knowledge_repair_closure import KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, knowledge_repair_closure_summary
 from .localization_brief import LOCALIZATION_BRIEF_JSON
+from .provider_evidence import (
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+)
 from .resolution_gate import BLOCKING_QUESTIONS_JSON, RESOLUTION_OPTIONS_JSON, USER_RESOLUTION_DECISIONS_JSONL
 from .segment_repair import SEGMENT_REGENERATION_PLAN_JSON, segment_repair_summary
 from .termbase_preflight import TERM_REVIEW_QUEUE_JSON, TERMBASE_PREFLIGHT_REPORT_JSON
@@ -69,6 +74,7 @@ def build_generation_handoff_decision(
     _check_artifact_state(state_dir, blockers, warnings, forbidden_claims)
     _check_segment_repair_plan(state_dir, blockers, warnings, forbidden_claims)
     _check_knowledge_repair_plan(state_dir, blockers, forbidden_claims)
+    _check_provider_evidence(state_dir, blockers, warnings, forbidden_claims)
     provider_backed_allowed = _check_provider_policy(provider_policy, blockers, warnings, forbidden_claims)
 
     hard_blocked = bool(blockers)
@@ -188,6 +194,9 @@ def generation_handoff_decision_source_artifacts(state_dir: Path) -> dict[str, s
         "localization_brief": LOCALIZATION_BRIEF_JSON,
         "artifact_state": ARTIFACT_STATE_JSON,
         "segment_regeneration_plan": SEGMENT_REGENERATION_PLAN_JSON,
+        "provider_execution_policy": PROVIDER_EXECUTION_POLICY_JSON,
+        "provider_handoff_request": PROVIDER_HANDOFF_REQUEST_JSON,
+        "provider_evidence_reconciliation": PROVIDER_EVIDENCE_RECONCILIATION_JSON,
     }
     return {key: value for key, value in names.items() if (state_dir / value).exists()}
 
@@ -576,6 +585,30 @@ def _check_knowledge_repair_plan(
             "review_complete_status",
         }
     )
+
+
+def _check_provider_evidence(
+    state_dir: Path,
+    blockers: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    forbidden_claims: set[str],
+) -> None:
+    policy = _read_optional_json(state_dir / PROVIDER_EXECUTION_POLICY_JSON)
+    request = _read_optional_json(state_dir / PROVIDER_HANDOFF_REQUEST_JSON)
+    reconciliation = _read_optional_json(state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON)
+    if policy and str(policy.get("status") or "") in {"disabled", "dry_run", "synthetic_test"}:
+        warnings.append(_issue("provider_policy_not_provider_backed", "Provider execution policy is not provider-backed.", PROVIDER_EXECUTION_POLICY_JSON))
+        forbidden_claims.update({"provider_backed_quality", "provider_execution_complete", "provider_repair_complete", "model_repair_complete"})
+    if request and str(request.get("status") or "") == "blocked":
+        blockers.append(_issue("provider_handoff_request_blocked", "Provider handoff request is blocked by policy or handoff evidence.", PROVIDER_HANDOFF_REQUEST_JSON))
+        forbidden_claims.update({"provider_backed_quality", "provider_execution_complete", "safe_apply_readiness"})
+    if reconciliation:
+        status = str(reconciliation.get("status") or "")
+        forbidden_claims.update(str(claim) for claim in reconciliation.get("forbidden_claims_remaining", []) if claim)
+        if status in {"blocked", "failed", "stale"}:
+            blockers.append(_issue("provider_evidence_reconciliation_blocked", "Provider evidence is missing, stale, failed, synthetic, or unreconciled.", PROVIDER_EVIDENCE_RECONCILIATION_JSON))
+        elif status in {"clear_with_warnings", "not_applicable"}:
+            warnings.append(_issue("provider_evidence_limited", "Provider evidence is limited and cannot support broad provider-backed claims.", PROVIDER_EVIDENCE_RECONCILIATION_JSON))
 
 
 def _handoff_mode(

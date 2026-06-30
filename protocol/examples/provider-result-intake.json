@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-result-intake-record-v1",
+  "result_id": "provider-result-example",
+  "run_id": "run-example",
+  "request_id": "provider-request-example",
+  "result_source": "synthetic",
+  "status": "received_non_provider_backed",
+  "provider_status": "synthetic_test",
+  "provenance": {},
+  "target_artifact_references": [],
+  "target_artifact_hashes": {},
+  "scope": {},
+  "qa_status": "not_provided",
+  "review_evidence": {},
+  "created_at": "2026-06-30T00:00:00+00:00",
+  "provider_or_model_called_by_runtime": false,
+  "limitations": ["result intake records evidence only; it does not accept quality or mutate output"]
+}

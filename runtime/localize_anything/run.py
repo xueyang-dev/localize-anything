@@ -140,6 +140,13 @@ from .workflow_hardening import (
     WORKFLOW_RECOVERY_RESULT_JSON,
     WORKFLOW_TRANSACTION_MANIFEST_JSON,
 )
+from .provider_evidence import (
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_EXECUTION_LEDGER_JSONL,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+    PROVIDER_RESULT_INTAKE_JSONL,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1164,6 +1171,11 @@ def _summary(
         ("workflow_idempotency_report", WORKFLOW_IDEMPOTENCY_REPORT_JSON),
         ("workflow_recovery_plan", WORKFLOW_RECOVERY_PLAN_JSON),
         ("workflow_recovery_result", WORKFLOW_RECOVERY_RESULT_JSON),
+        ("provider_execution_policy", PROVIDER_EXECUTION_POLICY_JSON),
+        ("provider_handoff_request", PROVIDER_HANDOFF_REQUEST_JSON),
+        ("provider_execution_ledger", PROVIDER_EXECUTION_LEDGER_JSONL),
+        ("provider_result_intake", PROVIDER_RESULT_INTAKE_JSONL),
+        ("provider_evidence_reconciliation", PROVIDER_EVIDENCE_RECONCILIATION_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1312,6 +1324,11 @@ def _summary(
             "knowledge_repair_reconciliation_status": (
                 read_json(state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON).get("status", "not_checked")
                 if (state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_evidence_reconciliation_status": (
+                read_json(state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file()
                 else "not_checked"
             ),
             "knowledge_repair_closure_status": (

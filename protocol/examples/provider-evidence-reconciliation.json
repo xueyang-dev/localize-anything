@@ -1,0 +1,25 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-evidence-reconciliation-v1",
+  "artifact": "provider-evidence-reconciliation.json",
+  "run_id": "run-example",
+  "status": "not_applicable",
+  "policy_status": "disabled",
+  "request_status": "dry_run",
+  "summary": {
+    "intake_count": 0,
+    "accepted_provider_execution_count": 0,
+    "blocked_or_rejected_count": 0,
+    "synthetic_or_mock_count": 0,
+    "failed_count": 0
+  },
+  "reconciled_results": [],
+  "provider_execution_complete_supported": false,
+  "provider_backed_quality_supported": false,
+  "provider_repair_complete_supported": false,
+  "model_repair_complete_supported": false,
+  "forbidden_claims_remaining": ["model_repair_complete", "provider_backed_quality", "provider_execution_complete", "provider_repair_complete"],
+  "readiness_impact": "blocked",
+  "source_artifacts": {},
+  "limitations": ["external result intake is evidence only and does not imply quality acceptance"]
+}

@@ -42,6 +42,9 @@ CLAIMS = (
     "knowledge_backed_quality",
     "knowledge_constraints_applied",
     "knowledge_review_complete",
+    "provider_execution_complete",
+    "provider_repair_complete",
+    "model_repair_complete",
 )
 
 
@@ -152,6 +155,11 @@ def build_claim_acceptance_decision(
     repair_closure = _read_optional_json(state_dir / "knowledge-repair-closure-decision.json")
     if repair_closure and str(repair_closure.get("status") or "") not in {"closed", "closed_with_warnings", "not_applicable"}:
         forbidden.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
+    provider_reconciliation = _read_optional_json(state_dir / "provider-evidence-reconciliation.json")
+    if provider_reconciliation:
+        forbidden.update(str(claim) for claim in provider_reconciliation.get("forbidden_claims_remaining", []) if claim)
+        if str(provider_reconciliation.get("status") or "") in {"blocked", "failed", "stale"}:
+            forbidden.update({"provider_backed_quality", "provider_execution_complete", "provider_repair_complete", "model_repair_complete", "delivery_ready", "apply_ready", "production_ready"})
     overall = str(scorecard.get("overall_claim") or "not_ready")
     accepted_risk = accepted_risk or {}
     accepts_limitations = bool(accepted_risk.get("accepts_limitations") or accepted_risk.get("accepts_partial_or_limited_scope"))
@@ -222,6 +230,11 @@ def create_signoff_record(
     repair_closure = _read_optional_json(state_dir / "knowledge-repair-closure-decision.json")
     if repair_closure and str(repair_closure.get("status") or "") not in {"closed", "closed_with_warnings", "not_applicable"}:
         forbidden.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
+    provider_reconciliation = _read_optional_json(state_dir / "provider-evidence-reconciliation.json")
+    if provider_reconciliation:
+        forbidden.update(str(claim) for claim in provider_reconciliation.get("forbidden_claims_remaining", []) if claim)
+        if str(provider_reconciliation.get("status") or "") in {"blocked", "failed", "stale"}:
+            forbidden.update({"provider_backed_quality", "provider_execution_complete", "provider_repair_complete", "model_repair_complete", "delivery_ready", "apply_ready", "production_ready"})
     overall = str(scorecard.get("overall_claim") or "not_ready")
     claim_status = str(claim_decision.get("status") or "missing")
     stale_state = str(artifact_state.get("status") or "") in {"stale", "blocked"} if artifact_state else False
