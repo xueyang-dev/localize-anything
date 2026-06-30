@@ -8,6 +8,12 @@ from typing import Any
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, sha256_file, write_json
 from .provider_evidence import PROVIDER_EVIDENCE_RECONCILIATION_JSON
+from .provider_result_gate import (
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+)
 
 
 READINESS_AUTHORIZATION_MATRIX_JSON = "readiness-authorization-matrix.json"
@@ -337,6 +343,10 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "workflow_recovery_result": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-recovery-result.json")),
         "workflow_idempotency_report": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-idempotency-report.json")),
         "provider_evidence_reconciliation": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_EVIDENCE_RECONCILIATION_JSON)),
+        "provider_result_qa_report": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_RESULT_QA_REPORT_JSON)),
+        "provider_result_acceptance_decision": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON)),
+        "provider_claim_support_report": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_CLAIM_SUPPORT_REPORT_JSON)),
+        "workbench_provider_review_queue": _read_optional_json(_first_existing(state_dir, delivery_dir, WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON)),
     }
 
 
@@ -497,6 +507,19 @@ def _provider_status(artifacts: dict[str, Any]) -> dict[str, Any]:
     generation = manifest.get("generation", {}) if isinstance(manifest, dict) else {}
     provider_dimension = artifacts["evaluation_scorecard"].get("provider_status", {})
     reconciliation = artifacts.get("provider_evidence_reconciliation", {})
+    qa = artifacts.get("provider_result_qa_report", {})
+    acceptance = artifacts.get("provider_result_acceptance_decision", {})
+    claim_support = artifacts.get("provider_claim_support_report", {})
+    if qa and str(qa.get("status") or "") == "blocked":
+        return {"status": BLOCKED, "domain": "provider", "summary": "provider result deterministic QA is blocked"}
+    if qa and str(qa.get("status") or "") == "requires_human_review":
+        return {"status": REVIEW_REQUIRED, "domain": "provider", "summary": "provider result requires scoped human review"}
+    if acceptance and str(acceptance.get("status") or "") in {"blocked", "rejected"}:
+        return {"status": BLOCKED, "domain": "provider", "summary": "provider result acceptance is blocked or rejected"}
+    if claim_support and str(claim_support.get("status") or "") == "limited":
+        return {"status": REVIEW_REQUIRED, "domain": "provider", "summary": "provider claim support is limited in scope"}
+    if claim_support and str(claim_support.get("status") or "") == "blocked":
+        return {"status": BLOCKED, "domain": "provider", "summary": "provider claims are unsupported"}
     if isinstance(reconciliation, dict) and reconciliation:
         reconciliation_status = str(reconciliation.get("status") or "")
         if reconciliation_status in {"blocked", "failed", "stale"}:

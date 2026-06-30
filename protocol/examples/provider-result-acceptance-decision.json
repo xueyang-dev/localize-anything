@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-result-acceptance-decision-v1",
+  "artifact": "provider-result-acceptance-decision.json",
+  "decision_id": "provider-acceptance-1",
+  "status": "accepted_with_limitations",
+  "requested_decision": "accepted_with_limitations",
+  "result_ids": ["provider-result-1"],
+  "accepted_result_ids": [],
+  "accepted_with_limitations_result_ids": ["provider-result-1"],
+  "rejected_result_ids": [],
+  "effective_scope": { "scope_type": "limited", "segment_ids": ["s1"] },
+  "decided_by": "lead@example.test",
+  "decided_role": "localization_lead",
+  "blockers": [],
+  "forbidden_claims_remaining": ["provider_backed_quality", "provider_repair_complete", "model_repair_complete"],
+  "limited_scope_does_not_imply_global_readiness": true,
+  "provider_or_model_called_by_runtime": false
+}

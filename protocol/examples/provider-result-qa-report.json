@@ -1,0 +1,13 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-result-qa-report-v1",
+  "artifact": "provider-result-qa-report.json",
+  "status": "requires_human_review",
+  "summary": { "result_count": 1, "passed_count": 0, "failed_count": 0, "human_review_required_count": 1 },
+  "results": [{ "result_id": "provider-result-1", "request_id": "provider-request-1", "result_source": "external_provider_result", "status": "requires_human_review", "requires_human_review": true, "failed_check_types": [], "effective_scope": { "scope_type": "limited", "segment_ids": ["s1"] } }],
+  "qa_items": [{ "qa_item_id": "provider-result-qa-1", "result_id": "provider-result-1", "check_type": "human_review_requirement", "status": "requires_human_review", "reason": "high-risk output requires review", "blocking": true }],
+  "forbidden_claims": ["provider_backed_quality"],
+  "source_artifacts": { "provider-result-intake.jsonl": "provider-result-intake.jsonl" },
+  "limitations": ["QA pass does not equal semantic quality"],
+  "provider_or_model_called_by_runtime": false
+}

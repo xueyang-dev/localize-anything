@@ -8,6 +8,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
+from .provider_result_gate import PROVIDER_CLAIM_SUPPORT_REPORT_JSON
 
 
 HUMAN_REVIEW_EVIDENCE_JSONL = "human-review-evidence.jsonl"
@@ -160,6 +161,10 @@ def build_claim_acceptance_decision(
         forbidden.update(str(claim) for claim in provider_reconciliation.get("forbidden_claims_remaining", []) if claim)
         if str(provider_reconciliation.get("status") or "") in {"blocked", "failed", "stale"}:
             forbidden.update({"provider_backed_quality", "provider_execution_complete", "provider_repair_complete", "model_repair_complete", "delivery_ready", "apply_ready", "production_ready"})
+    provider_claim_support = _read_optional_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON)
+    if provider_claim_support:
+        forbidden.update(str(claim) for claim in provider_claim_support.get("forbidden_claims", []) if claim)
+        forbidden.update(str(claim) for claim in provider_claim_support.get("global_forbidden_claims", []) if claim)
     overall = str(scorecard.get("overall_claim") or "not_ready")
     accepted_risk = accepted_risk or {}
     accepts_limitations = bool(accepted_risk.get("accepts_limitations") or accepted_risk.get("accepts_partial_or_limited_scope"))
@@ -235,6 +240,10 @@ def create_signoff_record(
         forbidden.update(str(claim) for claim in provider_reconciliation.get("forbidden_claims_remaining", []) if claim)
         if str(provider_reconciliation.get("status") or "") in {"blocked", "failed", "stale"}:
             forbidden.update({"provider_backed_quality", "provider_execution_complete", "provider_repair_complete", "model_repair_complete", "delivery_ready", "apply_ready", "production_ready"})
+    provider_claim_support = _read_optional_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON)
+    if provider_claim_support:
+        forbidden.update(str(claim) for claim in provider_claim_support.get("forbidden_claims", []) if claim)
+        forbidden.update(str(claim) for claim in provider_claim_support.get("global_forbidden_claims", []) if claim)
     overall = str(scorecard.get("overall_claim") or "not_ready")
     claim_status = str(claim_decision.get("status") or "missing")
     stale_state = str(artifact_state.get("status") or "") in {"stale", "blocked"} if artifact_state else False

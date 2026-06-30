@@ -138,6 +138,14 @@ from .provider_evidence import (
     PROVIDER_RESULT_INTAKE_JSONL,
     provider_evidence_asset_paths,
 )
+from .provider_result_gate import (
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+    provider_result_gate_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -212,6 +220,11 @@ OPTIONAL_CANONICAL_ASSETS = (
     PROVIDER_EXECUTION_LEDGER_JSONL,
     PROVIDER_RESULT_INTAKE_JSONL,
     PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -331,6 +344,7 @@ def package_delivery(
                 **incremental_workflow_asset_paths(state_dir),
                 **workflow_hardening_asset_paths(state_dir),
                 **provider_evidence_asset_paths(state_dir),
+                **provider_result_gate_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

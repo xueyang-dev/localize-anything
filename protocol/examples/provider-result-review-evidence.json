@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-result-review-evidence-v1",
+  "evidence_id": "provider-review-1",
+  "result_id": "provider-result-1",
+  "reviewer_role": "localization_reviewer",
+  "reviewer_reference": "reviewer@example.test",
+  "decision": "accepted_with_limitations",
+  "review_scope": { "scope_type": "limited", "segment_ids": ["s1"] },
+  "semantic_quality_reviewed": true,
+  "high_risk_reviewed": true,
+  "limitations": ["limited to segment s1"],
+  "rationale": "Scoped review completed.",
+  "reviewed_at": "2026-06-30T00:00:00+00:00",
+  "source_artifact_references": ["provider-result-intake.jsonl", "provider-result-qa-report.json"],
+  "provider_or_model_called_by_runtime": false
+}

@@ -159,6 +159,15 @@ from .provider_evidence import (
     read_provider_result_intake,
     record_provider_result_intake,
 )
+from .provider_result_gate import (
+    build_provider_claim_support_report,
+    build_provider_result_qa_report,
+    build_workbench_provider_review_queue,
+    read_provider_result_acceptance_decision,
+    read_provider_result_review_evidence,
+    record_provider_result_acceptance_decision,
+    record_provider_result_review_evidence,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -803,6 +812,28 @@ def build_parser() -> argparse.ArgumentParser:
     provider_reconciliation_parser.add_argument("state_dir", type=Path)
     provider_reconciliation_parser.add_argument("--run-id")
     provider_reconciliation_parser.add_argument("--output", type=Path)
+
+    provider_result_qa_parser = subparsers.add_parser("provider-result-qa-report", help="Create deterministic provider-result-qa-report.json")
+    provider_result_qa_parser.add_argument("state_dir", type=Path)
+    provider_result_qa_parser.add_argument("--output", type=Path)
+
+    provider_review_parser = subparsers.add_parser("provider-result-review-evidence", help="Read or append scoped provider-result-review-evidence.jsonl")
+    provider_review_parser.add_argument("state_dir", type=Path)
+    provider_review_parser.add_argument("--input", type=Path)
+    provider_review_parser.add_argument("--output", type=Path)
+
+    provider_acceptance_parser = subparsers.add_parser("provider-result-acceptance-decision", help="Read or record provider-result-acceptance-decision.json")
+    provider_acceptance_parser.add_argument("state_dir", type=Path)
+    provider_acceptance_parser.add_argument("--input", type=Path)
+    provider_acceptance_parser.add_argument("--output", type=Path)
+
+    provider_claim_support_parser = subparsers.add_parser("provider-claim-support-report", help="Create conservative provider-claim-support-report.json")
+    provider_claim_support_parser.add_argument("state_dir", type=Path)
+    provider_claim_support_parser.add_argument("--output", type=Path)
+
+    provider_review_queue_parser = subparsers.add_parser("workbench-provider-review-queue", help="Create workbench-provider-review-queue.json")
+    provider_review_queue_parser.add_argument("state_dir", type=Path)
+    provider_review_queue_parser.add_argument("--output", type=Path)
 
     record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
     record_human_review_parser.add_argument("state_dir", type=Path)
@@ -1906,6 +1937,19 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "provider-evidence-reconciliation":
             result = build_provider_evidence_reconciliation(args.state_dir, run_id=args.run_id)
             return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-evidence-reconciliation-read-v1", "provider_evidence_reconciliation": result}, args.output)
+        if args.command == "provider-result-qa-report":
+            return _emit_json(build_provider_result_qa_report(args.state_dir), args.output)
+        if args.command == "provider-result-review-evidence":
+            if args.input:
+                record_provider_result_review_evidence(args.state_dir, read_json(args.input))
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-result-review-evidence-list-v1", "records": read_provider_result_review_evidence(args.state_dir)}, args.output)
+        if args.command == "provider-result-acceptance-decision":
+            result = record_provider_result_acceptance_decision(args.state_dir, read_json(args.input)) if args.input else read_provider_result_acceptance_decision(args.state_dir)
+            return _emit_json(result, args.output)
+        if args.command == "provider-claim-support-report":
+            return _emit_json(build_provider_claim_support_report(args.state_dir), args.output)
+        if args.command == "workbench-provider-review-queue":
+            return _emit_json(build_workbench_provider_review_queue(args.state_dir), args.output)
         if args.command == "record-human-review":
             result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)
             return _emit_json(result, args.output)

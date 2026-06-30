@@ -1,0 +1,15 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-claim-support-report-v1",
+  "artifact": "provider-claim-support-report.json",
+  "status": "limited",
+  "supported_claims": [{ "claim": "provider_execution_complete", "support_status": "narrowly_supported", "effective_scope": { "scope_type": "limited", "segment_ids": ["s1"] } }],
+  "narrowly_supported_claims": [{ "claim": "provider_backed_quality", "support_status": "narrowly_supported", "effective_scope": { "scope_type": "limited", "segment_ids": ["s1"] } }],
+  "forbidden_claims": ["provider_backed_quality", "provider_repair_complete", "model_repair_complete"],
+  "global_forbidden_claims": ["provider_backed_quality"],
+  "provider_execution_complete_supported": true,
+  "provider_backed_quality_supported": false,
+  "compatible_signoff": true,
+  "effective_scope": { "scope_type": "limited", "segment_ids": ["s1"] },
+  "provider_or_model_called_by_runtime": false
+}

@@ -269,6 +269,18 @@ from runtime.localize_anything.provider_evidence import (
     read_provider_result_intake,
     record_provider_result_intake,
 )
+from runtime.localize_anything.provider_result_gate import (
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+    build_provider_claim_support_report,
+    build_provider_result_qa_report,
+    build_workbench_provider_review_queue,
+    record_provider_result_acceptance_decision,
+    record_provider_result_review_evidence,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -11560,7 +11572,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 109)
+        self.assertEqual(result["schemas_checked"], 114)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12710,6 +12722,177 @@ class ProviderEvidenceTests(unittest.TestCase):
             self.assertTrue((state / PROVIDER_RESULT_INTAKE_JSONL).is_file())
             self.assertTrue((state / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file())
             self.assertEqual(read_provider_result_intake(state)[0]["status"], "rejected_provenance")
+
+
+class ProviderResultGateTests(unittest.TestCase):
+    def test_provider_result_without_qa_or_acceptance_keeps_claims_forbidden(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, _ = _provider_gate_state(Path(directory))
+            (state / PROVIDER_RESULT_QA_REPORT_JSON).unlink()
+            (state / PROVIDER_CLAIM_SUPPORT_REPORT_JSON).unlink()
+            scorecard = build_evaluation_scorecard(state)
+
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertIn("provider_execution_complete", scorecard["forbidden_claims"])
+
+    def test_deterministic_qa_passes_and_detects_constraint_or_hash_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, result = _provider_gate_state(Path(directory))
+            passed = build_provider_result_qa_report(state)
+            self.assertEqual(passed["results"][0]["status"], "passed")
+
+            records = read_jsonl(state / PROVIDER_RESULT_INTAKE_JSONL)
+            records[0]["segments"][0]["target"] = "坏"
+            write_jsonl(state / PROVIDER_RESULT_INTAKE_JSONL, records)
+            failed = build_provider_result_qa_report(state)
+            self.assertEqual(failed["status"], "blocked")
+            self.assertIn("term_constraints_satisfied", failed["results"][0]["failed_check_types"])
+            self.assertIn("forbidden_translation_absent", failed["results"][0]["failed_check_types"])
+            self.assertIn("placeholder_preservation", failed["results"][0]["failed_check_types"])
+
+            write_json(state / "provider-output.json", {"changed": True})
+            stale = build_provider_result_qa_report(state)
+            self.assertEqual(stale["results"][0]["status"], "stale")
+            self.assertEqual(result["status"], "received")
+
+    def test_missing_provenance_and_synthetic_results_are_excluded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": True, "allow_real_provider": True})
+            request = build_provider_handoff_request(state, {"execution_mode": "real_provider", "scope": {"scope_type": "limited", "segment_ids": ["s1"]}})
+            append_provider_execution_ledger_entry(state, {"request_id": request["request_id"], "execution_mode": "real_provider", "outcome": "external_imported"})
+            write_json(state / "provider-output.json", {"ok": True})
+            base = {"request_id": request["request_id"], "scope": request["scope"], "target_artifact_references": ["provider-output.json"], "segments": [_provider_segment()]}
+            missing = record_provider_result_intake(state, {**base, "result_id": "missing", "result_source": "external_provider_result"})
+            synthetic = record_provider_result_intake(state, {**base, "result_id": "synthetic", "result_source": "synthetic"})
+            record_provider_result_intake(state, {**base, "result_id": "dry-run", "result_source": "dry_run"})
+            qa = build_provider_result_qa_report(state)
+            statuses = {item["result_id"]: item["status"] for item in qa["results"]}
+
+            self.assertEqual(missing["status"], "rejected_provenance")
+            self.assertEqual(statuses["missing"], "provenance_mismatch")
+            self.assertEqual(statuses["synthetic"], "excluded")
+            self.assertEqual(statuses["dry-run"], "excluded")
+
+    def test_high_risk_result_requires_scoped_review_and_limited_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, result = _provider_gate_state(Path(directory), high_risk=True)
+            qa = build_provider_result_qa_report(state)
+            self.assertEqual(qa["results"][0]["status"], "requires_human_review")
+            blocked = record_provider_result_acceptance_decision(state, _provider_acceptance(result["result_id"]))
+            self.assertEqual(blocked["status"], "blocked")
+
+            record_provider_result_review_evidence(state, _provider_review(result["result_id"]))
+            accepted = record_provider_result_acceptance_decision(state, _provider_acceptance(result["result_id"]))
+            claims = build_provider_claim_support_report(state)
+            self.assertEqual(accepted["status"], "accepted_with_limitations")
+            self.assertFalse(claims["provider_backed_quality_supported"])
+            self.assertIn("provider_backed_quality", claims["forbidden_claims"])
+
+    def test_scorecard_claim_signoff_and_queue_remain_conservative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, result = _provider_gate_state(Path(directory), high_risk=True)
+            queue = build_workbench_provider_review_queue(state)
+            self.assertEqual(queue["items"][0]["queue_status"], "requires_human_review")
+            scorecard = build_evaluation_scorecard(state)
+            claim = build_claim_acceptance_decision(state, requested_claims=["provider_backed_quality"])
+            signoff = create_signoff_record(state, {"signed_by": "owner", "requested_authorizations": {"delivery": True, "apply": True}, "delivery_authorized": True, "apply_authorized": True})
+
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertEqual(claim["status"], "blocked")
+            self.assertFalse(signoff["delivery_authorized"])
+            self.assertFalse(signoff["apply_authorized"])
+            self.assertEqual(result["result_source"], "external_provider_result")
+
+    def test_api_and_cli_are_provider_free_and_artifact_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, result = _provider_gate_state(Path(directory), high_risk=True)
+            review_input = state / "review-input.json"
+            acceptance_input = state / "acceptance-input.json"
+            write_json(review_input, _provider_review(result["result_id"]))
+            write_json(acceptance_input, _provider_acceptance(result["result_id"]))
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                self.assertEqual(cli_main(["provider-result-qa-report", state.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-result-review-evidence", state.as_posix(), "--input", review_input.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-result-acceptance-decision", state.as_posix(), "--input", acceptance_input.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-claim-support-report", state.as_posix()]), 0)
+                self.assertEqual(cli_main(["workbench-provider-review-queue", state.as_posix()]), 0)
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    get_paths = ["provider-result-qa-report", "provider-result-review-evidence", "provider-result-acceptance-decision", "provider-claim-support-report", "workbench-provider-review-queue"]
+                    get_statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in get_paths]
+                    post_status, post_body = _http_post_json(host, port, "/api/provider-result-review-evidence", {"state_dir": state.as_posix(), "evidence": _provider_review(result["result_id"])})
+                    accept_status, accept_body = _http_post_json(host, port, "/api/provider-result-acceptance-decision", {"state_dir": state.as_posix(), "decision": _provider_acceptance(result["result_id"])})
+                    self.assertEqual((*get_statuses, post_status, accept_status), (200, 200, 200, 200, 200, 200, 200))
+                    self.assertFalse(post_body["provider_or_model_called"])
+                    self.assertFalse(accept_body["provider_or_model_called"])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
+
+    def test_artifact_state_tracks_gate_artifacts_and_staleness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, result = _provider_gate_state(Path(directory), high_risk=True)
+            record_provider_result_review_evidence(state, _provider_review(result["result_id"]))
+            record_provider_result_acceptance_decision(state, _provider_acceptance(result["result_id"]))
+            first = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in first["artifacts"]}
+            self.assertTrue({"provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "provider_claim_support_report", "workbench_provider_review_queue"}.issubset(ids))
+
+            records = read_jsonl(state / PROVIDER_RESULT_INTAKE_JSONL)
+            records[0]["limitations"].append("changed")
+            write_jsonl(state / PROVIDER_RESULT_INTAKE_JSONL, records)
+            second = build_artifact_state(state)
+            statuses = {item["artifact_id"]: item["status"] for item in second["artifacts"]}
+            self.assertEqual(statuses["provider_result_qa_report"], "stale")
+
+
+def _provider_segment(*, high_risk: bool = False) -> dict[str, Any]:
+    return {
+        "segment_id": "s1",
+        "source": "Hello %1$s <b>\\n</b>",
+        "target": "您好 %1$s <b>\\n</b>",
+        "constraints": {"required_terms": ["您好"], "forbidden_translations": ["坏"]},
+        "high_risk": high_risk,
+        "semantic_change": high_risk,
+    }
+
+
+def _provider_gate_state(root: Path, *, high_risk: bool = False) -> tuple[Path, dict[str, Any]]:
+    state = root
+    write_json(state / "provider-output.json", {"target": "您好"})
+    policy = build_provider_execution_policy(state, {"execution_mode": "real_provider", "safe": True, "allow_real_provider": True, "provider_name": "external"})
+    scope = {"scope_type": "limited", "segment_ids": ["s1"]}
+    request = build_provider_handoff_request(state, {"execution_mode": "real_provider", "scope": scope})
+    append_provider_execution_ledger_entry(state, {"request_id": request["request_id"], "execution_mode": "real_provider", "outcome": "external_imported"})
+    result = record_provider_result_intake(
+        state,
+        {
+            "result_id": "provider-result-1",
+            "request_id": request["request_id"],
+            "result_source": "external_provider_result",
+            "provider_status": "passed",
+            "provenance": {"provider_name": policy["provider_name"], "external_reference": "ticket-1"},
+            "target_artifact_references": ["provider-output.json"],
+            "scope": scope,
+            "segments": [_provider_segment(high_risk=high_risk)],
+        },
+    )
+    return state, result
+
+
+def _provider_review(result_id: str) -> dict[str, Any]:
+    return {"result_id": result_id, "reviewer_role": "localization_reviewer", "reviewer_reference": "reviewer@example.test", "decision": "accepted_with_limitations", "review_scope": {"scope_type": "limited", "segment_ids": ["s1"]}, "semantic_quality_reviewed": True, "high_risk_reviewed": True, "limitations": ["segment s1 only"]}
+
+
+def _provider_acceptance(result_id: str) -> dict[str, Any]:
+    return {"decision": "accepted_with_limitations", "result_ids": [result_id], "effective_scope": {"scope_type": "limited", "segment_ids": ["s1"]}, "decided_by": "lead@example.test", "decided_role": "localization_lead", "limitations": ["segment s1 only"]}
 
 
 class WorkflowOrchestrationTests(unittest.TestCase):

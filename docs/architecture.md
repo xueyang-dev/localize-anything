@@ -1383,3 +1383,33 @@ The Workbench/API surface is deliberately artifact-backed. GET endpoints expose
 the five artifacts. POST endpoints are limited to provider policy and provider
 result intake; they validate and write structured evidence but never call
 providers, run models, apply repairs, rewrite content, or mutate target files.
+
+## Provider Result QA / Review Acceptance Gate
+
+Provider result intake and execution reconciliation establish provenance, not
+quality acceptance. The provider result gate adds five conservative artifacts:
+
+- `provider-result-qa-report.json` checks request/reconciliation, provenance,
+  current target hashes, scope, placeholders, markup, escapes, forbidden
+  translations, required terms, and the blind-benchmark firewall;
+- `provider-result-review-evidence.jsonl` records reviewer identity, decision,
+  explicit scope, semantic/high-risk coverage, rationale, and limitations;
+- `provider-result-acceptance-decision.json` accepts, rejects, or limits result
+  use only when QA, reconciliation, review, and scope agree;
+- `provider-claim-support-report.json` separates supported, narrowly supported,
+  and forbidden provider claims;
+- `workbench-provider-review-queue.json` projects unresolved QA, review, and
+  acceptance work without resolving it in the UI.
+
+Deterministic QA pass does not prove semantic quality. Semantic or high-risk
+output requires scoped human review, and provider-backed quality additionally
+requires compatible acceptance and signoff. Synthetic, mock, dry-run, failed,
+stale, provenance-missing, or structurally invalid results cannot support
+provider-backed claims. Limited acceptance remains limited; it cannot create a
+global readiness or quality claim.
+
+Scorecard, Claim Acceptance, Signoff, Readiness Authorization, Artifact State,
+delivery packages, and run summaries consume the gate artifacts and preserve
+unsupported claims. The API exposes artifact-backed GET routes for all five
+artifacts and POST routes only for review evidence and acceptance decisions.
+These paths never call providers/models, apply repairs, or mutate target files.

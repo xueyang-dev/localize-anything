@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add Provider Result QA / Review Acceptance Gate artifacts:
+  `provider-result-qa-report.json`, `provider-result-review-evidence.jsonl`,
+  `provider-result-acceptance-decision.json`,
+  `provider-claim-support-report.json`, and
+  `workbench-provider-review-queue.json`; include deterministic structural and
+  constraint QA, scoped review/acceptance writers, conservative claim support,
+  artifact-state/readiness/delivery integration, and provider-free CLI/API.
 - Add Provider / Model Handoff Contract & Execution Evidence seed with
   `provider-execution-policy.json`, `provider-handoff-request.json`,
   `provider-execution-ledger.jsonl`, `provider-result-intake.jsonl`, and
