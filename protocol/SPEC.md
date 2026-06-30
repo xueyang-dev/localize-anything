@@ -853,6 +853,66 @@ CLI commands are `knowledge-audit-enforcement-decision` and
 vector search, provider/model generation, provider repair, or TM server
 operation.
 
+## Knowledge Review Decision / Human Confirmation
+
+Knowledge audit blockers are resolved only through explicit artifacts:
+
+- `knowledge-audit-resolution-log.jsonl`
+- `knowledge-constraint-review-evidence.jsonl`
+- `knowledge-conflict-resolution.json`
+- `knowledge-assurance-summary.json`
+
+`knowledge-audit-resolution-log.jsonl` records one decision per line. Supported
+decision types include accepting or rejecting constraint application, resolving
+knowledge conflicts, preferring project or pack terms within scope, scope
+limiting knowledge, accepting or rejecting reference-only use, confirming or
+rejecting blind-benchmark firewall status, requesting repair, accepting limited
+knowledge risk, keeping a blocker active, and requesting follow-up. Supported
+statuses are `accepted`, `accepted_with_limitations`, `rejected`, `blocked`,
+`requires_follow_up`, `superseded`, and `stale`.
+
+`knowledge-constraint-review-evidence.jsonl` records scoped human review of
+constraints, negative constraints, usage entries, conflicts, and generated or
+staged segments. It may support the narrow
+`knowledge_constraints_applied` claim when the reviewed scope is explicit. It
+does not automatically support `knowledge_backed_quality`,
+`knowledge_review_complete`, semantic quality, or delivery/apply readiness.
+
+`knowledge-conflict-resolution.json` summarizes resolved and unresolved
+conflicts by id, provenance, scope, priority decision, rejected knowledge items,
+limitations, and remaining blockers. Project-local locked terms remain higher
+priority than generic pack knowledge unless an explicit scoped decision records
+otherwise. Reference-only knowledge cannot become a hard constraint through
+conflict resolution.
+
+`knowledge-assurance-summary.json` summarizes pack/context/usage/audit/
+enforcement status, human review status, conflict resolution status, supported
+claims, unsupported claims, forbidden claims remaining, limitations, and
+readiness impact. Evaluation Scorecard, claim acceptance, signoff, Generation
+Strategy, delivery decisions, run summary, and delivery packages consume or
+reference this artifact conservatively. Limited-scope assurance remains limited
+scope and must not become global readiness.
+
+Workbench/API access is artifact-backed:
+
+- `GET /api/knowledge-audit-resolution-log`
+- `POST /api/knowledge-audit-resolution-log`
+- `GET /api/knowledge-constraint-review-evidence`
+- `POST /api/knowledge-constraint-review-evidence`
+- `GET /api/knowledge-conflict-resolution`
+- `GET /api/knowledge-assurance-summary`
+
+POST endpoints validate payload shape and write structured artifacts only. They
+do not call providers, perform semantic retrieval, promote knowledge without
+provenance, or infer broad quality claims.
+
+CLI commands are `record-knowledge-audit-resolution`,
+`knowledge-audit-resolution-log`, `record-knowledge-constraint-review`,
+`knowledge-constraint-review-evidence`, `knowledge-conflict-resolution`, and
+`knowledge-assurance-summary`. This seed still performs no full RAG, vector
+search, provider/model generation, provider/model repair, or TM server
+operation.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

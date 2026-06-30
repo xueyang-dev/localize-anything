@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-audit-resolution-log-v1",
+  "resolution_id": "knowledge-resolution-example",
+  "decision_type": "resolve_knowledge_conflict",
+  "reviewer_role": "knowledge_reviewer",
+  "reviewer_reference": "reviewer@example.test",
+  "source_artifact_references": ["workbench-knowledge-review-queue.json"],
+  "related_queue_item_id": "knowledge-review-0001",
+  "related_enforcement_decision_id": "",
+  "related_knowledge_usage_item_id": "",
+  "related_constraint_audit_id": "",
+  "related_conflict_id": "knowledge-conflict-0001",
+  "affected_knowledge_item_ids": ["pack-entry-1"],
+  "affected_segment_ids": [],
+  "decision_status": "accepted_with_limitations",
+  "rationale": "Project-local term remains authoritative for this institutional scope.",
+  "accepted_limitation": "Limited to the reviewed domain and locale.",
+  "required_follow_up": "",
+  "effective_scope": { "domain": "institutional_publicity", "target_locale": "zh-CN" },
+  "created_at": "2026-06-30T00:00:00Z"
+}

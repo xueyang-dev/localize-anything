@@ -27,6 +27,7 @@ from .knowledge_usage import (
     KNOWLEDGE_USAGE_REPORT_JSON,
 )
 from .knowledge_audit_enforcement import KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON
+from .knowledge_review_confirmation import KNOWLEDGE_ASSURANCE_SUMMARY_JSON
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -224,6 +225,7 @@ def _load_artifacts(
         "constraint_application_audit": _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON),
         "knowledge_conflict_report": _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON),
         "knowledge_audit_enforcement_decision": _read_optional_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
+        "knowledge_assurance_summary": _read_optional_json(state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -306,10 +308,22 @@ def _knowledge_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
     audit = artifacts.get("constraint_application_audit", {})
     conflicts = artifacts.get("knowledge_conflict_report", {})
     enforcement = artifacts.get("knowledge_audit_enforcement_decision", {})
+    assurance = artifacts.get("knowledge_assurance_summary", {})
     if not selection:
         return _dimension("not_provided", E0, "knowledge pack was not selected", warnings=["knowledge_pack_not_selected"])
     if not selection.get("selected_packs"):
         return _dimension("warning", E0, "no valid knowledge pack was selected", warnings=["knowledge_pack_invalid_or_rejected"])
+    if assurance:
+        assurance_status = str(assurance.get("status") or "")
+        if assurance_status in {"blocked", "stale"}:
+            return _dimension("blocked", E1, "knowledge assurance evidence is blocked or stale", blockers=["knowledge_assurance_blocked"])
+        if "knowledge_constraints_applied" in set(assurance.get("supported_claims", [])):
+            return _dimension(
+                "pass",
+                E1,
+                "knowledge constraints were supported by deterministic audit or scoped human constraint review; full knowledge-backed quality is still not proven",
+                warnings=["knowledge_backed_quality_not_proven"],
+            )
     if enforcement:
         enforcement_status = str(enforcement.get("status") or "")
         if enforcement_status == "blocked":
@@ -581,6 +595,13 @@ def _forbidden_claims(
     if isinstance(enforcement, dict) and enforcement:
         claims.update(str(claim) for claim in enforcement.get("forbidden_claims", []) if claim)
         if str(enforcement.get("status") or "") in {"blocked", "stale", "review_required"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    assurance = artifacts.get("knowledge_assurance_summary", {})
+    if isinstance(assurance, dict) and assurance:
+        claims.update(str(claim) for claim in assurance.get("forbidden_claims_remaining", []) if claim)
+        if "knowledge_constraints_applied" in set(assurance.get("supported_claims", [])):
+            claims.discard("knowledge_constraints_applied")
+        if str(assurance.get("status") or "") in {"blocked", "stale"}:
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
     if dimensions["review_readiness"]["status"] != "pass":
         claims.add("review_complete")
@@ -933,6 +954,7 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "constraint_application_audit": state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON,
         "knowledge_conflict_report": state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON,
         "knowledge_audit_enforcement_decision": state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+        "knowledge_assurance_summary": state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
         "blocking_questions": state_dir / "blocking-questions.json",
         "resolution_options": state_dir / "resolution-options.json",
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",

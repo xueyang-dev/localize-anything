@@ -25,6 +25,7 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     document_claim_resolution = _read_optional_json(delivery_dir / "document-claim-resolution.json")
     document_claim_summary = document_claim_resolution.get("summary", {}) if isinstance(document_claim_resolution, dict) else {}
     document_signoff_summary = _read_optional_json(delivery_dir / "document-signoff-summary.json")
+    knowledge_assurance_summary = _read_optional_json(delivery_dir / "knowledge-assurance-summary.json")
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -162,6 +163,21 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 "evidence": {"status": document_signoff_summary.get("status"), "summary": document_signoff_summary.get("summary", {})},
             }
         )
+    if knowledge_assurance_summary and knowledge_assurance_summary.get("status") in {"blocked", "review_required", "stale"}:
+        decisions.append(
+            {
+                "id": f"knowledge-assurance-{len(decisions) + 1:04d}",
+                "type": "knowledge_assurance_summary",
+                "severity": "blocking" if knowledge_assurance_summary.get("status") in {"blocked", "stale"} else "warning",
+                "status": "blocked" if knowledge_assurance_summary.get("status") in {"blocked", "stale"} else "requires_review",
+                "recommendation": "Resolve or scope knowledge audit blockers before delivery/apply authorization.",
+                "evidence": {
+                    "status": knowledge_assurance_summary.get("status"),
+                    "forbidden_claims_remaining": knowledge_assurance_summary.get("forbidden_claims_remaining", []),
+                    "readiness_impact": knowledge_assurance_summary.get("readiness_impact", {}),
+                },
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -211,6 +227,7 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "document_claim_resolution_status": document_claim_resolution.get("status", "not_checked"),
             "document_signoff_summary": document_signoff_summary.get("summary", {}),
             "document_signoff_status": document_signoff_summary.get("status", "not_checked"),
+            "knowledge_assurance_status": knowledge_assurance_summary.get("status", "not_checked"),
         },
         "localization": localization,
         "artifact_state": artifact_state,

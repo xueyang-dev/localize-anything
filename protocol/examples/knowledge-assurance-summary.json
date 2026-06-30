@@ -1,0 +1,30 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-assurance-summary-v1",
+  "artifact": "knowledge-assurance-summary.json",
+  "status": "constraints_applied",
+  "pack_selection_status": "pass",
+  "working_context_status": "pass",
+  "usage_report_status": "pass",
+  "constraint_audit_status": "pass",
+  "enforcement_decision_status": "clear",
+  "human_knowledge_review_status": "provided",
+  "conflict_resolution_status": "resolved",
+  "constraints_accepted": ["constraint-term-open-lab"],
+  "constraints_rejected": [],
+  "conflicts_resolved": [],
+  "conflicts_remaining": [],
+  "limitations": ["Knowledge review was limited to listed constraints."],
+  "forbidden_claims_remaining": ["knowledge_backed_quality", "knowledge_review_complete"],
+  "supported_claims": ["knowledge_constraints_applied"],
+  "unsupported_claims": ["knowledge_backed_quality", "knowledge_review_complete"],
+  "readiness_impact": {
+    "scorecard": "knowledge_constraints_applied_supported",
+    "generation_handoff": "allowed_with_warnings",
+    "delivery": "review_required",
+    "apply": "blocked"
+  },
+  "source_artifacts": {
+    "knowledge_constraint_review_evidence": "knowledge-constraint-review-evidence.jsonl"
+  }
+}

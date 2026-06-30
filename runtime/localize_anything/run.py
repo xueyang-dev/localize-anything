@@ -57,6 +57,12 @@ from .knowledge_audit_enforcement import (
     KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
     WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
 )
+from .knowledge_review_confirmation import (
+    KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+    KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL,
+    KNOWLEDGE_CONFLICT_RESOLUTION_JSON,
+    KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
+)
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -1066,6 +1072,10 @@ def _summary(
         ("knowledge_conflict_report", KNOWLEDGE_CONFLICT_REPORT_JSON),
         ("knowledge_audit_enforcement_decision", KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
         ("workbench_knowledge_review_queue", WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON),
+        ("knowledge_audit_resolution_log", KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL),
+        ("knowledge_constraint_review_evidence", KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL),
+        ("knowledge_conflict_resolution", KNOWLEDGE_CONFLICT_RESOLUTION_JSON),
+        ("knowledge_assurance_summary", KNOWLEDGE_ASSURANCE_SUMMARY_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1184,6 +1194,16 @@ def _summary(
             "knowledge_audit_enforcement_status": (
                 read_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON).get("status", "not_checked")
                 if (state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON).is_file()
+                else "not_checked"
+            ),
+            "knowledge_assurance_status": (
+                read_json(state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON).is_file()
+                else "not_checked"
+            ),
+            "knowledge_conflict_resolution_status": (
+                read_json(state_dir / KNOWLEDGE_CONFLICT_RESOLUTION_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_CONFLICT_RESOLUTION_JSON).is_file()
                 else "not_checked"
             ),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),

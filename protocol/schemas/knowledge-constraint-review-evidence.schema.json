@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-constraint-review-evidence.schema.json",
+  "title": "Localize Anything Knowledge Constraint Review Evidence",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "evidence_id",
+    "reviewer_role",
+    "reviewer_reference",
+    "review_scope",
+    "decision",
+    "supports_knowledge_constraints_applied",
+    "supports_knowledge_review_complete",
+    "supports_delivery_readiness"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-constraint-review-evidence-v1" },
+    "evidence_id": { "type": "string", "minLength": 1 },
+    "reviewer_role": { "type": "string" },
+    "reviewer_reference": { "type": "string" },
+    "review_scope": { "type": "object" },
+    "reviewed_constraints": { "type": "array", "items": { "type": "string" } },
+    "reviewed_negative_constraints": { "type": "array", "items": { "type": "string" } },
+    "reviewed_knowledge_usage_entries": { "type": "array", "items": { "type": "string" } },
+    "reviewed_conflicts": { "type": "array", "items": { "type": "string" } },
+    "reviewed_generated_or_staged_segments": { "type": "array", "items": { "type": "string" } },
+    "decision": { "enum": ["accepted", "accepted_with_limitations", "rejected", "blocked", "requires_follow_up", "superseded", "stale"] },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "accepted_risks": { "type": "array", "items": { "type": "string" } },
+    "rejected_knowledge_items": { "type": "array", "items": { "type": "string" } },
+    "required_follow_up": { "type": "array", "items": { "type": "string" } },
+    "supports_knowledge_constraints_applied": { "type": "boolean" },
+    "supports_knowledge_review_complete": { "type": "boolean" },
+    "supports_delivery_readiness": { "type": "boolean" },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

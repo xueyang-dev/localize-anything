@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-constraint-review-evidence-v1",
+  "evidence_id": "knowledge-review-evidence-example",
+  "reviewer_role": "knowledge_reviewer",
+  "reviewer_reference": "reviewer@example.test",
+  "review_scope": { "scope_type": "limited", "target_locale": "zh-CN" },
+  "reviewed_constraints": ["constraint-term-open-lab"],
+  "reviewed_negative_constraints": [],
+  "reviewed_knowledge_usage_entries": ["knowledge-entry-open-lab"],
+  "reviewed_conflicts": [],
+  "reviewed_generated_or_staged_segments": ["segment-1"],
+  "decision": "accepted_with_limitations",
+  "limitations": ["Constraint application was reviewed only for the listed segment."],
+  "accepted_risks": [],
+  "rejected_knowledge_items": [],
+  "required_follow_up": [],
+  "supports_knowledge_constraints_applied": true,
+  "supports_knowledge_review_complete": false,
+  "supports_delivery_readiness": false,
+  "created_at": "2026-06-30T00:00:00Z"
+}

@@ -44,6 +44,12 @@ from .knowledge_audit_enforcement import (
     KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
     WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
 )
+from .knowledge_review_confirmation import (
+    KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+    KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL,
+    KNOWLEDGE_CONFLICT_RESOLUTION_JSON,
+    KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -169,6 +175,44 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         ("knowledge_audit_enforcement_decision", "knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"),
     ),
     ArtifactSpec(
+        "knowledge_audit_resolution_log",
+        "knowledge_audit_resolution_log",
+        KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL,
+        "knowledge_review_confirmation",
+        ("knowledge_audit_enforcement_decision", "workbench_knowledge_review_queue", "knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"),
+    ),
+    ArtifactSpec(
+        "knowledge_constraint_review_evidence",
+        "knowledge_constraint_review_evidence",
+        KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
+        "knowledge_review_confirmation",
+        ("constraint_application_audit", "knowledge_usage_report", "knowledge_conflict_report", "generated_segments"),
+    ),
+    ArtifactSpec(
+        "knowledge_conflict_resolution",
+        "knowledge_conflict_resolution",
+        KNOWLEDGE_CONFLICT_RESOLUTION_JSON,
+        "knowledge_review_confirmation",
+        ("knowledge_conflict_report", "knowledge_audit_resolution_log"),
+    ),
+    ArtifactSpec(
+        "knowledge_assurance_summary",
+        "knowledge_assurance_summary",
+        KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+        "knowledge_review_confirmation",
+        (
+            "knowledge_pack_selection",
+            "working_context_packet",
+            "knowledge_usage_report",
+            "constraint_application_audit",
+            "knowledge_conflict_report",
+            "knowledge_audit_enforcement_decision",
+            "knowledge_audit_resolution_log",
+            "knowledge_constraint_review_evidence",
+            "knowledge_conflict_resolution",
+        ),
+    ),
+    ArtifactSpec(
         "generation_strategy",
         "generation_strategy",
         "generation-strategy.json",
@@ -190,6 +234,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "constraint_application_audit",
             "knowledge_conflict_report",
             "knowledge_audit_enforcement_decision",
+            "knowledge_assurance_summary",
             "user_resolution_decisions",
         ),
         required_for_handoff=True,
@@ -364,6 +409,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "document_evidence_manifest",
             "document_claim_resolution",
             "document_signoff_summary",
+            "knowledge_assurance_summary",
         ),
         required_for_delivery=True,
     ),
@@ -868,6 +914,10 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "knowledge_conflict_report",
         "knowledge_audit_enforcement_decision",
         "workbench_knowledge_review_queue",
+        "knowledge_audit_resolution_log",
+        "knowledge_constraint_review_evidence",
+        "knowledge_conflict_resolution",
+        "knowledge_assurance_summary",
     }
     knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard", "signoff_record"}
     stale_dependencies = sorted(

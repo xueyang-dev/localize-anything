@@ -90,7 +90,8 @@ def read_knowledge_audit_enforcement_decision(state_dir: Path) -> dict[str, Any]
 def build_workbench_knowledge_review_queue(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
     state_dir = state_dir.resolve()
     decision = build_knowledge_audit_enforcement_decision(state_dir, write=True)
-    items = [_queue_item(index, issue) for index, issue in enumerate(decision.get("issues", []), 1)]
+    resolutions = _load_queue_resolutions(state_dir)
+    items = [_queue_item(index, issue, resolutions) for index, issue in enumerate(decision.get("issues", []), 1)]
     queue = {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-workbench-knowledge-review-queue-v1",
@@ -249,12 +250,13 @@ def _issue(
     }
 
 
-def _queue_item(index: int, issue: dict[str, Any]) -> dict[str, Any]:
+def _queue_item(index: int, issue: dict[str, Any], resolutions: dict[str, Any]) -> dict[str, Any]:
+    resolution = _issue_resolution(issue, resolutions)
     return {
         "item_id": f"knowledge-review-{index:04d}",
         "item_type": issue["issue_type"],
         "severity": issue["severity"],
-        "status": issue["status"],
+        "status": resolution.get("status") or issue["status"],
         "owner_role": "localization_reviewer" if issue["severity"] == "warning" else "project_owner",
         "source_artifact_references": issue.get("source_artifact_references", []),
         "affected_knowledge_item_ids": issue.get("affected_knowledge_item_ids", []),
@@ -267,6 +269,10 @@ def _queue_item(index: int, issue: dict[str, Any]) -> dict[str, Any]:
         "recommended_action": _recommended_action(issue),
         "human_confirmation_required": issue["issue_type"] in {"knowledge_conflict_unresolved", "project_priority_conflict", "knowledge_review_required"},
         "stale_evidence_involved": issue["issue_type"] in {"working_context_stale", "stale_knowledge_evidence"},
+        "resolution_status": resolution.get("status") or "unresolved",
+        "resolution_artifact_references": resolution.get("artifact_references", []),
+        "available_decision_options": _decision_options(issue),
+        "action_endpoint_hint": "/api/knowledge-audit-resolution-log" if issue.get("related_conflict_id") or issue.get("related_constraint_id") else "/api/knowledge-constraint-review-evidence",
     }
 
 
@@ -479,6 +485,10 @@ def _source_artifacts(state_dir: Path) -> dict[str, str]:
         "artifact-state.json",
         KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
         WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON,
+        "knowledge-audit-resolution-log.jsonl",
+        "knowledge-constraint-review-evidence.jsonl",
+        "knowledge-conflict-resolution.json",
+        "knowledge-assurance-summary.json",
     )
     return {Path(name).stem.replace("-", "_"): name for name in names if (state_dir / name).is_file()}
 
@@ -488,3 +498,69 @@ def _read_optional_json(path: Path) -> dict[str, Any]:
         return {}
     value = read_json(path)
     return value if isinstance(value, dict) else {}
+
+
+def _read_optional_jsonl(path: Path) -> list[dict[str, Any]]:
+    from .io_utils import read_jsonl
+
+    return read_jsonl(path) if path.is_file() else []
+
+
+def _load_queue_resolutions(state_dir: Path) -> dict[str, Any]:
+    return {
+        "resolution_log": _read_optional_jsonl(state_dir / "knowledge-audit-resolution-log.jsonl"),
+        "constraint_review": _read_optional_jsonl(state_dir / "knowledge-constraint-review-evidence.jsonl"),
+        "conflict_resolution": _read_optional_json(state_dir / "knowledge-conflict-resolution.json"),
+    }
+
+
+def _issue_resolution(issue: dict[str, Any], resolutions: dict[str, Any]) -> dict[str, Any]:
+    conflict_id = str(issue.get("related_conflict_id") or "")
+    constraint_id = str(issue.get("related_constraint_id") or "")
+    for record in reversed(resolutions.get("resolution_log", [])):
+        if conflict_id and record.get("related_conflict_id") == conflict_id:
+            return {
+                "status": _resolved_status(record),
+                "artifact_references": ["knowledge-audit-resolution-log.jsonl"],
+            }
+        if constraint_id and record.get("related_constraint_audit_id") == constraint_id:
+            return {
+                "status": _resolved_status(record),
+                "artifact_references": ["knowledge-audit-resolution-log.jsonl"],
+            }
+    for record in reversed(resolutions.get("constraint_review", [])):
+        reviewed = set(str(item) for item in [*record.get("reviewed_constraints", []), *record.get("reviewed_negative_constraints", [])])
+        if constraint_id and constraint_id in reviewed:
+            return {
+                "status": _resolved_status({"decision_status": record.get("decision")}),
+                "artifact_references": ["knowledge-constraint-review-evidence.jsonl"],
+            }
+    return {"status": "unresolved", "artifact_references": []}
+
+
+def _resolved_status(record: dict[str, Any]) -> str:
+    status = str(record.get("decision_status") or "")
+    if status == "accepted":
+        return "resolved"
+    if status == "accepted_with_limitations":
+        return "accepted_with_limitations"
+    if status == "rejected":
+        return "rejected"
+    if status == "requires_follow_up":
+        return "requires_follow_up"
+    if status in {"blocked", "stale", "superseded"}:
+        return status
+    return "unresolved"
+
+
+def _decision_options(issue: dict[str, Any]) -> list[str]:
+    issue_type = str(issue.get("issue_type") or "")
+    if issue_type in {"hard_constraint_failed", "negative_constraint_failed", "knowledge_review_required"}:
+        return ["accept_constraint_application", "reject_constraint_application", "request_generation_repair", "keep_blocked"]
+    if issue_type in {"knowledge_conflict_unresolved", "project_priority_conflict"}:
+        return ["prefer_project_term", "resolve_knowledge_conflict", "scope_limit_knowledge", "keep_blocked"]
+    if issue_type == "reference_only_leakage":
+        return ["reject_reference_only_use", "accept_reference_only_use", "keep_blocked"]
+    if issue_type == "blind_benchmark_firewall_risk":
+        return ["confirm_blind_benchmark_firewall", "reject_blind_benchmark_firewall", "keep_blocked"]
+    return ["accept_limited_knowledge_risk", "request_follow_up", "keep_blocked"]

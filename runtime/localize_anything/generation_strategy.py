@@ -19,6 +19,7 @@ from .knowledge_audit_enforcement import (
     KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
     build_knowledge_audit_enforcement_decision,
 )
+from .knowledge_review_confirmation import KNOWLEDGE_ASSURANCE_SUMMARY_JSON
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .termbase_preflight import TERMBASE_PREFLIGHT_REPORT_JSON
 
@@ -304,6 +305,7 @@ def _generation_strategy_asset_paths(
         ("constraint_application_audit", CONSTRAINT_APPLICATION_AUDIT_JSON),
         ("knowledge_conflict_report", KNOWLEDGE_CONFLICT_REPORT_JSON),
         ("knowledge_audit_enforcement_decision", KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON),
+        ("knowledge_assurance_summary", KNOWLEDGE_ASSURANCE_SUMMARY_JSON),
     ):
         if knowledge_gate["selected"] and (state_dir / name).is_file():
             artifacts[key] = name
@@ -318,6 +320,7 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     audit = _read_optional_json(state_dir / CONSTRAINT_APPLICATION_AUDIT_JSON)
     conflicts = _read_optional_json(state_dir / KNOWLEDGE_CONFLICT_REPORT_JSON)
     enforcement = _read_optional_json(state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON)
+    assurance = _read_optional_json(state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON) or {}
     if not selection:
         return {
             "status": "not_selected",
@@ -345,13 +348,19 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
         enforcement = build_knowledge_audit_enforcement_decision(state_dir)
     enforcement_status = str(enforcement.get("status") or "")
     if enforcement_status == "blocked":
-        blocking.append("knowledge_audit_enforcement_blocked")
+        if str(assurance.get("status") or "") in {"constraints_applied", "review_complete"}:
+            warnings.append("knowledge_audit_enforcement_resolved_with_human_evidence")
+        else:
+            blocking.append("knowledge_audit_enforcement_blocked")
     elif enforcement_status == "stale":
         blocking.append("knowledge_audit_enforcement_stale")
     elif enforcement_status == "review_required":
         warnings.append("knowledge_audit_review_required")
     if conflicts and int(conflicts.get("summary", {}).get("blocking_conflict_count", 0) or 0):
-        blocking.append("knowledge_conflict_unresolved")
+        if str(assurance.get("status") or "") in {"constraints_applied", "review_complete"}:
+            warnings.append("knowledge_conflict_resolved_with_limitations")
+        else:
+            blocking.append("knowledge_conflict_unresolved")
     if audit and int(audit.get("summary", {}).get("checked_fail_count", 0) or 0):
         blocking.append("knowledge_constraint_check_failed")
     if context and _knowledge_inputs_changed(state_dir, eligibility or {}, context):
@@ -366,6 +375,8 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     stale_ids = {str(item.get("artifact_id")) for item in artifact_state.get("stale_artifacts", []) if isinstance(item, dict)}
     if stale_ids.intersection({"knowledge_usage_report", "constraint_application_audit", "knowledge_conflict_report"}):
         blocking.append("knowledge_usage_audit_stale")
+    if stale_ids.intersection({"knowledge_audit_resolution_log", "knowledge_constraint_review_evidence", "knowledge_conflict_resolution", "knowledge_assurance_summary"}):
+        blocking.append("knowledge_review_evidence_stale")
     allowed = sorted(set((context or {}).get("knowledge_policy", {}).get("allowed_classes", [])))
     enabled = bool((context or {}).get("knowledge_policy", {}).get("enabled")) and not blocking
     constraint_count = len((context or {}).get("hard_constraints", [])) + len((context or {}).get("negative_constraints", []))
@@ -387,6 +398,7 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
             "constraint_audit": CONSTRAINT_APPLICATION_AUDIT_JSON if audit else None,
             "conflict_report": KNOWLEDGE_CONFLICT_REPORT_JSON if conflicts else None,
             "knowledge_audit_enforcement_decision": KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON if enforcement else None,
+            "knowledge_assurance_summary": KNOWLEDGE_ASSURANCE_SUMMARY_JSON if assurance else None,
         },
     }
 
