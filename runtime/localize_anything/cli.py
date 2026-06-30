@@ -112,6 +112,12 @@ from .readiness_authorization import (
     build_readiness_authorization_matrix,
     build_readiness_reports,
 )
+from .readiness_action import (
+    build_workbench_readiness_action_queue,
+    perform_workbench_readiness_action,
+    read_workbench_readiness_action_log,
+    read_workbench_readiness_action_result,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -772,6 +778,37 @@ def build_parser() -> argparse.ArgumentParser:
     workbench_action_log_parser = subparsers.add_parser("workbench-action-log", help="Read workbench-action-log.jsonl")
     workbench_action_log_parser.add_argument("state_dir", type=Path)
     workbench_action_log_parser.add_argument("--output", type=Path)
+
+    workbench_readiness_action_queue_parser = subparsers.add_parser(
+        "workbench-readiness-action-queue",
+        help="Create workbench-readiness-action-queue.json from readiness gaps",
+    )
+    workbench_readiness_action_queue_parser.add_argument("state_dir", type=Path)
+    workbench_readiness_action_queue_parser.add_argument("--run-id")
+    workbench_readiness_action_queue_parser.add_argument("--output", type=Path)
+
+    workbench_readiness_action_parser = subparsers.add_parser(
+        "workbench-readiness-action",
+        help="Execute one readiness action request from JSON",
+    )
+    workbench_readiness_action_parser.add_argument("state_dir", type=Path)
+    workbench_readiness_action_parser.add_argument("--input", type=Path, required=True)
+    workbench_readiness_action_parser.add_argument("--run-id")
+    workbench_readiness_action_parser.add_argument("--output", type=Path)
+
+    workbench_readiness_action_log_parser = subparsers.add_parser(
+        "workbench-readiness-action-log",
+        help="Read workbench-readiness-action-log.jsonl",
+    )
+    workbench_readiness_action_log_parser.add_argument("state_dir", type=Path)
+    workbench_readiness_action_log_parser.add_argument("--output", type=Path)
+
+    workbench_readiness_action_result_parser = subparsers.add_parser(
+        "workbench-readiness-action-result",
+        help="Read workbench-readiness-action-result.json",
+    )
+    workbench_readiness_action_result_parser.add_argument("state_dir", type=Path)
+    workbench_readiness_action_result_parser.add_argument("--output", type=Path)
 
     workbench_console_parser = subparsers.add_parser("workbench-console", help="Render the artifact-backed Workbench Review Console HTML")
     workbench_console_parser.add_argument("state_dir", type=Path)
@@ -1766,6 +1803,20 @@ def main(argv: list[str] | None = None) -> int:
                 "records": read_workbench_action_log(args.state_dir),
             }
             return _emit_json(result, args.output)
+        if args.command == "workbench-readiness-action-queue":
+            return _emit_json(build_workbench_readiness_action_queue(args.state_dir, run_id=args.run_id), args.output)
+        if args.command == "workbench-readiness-action":
+            return _emit_json(perform_workbench_readiness_action(args.state_dir, read_json(args.input), run_id=args.run_id), args.output)
+        if args.command == "workbench-readiness-action-log":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-workbench-readiness-action-log-list-v1",
+                "state_dir": args.state_dir.as_posix(),
+                "records": read_workbench_readiness_action_log(args.state_dir),
+            }
+            return _emit_json(result, args.output)
+        if args.command == "workbench-readiness-action-result":
+            return _emit_json(read_workbench_readiness_action_result(args.state_dir), args.output)
         if args.command == "workbench-console":
             return _emit_text(render_workbench_console_html(args.state_dir), args.output)
         if args.command == "document-evidence-pack":

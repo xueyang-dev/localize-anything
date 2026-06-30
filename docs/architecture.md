@@ -1135,21 +1135,58 @@ scorecard, artifact-state, QA, repair, handoff, or provider-policy blockers.
 This keeps business logic in runtime gates while giving Workbench a structured
 artifact-backed way to record decisions.
 
+## Workbench Readiness Action Surface
+
+Workbench Readiness Action Surface extends the action model to the readiness
+authorization layer. It produces:
+
+- `workbench-readiness-action-queue.json`
+- `workbench-readiness-action-result.json`
+- `workbench-readiness-action-log.jsonl`
+
+The readiness action queue is derived from `readiness-authorization-matrix.json`,
+`manual-followup-gap-report.json`, delivery/apply readiness reports, existing
+Workbench queues, term review, human review, claim acceptance, signoff,
+document decisions, leadership review, knowledge audit and repair artifacts,
+and artifact-state. Each queue item names the gap, owner role, affected scope,
+readiness dimension, delivery/apply/production blocking flags, forbidden
+claims affected, recommended action, available action types, endpoint hint,
+stale-evidence involvement, and limitations.
+
+The POST action path delegates to existing runtime writers where possible:
+Human Review Evidence, Claim Acceptance, Signoff, Document Decision,
+Leadership Review, Knowledge Audit Resolution, Knowledge Constraint Review,
+Knowledge Repair Result Intake, and deterministic recompute orchestration. If
+there is no safe writer, the action remains blocked or requires follow-up. The
+layer never calls providers, applies repairs, mutates generated segments,
+infers semantic quality, directly marks gaps resolved, removes forbidden
+claims, or turns limited-scope authorization into global readiness.
+
+`workbench-readiness-action-result.json` and
+`workbench-readiness-action-log.jsonl` are audit artifacts. They record what was
+requested, which writer was delegated to, which artifacts changed, which
+readiness reports were refreshed, what blockers and forbidden claims remain,
+and what follow-up is still required. An accepted readiness action does not
+mean delivery/apply readiness unless the refreshed matrix and reports support
+that readiness.
+
 ## Workbench Review Console
 
 Workbench Review Console is the first minimal visual surface over the evidence
 spine. It renders run status, Evaluation Scorecard, Evidence Level Report,
-Workbench review queue, claim queue, signoff summary, forbidden claims, pending
-repairs, stale artifact warnings, action log, and latest action result from
-artifact-backed runtime reads.
+Workbench review queue, claim queue, signoff summary, readiness matrix, manual
+follow-up gap report, delivery/apply readiness reports, readiness action queue,
+forbidden claims, pending repairs, stale artifact warnings, action logs, and
+latest action results from artifact-backed runtime reads.
 
 The console is intentionally thin. It can display suggested actions and submit
-structured action JSON to `POST /api/workbench-action`, but runtime action
-writers decide whether each action is accepted, rejected, blocked, or requires
-follow-up. After an action, the console refreshes queue and scorecard views
-from artifacts. It never marks queue items resolved locally, hides forbidden
-claims, converts limited-scope evidence into global readiness, infers E2/E3/E4
-from owner signoff, or authorizes delivery/apply against runtime blockers.
+structured action JSON to `POST /api/workbench-action` or
+`POST /api/workbench-readiness-action`, but runtime action writers decide
+whether each action is accepted, rejected, blocked, or requires follow-up.
+After an action, the console refreshes artifact views. It never marks queue
+items resolved locally, hides forbidden claims, converts limited-scope evidence
+into global readiness, infers E2/E3/E4 from owner signoff, or authorizes
+delivery/apply against runtime blockers.
 
 The seed uses the existing Python Workbench server and adds no frontend
 dependency. A full visual Workbench can iterate on layout later, but it should

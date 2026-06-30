@@ -113,6 +113,11 @@ from .tabular_adapter import validate_pair as validate_tabular_pair
 from .termbase_preflight import run_termbase_preflight
 from .word_adapter import extract_segments as extract_word_segments
 from .workbench_action import WORKBENCH_ACTION_LOG_JSONL, WORKBENCH_ACTION_RESULT_JSON
+from .readiness_action import (
+    WORKBENCH_READINESS_ACTION_LOG_JSONL,
+    WORKBENCH_READINESS_ACTION_QUEUE_JSON,
+    WORKBENCH_READINESS_ACTION_RESULT_JSON,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1118,6 +1123,9 @@ def _summary(
         ("manual_followup_gap_report", MANUAL_FOLLOWUP_GAP_REPORT_JSON),
         ("apply_readiness_report", APPLY_READINESS_REPORT_JSON),
         ("delivery_readiness_report", DELIVERY_READINESS_REPORT_JSON),
+        ("workbench_readiness_action_queue", WORKBENCH_READINESS_ACTION_QUEUE_JSON),
+        ("workbench_readiness_action_result", WORKBENCH_READINESS_ACTION_RESULT_JSON),
+        ("workbench_readiness_action_log", WORKBENCH_READINESS_ACTION_LOG_JSONL),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1308,6 +1316,9 @@ def _summary(
                 if (state_dir / DELIVERY_READINESS_REPORT_JSON).is_file()
                 else "not_checked"
             ),
+            "workbench_readiness_action_queue_present": (state_dir / WORKBENCH_READINESS_ACTION_QUEUE_JSON).is_file(),
+            "workbench_readiness_action_result_present": (state_dir / WORKBENCH_READINESS_ACTION_RESULT_JSON).is_file(),
+            "workbench_readiness_action_log_present": (state_dir / WORKBENCH_READINESS_ACTION_LOG_JSONL).is_file(),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),
             "workbench_action_log_present": (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file(),
             "workbench_action_result_present": (state_dir / WORKBENCH_ACTION_RESULT_JSON).is_file(),

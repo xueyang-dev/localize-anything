@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-readiness-action-queue.schema.json",
+  "title": "Localize Anything Workbench Readiness Action Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "items", "summary", "readiness_status", "forbidden_claims", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-readiness-action-queue-v1" },
+    "artifact": { "const": "workbench-readiness-action-queue.json" },
+    "status": { "enum": ["ready", "ready_with_warnings", "blocked"] },
+    "items": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "readiness_status": { "type": "object" },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

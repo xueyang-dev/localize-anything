@@ -1232,6 +1232,48 @@ call providers. It cannot remove scorecard `forbidden_claims`, infer E2/E3/E4
 from project-owner signoff, turn limited-scope acceptance into global
 readiness, or authorize delivery/apply when runtime gates remain blocked.
 
+## Workbench Readiness Action Surface
+
+`workbench-readiness-action-queue.json` is the Workbench-facing action queue
+for `readiness-authorization-matrix.json` and `manual-followup-gap-report.json`.
+It turns readiness gaps into UI-ready action items with stable ids, owner roles,
+delivery/apply/production blocking flags, affected forbidden claims, available
+action types, limitations, stale-evidence flags, and the endpoint hint
+`POST /api/workbench-readiness-action`.
+
+`workbench-readiness-action-result.json` records the latest readiness action
+request. It includes the requested action type, target queue item or gap,
+actor, accepted/rejected/blocked/requires-follow-up status, runtime artifacts
+written or updated, refreshed readiness artifacts, remaining blockers,
+remaining forbidden claims, readiness before/after, limitations, and next
+action. An accepted action result does not imply delivery or apply readiness
+unless refreshed readiness artifacts support it.
+
+`workbench-readiness-action-log.jsonl` appends every readiness action request
+as an auditable record. Each record names the runtime writer delegated to. The
+readiness action layer may delegate to human review, claim acceptance, signoff,
+document decision, leadership review, knowledge audit resolution, knowledge
+constraint review, knowledge repair result intake, or deterministic recompute
+writers. Unsupported or unsafe actions must remain blocked or require follow-up.
+
+The readiness action layer must never call providers, apply repairs, mutate
+generated segments, infer semantic quality, directly mark gaps resolved,
+directly remove forbidden claims, or turn limited-scope authorization into
+global readiness. A gap is resolved only when the underlying artifact-backed
+decision, review evidence, repair evidence, signoff, claim acceptance, or
+refreshed readiness report supports it.
+
+Workbench APIs expose these artifacts through:
+
+- `GET /api/workbench-readiness-action-queue`
+- `GET /api/workbench-readiness-action-result`
+- `GET /api/workbench-readiness-action-log`
+- `POST /api/workbench-readiness-action`
+
+CLI commands are `workbench-readiness-action-queue`,
+`workbench-readiness-action-result`, `workbench-readiness-action-log`, and
+`workbench-readiness-action`.
+
 ## Workbench Review Console
 
 `workbench-console` renders a deterministic HTML review console for a state
@@ -1242,17 +1284,18 @@ directory. The Workbench server exposes the same surface at
 The console reads current evidence from existing artifact-backed endpoints and
 artifacts: Evaluation Scorecard, Evidence Level Report, Workbench review queue,
 claim queue, signoff summary, human review evidence, claim acceptance, signoff,
-artifact-state, repair artifacts, generation handoff status, action log, and
-latest action result. It does not add a protocol schema because it is a view,
-not durable state.
+artifact-state, readiness reports, repair artifacts, generation handoff
+status, action logs, readiness action queue, and latest action results. It
+does not add a protocol schema because it is a view, not durable state.
 
-Writes from the console must go through `POST /api/workbench-action`. The UI
-may display suggested actions and submit action requests, but it must display
-the runtime result exactly and refresh artifact views after submission. It must
-not locally resolve queue items, hide forbidden claims, infer readiness, infer
-E2/E3/E4 from project-owner signoff, or allow limited-scope acceptance to appear
-as global readiness. Forbidden claims and stale evidence remain visible until
-the underlying runtime artifacts change.
+Writes from the console must go through `POST /api/workbench-action` or
+`POST /api/workbench-readiness-action`. The UI may display suggested actions
+and submit action requests, but it must display the runtime result exactly and
+refresh artifact views after submission. It must not locally resolve queue
+items, hide forbidden claims, infer readiness, infer E2/E3/E4 from
+project-owner signoff, or allow limited-scope acceptance to appear as global
+readiness. Forbidden claims and stale evidence remain visible until the
+underlying runtime artifacts change.
 
 ## Localization Modes
 

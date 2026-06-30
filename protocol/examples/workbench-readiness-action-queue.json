@@ -1,0 +1,49 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-readiness-action-queue-v1",
+  "artifact": "workbench-readiness-action-queue.json",
+  "run_id": "example-run",
+  "status": "blocked",
+  "items": [
+    {
+      "item_id": "readiness-action-item-example",
+      "gap_id": "gap-example",
+      "item_type": "signoff_action_required",
+      "severity": "blocking",
+      "status": "open",
+      "owner_role": "project_owner",
+      "affected_scope": { "scope_type": "limited", "locales": ["zh-CN"] },
+      "related_readiness_dimension": "signoff",
+      "source_artifact_references": ["signoff-record.json"],
+      "blocking_delivery": true,
+      "blocking_apply": true,
+      "blocking_production_ready_claim": true,
+      "forbidden_claims_affected": ["apply_ready", "production_ready"],
+      "recommended_action": "Create explicit signoff only when readiness matrix supports the requested scope.",
+      "available_action_types": ["create_signoff", "reject_signoff", "request_follow_up"],
+      "action_endpoint_hint": "POST /api/workbench-readiness-action",
+      "human_confirmation_required": true,
+      "stale_evidence_involved": false,
+      "limitations": ["queue item is a projection over readiness artifacts and is not resolved by UI state"]
+    }
+  ],
+  "summary": {
+    "item_count": 1,
+    "delivery_blocking_count": 1,
+    "apply_blocking_count": 1,
+    "production_blocking_count": 1,
+    "stale_evidence_count": 0
+  },
+  "readiness_status": {
+    "delivery": "authorization_required",
+    "apply": "authorization_required",
+    "review": "ready_with_warnings",
+    "production": "blocked"
+  },
+  "forbidden_claims": ["apply_ready", "production_ready"],
+  "limitations": ["Workbench queue is a projection and cannot bypass runtime readiness gates."],
+  "source_artifacts": {
+    "readiness_authorization_matrix": "readiness-authorization-matrix.json",
+    "manual_followup_gap_report": "manual-followup-gap-report.json"
+  }
+}

@@ -72,6 +72,11 @@ from .readiness_authorization import (
     MANUAL_FOLLOWUP_GAP_REPORT_JSON,
     READINESS_AUTHORIZATION_MATRIX_JSON,
 )
+from .readiness_action import (
+    WORKBENCH_READINESS_ACTION_LOG_JSONL,
+    WORKBENCH_READINESS_ACTION_QUEUE_JSON,
+    WORKBENCH_READINESS_ACTION_RESULT_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -703,6 +708,44 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         DELIVERY_READINESS_REPORT_JSON,
         "readiness_authorization",
         ("readiness_authorization_matrix", "manual_followup_gap_report", "claim_acceptance_decision", "signoff_record", "delivery_decision"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workbench_readiness_action_queue",
+        "workbench_readiness_action_queue",
+        WORKBENCH_READINESS_ACTION_QUEUE_JSON,
+        "workbench_readiness_action",
+        (
+            "readiness_authorization_matrix",
+            "manual_followup_gap_report",
+            "apply_readiness_report",
+            "delivery_readiness_report",
+            "term_review_queue",
+            "human_review_evidence",
+            "claim_acceptance_decision",
+            "signoff_record",
+            "document_decision_log",
+            "leadership_review_evidence",
+            "knowledge_audit_resolution_log",
+            "knowledge_repair_closure_decision",
+            "artifact_state",
+        ),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workbench_readiness_action_result",
+        "workbench_readiness_action_result",
+        WORKBENCH_READINESS_ACTION_RESULT_JSON,
+        "workbench_readiness_action",
+        ("workbench_readiness_action_queue", "manual_followup_gap_report", "readiness_authorization_matrix"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workbench_readiness_action_log",
+        "workbench_readiness_action_log",
+        WORKBENCH_READINESS_ACTION_LOG_JSONL,
+        "workbench_readiness_action",
+        ("workbench_readiness_action_queue", "manual_followup_gap_report", "readiness_authorization_matrix"),
         required_for_delivery=True,
     ),
     ArtifactSpec(
