@@ -1,0 +1,20 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-selective-recompute-plan-v1",
+  "artifact": "selective-recompute-plan.json",
+  "recompute_plan_id": "selective-recompute-example",
+  "trigger_source": "workflow-execution-result",
+  "target_workflow_mode": "delivery_readiness_check",
+  "recompute_strategy": "minimal_safe",
+  "artifacts_to_recompute": [{"stage_id": "workflow-stage-evaluation_scorecard", "stage_type": "evaluation_scorecard", "status": "stale", "output_artifacts": ["evaluation-scorecard.json"]}],
+  "artifacts_to_reuse": [{"stage_id": "workflow-stage-artifact_state", "status": "current"}],
+  "artifacts_to_skip": [],
+  "artifacts_blocked": [],
+  "artifacts_requiring_human_action": [{"stage_id": "workflow-stage-signoff"}],
+  "artifacts_requiring_provider_action": [],
+  "dependency_order": ["workflow-stage-evaluation_scorecard"],
+  "deterministic_builder_mapping": {"workflow-stage-evaluation_scorecard": "evaluation_scorecard"},
+  "safety_policy": {"deterministic_builders_only": true, "repair_application_allowed": false},
+  "expected_readiness_impact": {"may_refresh_readiness_projections": false, "may_upgrade_readiness_without_current_matrix": false},
+  "source_artifact_references": {}
+}

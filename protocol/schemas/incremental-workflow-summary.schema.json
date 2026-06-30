@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/incremental-workflow-summary.schema.json",
+  "title": "Localize Anything Incremental Workflow Summary",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "resume_status", "recompute_status", "artifacts_reused", "artifacts_recomputed", "artifacts_still_stale", "stages_completed", "stages_blocked", "human_actions_remaining", "provider_actions_remaining", "repair_actions_remaining", "readiness_before", "readiness_after", "delivery_status", "apply_status", "forbidden_claims_remaining", "limitations", "recommended_next_action", "readiness_not_upgraded"],
+  "properties": {
+    "protocol_version": {"const": "0.1"},
+    "schema": {"const": "localize-anything-incremental-workflow-summary-v1"},
+    "artifact": {"const": "incremental-workflow-summary.json"},
+    "resume_status": {"type": "string"},
+    "recompute_status": {"type": "string"},
+    "artifacts_reused": {"type": "array"},
+    "artifacts_recomputed": {"type": "array"},
+    "artifacts_still_stale": {"type": "array"},
+    "stages_completed": {"type": "array"},
+    "stages_blocked": {"type": "array"},
+    "human_actions_remaining": {"type": "array"},
+    "provider_actions_remaining": {"type": "array"},
+    "repair_actions_remaining": {"type": "array"},
+    "readiness_before": {"type": "object"},
+    "readiness_after": {"type": "object"},
+    "delivery_status": {"type": "string"},
+    "apply_status": {"type": "string"},
+    "forbidden_claims_remaining": {"type": "array", "items": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "recommended_next_action": {"type": "string"},
+    "readiness_not_upgraded": {"const": true}
+  },
+  "additionalProperties": true
+}

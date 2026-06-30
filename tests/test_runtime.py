@@ -228,6 +228,19 @@ from runtime.localize_anything.workflow import (
     build_workflow_stage_status,
     run_workflow,
 )
+from runtime.localize_anything.workflow_incremental import (
+    ARTIFACT_INVALIDATION_REPORT_JSON,
+    INCREMENTAL_WORKFLOW_SUMMARY_JSON,
+    SELECTIVE_RECOMPUTE_PLAN_JSON,
+    SELECTIVE_RECOMPUTE_RESULT_JSON,
+    WORKFLOW_RESUME_PLAN_JSON,
+    build_artifact_invalidation_report,
+    build_incremental_workflow_summary,
+    build_selective_recompute_plan,
+    build_workflow_resume_plan,
+    resume_workflow,
+    run_selective_recompute,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -11519,7 +11532,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 93)
+        self.assertEqual(result["schemas_checked"], 98)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12201,6 +12214,181 @@ class TestV022AndroidRiskClassification(unittest.TestCase):
             if cls["risk_level"] != "low":
                 self.assertTrue(len(cls["classification_evidence"]) > 0,
                                 f"{seg['context']['resource_key']} risk={cls['risk_level']} missing classification_evidence")
+
+
+class IncrementalWorkflowTests(unittest.TestCase):
+    def test_resume_plan_detects_reuse_stale_missing_blocked_human_and_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            plan = build_workflow_resume_plan(state, requested_workflow_mode="full_evidence_refresh")
+
+            self.assertTrue(plan["current_artifacts_that_can_be_reused"])
+            self.assertTrue(plan["stale_artifacts"])
+            self.assertTrue(plan["missing_artifacts"])
+            self.assertTrue(plan["blocked_stages"])
+            self.assertTrue(plan["human_pending_stages"])
+            self.assertTrue(plan["provider_pending_stages"])
+            self.assertTrue(plan["deterministic_stages_ready_to_resume"])
+            self.assertIn(plan["resume_status"], {"ready_to_resume", "blocked"})
+            scoped_plan = build_workflow_resume_plan(state, requested_workflow_mode="diagnose_only")
+            self.assertTrue(scoped_plan["stages_skipped_as_not_applicable"])
+
+    def test_selective_plan_reuses_current_and_orders_stale_deterministic_stages(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            plan = build_selective_recompute_plan(state, recompute_strategy="minimal_safe", target_workflow_mode="diagnose_only")
+
+            self.assertTrue(plan["artifacts_to_reuse"])
+            self.assertTrue(plan["artifacts_to_recompute"])
+            self.assertEqual(plan["dependency_order"], [item["stage_id"] for item in plan["artifacts_to_recompute"]])
+            self.assertTrue(all(item["status"] in {"stale", "ready_to_run", "missing"} for item in plan["artifacts_to_recompute"]))
+
+    def test_human_and_provider_stages_remain_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plan = build_selective_recompute_plan(
+                Path(directory),
+                recompute_strategy="full_deterministic_refresh",
+                target_workflow_mode="full_evidence_refresh",
+            )
+
+            self.assertTrue(plan["artifacts_requiring_human_action"])
+            self.assertTrue(plan["artifacts_requiring_provider_action"])
+            selected_ids = {item["stage_id"] for item in plan["artifacts_to_recompute"]}
+            self.assertTrue(all(item["stage_id"] not in selected_ids for item in plan["artifacts_requiring_human_action"] + plan["artifacts_requiring_provider_action"]))
+
+    def test_invalidation_report_records_changed_dependency_and_downstream(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            build_artifact_state(state)
+            scorecard = read_json(state / "evaluation-scorecard.json")
+            scorecard["recommended_next_actions"] = ["changed review evidence"]
+            write_json(state / "evaluation-scorecard.json", scorecard)
+            build_artifact_state(state)
+            report = build_artifact_invalidation_report(state)
+
+            changed = [item for item in report["items"] if item["changed_dependency"]]
+            self.assertTrue(changed)
+            self.assertTrue(any(item["affected_downstream_artifacts"] for item in report["items"]))
+            self.assertFalse(report["blockers_cleared"])
+
+    def test_selective_recompute_is_provider_free_and_does_not_mutate_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            target = root / "target.txt"
+            target.write_text("unchanged", encoding="utf-8")
+            before = sha256_file(target)
+            with (
+                mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider,
+                mock.patch("runtime.localize_anything.segment_repair.apply_repair_plan", side_effect=AssertionError("repair applied")) as repair,
+            ):
+                result = run_selective_recompute(state, recompute_strategy="readiness_only", target_workflow_mode="diagnose_only")
+
+            self.assertFalse(provider.called)
+            self.assertFalse(repair.called)
+            self.assertFalse(result["provider_or_model_called"])
+            self.assertFalse(result["repair_applied"])
+            self.assertFalse(result["target_files_mutated"])
+            self.assertEqual(before, sha256_file(target))
+            self.assertTrue(result["items_completed"] or result["items_reused"])
+            self.assertIn(result["status"], {"completed", "reused_current", "stale", "blocked"})
+
+    def test_failed_recompute_remains_failed_and_keeps_stale_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            with mock.patch("runtime.localize_anything.evaluation.build_evaluation_scorecard", side_effect=ValueError("incremental scorecard failure")):
+                result = run_selective_recompute(
+                    state,
+                    recompute_strategy="custom",
+                    target_workflow_mode="custom",
+                    selected_stages=["evaluation_scorecard"],
+                )
+
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(result["items_failed"])
+            self.assertTrue(result["remaining_blockers"] or result["artifacts_left_stale"])
+
+    def test_incremental_summary_preserves_forbidden_claims_and_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), forbidden_claims=["delivery_ready", "apply_ready", "production_ready"])
+            build_readiness_reports(state)
+            run_workflow(state, workflow_mode="diagnose_only")
+            run_selective_recompute(state, recompute_strategy="minimal_safe", target_workflow_mode="diagnose_only")
+            summary = build_incremental_workflow_summary(state)
+
+            self.assertIn("apply_ready", summary["forbidden_claims_remaining"])
+            self.assertNotEqual(summary["delivery_status"], "ready")
+            self.assertNotEqual(summary["apply_status"], "ready")
+            self.assertTrue(summary["readiness_not_upgraded"])
+
+    def test_artifact_state_tracks_incremental_artifacts_and_staleness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            resume_workflow(state, requested_workflow_mode="diagnose_only")
+            snapshot = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in snapshot["artifacts"]}
+            expected = {"workflow_resume_plan", "artifact_invalidation_report", "selective_recompute_plan", "selective_recompute_result", "incremental_workflow_summary"}
+            self.assertTrue(expected.issubset(ids))
+
+            matrix = read_json(state / "readiness-authorization-matrix.json")
+            matrix["limitations"] = ["changed readiness evidence"]
+            write_json(state / "readiness-authorization-matrix.json", matrix)
+            refreshed = build_artifact_state(state)
+            statuses = {item["artifact_id"]: item["status"] for item in refreshed["artifacts"]}
+            self.assertEqual(statuses["incremental_workflow_summary"], "stale")
+
+    def test_incremental_api_is_artifact_backed_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                    resume_status, resume_body = _http_post_json(host, port, "/api/workflow-resume", {"state_dir": state.as_posix(), "workflow_mode": "diagnose_only"})
+                    recompute_status, recompute_body = _http_post_json(host, port, "/api/selective-recompute", {"state_dir": state.as_posix(), "workflow_mode": "diagnose_only", "recompute_strategy": "minimal_safe"})
+                get_status, body = _http_get(host, port, f"/api/incremental-workflow-summary?state_dir={state.as_posix()}")
+                self.assertEqual((resume_status, recompute_status, get_status), (200, 200, 200))
+                self.assertFalse(provider.called)
+                self.assertFalse(resume_body["selective_recompute_result"]["provider_or_model_called"])
+                self.assertFalse(recompute_body["selective_recompute_result"]["provider_or_model_called"])
+                self.assertEqual(json.loads(body)["incremental_workflow_summary"]["schema"], "localize-anything-incremental-workflow-summary-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_delivery_and_run_summary_reference_incremental_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            run_workflow(state, workflow_mode="diagnose_only")
+            output = root / "resume.json"
+            self.assertEqual(cli_main(["workflow-resume", state.as_posix(), "--output", output.as_posix()]), 0)
+            self.assertEqual(read_json(output)["schema"], "localize-anything-workflow-resume-command-v1")
+            for command in ("workflow-resume-plan", "artifact-invalidation-report", "selective-recompute-plan", "selective-recompute-result", "incremental-workflow-summary"):
+                self.assertEqual(cli_main([command, state.as_posix(), "--output", (root / f"{command}.json").as_posix()]), 0)
+
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start":"开始"}\n', encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "incremental-delivery-001")
+            summary = run_localize(project, "en-US", ["zh-CN"], ["locales/en-US.json"], root / "runs", "incremental-run-summary-001", handoff_only=True)
+
+            for key in ("workflow_resume_plan", "artifact_invalidation_report", "selective_recompute_plan", "selective_recompute_result", "incremental_workflow_summary"):
+                self.assertIn(key, packaged["manifest"]["assets"])
+                self.assertIn(key, summary["artifacts"])
+            self.assertIn("selective_recompute_status", summary["summary"])
 
 
 class WorkflowOrchestrationTests(unittest.TestCase):

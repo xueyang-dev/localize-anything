@@ -127,6 +127,17 @@ from .workflow import (
     read_workflow_execution_result,
     run_workflow,
 )
+from .workflow_incremental import (
+    RECOMPUTE_STRATEGIES,
+    RESUME_SOURCES,
+    build_artifact_invalidation_report,
+    build_incremental_workflow_summary,
+    build_selective_recompute_plan,
+    build_workflow_resume_plan,
+    read_selective_recompute_result,
+    resume_workflow,
+    run_selective_recompute,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -837,6 +848,25 @@ def build_parser() -> argparse.ArgumentParser:
         workflow_parser.add_argument("--target-delivery-mode")
         workflow_parser.add_argument("--run-id")
         workflow_parser.add_argument("--output", type=Path)
+
+    for command, help_text in (
+        ("workflow-resume-plan", "Create workflow-resume-plan.json from prior lifecycle evidence"),
+        ("artifact-invalidation-report", "Create artifact-invalidation-report.json from dependency hashes"),
+        ("selective-recompute-plan", "Create a deterministic selective recompute plan"),
+        ("selective-recompute-result", "Read selective-recompute-result.json"),
+        ("incremental-workflow-summary", "Create incremental-workflow-summary.json"),
+        ("workflow-resume", "Resume safe deterministic workflow stages"),
+        ("selective-recompute", "Run selected deterministic recompute stages only"),
+    ):
+        incremental_parser = subparsers.add_parser(command, help=help_text)
+        incremental_parser.add_argument("state_dir", type=Path)
+        incremental_parser.add_argument("--workflow-mode", choices=sorted(WORKFLOW_MODES), default="diagnose_only")
+        incremental_parser.add_argument("--resume-source", choices=sorted(RESUME_SOURCES))
+        incremental_parser.add_argument("--recompute-strategy", choices=sorted(RECOMPUTE_STRATEGIES), default="minimal_safe")
+        incremental_parser.add_argument("--trigger-source", default="manual-request")
+        incremental_parser.add_argument("--stage", action="append", default=[], dest="selected_stages")
+        incremental_parser.add_argument("--run-id")
+        incremental_parser.add_argument("--output", type=Path)
 
     workbench_console_parser = subparsers.add_parser("workbench-console", help="Render the artifact-backed Workbench Review Console HTML")
     workbench_console_parser.add_argument("state_dir", type=Path)
@@ -1888,6 +1918,59 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(read_workflow_execution_result(args.state_dir), args.output)
         if args.command == "workflow-readiness-summary":
             return _emit_json(build_workflow_readiness_summary(args.state_dir), args.output)
+        if args.command == "workflow-resume-plan":
+            return _emit_json(
+                build_workflow_resume_plan(
+                    args.state_dir,
+                    requested_workflow_mode=args.workflow_mode,
+                    resume_source=args.resume_source,
+                    selected_stages=args.selected_stages or None,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
+        if args.command == "artifact-invalidation-report":
+            return _emit_json(build_artifact_invalidation_report(args.state_dir), args.output)
+        if args.command == "selective-recompute-plan":
+            return _emit_json(
+                build_selective_recompute_plan(
+                    args.state_dir,
+                    recompute_strategy=args.recompute_strategy,
+                    target_workflow_mode=args.workflow_mode,
+                    selected_stages=args.selected_stages or None,
+                    trigger_source=args.trigger_source,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
+        if args.command == "selective-recompute-result":
+            return _emit_json(read_selective_recompute_result(args.state_dir), args.output)
+        if args.command == "incremental-workflow-summary":
+            return _emit_json(build_incremental_workflow_summary(args.state_dir), args.output)
+        if args.command == "workflow-resume":
+            return _emit_json(
+                resume_workflow(
+                    args.state_dir,
+                    requested_workflow_mode=args.workflow_mode,
+                    resume_source=args.resume_source,
+                    recompute_strategy=args.recompute_strategy,
+                    selected_stages=args.selected_stages or None,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
+        if args.command == "selective-recompute":
+            return _emit_json(
+                run_selective_recompute(
+                    args.state_dir,
+                    recompute_strategy=args.recompute_strategy,
+                    target_workflow_mode=args.workflow_mode,
+                    selected_stages=args.selected_stages or None,
+                    trigger_source=args.trigger_source,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
         if args.command == "workbench-console":
             return _emit_text(render_workbench_console_html(args.state_dir), args.output)
         if args.command == "document-evidence-pack":

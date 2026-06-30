@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/selective-recompute-result.schema.json",
+  "title": "Localize Anything Selective Recompute Result",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "recompute_plan_id", "recompute_strategy_used", "status", "items_attempted", "items_completed", "items_reused", "items_skipped", "items_blocked", "items_failed", "items_requiring_human_action", "items_requiring_provider_action", "artifacts_created", "artifacts_refreshed", "artifacts_left_stale", "remaining_blockers", "remaining_forbidden_claims", "provider_or_model_called", "repair_applied", "target_files_mutated"],
+  "properties": {
+    "protocol_version": {"const": "0.1"},
+    "schema": {"const": "localize-anything-selective-recompute-result-v1"},
+    "artifact": {"const": "selective-recompute-result.json"},
+    "recompute_plan_id": {"type": "string"},
+    "recompute_strategy_used": {"type": "string"},
+    "status": {"enum": ["completed", "reused_current", "skipped_not_needed", "skipped_not_applicable", "blocked", "failed", "requires_human_action", "requires_provider_action", "stale", "not_attempted"]},
+    "items_attempted": {"type": "array"},
+    "items_completed": {"type": "array"},
+    "items_reused": {"type": "array"},
+    "items_skipped": {"type": "array"},
+    "items_blocked": {"type": "array"},
+    "items_failed": {"type": "array"},
+    "items_requiring_human_action": {"type": "array"},
+    "items_requiring_provider_action": {"type": "array"},
+    "artifacts_created": {"type": "array"},
+    "artifacts_refreshed": {"type": "array"},
+    "artifacts_left_stale": {"type": "array"},
+    "remaining_blockers": {"type": "array"},
+    "remaining_forbidden_claims": {"type": "array", "items": {"type": "string"}},
+    "provider_or_model_called": {"const": false},
+    "repair_applied": {"const": false},
+    "target_files_mutated": {"const": false}
+  },
+  "additionalProperties": true
+}

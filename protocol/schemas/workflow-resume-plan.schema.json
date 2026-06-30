@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-resume-plan.schema.json",
+  "title": "Localize Anything Workflow Resume Plan",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "workflow_id", "resume_source", "requested_workflow_mode", "resume_status", "previous_stage_statuses", "current_artifact_state_snapshot", "stale_artifacts", "missing_artifacts", "current_artifacts_that_can_be_reused", "blocked_stages", "human_pending_stages", "provider_pending_stages", "deterministic_stages_ready_to_resume", "safety_policy", "forbidden_claims"],
+  "properties": {
+    "protocol_version": {"const": "0.1"},
+    "schema": {"const": "localize-anything-workflow-resume-plan-v1"},
+    "artifact": {"const": "workflow-resume-plan.json"},
+    "workflow_id": {"type": "string"},
+    "resume_source": {"enum": ["workflow-execution-result", "workflow-stage-status", "artifact-state", "readiness-authorization-matrix", "manual-request", "unknown"]},
+    "requested_workflow_mode": {"type": "string"},
+    "resume_status": {"enum": ["ready_to_resume", "nothing_to_do", "blocked", "requires_human_action", "requires_provider_action", "requires_recompute", "stale", "not_applicable", "unknown"]},
+    "previous_stage_statuses": {"type": "array"},
+    "current_artifact_state_snapshot": {"type": "object"},
+    "stale_artifacts": {"type": "array"},
+    "missing_artifacts": {"type": "array"},
+    "current_artifacts_that_can_be_reused": {"type": "array"},
+    "blocked_stages": {"type": "array"},
+    "human_pending_stages": {"type": "array"},
+    "provider_pending_stages": {"type": "array"},
+    "deterministic_stages_ready_to_resume": {"type": "array"},
+    "safety_policy": {"type": "object"},
+    "forbidden_claims": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

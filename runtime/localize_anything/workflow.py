@@ -366,6 +366,16 @@ def run_workflow(
         "remaining_blockers": list(matrix.get("blockers", [])) + blocked,
         "remaining_forbidden_claims": list(matrix.get("forbidden_claims", [])),
         "next_recommended_workflow_mode": _next_mode(stage_status, matrix),
+        "incremental_artifact_references": _existing_artifacts(
+            state_dir,
+            [
+                "workflow-resume-plan.json",
+                "artifact-invalidation-report.json",
+                "selective-recompute-plan.json",
+                "selective-recompute-result.json",
+                "incremental-workflow-summary.json",
+            ],
+        ),
         "provider_or_model_called": False,
         "repair_applied": False,
         "target_files_mutated": False,
@@ -384,6 +394,7 @@ def build_workflow_readiness_summary(state_dir: Path, *, workflow_id: str | None
     artifact_state = _optional_json(state_dir / "artifact-state.json")
     gaps = _optional_json(state_dir / "manual-followup-gap-report.json")
     repairs = _optional_json(state_dir / "knowledge-repair-impact-report.json")
+    incremental = _optional_json(state_dir / "incremental-workflow-summary.json")
     forbidden = list(matrix.get("forbidden_claims", execution.get("remaining_forbidden_claims", [])))
     stale = [str(item.get("path") or item.get("artifact_id")) for item in artifact_state.get("stale_artifacts", [])]
     current_artifact_state_hash = _hash_if_file(state_dir / "artifact-state.json")
@@ -412,6 +423,9 @@ def build_workflow_readiness_summary(state_dir: Path, *, workflow_id: str | None
         "readiness_matrix_status": "missing" if not matrix else "blocked" if matrix.get("blockers") else "current",
         "forbidden_claims_remaining": forbidden,
         "recommended_next_action": _recommended_action(matrix, stale, missing, blocked_stages),
+        "incremental_resume_status": incremental.get("resume_status", "not_run"),
+        "selective_recompute_status": incremental.get("recompute_status", "not_run"),
+        "incremental_limitations": incremental.get("limitations", []),
         "readiness_not_upgraded": True,
         "source_artifact_references": _existing_artifacts(state_dir, ["artifact-state.json", "readiness-authorization-matrix.json", "manual-followup-gap-report.json", WORKFLOW_STAGE_STATUS_JSON, WORKFLOW_EXECUTION_RESULT_JSON]),
     }

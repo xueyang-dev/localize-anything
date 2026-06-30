@@ -1,0 +1,10 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-artifact-invalidation-report-v1",
+  "artifact": "artifact-invalidation-report.json",
+  "status": "stale",
+  "items": [{"invalidation_id": "artifact-invalidation-example", "artifact_path": "evaluation-scorecard.json", "artifact_type": "evaluation_scorecard", "previous_hash": "old", "current_hash": "new", "invalidation_reason": "review_evidence_changed", "changed_dependency": "human_review_evidence", "dependency_path": "human-review-evidence.jsonl", "dependency_hash_before": "old-review", "dependency_hash_after": "new-review", "affected_downstream_artifacts": ["readiness_authorization_matrix"], "affected_workflow_stages": ["workflow-stage-readiness_authorization"], "affected_readiness_claims": ["delivery_ready", "apply_ready"], "severity": "warning", "required_action": "Recompute the stale deterministic projection.", "source_artifact_references": ["artifact-state.json"]}],
+  "summary": {"invalidation_count": 1, "blocking_count": 0, "missing_count": 0, "unknown_dependency_count": 0},
+  "blockers_cleared": false,
+  "source_artifact_references": {}
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/artifact-invalidation-report.schema.json",
+  "title": "Localize Anything Artifact Invalidation Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "items", "summary", "blockers_cleared"],
+  "properties": {
+    "protocol_version": {"const": "0.1"},
+    "schema": {"const": "localize-anything-artifact-invalidation-report-v1"},
+    "artifact": {"const": "artifact-invalidation-report.json"},
+    "status": {"enum": ["current", "stale", "blocked"]},
+    "items": {"type": "array", "items": {"type": "object", "required": ["invalidation_id", "artifact_path", "artifact_type", "invalidation_reason", "affected_downstream_artifacts", "affected_workflow_stages", "affected_readiness_claims", "severity", "required_action"]}},
+    "summary": {"type": "object"},
+    "blockers_cleared": {"const": false}
+  },
+  "additionalProperties": true
+}

@@ -1396,3 +1396,55 @@ target files.
 CLI commands are `workflow-plan`, `workflow-stage-status`,
 `workflow-dependency-graph`, `workflow-run`,
 `workflow-execution-result`, and `workflow-readiness-summary`.
+
+## Incremental Workflow Resume and Selective Recompute
+
+Incremental workflow handling adds five lifecycle artifacts:
+
+- `workflow-resume-plan.json` classifies reusable, stale, missing, blocked,
+  human-pending, provider-pending, and resumable stages;
+- `artifact-invalidation-report.json` records hash/dependency evidence,
+  invalidation reasons, downstream effects, and required actions;
+- `selective-recompute-plan.json` orders safe deterministic refreshes while
+  retaining reuse, skip, block, human, and provider decisions;
+- `selective-recompute-result.json` records completed, reused, skipped,
+  blocked, failed, pending, and still-stale work;
+- `incremental-workflow-summary.json` preserves readiness, limitations,
+  blockers, and forbidden claims across a partial resume.
+
+Supported resume sources are `workflow-execution-result`,
+`workflow-stage-status`, `artifact-state`,
+`readiness-authorization-matrix`, `manual-request`, and `unknown`. Supported
+recompute strategies are `minimal_safe`, `all_stale_deterministic`,
+`readiness_only`, `knowledge_only`, `document_only`, `repair_only`,
+`full_deterministic_refresh`, and `custom`.
+
+An artifact is reusable only when its output is current and its dependencies
+are unchanged. Stale deterministic stages may be recomputed in workflow graph
+order. Stale provider/model or human stages remain pending. Blocked stages stay
+blocked until their source evidence changes. Unknown invalidation is
+conservative and never clears a blocker.
+
+Artifact State tracks all five incremental artifacts. Artifact State or
+dependency-graph changes stale the corresponding plans; changed recompute
+inputs stale results; changed readiness evidence stales the incremental
+summary. Delivery/apply readiness can change only when current readiness
+matrix/reports independently support it.
+
+Artifact-backed APIs are:
+
+- `GET /api/workflow-resume-plan`
+- `GET /api/artifact-invalidation-report`
+- `GET /api/selective-recompute-plan`
+- `GET /api/selective-recompute-result`
+- `GET /api/incremental-workflow-summary`
+- `POST /api/workflow-resume`
+- `POST /api/selective-recompute`
+
+CLI commands are `workflow-resume-plan`, `artifact-invalidation-report`,
+`selective-recompute-plan`, `selective-recompute-result`,
+`incremental-workflow-summary`, `workflow-resume`, and
+`selective-recompute`. POST endpoints and execution commands call only the
+existing deterministic builder whitelist; they never call providers, apply
+repairs, perform semantic rewrite, or mutate target files. Resume/recompute is
+lifecycle evidence, not a success or readiness claim.

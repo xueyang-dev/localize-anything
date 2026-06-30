@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add deterministic Incremental Workflow Resume / Selective Recompute artifacts:
+  `workflow-resume-plan.json`, `artifact-invalidation-report.json`,
+  `selective-recompute-plan.json`, `selective-recompute-result.json`, and
+  `incremental-workflow-summary.json`; include dependency-clean reuse,
+  conservative staleness propagation, provider-free CLI/API refresh, and
+  delivery/run-summary references without repair application or target mutation.
 - Add deterministic Workflow Orchestration / Run Lifecycle Controller artifacts:
   `workflow-run-plan.json`, `workflow-stage-status.json`,
   `workflow-execution-result.json`, `workflow-readiness-summary.json`, and
