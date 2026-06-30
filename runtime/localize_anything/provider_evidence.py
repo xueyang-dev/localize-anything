@@ -113,6 +113,8 @@ def build_provider_handoff_request(
         "warnings": warnings,
         "forbidden_claims": sorted(PROVIDER_FORBIDDEN_CLAIMS) if status != "prepared" or mode != "real_provider" else [],
         "request_payload_hash": _stable_hash(payload),
+        "scope": payload.get("scope") if isinstance(payload.get("scope"), dict) else {},
+        "operating_mode": str(payload.get("operating_mode") or ""),
         "source_artifact_hashes": _hashes(state_dir, ["generation-handoff.json", "generation-handoff-decision.json", PROVIDER_EXECUTION_POLICY_JSON]),
         "provider_or_model_called": False,
         "limitations": [
@@ -188,6 +190,11 @@ def record_provider_result_intake(
     records.append(record)
     write_jsonl(state_dir / PROVIDER_RESULT_INTAKE_JSONL, records)
     build_provider_evidence_reconciliation(state_dir, run_id=run_id)
+    from .provider_result_gate import build_provider_claim_support_report, build_provider_result_qa_report, build_workbench_provider_review_queue
+
+    build_provider_result_qa_report(state_dir)
+    build_provider_claim_support_report(state_dir)
+    build_workbench_provider_review_queue(state_dir)
     return record
 
 
@@ -315,6 +322,7 @@ def _normalize_result_intake(state_dir: Path, result: dict[str, Any], *, run_id:
     has_provenance = bool(provenance.get("provider_name") or provenance.get("external_reference") or provenance.get("request_id"))
     target_artifacts = _strings(result.get("target_artifact_references"))
     hashes = {path: _hash_if_file(state_dir / path) for path in target_artifacts}
+    segments = _result_segments(result.get("segments"))
     status = "received"
     if source in {"external_provider_result", "external_model_result", "real_provider"} and not has_provenance:
         status = "rejected_provenance"
@@ -337,10 +345,40 @@ def _normalize_result_intake(state_dir: Path, result: dict[str, Any], *, run_id:
         "scope": result.get("scope") if isinstance(result.get("scope"), dict) else {},
         "qa_status": str(result.get("qa_status") or "not_provided"),
         "review_evidence": result.get("review_evidence") if isinstance(result.get("review_evidence"), dict) else {},
+        "segments": segments,
         "created_at": _now(),
         "provider_or_model_called_by_runtime": False,
         "limitations": ["result intake records evidence only; it does not accept quality or mutate output"],
     }
+
+
+def _result_segments(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 10000:
+        raise ValueError("segments must be a list with at most 10000 entries")
+    result: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("each provider result segment must be an object")
+        source = str(item.get("source") or "")
+        target = str(item.get("target") or "")
+        if "\x00" in source or "\x00" in target or len(source.encode("utf-8")) > 1_000_000 or len(target.encode("utf-8")) > 1_000_000:
+            raise ValueError("provider result segment text is invalid or too large")
+        result.append(
+            {
+                "segment_id": str(item.get("segment_id") or ""),
+                "source": source,
+                "target": target,
+                "constraints": item.get("constraints") if isinstance(item.get("constraints"), dict) else {},
+                "scope": item.get("scope") if isinstance(item.get("scope"), dict) else {},
+                "high_risk": bool(item.get("high_risk")),
+                "semantic_change": bool(item.get("semantic_change")),
+                "target_context_used": bool(item.get("target_context_used")),
+                "reference_target_used": bool(item.get("reference_target_used")),
+            }
+        )
+    return result
 
 
 def _reconcile_intake_record(policy: dict[str, Any], request: dict[str, Any], ledger: list[dict[str, Any]], record: dict[str, Any]) -> tuple[str, list[str]]:
@@ -356,8 +394,6 @@ def _reconcile_intake_record(policy: dict[str, Any], request: dict[str, Any], le
         reasons.append("policy_does_not_allow_provider_backed_claim")
     if request and request.get("status") == "blocked":
         reasons.append("handoff_request_blocked")
-    if source in {"real_provider", "external_provider_result"} and str(record.get("qa_status") or "") not in {"pass", "pass_with_warnings"}:
-        reasons.append("qa_not_passed")
     if source == "external_model_result":
         reasons.append("external_model_result_is_not_provider_execution")
     request_id = str(record.get("request_id") or "")

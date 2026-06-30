@@ -106,6 +106,13 @@ from .provider_evidence import (
     PROVIDER_HANDOFF_REQUEST_JSON,
     PROVIDER_RESULT_INTAKE_JSONL,
 )
+from .provider_result_gate import (
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -155,6 +162,11 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_execution_ledger", "provider_execution_ledger", PROVIDER_EXECUTION_LEDGER_JSONL, "provider_evidence", ("provider_handoff_request",), required_for_delivery=True),
     ArtifactSpec("provider_result_intake", "provider_result_intake", PROVIDER_RESULT_INTAKE_JSONL, "provider_evidence", ("provider_handoff_request", "provider_execution_ledger"), required_for_delivery=True),
     ArtifactSpec("provider_evidence_reconciliation", "provider_evidence_reconciliation", PROVIDER_EVIDENCE_RECONCILIATION_JSON, "provider_evidence", ("provider_execution_policy", "provider_handoff_request", "provider_execution_ledger", "provider_result_intake"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_result_qa_report", "provider_result_qa_report", PROVIDER_RESULT_QA_REPORT_JSON, "provider_result_qa", ("provider_result_intake", "provider_evidence_reconciliation", "state_generated_segments"), required_for_delivery=True),
+    ArtifactSpec("provider_result_review_evidence", "provider_result_review_evidence", PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL, "provider_result_review", ("provider_result_qa_report",), required_for_delivery=True),
+    ArtifactSpec("provider_result_acceptance_decision", "provider_result_acceptance_decision", PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON, "provider_result_acceptance", ("provider_evidence_reconciliation", "provider_result_qa_report", "provider_result_review_evidence"), required_for_delivery=True),
+    ArtifactSpec("provider_claim_support_report", "provider_claim_support_report", PROVIDER_CLAIM_SUPPORT_REPORT_JSON, "provider_result_acceptance", ("provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "signoff_record"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("workbench_provider_review_queue", "workbench_provider_review_queue", WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON, "provider_result_review", ("provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "provider_claim_support_report")),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),
@@ -1399,6 +1411,9 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
         if name == PROVIDER_HANDOFF_REQUEST_JSON and str(content.get("status") or "") == "blocked":
             entry["status"] = "blocked"
             entry["blocking_reason"] = "provider_handoff_request_blocked"
+        if name == WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON and str(content.get("status") or "") == "action_required":
+            entry["status"] = "requires_human_review"
+            entry["blocking_reason"] = "provider_review_action_required"
         if status in STATUS_VALUES and status not in {"current", ""}:
             entry["status"] = "requires_human_review" if status in {"review_required", "owner_review_required"} else status
         if status == "draft_package":
@@ -1489,6 +1504,11 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "provider_execution_ledger",
         "provider_result_intake",
         "provider_evidence_reconciliation",
+        "provider_result_qa_report",
+        "provider_result_review_evidence",
+        "provider_result_acceptance_decision",
+        "provider_claim_support_report",
+        "workbench_provider_review_queue",
     }
     knowledge_dependency_ids = {
         "knowledge_pack_selection",

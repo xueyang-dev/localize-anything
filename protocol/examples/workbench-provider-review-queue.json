@@ -1,0 +1,9 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-provider-review-queue-v1",
+  "artifact": "workbench-provider-review-queue.json",
+  "status": "action_required",
+  "items": [{ "queue_item_id": "provider-review-queue-1", "result_id": "provider-result-1", "qa_status": "requires_human_review", "review_status": "missing", "queue_status": "requires_human_review", "required_action": "record_provider_review_evidence", "effective_scope": { "scope_type": "limited", "segment_ids": ["s1"] } }],
+  "summary": { "item_count": 1, "action_required_count": 1, "accepted_count": 0, "limited_count": 0, "rejected_count": 0 },
+  "provider_or_model_called_by_runtime": false
+}

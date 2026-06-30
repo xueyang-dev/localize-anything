@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-result-review-evidence.schema.json",
+  "title": "Localize Anything Provider Result Review Evidence",
+  "type": "object",
+  "required": ["protocol_version", "schema", "evidence_id", "result_id", "reviewer_role", "reviewer_reference", "decision", "review_scope", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-result-review-evidence-v1" },
+    "evidence_id": { "type": "string", "minLength": 1 },
+    "result_id": { "type": "string", "minLength": 1 },
+    "reviewer_role": { "type": "string", "minLength": 1 },
+    "reviewer_reference": { "type": "string", "minLength": 1 },
+    "decision": { "enum": ["accepted", "accepted_with_limitations", "rejected"] },
+    "review_scope": { "type": "object", "minProperties": 1 },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -51,6 +51,14 @@ from .provider_evidence import (
     PROVIDER_HANDOFF_REQUEST_JSON,
     PROVIDER_RESULT_INTAKE_JSONL,
 )
+from .provider_result_gate import (
+    PROVIDER_CLAIMS,
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -264,6 +272,11 @@ def _load_artifacts(
         "provider_execution_ledger": _read_optional_jsonl(state_dir / PROVIDER_EXECUTION_LEDGER_JSONL),
         "provider_result_intake": _read_optional_jsonl(state_dir / PROVIDER_RESULT_INTAKE_JSONL),
         "provider_evidence_reconciliation": _read_optional_json(state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON),
+        "provider_result_qa_report": _read_optional_json(state_dir / PROVIDER_RESULT_QA_REPORT_JSON),
+        "provider_result_review_evidence": _read_optional_jsonl(state_dir / PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL),
+        "provider_result_acceptance_decision": _read_optional_json(state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON),
+        "provider_claim_support_report": _read_optional_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
+        "workbench_provider_review_queue": _read_optional_json(state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
         "readiness_authorization_matrix": _read_optional_json(state_dir / "readiness-authorization-matrix.json"),
         "manual_followup_gap_report": _read_optional_json(state_dir / "manual-followup-gap-report.json"),
         "apply_readiness_report": _read_optional_json(state_dir / "apply-readiness-report.json"),
@@ -665,6 +678,14 @@ def _forbidden_claims(
         claims.update(str(claim) for claim in reconciliation.get("forbidden_claims_remaining", []) if claim)
         if str(reconciliation.get("status") or "") in {"blocked", "stale", "failed"}:
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    claim_support = artifacts.get("provider_claim_support_report", {})
+    if isinstance(claim_support, dict) and claim_support:
+        claims.update(str(claim) for claim in claim_support.get("forbidden_claims", []) if claim)
+        claims.update(str(claim) for claim in claim_support.get("global_forbidden_claims", []) if claim)
+        if str(claim_support.get("status") or "") in {"blocked", "limited"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    elif reconciliation:
+        claims.update(PROVIDER_CLAIMS)
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
     if dimensions["knowledge_assurance"]["status"] != "pass":
@@ -800,12 +821,15 @@ def _provider_metadata(artifacts: dict[str, Any], generation_metadata: dict[str,
     reconciliation = artifacts.get("provider_evidence_reconciliation", {})
     if isinstance(reconciliation, dict) and reconciliation:
         status = str(reconciliation.get("status") or "")
+        qa = artifacts.get("provider_result_qa_report", {})
+        claim_support = artifacts.get("provider_claim_support_report", {})
+        execution_supported = bool(claim_support.get("provider_execution_complete_supported"))
         return {
-            "provider_actual": "reconciled_provider" if reconciliation.get("provider_execution_complete_supported") else "unverified_or_non_provider",
-            "provider_status": "passed" if status in {"clear", "clear_with_warnings"} and reconciliation.get("provider_execution_complete_supported") else "failed" if status in {"blocked", "failed"} else "not_run",
+            "provider_actual": "accepted_provider_result" if execution_supported else "unverified_or_non_provider",
+            "provider_status": "passed" if execution_supported else "failed" if status in {"blocked", "failed"} or qa.get("status") == "blocked" else "not_run",
             "provider_evidence_reconciliation_status": status,
-            "provider_execution_complete_supported": bool(reconciliation.get("provider_execution_complete_supported")),
-            "provider_backed_quality_supported": bool(reconciliation.get("provider_backed_quality_supported")),
+            "provider_execution_complete_supported": execution_supported,
+            "provider_backed_quality_supported": bool(claim_support.get("provider_backed_quality_supported")),
         }
     manifest = artifacts.get("delivery_manifest", {})
     if isinstance(manifest.get("generation"), dict):
@@ -1101,6 +1125,11 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "provider_execution_ledger": state_dir / PROVIDER_EXECUTION_LEDGER_JSONL,
         "provider_result_intake": state_dir / PROVIDER_RESULT_INTAKE_JSONL,
         "provider_evidence_reconciliation": state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+        "provider_result_qa_report": state_dir / PROVIDER_RESULT_QA_REPORT_JSON,
+        "provider_result_review_evidence": state_dir / PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+        "provider_result_acceptance_decision": state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+        "provider_claim_support_report": state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+        "workbench_provider_review_queue": state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
         "readiness_authorization_matrix": state_dir / "readiness-authorization-matrix.json",
         "manual_followup_gap_report": state_dir / "manual-followup-gap-report.json",
         "apply_readiness_report": state_dir / "apply-readiness-report.json",

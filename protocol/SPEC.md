@@ -1569,3 +1569,48 @@ CLI commands are `provider-execution-policy`, `provider-handoff-request`,
 POST endpoints and CLI writes only create structured evidence. They must not
 call providers, execute models, apply repairs, perform semantic rewrite, or
 mutate target project files.
+
+## Provider Result QA and Review Acceptance Gate
+
+Provider result intake is not QA pass, and QA pass is not semantic quality.
+The gate emits:
+
+- `provider-result-qa-report.json` with request, reconciliation, provenance,
+  hash, scope, placeholder, markup, escape, forbidden-translation, required
+  term, and blind-benchmark checks;
+- `provider-result-review-evidence.jsonl` with reviewer identity, explicit
+  review scope, decision, semantic/high-risk coverage, and limitations;
+- `provider-result-acceptance-decision.json` with accepted, limited, rejected,
+  or blocked result ids and the effective scope;
+- `provider-claim-support-report.json` with supported, narrowly supported, and
+  forbidden provider claims;
+- `workbench-provider-review-queue.json` with artifact-derived QA/review/action
+  states.
+
+Synthetic, mock, dry-run, skipped, failed, stale, provenance-missing, request-
+mismatched, hash-mismatched, scope-mismatched, or deterministic-QA-failed
+results cannot support provider-backed claims. Semantic or high-risk results
+require scoped qualified review evidence. Limited-scope acceptance cannot
+support global `provider_backed_quality`, delivery, apply, or production
+readiness.
+
+`provider_backed_quality` requires reconciled provider evidence, passing
+deterministic QA, scoped accepted review evidence, an acceptance decision, and
+compatible signoff. `provider_repair_complete` and `model_repair_complete`
+remain forbidden in this seed.
+
+Artifact-backed GET APIs are:
+
+- `GET /api/provider-result-qa-report`
+- `GET /api/provider-result-review-evidence`
+- `GET /api/provider-result-acceptance-decision`
+- `GET /api/provider-claim-support-report`
+- `GET /api/workbench-provider-review-queue`
+
+The only gate write APIs are `POST /api/provider-result-review-evidence` and
+`POST /api/provider-result-acceptance-decision`. They validate and write
+evidence only; they do not call providers/models or mutate target files.
+
+CLI commands are `provider-result-qa-report`,
+`provider-result-review-evidence`, `provider-result-acceptance-decision`,
+`provider-claim-support-report`, and `workbench-provider-review-queue`.

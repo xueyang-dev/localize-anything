@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-claim-support-report.schema.json",
+  "title": "Localize Anything Provider Claim Support Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "supported_claims", "narrowly_supported_claims", "forbidden_claims", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-claim-support-report-v1" },
+    "artifact": { "const": "provider-claim-support-report.json" },
+    "status": { "enum": ["supported", "limited", "blocked"] },
+    "supported_claims": { "type": "array", "items": { "type": "object" } },
+    "narrowly_supported_claims": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

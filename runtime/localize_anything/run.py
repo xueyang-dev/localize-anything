@@ -147,6 +147,13 @@ from .provider_evidence import (
     PROVIDER_HANDOFF_REQUEST_JSON,
     PROVIDER_RESULT_INTAKE_JSONL,
 )
+from .provider_result_gate import (
+    PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
+    PROVIDER_RESULT_QA_REPORT_JSON,
+    PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
+    WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1176,6 +1183,11 @@ def _summary(
         ("provider_execution_ledger", PROVIDER_EXECUTION_LEDGER_JSONL),
         ("provider_result_intake", PROVIDER_RESULT_INTAKE_JSONL),
         ("provider_evidence_reconciliation", PROVIDER_EVIDENCE_RECONCILIATION_JSON),
+        ("provider_result_qa_report", PROVIDER_RESULT_QA_REPORT_JSON),
+        ("provider_result_review_evidence", PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL),
+        ("provider_result_acceptance_decision", PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON),
+        ("provider_claim_support_report", PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
+        ("workbench_provider_review_queue", WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1329,6 +1341,21 @@ def _summary(
             "provider_evidence_reconciliation_status": (
                 read_json(state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON).get("status", "not_checked")
                 if (state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_result_qa_status": (
+                read_json(state_dir / PROVIDER_RESULT_QA_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_RESULT_QA_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_result_acceptance_status": (
+                read_json(state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_claim_support_status": (
+                read_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON).is_file()
                 else "not_checked"
             ),
             "knowledge_repair_closure_status": (

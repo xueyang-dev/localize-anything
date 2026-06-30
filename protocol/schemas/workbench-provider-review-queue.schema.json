@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-provider-review-queue.schema.json",
+  "title": "Localize Anything Workbench Provider Review Queue",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "items", "summary", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-provider-review-queue-v1" },
+    "artifact": { "const": "workbench-provider-review-queue.json" },
+    "status": { "enum": ["clear", "action_required", "empty"] },
+    "items": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

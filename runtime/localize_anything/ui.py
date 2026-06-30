@@ -143,6 +143,15 @@ from .provider_evidence import (
     read_provider_result_intake,
     record_provider_result_intake,
 )
+from .provider_result_gate import (
+    read_provider_claim_support_report,
+    read_provider_result_acceptance_decision,
+    read_provider_result_qa_report,
+    read_provider_result_review_evidence,
+    read_workbench_provider_review_queue,
+    record_provider_result_acceptance_decision,
+    record_provider_result_review_evidence,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -336,6 +345,21 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-evidence-reconciliation":
                     self._handle_workflow_artifact_query(parsed.query, "provider_evidence_reconciliation", read_provider_evidence_reconciliation)
+                    return
+                if parsed.path == "/api/provider-result-qa-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_qa_report", read_provider_result_qa_report)
+                    return
+                if parsed.path == "/api/provider-result-review-evidence":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_review_evidence", lambda state_dir: {"records": read_provider_result_review_evidence(state_dir)})
+                    return
+                if parsed.path == "/api/provider-result-acceptance-decision":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_acceptance_decision", read_provider_result_acceptance_decision)
+                    return
+                if parsed.path == "/api/provider-claim-support-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_claim_support_report", read_provider_claim_support_report)
+                    return
+                if parsed.path == "/api/workbench-provider-review-queue":
+                    self._handle_workflow_artifact_query(parsed.query, "workbench_provider_review_queue", read_workbench_provider_review_queue)
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -581,6 +605,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-result-intake":
                     self._handle_provider_result_intake(payload)
+                    return
+                if parsed.path == "/api/provider-result-review-evidence":
+                    self._handle_provider_result_review_evidence(payload)
+                    return
+                if parsed.path == "/api/provider-result-acceptance-decision":
+                    self._handle_provider_result_acceptance_decision(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -1347,6 +1377,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = record_provider_result_intake(state_dir, result_payload, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_result_intake": result, "provider_or_model_called": False})
+
+        def _handle_provider_result_review_evidence(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Provider result review evidence is outside allowed workbench roots: {state_dir}")
+            evidence = payload.get("evidence") if isinstance(payload.get("evidence"), dict) else payload
+            result = record_provider_result_review_evidence(state_dir, evidence)
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_result_review_evidence": result, "provider_or_model_called": False})
+
+        def _handle_provider_result_acceptance_decision(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Provider result acceptance decision is outside allowed workbench roots: {state_dir}")
+            decision = payload.get("decision") if isinstance(payload.get("decision"), dict) else payload
+            result = record_provider_result_acceptance_decision(state_dir, decision)
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_result_acceptance_decision": result, "provider_or_model_called": False})
 
         def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
