@@ -9854,17 +9854,38 @@ class ReadinessAuthorizationMatrixTests(unittest.TestCase):
     def test_claim_acceptance_and_signoff_cannot_contradict_matrix(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = _readiness_state(Path(directory), overall_claim="apply_ready", forbidden_claims=[])
-            build_readiness_authorization_matrix(state)
+            write_json(
+                state / "readiness-authorization-matrix.json",
+                {
+                    "schema": "localize-anything-readiness-authorization-matrix-v1",
+                    "delivery_readiness_status": "authorization_required",
+                    "apply_readiness_status": "authorization_required",
+                    "production_readiness_status": "authorization_required",
+                    "forbidden_claims": [],
+                },
+            )
 
-            claim = build_claim_acceptance_decision(state, requested_claims=["apply_ready", "production_ready"])
+            claim = build_claim_acceptance_decision(state, requested_claims=["apply_ready"])
             signoff = create_signoff_record(
                 state,
                 {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": True, "limitations_accepted": False},
             )
 
-            self.assertEqual(claim["status"], "blocked")
-            self.assertFalse(signoff["apply_authorized"])
-            self.assertTrue(any("readiness_matrix_apply_status" in item["reason"] for item in signoff["blocked_authorizations"]))
+            self.assertEqual(claim["status"], "accepted")
+            self.assertTrue(signoff["apply_authorized"])
+
+            matrix = read_json(state / "readiness-authorization-matrix.json")
+            matrix["apply_readiness_status"] = "blocked"
+            write_json(state / "readiness-authorization-matrix.json", matrix)
+            blocked_claim = build_claim_acceptance_decision(state, requested_claims=["apply_ready", "production_ready"])
+            blocked_signoff = create_signoff_record(
+                state,
+                {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": True, "limitations_accepted": False},
+            )
+
+            self.assertEqual(blocked_claim["status"], "blocked")
+            self.assertFalse(blocked_signoff["apply_authorized"])
+            self.assertTrue(any("readiness_matrix_apply_status_blocked" in item["reason"] for item in blocked_signoff["blocked_authorizations"]))
 
     def test_artifact_state_tracks_readiness_reports_and_stales_on_scorecard_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

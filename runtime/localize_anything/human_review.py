@@ -475,7 +475,7 @@ def _forbidden_from_readiness_matrix(matrix: dict[str, Any], requested_claims: l
     production_status = str(matrix.get("production_readiness_status") or "")
     if delivery_status in {"blocked", "stale", "partial"}:
         forbidden.update({"delivery_ready", "production_ready"})
-    if apply_status in {"blocked", "stale", "partial", "authorization_required"}:
+    if apply_status in {"blocked", "stale", "partial"}:
         forbidden.update({"apply_ready", "production_ready"})
     if production_status and production_status != "ready":
         forbidden.add("production_ready")
@@ -490,7 +490,7 @@ def _signoff_blocks_from_readiness_matrix(matrix: dict[str, Any], requested: dic
     apply_status = str(matrix.get("apply_readiness_status") or "")
     if requested.get("delivery") and delivery_status in {"blocked", "stale", "partial"}:
         blocked.append({"authorization": "delivery", "reason": f"readiness_matrix_delivery_status_{delivery_status}"})
-    if requested.get("apply") and apply_status in {"blocked", "stale", "partial", "authorization_required"}:
+    if requested.get("apply") and apply_status in {"blocked", "stale", "partial"}:
         blocked.append({"authorization": "apply", "reason": f"readiness_matrix_apply_status_{apply_status}"})
     return blocked
 
