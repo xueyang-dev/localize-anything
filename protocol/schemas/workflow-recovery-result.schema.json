@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-recovery-result.schema.json",
+  "title": "Localize Anything Workflow Recovery Result",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "recovery_id", "recovery_action_attempted", "result_status", "provider_or_model_called", "repair_applied", "target_files_mutated"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-recovery-result-v1" },
+    "artifact": { "const": "workflow-recovery-result.json" },
+    "recovery_id": { "type": "string" },
+    "recovery_action_attempted": { "type": "string" },
+    "lock_action": { "type": "string" },
+    "artifacts_recomputed": { "type": "array", "items": { "type": "string" } },
+    "artifacts_requiring_manual_review": { "type": "array", "items": { "type": "string" } },
+    "remaining_blockers": { "type": "array" },
+    "remaining_forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "result_status": { "enum": ["recovered", "partially_recovered", "blocked", "failed", "requires_manual_inspection", "requires_human_action", "requires_provider_action", "not_applicable"] },
+    "provider_or_model_called": { "const": false },
+    "repair_applied": { "const": false },
+    "target_files_mutated": { "const": false }
+  },
+  "additionalProperties": true
+}

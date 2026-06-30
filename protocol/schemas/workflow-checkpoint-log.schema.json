@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-checkpoint-log.schema.json",
+  "title": "Localize Anything Workflow Checkpoint Log Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "checkpoint_id", "workflow_id", "stage_id", "stage_type", "checkpoint_type", "status"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-checkpoint-log-record-v1" },
+    "checkpoint_id": { "type": "string" },
+    "workflow_id": { "type": "string" },
+    "run_id": {},
+    "stage_id": { "type": "string" },
+    "stage_type": { "type": "string" },
+    "checkpoint_type": { "enum": ["workflow_started", "stage_planned", "stage_started", "artifact_write_staged", "artifact_write_committed", "stage_completed", "stage_skipped", "stage_blocked", "stage_failed", "workflow_completed", "workflow_failed", "workflow_abandoned", "workflow_recovered"] },
+    "status": { "type": "string" },
+    "output_artifact_paths": { "type": "array", "items": { "type": "string" } },
+    "output_artifact_hashes": { "type": "object" },
+    "transaction_id": { "type": "string" },
+    "error_summary": { "type": "string" },
+    "recovery_hint": { "type": "string" }
+  },
+  "additionalProperties": true
+}

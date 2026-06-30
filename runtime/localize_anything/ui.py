@@ -125,6 +125,15 @@ from .workflow_incremental import (
     resume_workflow,
     run_selective_recompute,
 )
+from .workflow_hardening import (
+    build_workflow_recovery_plan,
+    read_workflow_checkpoint_log,
+    read_workflow_idempotency_report,
+    read_workflow_lock_state,
+    read_workflow_recovery_result,
+    read_workflow_transaction_manifest,
+    run_workflow_recovery,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -376,6 +385,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/incremental-workflow-summary":
                     self._handle_workflow_artifact_query(parsed.query, "incremental_workflow_summary", read_incremental_workflow_summary)
                     return
+                if parsed.path == "/api/workflow-lock-state":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_lock_state", read_workflow_lock_state)
+                    return
+                if parsed.path == "/api/workflow-checkpoint-log":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_checkpoint_log", lambda state_dir: {"records": read_workflow_checkpoint_log(state_dir)})
+                    return
+                if parsed.path == "/api/workflow-transaction-manifest":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_transaction_manifest", read_workflow_transaction_manifest)
+                    return
+                if parsed.path == "/api/workflow-idempotency-report":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_idempotency_report", read_workflow_idempotency_report)
+                    return
+                if parsed.path == "/api/workflow-recovery-plan":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_recovery_plan", build_workflow_recovery_plan)
+                    return
+                if parsed.path == "/api/workflow-recovery-result":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_recovery_result", read_workflow_recovery_result)
+                    return
                 if parsed.path == "/api/workbench-console":
                     self._handle_workbench_console_query(parsed.query)
                     return
@@ -521,6 +548,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/selective-recompute":
                     self._handle_selective_recompute(payload)
+                    return
+                if parsed.path == "/api/workflow-recover":
+                    self._handle_workflow_recover(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -1198,6 +1228,8 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 target_locale=_optional_string(payload.get("target_locale")),
                 target_delivery_mode=_optional_string(payload.get("target_delivery_mode")),
                 run_id=_optional_string(payload.get("run_id")),
+                idempotency_key=_optional_string(payload.get("idempotency_key")),
+                force_release_stale_lock=bool(payload.get("force_release_stale_lock")),
             )
             state.add_allowed_root(state_dir)
             self._send_json(
@@ -1223,6 +1255,8 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 recompute_strategy=str(payload.get("recompute_strategy") or "minimal_safe"),
                 selected_stages=[str(item) for item in selected] if selected is not None else None,
                 run_id=_optional_string(payload.get("run_id")),
+                idempotency_key=_optional_string(payload.get("idempotency_key")),
+                force_release_stale_lock=bool(payload.get("force_release_stale_lock")),
             )
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), **result})
@@ -1241,6 +1275,8 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 selected_stages=[str(item) for item in selected] if selected is not None else None,
                 trigger_source=str(payload.get("trigger_source") or "manual-request"),
                 run_id=_optional_string(payload.get("run_id")),
+                idempotency_key=_optional_string(payload.get("idempotency_key")),
+                force_release_stale_lock=bool(payload.get("force_release_stale_lock")),
             )
             state.add_allowed_root(state_dir)
             self._send_json(
@@ -1251,6 +1287,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     "incremental_workflow_summary": read_incremental_workflow_summary(state_dir),
                 }
             )
+
+        def _handle_workflow_recover(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workflow recovery is outside allowed workbench roots: {state_dir}")
+            result = run_workflow_recovery(
+                state_dir,
+                recovery_action=str(payload.get("recovery_action") or "recompute_stale_artifacts"),
+                run_id=_optional_string(payload.get("run_id")),
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workflow_recovery_result": result})
 
         def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

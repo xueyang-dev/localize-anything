@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-lock-state.schema.json",
+  "title": "Localize Anything Workflow Lock State",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "lock_id", "workflow_id", "lock_status", "lock_ttl_seconds", "stale_lock_detection", "recovery_recommendation"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-lock-state-v1" },
+    "artifact": { "const": "workflow-lock-state.json" },
+    "lock_id": { "type": "string" },
+    "workflow_id": { "type": "string" },
+    "run_id": {},
+    "workflow_mode": { "type": "string" },
+    "lock_status": { "enum": ["unlocked", "locked", "stale", "released", "force_released", "abandoned", "unknown"] },
+    "lock_ttl_seconds": { "type": "integer" },
+    "locked_artifacts": { "type": "array", "items": { "type": "string" } },
+    "locked_stages": { "type": "array", "items": { "type": "string" } },
+    "stale_lock_detection": { "type": "object" },
+    "recovery_recommendation": { "type": "string" }
+  },
+  "additionalProperties": true
+}

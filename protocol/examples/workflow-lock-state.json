@@ -1,0 +1,20 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-lock-state-v1",
+  "artifact": "workflow-lock-state.json",
+  "lock_id": "workflow-lock-example",
+  "workflow_id": "workflow-example",
+  "run_id": "run-example",
+  "owner_process_reference": "pid:12345",
+  "workflow_mode": "diagnose_only",
+  "lock_status": "released",
+  "acquired_at": "2026-06-30T00:00:00+00:00",
+  "updated_at": "2026-06-30T00:00:01+00:00",
+  "heartbeat_at": "2026-06-30T00:00:01+00:00",
+  "lock_ttl_seconds": 900,
+  "locked_artifacts": [],
+  "locked_stages": ["workflow-stage-artifact_state"],
+  "source_command_or_api_request": "workflow-run",
+  "stale_lock_detection": { "is_stale": false, "reason": "lock released" },
+  "recovery_recommendation": "no recovery required for released lock"
+}

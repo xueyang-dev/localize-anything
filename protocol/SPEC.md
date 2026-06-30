@@ -1448,3 +1448,67 @@ CLI commands are `workflow-resume-plan`, `artifact-invalidation-report`,
 existing deterministic builder whitelist; they never call providers, apply
 repairs, perform semantic rewrite, or mutate target files. Resume/recompute is
 lifecycle evidence, not a success or readiness claim.
+
+## Workflow Checkpoint, Concurrency, and Idempotency Hardening
+
+Workflow hardening adds local deterministic evidence around workflow
+execution and replay. It is intentionally not a distributed lock system. It
+uses a local lock artifact plus a same-directory lock file to prevent
+concurrent local workflow attempts from silently corrupting artifacts.
+
+Artifacts:
+
+- `workflow-lock-state.json` records lock id, workflow id, run id, owner
+  process reference when available, mode, status, heartbeat, TTL/stale policy,
+  locked stages, source command/API request, stale detection, and recovery
+  recommendation.
+- `workflow-checkpoint-log.jsonl` records stage/workflow checkpoints such as
+  `workflow_started`, `stage_started`, `artifact_write_committed`,
+  `stage_completed`, `stage_blocked`, `stage_failed`, `workflow_completed`,
+  and `workflow_recovered`.
+- `workflow-transaction-manifest.json` records planned, staged, committed,
+  partially committed, failed, abandoned, recovered, rolled-back, or unknown
+  artifact write transactions. Rollback is `not_supported` in this seed.
+- `workflow-idempotency-report.json` records idempotency keys or derived
+  fingerprints, duplicate status, replay policy, result reuse status, safety
+  decision, and next action.
+- `workflow-recovery-plan.json` analyzes stale locks, abandoned workflows,
+  partial transactions, missing checkpoints, failed stages, hash mismatches,
+  and stale artifact state.
+- `workflow-recovery-result.json` records deterministic recovery attempts,
+  lock action, checkpoints used, transactions marked abandoned, artifacts
+  reused/recomputed/marked stale, remaining blockers, and forbidden claims.
+
+Supported lock statuses are `unlocked`, `locked`, `stale`, `released`,
+`force_released`, `abandoned`, and `unknown`. Supported recovery result
+statuses are `recovered`, `partially_recovered`, `blocked`, `failed`,
+`requires_manual_inspection`, `requires_human_action`,
+`requires_provider_action`, and `not_applicable`.
+
+Workflow commands may accept `--idempotency-key` and
+`--force-release-stale-lock` when they execute work. Plan/read commands remain
+deterministic projections. Exact duplicate completed requests may reuse the
+previous result; conflicting payloads under the same idempotency key are
+blocked. Duplicate in-progress requests are reported as in progress rather
+than executed again.
+
+Artifact-backed APIs are:
+
+- `GET /api/workflow-lock-state`
+- `GET /api/workflow-checkpoint-log`
+- `GET /api/workflow-transaction-manifest`
+- `GET /api/workflow-idempotency-report`
+- `GET /api/workflow-recovery-plan`
+- `GET /api/workflow-recovery-result`
+- `POST /api/workflow-recover`
+
+CLI commands are `workflow-lock-state`, `workflow-checkpoint-log`,
+`workflow-transaction-manifest`, `workflow-idempotency-report`,
+`workflow-recovery-plan`, `workflow-recovery-result`, and
+`workflow-recover`.
+
+`POST /api/workflow-recover` and `workflow-recover` may run deterministic
+recovery only. They must not call providers, apply repairs, perform semantic
+rewrite, or mutate target project files. A recovery result does not authorize
+delivery or apply; current readiness artifacts must still support those
+claims.
