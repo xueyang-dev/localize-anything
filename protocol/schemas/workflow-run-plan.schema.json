@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-run-plan.schema.json",
+  "title": "Localize Anything Workflow Run Plan",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "workflow_id", "workflow_mode", "selected_stages", "blocked_stages", "required_human_actions", "required_provider_model_actions", "dependency_order", "safety_policy"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-run-plan-v1" },
+    "artifact": { "const": "workflow-run-plan.json" },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "workflow_mode": { "enum": ["diagnose_only", "preflight_only", "review_ready_document", "delivery_readiness_check", "apply_readiness_check", "knowledge_pack_export", "knowledge_consumption_check", "knowledge_repair_cycle", "full_evidence_refresh", "custom"] },
+    "selected_stages": { "type": "array", "items": { "type": "object" } },
+    "skipped_stages": { "type": "array", "items": { "type": "object" } },
+    "blocked_stages": { "type": "array", "items": { "type": "object" } },
+    "required_human_actions": { "type": "array", "items": { "type": "object" } },
+    "required_provider_model_actions": { "type": "array", "items": { "type": "object" } },
+    "deterministic_stages_that_can_run_now": { "type": "array", "items": { "type": "string" } },
+    "dependency_order": { "type": "array", "items": { "type": "string" } },
+    "safety_policy": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -118,6 +118,15 @@ from .readiness_action import (
     read_workbench_readiness_action_log,
     read_workbench_readiness_action_result,
 )
+from .workflow import (
+    WORKFLOW_MODES,
+    build_workflow_dependency_graph,
+    build_workflow_readiness_summary,
+    build_workflow_run_plan,
+    build_workflow_stage_status,
+    read_workflow_execution_result,
+    run_workflow,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -809,6 +818,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     workbench_readiness_action_result_parser.add_argument("state_dir", type=Path)
     workbench_readiness_action_result_parser.add_argument("--output", type=Path)
+
+    for command, help_text in (
+        ("workflow-plan", "Create a deterministic workflow-run-plan.json"),
+        ("workflow-stage-status", "Create workflow-stage-status.json from current artifact evidence"),
+        ("workflow-dependency-graph", "Create the workflow dependency graph"),
+        ("workflow-run", "Run safe deterministic artifact builders only"),
+        ("workflow-execution-result", "Read workflow-execution-result.json"),
+        ("workflow-readiness-summary", "Create workflow-readiness-summary.json without upgrading readiness"),
+    ):
+        workflow_parser = subparsers.add_parser(command, help=help_text)
+        workflow_parser.add_argument("state_dir", type=Path)
+        workflow_parser.add_argument("--workflow-mode", choices=sorted(WORKFLOW_MODES), default="diagnose_only")
+        workflow_parser.add_argument("--stage", action="append", default=[], dest="selected_stages")
+        workflow_parser.add_argument("--scenario")
+        workflow_parser.add_argument("--source-locale")
+        workflow_parser.add_argument("--target-locale")
+        workflow_parser.add_argument("--target-delivery-mode")
+        workflow_parser.add_argument("--run-id")
+        workflow_parser.add_argument("--output", type=Path)
 
     workbench_console_parser = subparsers.add_parser("workbench-console", help="Render the artifact-backed Workbench Review Console HTML")
     workbench_console_parser.add_argument("state_dir", type=Path)
@@ -1817,6 +1845,49 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(result, args.output)
         if args.command == "workbench-readiness-action-result":
             return _emit_json(read_workbench_readiness_action_result(args.state_dir), args.output)
+        if args.command == "workflow-plan":
+            return _emit_json(
+                build_workflow_run_plan(
+                    args.state_dir,
+                    workflow_mode=args.workflow_mode,
+                    selected_stages=args.selected_stages or None,
+                    scenario=args.scenario,
+                    source_locale=args.source_locale,
+                    target_locale=args.target_locale,
+                    target_delivery_mode=args.target_delivery_mode,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
+        if args.command == "workflow-stage-status":
+            return _emit_json(
+                build_workflow_stage_status(
+                    args.state_dir,
+                    workflow_mode=args.workflow_mode,
+                    selected_stages=args.selected_stages or None,
+                ),
+                args.output,
+            )
+        if args.command == "workflow-dependency-graph":
+            return _emit_json(build_workflow_dependency_graph(args.state_dir), args.output)
+        if args.command == "workflow-run":
+            return _emit_json(
+                run_workflow(
+                    args.state_dir,
+                    workflow_mode=args.workflow_mode,
+                    selected_stages=args.selected_stages or None,
+                    scenario=args.scenario,
+                    source_locale=args.source_locale,
+                    target_locale=args.target_locale,
+                    target_delivery_mode=args.target_delivery_mode,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
+        if args.command == "workflow-execution-result":
+            return _emit_json(read_workflow_execution_result(args.state_dir), args.output)
+        if args.command == "workflow-readiness-summary":
+            return _emit_json(build_workflow_readiness_summary(args.state_dir), args.output)
         if args.command == "workbench-console":
             return _emit_text(render_workbench_console_html(args.state_dir), args.output)
         if args.command == "document-evidence-pack":

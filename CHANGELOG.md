@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add deterministic Workflow Orchestration / Run Lifecycle Controller artifacts:
+  `workflow-run-plan.json`, `workflow-stage-status.json`,
+  `workflow-execution-result.json`, `workflow-readiness-summary.json`, and
+  `workflow-dependency-graph.json`; include provider-free CLI/API execution,
+  artifact-state staleness tracking, delivery/run-summary references, and
+  explicit human/provider pending stages without repair application or target
+  mutation.
 - Add Workbench Readiness / Manual Follow-up Action Surface with
   `workbench-readiness-action-queue.json`,
   `workbench-readiness-action-result.json`, and

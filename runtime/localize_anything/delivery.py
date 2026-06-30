@@ -105,6 +105,14 @@ from .workbench_queue import (
     WORKBENCH_SIGNOFF_SUMMARY_JSON,
     workbench_queue_asset_paths,
 )
+from .workflow import (
+    WORKFLOW_DEPENDENCY_GRAPH_JSON,
+    WORKFLOW_EXECUTION_RESULT_JSON,
+    WORKFLOW_READINESS_SUMMARY_JSON,
+    WORKFLOW_RUN_PLAN_JSON,
+    WORKFLOW_STAGE_STATUS_JSON,
+    workflow_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -158,6 +166,11 @@ OPTIONAL_CANONICAL_ASSETS = (
     WORKBENCH_READINESS_ACTION_QUEUE_JSON,
     WORKBENCH_READINESS_ACTION_RESULT_JSON,
     WORKBENCH_READINESS_ACTION_LOG_JSONL,
+    WORKFLOW_RUN_PLAN_JSON,
+    WORKFLOW_STAGE_STATUS_JSON,
+    WORKFLOW_EXECUTION_RESULT_JSON,
+    WORKFLOW_READINESS_SUMMARY_JSON,
+    WORKFLOW_DEPENDENCY_GRAPH_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -273,6 +286,7 @@ def package_delivery(
                 **knowledge_repair_closure_asset_paths(state_dir),
                 **readiness_authorization_asset_paths(state_dir),
                 **workbench_readiness_action_asset_paths(state_dir),
+                **workflow_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-run-plan-v1",
+  "artifact": "workflow-run-plan.json",
+  "workflow_id": "workflow-example-001",
+  "workflow_mode": "delivery_readiness_check",
+  "scenario": "document-localization",
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "target_delivery_mode": "review_only",
+  "selected_stages": [{"stage_id": "workflow-stage-artifact_state", "stage_type": "artifact_state", "status": "ready_to_run", "deterministic": true}],
+  "skipped_stages": [],
+  "blocked_stages": [],
+  "required_human_actions": [{"stage_id": "workflow-stage-signoff", "reason": ["signoff-record.json"]}],
+  "required_provider_model_actions": [],
+  "deterministic_stages_that_can_run_now": ["workflow-stage-artifact_state"],
+  "input_artifacts": ["evaluation-scorecard.json"],
+  "expected_output_artifacts": ["artifact-state.json"],
+  "dependency_order": ["workflow-stage-artifact_state"],
+  "safety_policy": {"deterministic_builders_only": true, "provider_or_model_execution_allowed": false, "target_file_mutation_allowed": false},
+  "source_artifact_references": {}
+}

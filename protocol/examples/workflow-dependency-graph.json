@@ -1,0 +1,10 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-dependency-graph-v1",
+  "artifact": "workflow-dependency-graph.json",
+  "stages": [{"stage_id": "workflow-stage-readiness_authorization", "stage_type": "readiness_authorization"}],
+  "artifacts": ["artifact-state.json", "readiness-authorization-matrix.json"],
+  "edges": [{"source": "artifact:artifact-state.json", "target": "workflow-stage-readiness_authorization", "dependency_type": "requires", "staleness_propagation_behavior": "target_becomes_stale", "blocking_behavior": "blocks_target", "recompute_requirement": "required"}],
+  "readiness_dependencies": {"scorecard": "evaluation-scorecard.json", "artifact_state": "artifact-state.json", "signoff": "signoff-record.json", "claim_acceptance": "claim-acceptance-decision.json", "document_evidence": "document-evidence-manifest.json", "knowledge_evidence": "knowledge-audit-enforcement-decision.json", "repair_closure": "knowledge-repair-closure-decision.json", "provider_policy": "generation-handoff-decision.json", "coverage": "coverage-report.json", "qa": "review-result.json"},
+  "safety_policy": {"provider_or_model_execution_allowed": false, "repair_application_allowed": false, "target_file_mutation_allowed": false}
+}
