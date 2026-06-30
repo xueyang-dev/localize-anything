@@ -154,8 +154,10 @@ def build_knowledge_assurance_summary(state_dir: Path, *, write: bool = True) ->
     deterministic_constraints = str(enforcement.get("status") or "") == "clear" and "knowledge_constraints_applied" not in set(enforcement.get("forbidden_claims", []))
     unresolved = conflict_resolution.get("blocking_conflicts_remaining", [])
     stale = _stale_knowledge_review_evidence(state_dir)
-    supports_constraints = (deterministic_constraints or valid_review) and not unresolved and not stale
-    supports_review_complete = _supports_review_complete(review_evidence) and not unresolved and not stale
+    # Human review can confirm deterministic audit evidence, but it must not
+    # replace a clear enforcement decision or erase unresolved audit blockers.
+    supports_constraints = deterministic_constraints and valid_review and not unresolved and not stale
+    supports_review_complete = supports_constraints and _supports_review_complete(review_evidence)
     supported = []
     if supports_constraints:
         supported.append("knowledge_constraints_applied")
@@ -229,6 +231,9 @@ def _normalize_resolution(decision: dict[str, Any], *, run_id: str | None) -> di
         raise ValueError("knowledge audit resolution decision must be a JSON object")
     decision_type = _required_enum(decision, "decision_type", RESOLUTION_DECISION_TYPES)
     status = _required_enum(decision, "decision_status", DECISION_STATUSES)
+    source_artifact_references = _list(decision.get("source_artifact_references")) or [WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON]
+    if decision.get("related_conflict_id") and KNOWLEDGE_CONFLICT_REPORT_JSON not in source_artifact_references:
+        source_artifact_references.append(KNOWLEDGE_CONFLICT_REPORT_JSON)
     record = {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-knowledge-audit-resolution-log-v1",
@@ -236,7 +241,7 @@ def _normalize_resolution(decision: dict[str, Any], *, run_id: str | None) -> di
         "decision_type": decision_type,
         "reviewer_role": str(decision.get("reviewer_role") or "knowledge_reviewer"),
         "reviewer_reference": str(decision.get("reviewer_reference") or "unspecified"),
-        "source_artifact_references": _list(decision.get("source_artifact_references")) or [WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON],
+        "source_artifact_references": source_artifact_references,
         "related_queue_item_id": str(decision.get("related_queue_item_id") or ""),
         "related_enforcement_decision_id": str(decision.get("related_enforcement_decision_id") or ""),
         "related_knowledge_usage_item_id": str(decision.get("related_knowledge_usage_item_id") or ""),
@@ -303,6 +308,10 @@ def _matching_resolution(conflict: dict[str, Any], decisions: list[dict[str, Any
         if decision.get("decision_status") not in {"accepted", "accepted_with_limitations"}:
             continue
         if decision.get("decision_type") not in {"resolve_knowledge_conflict", "prefer_project_term", "prefer_pack_term", "scope_limit_knowledge", "accept_limited_knowledge_risk"}:
+            continue
+        if not decision.get("effective_scope"):
+            continue
+        if KNOWLEDGE_CONFLICT_REPORT_JSON not in decision.get("source_artifact_references", []):
             continue
         if conflict_id and decision.get("related_conflict_id") == conflict_id:
             return decision

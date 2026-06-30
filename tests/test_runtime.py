@@ -8605,6 +8605,12 @@ class KnowledgeReviewConfirmationSeedTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             state = _consumption_state(Path(directory))
             _select_consumption_pack(state)
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Visit the Open Lab", "target": "访问开放实验室"}],
+            )
+            build_constraint_application_audit(state)
+            build_knowledge_usage_report(state)
             build_knowledge_audit_enforcement_decision(state)
 
             evidence = record_knowledge_constraint_review_evidence(
@@ -8709,6 +8715,64 @@ class KnowledgeReviewConfirmationSeedTests(unittest.TestCase):
 
             self.assertNotIn("knowledge_constraints_applied", summary["supported_claims"])
             self.assertIn("knowledge_constraints_applied", summary["forbidden_claims_remaining"])
+
+    def test_constraint_review_cannot_override_reference_only_audit_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            context = read_working_context_packet(state)
+            context["hard_constraints"].append(
+                {"knowledge_id": "ref-leak", "knowledge_type": "term", "classification": "reference_only", "status": "reference"}
+            )
+            write_json(state / WORKING_CONTEXT_PACKET_JSON, context)
+            build_constraint_application_audit(state)
+            build_knowledge_usage_report(state)
+            enforcement = build_knowledge_audit_enforcement_decision(state)
+
+            record_knowledge_constraint_review_evidence(
+                state,
+                {
+                    "decision": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "review_scope": {"segment_ids": ["s1"]},
+                    "reviewed_constraints": ["ref-leak"],
+                    "supports_knowledge_constraints_applied": True,
+                },
+            )
+            summary = build_knowledge_assurance_summary(state)
+
+            self.assertEqual(enforcement["status"], "blocked")
+            self.assertNotIn("knowledge_constraints_applied", summary["supported_claims"])
+            self.assertIn("delivery_ready", summary["forbidden_claims_remaining"])
+
+    def test_conflict_resolution_requires_effective_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "Other Lab")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+            report = build_knowledge_conflict_report(state)
+            conflict_id = report["conflicts"][0]["conflict_id"]
+            record_knowledge_audit_resolution(
+                state,
+                {
+                    "decision_type": "prefer_project_term",
+                    "decision_status": "accepted",
+                    "reviewer_reference": "owner@example.test",
+                    "related_conflict_id": conflict_id,
+                },
+            )
+
+            resolution = build_knowledge_conflict_resolution(state)
+
+            self.assertEqual(resolution["status"], "blocked")
+            self.assertEqual(resolution["resolved_conflicts"], [])
 
     def test_stale_usage_audit_or_conflict_report_stales_assurance(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
