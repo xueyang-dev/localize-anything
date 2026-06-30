@@ -18,6 +18,12 @@ from .workflow import (
     build_workflow_stage_status,
     run_workflow,
 )
+from .workflow_hardening import (
+    acquire_workflow_lock,
+    append_workflow_checkpoint,
+    build_workflow_idempotency_report,
+    release_workflow_lock,
+)
 
 
 WORKFLOW_RESUME_PLAN_JSON = "workflow-resume-plan.json"
@@ -261,10 +267,30 @@ def run_selective_recompute(
     selected_stages: list[str] | None = None,
     trigger_source: str = "manual-request",
     run_id: str | None = None,
+    idempotency_key: str | None = None,
+    force_release_stale_lock: bool = False,
 ) -> dict[str, Any]:
     from .artifact_state import build_artifact_state
 
     state_dir = state_dir.resolve()
+    idempotency = build_workflow_idempotency_report(
+        state_dir,
+        workflow_mode=target_workflow_mode,
+        command="selective-recompute",
+        request={
+            "recompute_strategy": recompute_strategy,
+            "target_workflow_mode": target_workflow_mode,
+            "selected_stages": selected_stages or [],
+            "trigger_source": trigger_source,
+            "run_id": run_id,
+        },
+        idempotency_key=idempotency_key,
+    )
+    if idempotency.get("safety_decision") == "blocked" and not (force_release_stale_lock and idempotency.get("duplicate_status") != "duplicate_conflicting_payload"):
+        result = _blocked_recompute_result(state_dir, recompute_strategy, idempotency)
+        write_json(state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON, result)
+        build_incremental_workflow_summary(state_dir)
+        return result
     before_hashes = _state_hashes(state_dir)
     before_readiness = _readiness_status(state_dir)
     plan = build_selective_recompute_plan(
@@ -275,10 +301,44 @@ def run_selective_recompute(
         trigger_source=trigger_source,
         run_id=run_id,
     )
+    lock_state, acquired = acquire_workflow_lock(
+        state_dir,
+        workflow_id=plan["recompute_plan_id"],
+        run_id=run_id,
+        workflow_mode=target_workflow_mode,
+        locked_stages=[str(item.get("stage_id")) for item in plan["artifacts_to_recompute"]],
+        source_command="selective-recompute",
+        force_release_stale_lock=force_release_stale_lock,
+    )
+    if not acquired:
+        result = _blocked_recompute_result(state_dir, recompute_strategy, lock_state)
+        write_json(state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON, result)
+        build_incremental_workflow_summary(state_dir)
+        return result
+    append_workflow_checkpoint(
+        state_dir,
+        workflow_id=plan["recompute_plan_id"],
+        run_id=run_id,
+        stage_id="selective-recompute",
+        stage_type="selective_recompute",
+        checkpoint_type="workflow_started",
+        status="started",
+        source_command="selective-recompute",
+    )
     stage_types = [str(item.get("stage_type")) for item in plan["artifacts_to_recompute"] if item.get("stage_type")]
     workflow_result: dict[str, Any] = {}
-    if stage_types:
-        workflow_result = run_workflow(state_dir, workflow_mode="custom", selected_stages=stage_types, run_id=run_id)
+    try:
+        if stage_types:
+            workflow_result = run_workflow(
+                state_dir,
+                workflow_mode="custom",
+                selected_stages=stage_types,
+                run_id=run_id,
+                source_command="selective-recompute",
+                use_hardening=False,
+            )
+    finally:
+        release_workflow_lock(state_dir, status="released")
     after_hashes = _state_hashes(state_dir)
     failed = list(workflow_result.get("stages_failed", []))
     blocked = list(plan["artifacts_blocked"]) + list(workflow_result.get("stages_blocked", []))
@@ -321,6 +381,17 @@ def run_selective_recompute(
         "safety_policy": _safety_policy(),
     }
     write_json(state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON, result)
+    append_workflow_checkpoint(
+        state_dir,
+        workflow_id=plan["recompute_plan_id"],
+        run_id=run_id,
+        stage_id="selective-recompute",
+        stage_type="selective_recompute",
+        checkpoint_type="workflow_failed" if failed else "workflow_completed",
+        status=result["status"],
+        output_artifact_paths=[SELECTIVE_RECOMPUTE_RESULT_JSON, INCREMENTAL_WORKFLOW_SUMMARY_JSON],
+        source_command="selective-recompute",
+    )
     _annotate_workflow_stage_status(state_dir, result)
     build_incremental_workflow_summary(state_dir)
     return result
@@ -334,6 +405,8 @@ def resume_workflow(
     recompute_strategy: str = "minimal_safe",
     selected_stages: list[str] | None = None,
     run_id: str | None = None,
+    idempotency_key: str | None = None,
+    force_release_stale_lock: bool = False,
 ) -> dict[str, Any]:
     plan = build_workflow_resume_plan(
         state_dir,
@@ -349,6 +422,8 @@ def resume_workflow(
         selected_stages=selected_stages,
         trigger_source=plan["resume_source"],
         run_id=run_id,
+        idempotency_key=idempotency_key,
+        force_release_stale_lock=force_release_stale_lock,
     )
     return {
         "protocol_version": PROTOCOL_VERSION,
@@ -552,6 +627,39 @@ def _result_item(item: dict[str, Any], status: str) -> dict[str, Any]:
 def _result_stage_id(stage_id: str, status: str) -> dict[str, Any]:
     stage = next((item for item in STAGES if item["stage_id"] == stage_id), {})
     return {"stage_id": stage_id, "stage_type": stage.get("stage_type", ""), "status": status}
+
+
+def _blocked_recompute_result(state_dir: Path, recompute_strategy: str, evidence: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-selective-recompute-result-v1",
+        "artifact": SELECTIVE_RECOMPUTE_RESULT_JSON,
+        "recompute_plan_id": "",
+        "recompute_strategy_used": recompute_strategy,
+        "status": "blocked",
+        "items_attempted": [],
+        "items_completed": [],
+        "items_reused": [],
+        "items_skipped": [],
+        "items_blocked": [{"stage_id": "selective-recompute", "status": "blocked", "blockers": [evidence]}],
+        "items_failed": [],
+        "items_requiring_human_action": [],
+        "items_requiring_provider_action": [],
+        "artifacts_created": [],
+        "artifacts_refreshed": [],
+        "artifacts_left_stale": [],
+        "before_hashes": _state_hashes(state_dir),
+        "after_hashes": _state_hashes(state_dir),
+        "before_readiness_status": _readiness_status(state_dir),
+        "after_readiness_status": _readiness_status(state_dir),
+        "remaining_blockers": [{"type": "workflow_hardening_blocked", "evidence": evidence}],
+        "remaining_forbidden_claims": ["delivery_ready", "apply_ready", "production_ready"],
+        "next_recommended_action": "Inspect workflow hardening evidence before replaying selective recompute.",
+        "provider_or_model_called": False,
+        "repair_applied": False,
+        "target_files_mutated": False,
+        "safety_policy": _safety_policy(),
+    }
 
 
 def _annotate_workflow_stage_status(state_dir: Path, result: dict[str, Any]) -> None:

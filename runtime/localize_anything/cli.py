@@ -138,6 +138,15 @@ from .workflow_incremental import (
     resume_workflow,
     run_selective_recompute,
 )
+from .workflow_hardening import (
+    build_workflow_recovery_plan,
+    read_workflow_checkpoint_log,
+    read_workflow_idempotency_report,
+    read_workflow_lock_state,
+    read_workflow_recovery_result,
+    read_workflow_transaction_manifest,
+    run_workflow_recovery,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -847,6 +856,8 @@ def build_parser() -> argparse.ArgumentParser:
         workflow_parser.add_argument("--target-locale")
         workflow_parser.add_argument("--target-delivery-mode")
         workflow_parser.add_argument("--run-id")
+        workflow_parser.add_argument("--idempotency-key")
+        workflow_parser.add_argument("--force-release-stale-lock", action="store_true")
         workflow_parser.add_argument("--output", type=Path)
 
     for command, help_text in (
@@ -866,7 +877,24 @@ def build_parser() -> argparse.ArgumentParser:
         incremental_parser.add_argument("--trigger-source", default="manual-request")
         incremental_parser.add_argument("--stage", action="append", default=[], dest="selected_stages")
         incremental_parser.add_argument("--run-id")
+        incremental_parser.add_argument("--idempotency-key")
+        incremental_parser.add_argument("--force-release-stale-lock", action="store_true")
         incremental_parser.add_argument("--output", type=Path)
+
+    for command, help_text in (
+        ("workflow-lock-state", "Read workflow-lock-state.json"),
+        ("workflow-checkpoint-log", "Read workflow-checkpoint-log.jsonl"),
+        ("workflow-transaction-manifest", "Read workflow-transaction-manifest.json"),
+        ("workflow-idempotency-report", "Read workflow-idempotency-report.json"),
+        ("workflow-recovery-plan", "Create workflow-recovery-plan.json"),
+        ("workflow-recovery-result", "Read workflow-recovery-result.json"),
+        ("workflow-recover", "Run deterministic workflow recovery without providers, repairs, or target mutation"),
+    ):
+        hardening_parser = subparsers.add_parser(command, help=help_text)
+        hardening_parser.add_argument("state_dir", type=Path)
+        hardening_parser.add_argument("--recovery-action", default="recompute_stale_artifacts")
+        hardening_parser.add_argument("--run-id")
+        hardening_parser.add_argument("--output", type=Path)
 
     workbench_console_parser = subparsers.add_parser("workbench-console", help="Render the artifact-backed Workbench Review Console HTML")
     workbench_console_parser.add_argument("state_dir", type=Path)
@@ -1911,6 +1939,8 @@ def main(argv: list[str] | None = None) -> int:
                     target_locale=args.target_locale,
                     target_delivery_mode=args.target_delivery_mode,
                     run_id=args.run_id,
+                    idempotency_key=args.idempotency_key,
+                    force_release_stale_lock=args.force_release_stale_lock,
                 ),
                 args.output,
             )
@@ -1918,6 +1948,27 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(read_workflow_execution_result(args.state_dir), args.output)
         if args.command == "workflow-readiness-summary":
             return _emit_json(build_workflow_readiness_summary(args.state_dir), args.output)
+        if args.command == "workflow-lock-state":
+            return _emit_json(read_workflow_lock_state(args.state_dir), args.output)
+        if args.command == "workflow-checkpoint-log":
+            return _emit_json(
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-workflow-checkpoint-log-list-v1",
+                    "records": read_workflow_checkpoint_log(args.state_dir),
+                },
+                args.output,
+            )
+        if args.command == "workflow-transaction-manifest":
+            return _emit_json(read_workflow_transaction_manifest(args.state_dir), args.output)
+        if args.command == "workflow-idempotency-report":
+            return _emit_json(read_workflow_idempotency_report(args.state_dir), args.output)
+        if args.command == "workflow-recovery-plan":
+            return _emit_json(build_workflow_recovery_plan(args.state_dir), args.output)
+        if args.command == "workflow-recovery-result":
+            return _emit_json(read_workflow_recovery_result(args.state_dir), args.output)
+        if args.command == "workflow-recover":
+            return _emit_json(run_workflow_recovery(args.state_dir, recovery_action=args.recovery_action, run_id=args.run_id), args.output)
         if args.command == "workflow-resume-plan":
             return _emit_json(
                 build_workflow_resume_plan(
@@ -1956,6 +2007,8 @@ def main(argv: list[str] | None = None) -> int:
                     recompute_strategy=args.recompute_strategy,
                     selected_stages=args.selected_stages or None,
                     run_id=args.run_id,
+                    idempotency_key=args.idempotency_key,
+                    force_release_stale_lock=args.force_release_stale_lock,
                 ),
                 args.output,
             )
@@ -1968,6 +2021,8 @@ def main(argv: list[str] | None = None) -> int:
                     selected_stages=args.selected_stages or None,
                     trigger_source=args.trigger_source,
                     run_id=args.run_id,
+                    idempotency_key=args.idempotency_key,
+                    force_release_stale_lock=args.force_release_stale_lock,
                 ),
                 args.output,
             )

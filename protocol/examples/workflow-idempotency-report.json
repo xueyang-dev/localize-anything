@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-idempotency-report-v1",
+  "artifact": "workflow-idempotency-report.json",
+  "idempotency_key": "workflow-key-example",
+  "request_fingerprint": "fingerprint-example",
+  "workflow_mode": "diagnose_only",
+  "command_or_endpoint": "workflow-run",
+  "previous_matching_run": {},
+  "duplicate_status": "new_request",
+  "replay_policy": "record_and_run_if_unlocked",
+  "result_reuse_status": "not_reused",
+  "affected_artifacts": {},
+  "safety_decision": "proceed",
+  "recommended_next_action": "Proceed if no active workflow lock exists.",
+  "limitations": ["idempotency evidence does not hide failed or partial previous runs"]
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-transaction-manifest.schema.json",
+  "title": "Localize Anything Workflow Transaction Manifest",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "transactions", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-transaction-manifest-v1" },
+    "artifact": { "const": "workflow-transaction-manifest.json" },
+    "status": { "enum": ["planned", "staged", "committed", "partially_committed", "failed", "abandoned", "recovered", "rolled_back", "unknown"] },
+    "transactions": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

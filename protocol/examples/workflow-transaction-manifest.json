@@ -1,0 +1,29 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-transaction-manifest-v1",
+  "artifact": "workflow-transaction-manifest.json",
+  "status": "committed",
+  "transactions": [
+    {
+      "transaction_id": "workflow-transaction-example",
+      "workflow_id": "workflow-example",
+      "run_id": "run-example",
+      "stage_id": "workflow-stage-artifact_state",
+      "transaction_status": "committed",
+      "artifact_writes": [
+        {
+          "artifact_path": "artifact-state.json",
+          "temp_or_staging_path": "",
+          "final_artifact_path": "artifact-state.json",
+          "previous_hash": null,
+          "new_hash": "sha256-example"
+        }
+      ],
+      "commit_order": ["artifact-state.json"],
+      "rollback_or_recovery_status": "not_needed",
+      "rollback_supported": "not_supported"
+    }
+  ],
+  "summary": { "transaction_count": 1, "partial_or_failed_count": 0 },
+  "limitations": ["rollback is not implemented in this seed"]
+}

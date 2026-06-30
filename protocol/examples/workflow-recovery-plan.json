@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-recovery-plan-v1",
+  "artifact": "workflow-recovery-plan.json",
+  "recovery_id": "workflow-recovery-example",
+  "detected_issue": "partial_transaction",
+  "affected_workflow_id": "workflow-example",
+  "affected_run_id": "run-example",
+  "active_or_stale_lock_status": "released",
+  "last_checkpoint": {},
+  "incomplete_stages": [],
+  "partial_transactions": [],
+  "suspect_artifacts": ["artifact-state.json"],
+  "artifacts_safe_to_reuse": [],
+  "artifacts_requiring_recompute": ["artifact-state.json"],
+  "artifacts_requiring_manual_inspection": [],
+  "artifacts_requiring_provider_or_human_action": [],
+  "readiness_impact": "blocked_or_stale_until_recovery",
+  "recommended_recovery_action": "discard_partial_outputs",
+  "source_artifact_references": {}
+}

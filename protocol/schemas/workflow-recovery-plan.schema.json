@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-recovery-plan.schema.json",
+  "title": "Localize Anything Workflow Recovery Plan",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "recovery_id", "detected_issue", "recommended_recovery_action", "readiness_impact"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-recovery-plan-v1" },
+    "artifact": { "const": "workflow-recovery-plan.json" },
+    "recovery_id": { "type": "string" },
+    "detected_issue": { "enum": ["stale_lock", "abandoned_workflow", "partial_transaction", "missing_checkpoint", "failed_stage", "duplicate_request", "artifact_hash_mismatch", "stale_artifact_state", "unknown"] },
+    "partial_transactions": { "type": "array", "items": { "type": "object" } },
+    "artifacts_requiring_recompute": { "type": "array", "items": { "type": "string" } },
+    "artifacts_requiring_manual_inspection": { "type": "array", "items": { "type": "string" } },
+    "readiness_impact": { "type": "string" },
+    "recommended_recovery_action": { "enum": ["resume_from_checkpoint", "rerun_deterministic_stage", "recompute_stale_artifacts", "release_stale_lock", "manual_inspection_required", "block_until_human_action", "block_until_provider_action", "discard_partial_outputs", "not_recoverable"] }
+  },
+  "additionalProperties": true
+}

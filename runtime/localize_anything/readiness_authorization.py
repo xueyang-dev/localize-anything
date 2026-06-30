@@ -80,6 +80,7 @@ def build_readiness_authorization_matrix(
     provider_status = _provider_status(artifacts)
     coverage_status = _coverage_status(scorecard)
     qa_status = _qa_status(artifacts)
+    workflow_status = _workflow_hardening_status(artifacts)
 
     _collect_blockers_and_warnings(
         blockers,
@@ -95,9 +96,10 @@ def build_readiness_authorization_matrix(
         provider_status,
         coverage_status,
         qa_status,
+        workflow_status,
         artifacts,
     )
-    forbidden.update(_forbidden_from_statuses(evidence_freshness, handoff_status, repair_status, document_status, knowledge_status, provider_status, coverage_status, qa_status))
+    forbidden.update(_forbidden_from_statuses(evidence_freshness, handoff_status, repair_status, document_status, knowledge_status, provider_status, coverage_status, qa_status, workflow_status))
 
     delivery_status = _delivery_matrix_status(blockers, warnings, scorecard, signoff_status, claim_status, forbidden)
     apply_status = _apply_matrix_status(blockers, warnings, scorecard, signoff_status, delivery_status, forbidden)
@@ -122,6 +124,7 @@ def build_readiness_authorization_matrix(
         "provider_policy_status": provider_status,
         "coverage_status": coverage_status,
         "qa_status": qa_status,
+        "workflow_hardening_status": workflow_status,
         "authorization_requirements": _authorization_requirements(delivery_status, apply_status, signoff_status, claim_status),
         "blockers": blockers,
         "warnings": warnings,
@@ -164,6 +167,7 @@ def build_manual_followup_gap_report(
     _add_document_gaps(gaps, artifacts)
     _add_knowledge_gaps(gaps, artifacts)
     _add_repair_closure_gaps(gaps, artifacts)
+    _add_workflow_hardening_gaps(gaps, artifacts)
     _add_artifact_refresh_gaps(gaps, artifacts)
     _add_provider_and_coverage_gaps(gaps, matrix)
     _add_forbidden_claim_gaps(gaps, matrix)
@@ -326,6 +330,11 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "knowledge_readiness_impact_report": _read_optional_json(_first_existing(state_dir, delivery_dir, "knowledge-readiness-impact-report.json")),
         "repair_result": _read_optional_json(_first_existing(state_dir, delivery_dir, "repair-result.json")),
         "repair_history": _read_optional_jsonl(_first_existing(state_dir, delivery_dir, "repair-history.jsonl")),
+        "workflow_lock_state": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-lock-state.json")),
+        "workflow_transaction_manifest": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-transaction-manifest.json")),
+        "workflow_recovery_plan": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-recovery-plan.json")),
+        "workflow_recovery_result": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-recovery-result.json")),
+        "workflow_idempotency_report": _read_optional_json(_first_existing(state_dir, delivery_dir, "workflow-idempotency-report.json")),
     }
 
 
@@ -343,6 +352,7 @@ def _collect_blockers_and_warnings(
     provider_status: dict[str, Any],
     coverage_status: dict[str, Any],
     qa_status: dict[str, Any],
+    workflow_status: dict[str, Any],
     artifacts: dict[str, Any],
 ) -> None:
     if not scorecard:
@@ -359,6 +369,7 @@ def _collect_blockers_and_warnings(
         ("provider_policy_blocked", provider_status, "delivery-manifest.json"),
         ("coverage_blocked", coverage_status, "evaluation-scorecard.json"),
         ("qa_blocked", qa_status, "delivery-manifest.json"),
+        ("workflow_hardening_blocked", workflow_status, "workflow-lock-state.json"),
     ):
         if status["status"] in {BLOCKED, STALE}:
             blockers.append(_issue(status_name, status.get("domain", "evidence"), status.get("summary", status["status"]), artifact))
@@ -517,6 +528,24 @@ def _qa_status(artifacts: dict[str, Any]) -> dict[str, Any]:
     return {"status": UNKNOWN, "domain": "qa", "summary": "deterministic QA status is missing or unknown"}
 
 
+def _workflow_hardening_status(artifacts: dict[str, Any]) -> dict[str, Any]:
+    lock = artifacts["workflow_lock_state"]
+    manifest = artifacts["workflow_transaction_manifest"]
+    recovery_plan = artifacts["workflow_recovery_plan"]
+    recovery_result = artifacts["workflow_recovery_result"]
+    lock_status = str(lock.get("lock_status") or "unlocked")
+    transaction_status = str(manifest.get("status") or "not_recorded")
+    recovery_action = str(recovery_plan.get("recommended_recovery_action") or "")
+    recovery_status = str(recovery_result.get("result_status") or "")
+    if lock_status in {"locked", "stale", "abandoned", "unknown"}:
+        return {"status": BLOCKED if lock_status != "stale" else STALE, "domain": "workflow", "summary": f"workflow lock is {lock_status}"}
+    if transaction_status in {"partially_committed", "failed", "abandoned", "unknown"}:
+        return {"status": BLOCKED, "domain": "workflow", "summary": f"workflow transaction status is {transaction_status}"}
+    if recovery_action and recovery_action not in {"not_recoverable"} and recovery_status not in {"recovered", "not_applicable"}:
+        return {"status": STALE, "domain": "workflow", "summary": "workflow recovery is required or incomplete"}
+    return {"status": READY, "domain": "workflow", "summary": "workflow hardening evidence has no active blockers"}
+
+
 def _delivery_matrix_status(
     blockers: list[dict[str, Any]],
     warnings: list[dict[str, Any]],
@@ -620,6 +649,20 @@ def _add_repair_closure_gaps(gaps: list[dict[str, Any]], artifacts: dict[str, An
     closure = artifacts["knowledge_repair_closure_decision"]
     if closure and str(closure.get("status") or "") not in {"closed", "closed_with_warnings", "not_applicable"}:
         gaps.append(_gap("repair_closure_recompute_required", "blocking", "runtime_operator", "Knowledge repair closure requires recompute, review, or remains blocked.", "knowledge-repair-closure-decision.json"))
+
+
+def _add_workflow_hardening_gaps(gaps: list[dict[str, Any]], artifacts: dict[str, Any]) -> None:
+    status = _workflow_hardening_status(artifacts)
+    if status["status"] in {BLOCKED, STALE}:
+        gaps.append(
+            _gap(
+                "artifact_refresh_required",
+                "blocking",
+                "runtime_operator",
+                f"Workflow checkpoint, lock, transaction, or recovery evidence requires attention: {status['summary']}",
+                "workflow-recovery-plan.json",
+            )
+        )
 
 
 def _add_artifact_refresh_gaps(gaps: list[dict[str, Any]], artifacts: dict[str, Any]) -> None:

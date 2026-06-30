@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-idempotency-report.schema.json",
+  "title": "Localize Anything Workflow Idempotency Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "idempotency_key", "request_fingerprint", "duplicate_status", "replay_policy", "safety_decision"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-idempotency-report-v1" },
+    "artifact": { "const": "workflow-idempotency-report.json" },
+    "idempotency_key": { "type": "string" },
+    "request_fingerprint": { "type": "string" },
+    "workflow_mode": { "type": "string" },
+    "command_or_endpoint": { "type": "string" },
+    "duplicate_status": { "enum": ["new_request", "duplicate_completed", "duplicate_in_progress", "duplicate_failed", "duplicate_conflicting_payload", "replay_safe", "replay_blocked", "unknown"] },
+    "replay_policy": { "type": "string" },
+    "result_reuse_status": { "type": "string" },
+    "affected_artifacts": { "type": "object" },
+    "safety_decision": { "type": "string" },
+    "recommended_next_action": { "type": "string" }
+  },
+  "additionalProperties": true
+}

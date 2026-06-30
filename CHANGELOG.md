@@ -4,6 +4,15 @@
 
 ### Added
 
+- Add Workflow Checkpoint / Concurrency / Idempotency Hardening artifacts:
+  `workflow-lock-state.json`, `workflow-checkpoint-log.jsonl`,
+  `workflow-transaction-manifest.json`, `workflow-idempotency-report.json`,
+  `workflow-recovery-plan.json`, and `workflow-recovery-result.json`; include
+  local lock evidence, checkpoint logging, transaction manifests,
+  idempotency/replay reporting, deterministic recovery, artifact-state and
+  readiness integration, protocol schemas, CLI/API access, and delivery/run
+  summary references without provider calls, repair application, semantic
+  rewrite, or target-file mutation.
 - Add deterministic Incremental Workflow Resume / Selective Recompute artifacts:
   `workflow-resume-plan.json`, `artifact-invalidation-report.json`,
   `selective-recompute-plan.json`, `selective-recompute-result.json`, and

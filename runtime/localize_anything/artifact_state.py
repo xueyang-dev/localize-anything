@@ -91,6 +91,14 @@ from .workflow_incremental import (
     SELECTIVE_RECOMPUTE_RESULT_JSON,
     WORKFLOW_RESUME_PLAN_JSON,
 )
+from .workflow_hardening import (
+    WORKFLOW_CHECKPOINT_LOG_JSONL,
+    WORKFLOW_IDEMPOTENCY_REPORT_JSON,
+    WORKFLOW_LOCK_STATE_JSON,
+    WORKFLOW_RECOVERY_PLAN_JSON,
+    WORKFLOW_RECOVERY_RESULT_JSON,
+    WORKFLOW_TRANSACTION_MANIFEST_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -913,6 +921,53 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         ),
     ),
     ArtifactSpec(
+        "workflow_lock_state",
+        "workflow_lock_state",
+        WORKFLOW_LOCK_STATE_JSON,
+        "workflow_hardening",
+        ("workflow_run_plan", "workflow_execution_result"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workflow_checkpoint_log",
+        "workflow_checkpoint_log",
+        WORKFLOW_CHECKPOINT_LOG_JSONL,
+        "workflow_hardening",
+        ("workflow_run_plan", "workflow_execution_result", "workflow_lock_state"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workflow_transaction_manifest",
+        "workflow_transaction_manifest",
+        WORKFLOW_TRANSACTION_MANIFEST_JSON,
+        "workflow_hardening",
+        ("workflow_run_plan", "workflow_checkpoint_log", "workflow_execution_result"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workflow_idempotency_report",
+        "workflow_idempotency_report",
+        WORKFLOW_IDEMPOTENCY_REPORT_JSON,
+        "workflow_hardening",
+        ("workflow_run_plan", "workflow_execution_result", "selective_recompute_result"),
+    ),
+    ArtifactSpec(
+        "workflow_recovery_plan",
+        "workflow_recovery_plan",
+        WORKFLOW_RECOVERY_PLAN_JSON,
+        "workflow_hardening",
+        ("workflow_lock_state", "workflow_checkpoint_log", "workflow_transaction_manifest", "artifact_state"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "workflow_recovery_result",
+        "workflow_recovery_result",
+        WORKFLOW_RECOVERY_RESULT_JSON,
+        "workflow_hardening",
+        ("workflow_recovery_plan", "workflow_transaction_manifest", "readiness_authorization_matrix"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
         "state_delivery_manifest",
         "delivery_manifest",
         "delivery-manifest.json",
@@ -1312,6 +1367,18 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
             return
         status = str(content.get("status") or content.get("delivery_status") or "")
         readiness = str(content.get("generation_readiness") or "")
+        if name == WORKFLOW_LOCK_STATE_JSON and str(content.get("lock_status") or "") in {"locked", "stale", "abandoned", "unknown"}:
+            entry["status"] = "stale" if content.get("lock_status") == "stale" else "blocked"
+            entry["blocking_reason"] = "workflow_lock_not_released"
+        if name == WORKFLOW_TRANSACTION_MANIFEST_JSON and str(content.get("status") or "") in {"partially_committed", "failed", "abandoned", "unknown"}:
+            entry["status"] = "blocked"
+            entry["blocking_reason"] = "workflow_transaction_not_committed"
+        if name == WORKFLOW_RECOVERY_PLAN_JSON and str(content.get("recommended_recovery_action") or "") not in {"", "not_recoverable"}:
+            entry["status"] = "stale"
+            entry["blocking_reason"] = "workflow_recovery_required"
+        if name == WORKFLOW_RECOVERY_RESULT_JSON and str(content.get("result_status") or "") not in {"recovered", "not_applicable"}:
+            entry["status"] = "blocked"
+            entry["blocking_reason"] = "workflow_recovery_incomplete"
         if status in STATUS_VALUES and status not in {"current", ""}:
             entry["status"] = "requires_human_review" if status in {"review_required", "owner_review_required"} else status
         if status == "draft_package":
@@ -1388,6 +1455,14 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "apply_readiness_report",
         "delivery_readiness_report",
     }
+    workflow_dependency_ids = {
+        "workflow_lock_state",
+        "workflow_checkpoint_log",
+        "workflow_transaction_manifest",
+        "workflow_idempotency_report",
+        "workflow_recovery_plan",
+        "workflow_recovery_result",
+    }
     knowledge_dependency_ids = {
         "knowledge_pack_selection",
         "knowledge_eligibility_report",
@@ -1434,7 +1509,9 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & knowledge_dependency_ids))
     if spec.artifact_id in readiness_dependency_ids:
         relevant_dependencies = sorted(set(relevant_dependencies) | set(stale_dependencies))
-    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids or not relevant_dependencies:
+    if spec.artifact_id in workflow_dependency_ids | readiness_dependency_ids:
+        relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & workflow_dependency_ids))
+    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids or not relevant_dependencies:
         return
     entry["status"] = "stale"
     entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"

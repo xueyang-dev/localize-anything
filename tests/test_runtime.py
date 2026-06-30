@@ -241,6 +241,21 @@ from runtime.localize_anything.workflow_incremental import (
     resume_workflow,
     run_selective_recompute,
 )
+from runtime.localize_anything.workflow_hardening import (
+    WORKFLOW_CHECKPOINT_LOG_JSONL,
+    WORKFLOW_IDEMPOTENCY_REPORT_JSON,
+    WORKFLOW_LOCK_STATE_JSON,
+    WORKFLOW_RECOVERY_PLAN_JSON,
+    WORKFLOW_RECOVERY_RESULT_JSON,
+    WORKFLOW_TRANSACTION_MANIFEST_JSON,
+    acquire_workflow_lock,
+    append_workflow_checkpoint,
+    build_workflow_recovery_plan,
+    read_workflow_checkpoint_log,
+    read_workflow_transaction_manifest,
+    record_workflow_transaction,
+    run_workflow_recovery,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -11532,7 +11547,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 98)
+        self.assertEqual(result["schemas_checked"], 104)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12389,6 +12404,169 @@ class IncrementalWorkflowTests(unittest.TestCase):
                 self.assertIn(key, packaged["manifest"]["assets"])
                 self.assertIn(key, summary["artifacts"])
             self.assertIn("selective_recompute_status", summary["summary"])
+
+
+class WorkflowHardeningTests(unittest.TestCase):
+    def test_workflow_run_creates_lock_checkpoints_transaction_and_releases(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            result = run_workflow(state, workflow_mode="diagnose_only", idempotency_key="hardening-001")
+            lock = read_json(state / WORKFLOW_LOCK_STATE_JSON)
+            manifest = read_workflow_transaction_manifest(state)
+            checkpoints = read_workflow_checkpoint_log(state)
+
+            self.assertIn(result["status"], {"completed", "partial"})
+            self.assertEqual(lock["lock_status"], "released")
+            self.assertTrue(checkpoints)
+            self.assertTrue(any(item["checkpoint_type"] == "workflow_started" for item in checkpoints))
+            self.assertTrue(any(item.get("transaction_status") == "committed" for item in manifest["transactions"]))
+            self.assertTrue((state / WORKFLOW_IDEMPOTENCY_REPORT_JSON).is_file())
+
+    def test_active_lock_blocks_concurrent_workflow_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            acquired_state, acquired = acquire_workflow_lock(
+                state,
+                workflow_id="workflow-active",
+                run_id="run-active",
+                workflow_mode="diagnose_only",
+                locked_stages=["workflow-stage-artifact_state"],
+                source_command="test",
+            )
+            self.assertTrue(acquired)
+            result = run_workflow(state, workflow_mode="diagnose_only")
+
+            self.assertEqual(acquired_state["lock_status"], "locked")
+            self.assertEqual(result["status"], "blocked")
+            self.assertTrue((state / WORKFLOW_LOCK_STATE_JSON).is_file())
+            self.assertIn("workflow_lock_blocked", json.dumps(result["remaining_blockers"]))
+
+    def test_stale_lock_requires_explicit_recovery_or_release(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            lock_state, acquired = acquire_workflow_lock(
+                state,
+                workflow_id="workflow-stale",
+                run_id=None,
+                workflow_mode="diagnose_only",
+                locked_stages=[],
+                source_command="test",
+            )
+            self.assertTrue(acquired)
+            lock_state["heartbeat_at"] = "2000-01-01T00:00:00+00:00"
+            write_json(state / WORKFLOW_LOCK_STATE_JSON, lock_state)
+
+            blocked = run_workflow(state, workflow_mode="diagnose_only")
+            recovered = run_workflow(state, workflow_mode="diagnose_only", force_release_stale_lock=True)
+
+            self.assertEqual(blocked["status"], "blocked")
+            self.assertIn(recovered["status"], {"completed", "partial"})
+
+    def test_partial_transaction_drives_recovery_plan_and_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            write_json(state / "artifact-state.json", {"protocol_version": "0.1", "schema": "x", "status": "current", "artifacts": [], "stale_artifacts": []})
+            record_workflow_transaction(
+                state,
+                workflow_id="workflow-partial",
+                run_id=None,
+                stage_id="workflow-stage-artifact_state",
+                artifact_paths=["artifact-state.json"],
+                transaction_status="partially_committed",
+            )
+
+            plan = build_workflow_recovery_plan(state)
+            result = run_workflow_recovery(state, recovery_action="discard_partial_outputs")
+
+            self.assertEqual(plan["detected_issue"], "partial_transaction")
+            self.assertIn("artifact-state.json", plan["suspect_artifacts"])
+            self.assertIn(result["result_status"], {"requires_manual_inspection", "partially_recovered", "recovered"})
+            self.assertTrue((state / WORKFLOW_RECOVERY_RESULT_JSON).is_file())
+
+    def test_idempotency_detects_duplicate_completed_and_conflicting_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            first = run_workflow(state, workflow_mode="diagnose_only", idempotency_key="same-key")
+            second = run_workflow(state, workflow_mode="diagnose_only", idempotency_key="same-key")
+            conflicting = run_workflow(state, workflow_mode="custom", selected_stages=["artifact_state"], idempotency_key="same-key")
+            report = read_json(state / WORKFLOW_IDEMPOTENCY_REPORT_JSON)
+
+            self.assertEqual(second["workflow_id"], first["workflow_id"])
+            self.assertEqual(conflicting["status"], "blocked")
+            self.assertEqual(report["duplicate_status"], "duplicate_conflicting_payload")
+
+    def test_selective_recompute_records_hardening_and_is_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                result = run_selective_recompute(state, recompute_strategy="readiness_only", target_workflow_mode="diagnose_only", idempotency_key="selective-key")
+
+            self.assertFalse(provider.called)
+            self.assertFalse(result["provider_or_model_called"])
+            self.assertTrue((state / WORKFLOW_LOCK_STATE_JSON).is_file())
+            self.assertTrue((state / WORKFLOW_CHECKPOINT_LOG_JSONL).is_file())
+            self.assertTrue((state / WORKFLOW_TRANSACTION_MANIFEST_JSON).is_file())
+
+    def test_readiness_matrix_surfaces_partial_transaction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=[])
+            record_workflow_transaction(
+                state,
+                workflow_id="workflow-partial",
+                run_id=None,
+                stage_id="workflow-stage-artifact_state",
+                artifact_paths=["artifact-state.json"],
+                transaction_status="partially_committed",
+            )
+            build_artifact_state(state)
+            reports = build_readiness_reports(state)
+
+            self.assertEqual(reports["readiness_authorization_matrix"]["workflow_hardening_status"]["status"], "blocked")
+            self.assertTrue(any(gap["gap_type"] == "artifact_refresh_required" for gap in reports["manual_followup_gap_report"]["gaps"]))
+
+    def test_cli_and_api_expose_workflow_hardening_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            out = Path(directory) / "lock.json"
+            self.assertEqual(cli_main(["workflow-lock-state", state.as_posix(), "--output", out.as_posix()]), 0)
+            self.assertEqual(cli_main(["workflow-recovery-plan", state.as_posix(), "--output", (Path(directory) / "recovery-plan.json").as_posix()]), 0)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                lock_status, lock_body = _http_get(host, port, f"/api/workflow-lock-state?state_dir={state.as_posix()}")
+                recover_status, recover_body = _http_post_json(host, port, "/api/workflow-recover", {"state_dir": state.as_posix(), "recovery_action": "recompute_stale_artifacts"})
+                self.assertEqual((lock_status, recover_status), (200, 200))
+                self.assertEqual(json.loads(lock_body)["workflow_lock_state"]["schema"], "localize-anything-workflow-lock-state-v1")
+                self.assertFalse(recover_body["workflow_recovery_result"]["provider_or_model_called"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_delivery_package_and_run_summary_reference_hardening_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            run_workflow(state, workflow_mode="diagnose_only")
+            build_workflow_recovery_plan(state)
+            run_workflow_recovery(state)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start":"开始"}\n', encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "workflow-hardening-delivery-001")
+            summary = run_localize(project, "en-US", ["zh-CN"], ["locales/en-US.json"], root / "runs", "workflow-hardening-run-001", handoff_only=True)
+
+            for key in ("workflow_lock_state", "workflow_checkpoint_log", "workflow_transaction_manifest", "workflow_idempotency_report", "workflow_recovery_plan", "workflow_recovery_result"):
+                self.assertIn(key, packaged["manifest"]["assets"])
+                self.assertIn(key, summary["artifacts"])
+            self.assertIn("workflow_lock_status", summary["summary"])
 
 
 class WorkflowOrchestrationTests(unittest.TestCase):

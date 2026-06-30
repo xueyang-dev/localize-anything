@@ -132,6 +132,14 @@ from .workflow_incremental import (
     SELECTIVE_RECOMPUTE_RESULT_JSON,
     WORKFLOW_RESUME_PLAN_JSON,
 )
+from .workflow_hardening import (
+    WORKFLOW_CHECKPOINT_LOG_JSONL,
+    WORKFLOW_IDEMPOTENCY_REPORT_JSON,
+    WORKFLOW_LOCK_STATE_JSON,
+    WORKFLOW_RECOVERY_PLAN_JSON,
+    WORKFLOW_RECOVERY_RESULT_JSON,
+    WORKFLOW_TRANSACTION_MANIFEST_JSON,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1150,6 +1158,12 @@ def _summary(
         ("selective_recompute_plan", SELECTIVE_RECOMPUTE_PLAN_JSON),
         ("selective_recompute_result", SELECTIVE_RECOMPUTE_RESULT_JSON),
         ("incremental_workflow_summary", INCREMENTAL_WORKFLOW_SUMMARY_JSON),
+        ("workflow_lock_state", WORKFLOW_LOCK_STATE_JSON),
+        ("workflow_checkpoint_log", WORKFLOW_CHECKPOINT_LOG_JSONL),
+        ("workflow_transaction_manifest", WORKFLOW_TRANSACTION_MANIFEST_JSON),
+        ("workflow_idempotency_report", WORKFLOW_IDEMPOTENCY_REPORT_JSON),
+        ("workflow_recovery_plan", WORKFLOW_RECOVERY_PLAN_JSON),
+        ("workflow_recovery_result", WORKFLOW_RECOVERY_RESULT_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1366,6 +1380,21 @@ def _summary(
             "selective_recompute_status": (
                 read_json(state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON).get("status", "not_checked")
                 if (state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON).is_file()
+                else "not_checked"
+            ),
+            "workflow_lock_status": (
+                read_json(state_dir / WORKFLOW_LOCK_STATE_JSON).get("lock_status", "not_checked")
+                if (state_dir / WORKFLOW_LOCK_STATE_JSON).is_file()
+                else "not_checked"
+            ),
+            "workflow_transaction_status": (
+                read_json(state_dir / WORKFLOW_TRANSACTION_MANIFEST_JSON).get("status", "not_checked")
+                if (state_dir / WORKFLOW_TRANSACTION_MANIFEST_JSON).is_file()
+                else "not_checked"
+            ),
+            "workflow_recovery_status": (
+                read_json(state_dir / WORKFLOW_RECOVERY_RESULT_JSON).get("result_status", "not_checked")
+                if (state_dir / WORKFLOW_RECOVERY_RESULT_JSON).is_file()
                 else "not_checked"
             ),
             "incremental_remaining_blocker_count": (

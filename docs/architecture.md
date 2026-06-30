@@ -1302,3 +1302,46 @@ when available. Resume or recompute completion cannot authorize delivery or
 apply, cannot remove forbidden claims, and cannot infer success from a clean
 process exit. Current readiness reports remain authoritative, and stale or
 missing readiness evidence stays visible in delivery and run summaries.
+
+## Workflow Checkpoint / Concurrency / Idempotency Hardening
+
+Workflow hardening wraps the deterministic workflow and incremental
+recompute layers with local safety evidence. It answers whether a workflow is
+currently locked, whether a prior run stopped mid-stage, which artifact writes
+were committed, whether a request is a duplicate replay, and what recovery is
+required before readiness evidence can be trusted.
+
+The seed emits:
+
+- `workflow-lock-state.json`: local lock status, owner reference, TTL/stale
+  detection, locked stages, and recovery recommendation;
+- `workflow-checkpoint-log.jsonl`: append-style stage/workflow checkpoints
+  for started, completed, skipped, blocked, failed, and recovered states;
+- `workflow-transaction-manifest.json`: staged/committed/failed artifact
+  writes, hashes before/after, and rollback/recovery status;
+- `workflow-idempotency-report.json`: request fingerprint, duplicate status,
+  replay policy, result reuse decision, and safety decision;
+- `workflow-recovery-plan.json`: stale lock, abandoned workflow, partial
+  transaction, failed stage, or stale artifact analysis;
+- `workflow-recovery-result.json`: deterministic recovery attempts, artifacts
+  recomputed or marked for inspection, and readiness impact.
+
+The lock is local filesystem scope only. A second workflow against the same
+state directory receives blocked/in-progress evidence instead of silently
+proceeding. Stale lock release requires an explicit option or recovery action.
+Transactions are evidence, not database commits; rollback is marked
+`not_supported` in this seed, and partial writes require recompute or manual
+inspection.
+
+Recovery is deterministic and provider-free. It may release stale locks, mark
+partial transactions abandoned, refresh Artifact State, and rebuild readiness
+reports. It must not call providers, apply repairs, perform semantic rewrite,
+or mutate target files. Provider and human stages remain pending unless their
+owning evidence artifacts exist.
+
+Artifact State and the Readiness Authorization Matrix consume hardening
+evidence. Active/stale locks, partial transactions, and incomplete recovery
+block or stale delivery/apply readiness and appear in manual follow-up gaps.
+Workflow recovery does not imply success; readiness improves only when current
+scorecard, artifact-state, signoff, claim, QA, delivery/apply, and other
+pipeline evidence independently support it.

@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-checkpoint-log-record-v1",
+  "checkpoint_id": "checkpoint-example",
+  "workflow_id": "workflow-example",
+  "run_id": "run-example",
+  "stage_id": "workflow-stage-artifact_state",
+  "stage_type": "artifact_state",
+  "checkpoint_type": "stage_completed",
+  "status": "completed",
+  "input_artifact_hashes": {},
+  "output_artifact_paths": ["artifact-state.json"],
+  "output_artifact_hashes": { "artifact-state.json": "sha256-example" },
+  "transaction_id": "workflow-transaction-example",
+  "started_at": "",
+  "finished_at": "2026-06-30T00:00:01+00:00",
+  "source_command_or_api_request": "workflow-run",
+  "error_summary": "",
+  "recovery_hint": "",
+  "source_artifact_references": ["workflow-run-plan.json"]
+}

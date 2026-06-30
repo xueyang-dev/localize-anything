@@ -7,6 +7,13 @@ from typing import Any, Callable
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, sha256_file, write_json
+from .workflow_hardening import (
+    append_workflow_checkpoint,
+    acquire_workflow_lock,
+    build_workflow_idempotency_report,
+    record_workflow_transaction,
+    release_workflow_lock,
+)
 
 
 WORKFLOW_RUN_PLAN_JSON = "workflow-run-plan.json"
@@ -260,6 +267,10 @@ def run_workflow(
     target_locale: str | None = None,
     target_delivery_mode: str | None = None,
     run_id: str | None = None,
+    idempotency_key: str | None = None,
+    force_release_stale_lock: bool = False,
+    source_command: str = "workflow-run",
+    use_hardening: bool = True,
 ) -> dict[str, Any]:
     state_dir = state_dir.resolve()
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -274,6 +285,68 @@ def run_workflow(
         target_delivery_mode=target_delivery_mode,
         run_id=run_id,
     )
+    request = {
+        "workflow_mode": workflow_mode,
+        "selected_stages": selected_stages or [],
+        "scenario": scenario,
+        "source_locale": source_locale,
+        "target_locale": target_locale,
+        "target_delivery_mode": target_delivery_mode,
+        "run_id": run_id,
+    }
+    idempotency = build_workflow_idempotency_report(
+        state_dir,
+        workflow_mode=workflow_mode,
+        command=source_command,
+        request=request,
+        idempotency_key=idempotency_key,
+    )
+    if idempotency.get("duplicate_status") == "duplicate_completed" and (state_dir / WORKFLOW_EXECUTION_RESULT_JSON).is_file():
+        return read_workflow_execution_result(state_dir)
+    if idempotency.get("safety_decision") == "blocked" and not (force_release_stale_lock and idempotency.get("duplicate_status") != "duplicate_conflicting_payload"):
+        result = _blocked_workflow_result(plan, workflow_mode, "idempotency_blocked", idempotency)
+        write_json(state_dir / WORKFLOW_EXECUTION_RESULT_JSON, result)
+        build_workflow_readiness_summary(state_dir, workflow_id=plan["workflow_id"])
+        return result
+    acquired = True
+    lock_state: dict[str, Any] = {}
+    if use_hardening:
+        lock_state, acquired = acquire_workflow_lock(
+            state_dir,
+            workflow_id=plan["workflow_id"],
+            run_id=run_id,
+            workflow_mode=workflow_mode,
+            locked_stages=[item["stage_id"] for item in plan["selected_stages"]],
+            source_command=source_command,
+            force_release_stale_lock=force_release_stale_lock,
+        )
+    if not acquired:
+        append_workflow_checkpoint(
+            state_dir,
+            workflow_id=plan["workflow_id"],
+            run_id=run_id,
+            stage_id="workflow-lock",
+            stage_type="workflow_lock",
+            checkpoint_type="stage_blocked",
+            status="blocked",
+            error_summary="workflow lock is active or stale",
+            recovery_hint=str(lock_state.get("recovery_recommendation") or "inspect workflow-lock-state.json"),
+            source_command=source_command,
+        )
+        result = _blocked_workflow_result(plan, workflow_mode, "workflow_lock_blocked", lock_state)
+        write_json(state_dir / WORKFLOW_EXECUTION_RESULT_JSON, result)
+        build_workflow_readiness_summary(state_dir, workflow_id=plan["workflow_id"])
+        return result
+    append_workflow_checkpoint(
+        state_dir,
+        workflow_id=plan["workflow_id"],
+        run_id=run_id,
+        stage_id="workflow",
+        stage_type="workflow",
+        checkpoint_type="workflow_started",
+        status="started",
+        source_command=source_command,
+    )
     build_workflow_dependency_graph(state_dir)
     selected = {item["stage_type"] for item in plan["selected_stages"]}
     before_hashes = dict(initial_hashes)
@@ -285,28 +358,81 @@ def run_workflow(
     blocked: list[dict[str, Any]] = []
     failed: list[dict[str, str]] = []
     called: list[str] = []
-    for stage in STAGES:
-        if stage["stage_type"] not in selected:
-            continue
-        item = next(value for value in plan["selected_stages"] if value["stage_type"] == stage["stage_type"])
-        if item["status"] in {"current", "completed"}:
-            skipped.append({"stage_id": stage["stage_id"], "reason": "outputs are current"})
-            continue
-        if item["status"] in {"requires_human_action", "requires_provider_action", "blocked"}:
-            blocked.append({"stage_id": stage["stage_id"], "status": item["status"], "blockers": item["blocking_conditions"]})
-            continue
-        builder_name = stage.get("builder")
-        builder = builders.get(str(builder_name)) if builder_name else None
-        if builder is None:
-            skipped.append({"stage_id": stage["stage_id"], "reason": "no safe state-only deterministic builder is registered"})
-            continue
-        attempted.append(stage["stage_id"])
-        try:
-            builder()
-            completed.append(stage["stage_id"])
-            called.append(str(builder_name))
-        except Exception as exc:  # deterministic builder failures are lifecycle evidence
-            failed.append({"stage_id": stage["stage_id"], "reason": str(exc)})
+    try:
+        for stage in STAGES:
+            if stage["stage_type"] not in selected:
+                continue
+            item = next(value for value in plan["selected_stages"] if value["stage_type"] == stage["stage_type"])
+            append_workflow_checkpoint(
+                state_dir,
+                workflow_id=plan["workflow_id"],
+                run_id=run_id,
+                stage_id=stage["stage_id"],
+                stage_type=stage["stage_type"],
+                checkpoint_type="stage_planned",
+                status=item["status"],
+                output_artifact_paths=stage["output_artifacts"],
+                source_command=source_command,
+            )
+            if item["status"] in {"current", "completed"}:
+                skipped.append({"stage_id": stage["stage_id"], "reason": "outputs are current"})
+                append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="stage_skipped", status="skipped", output_artifact_paths=stage["output_artifacts"], source_command=source_command)
+                continue
+            if item["status"] in {"requires_human_action", "requires_provider_action", "blocked"}:
+                blocked.append({"stage_id": stage["stage_id"], "status": item["status"], "blockers": item["blocking_conditions"]})
+                append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="stage_blocked", status=item["status"], output_artifact_paths=stage["output_artifacts"], recovery_hint=item.get("next_action", ""), source_command=source_command)
+                continue
+            builder_name = stage.get("builder")
+            builder = builders.get(str(builder_name)) if builder_name else None
+            if builder is None:
+                skipped.append({"stage_id": stage["stage_id"], "reason": "no safe state-only deterministic builder is registered"})
+                append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="stage_skipped", status="skipped", output_artifact_paths=stage["output_artifacts"], recovery_hint="no deterministic builder registered", source_command=source_command)
+                continue
+            attempted.append(stage["stage_id"])
+            previous_output_hashes = _artifact_hashes(state_dir, stage["output_artifacts"])
+            transaction = record_workflow_transaction(
+                state_dir,
+                workflow_id=plan["workflow_id"],
+                run_id=run_id,
+                stage_id=stage["stage_id"],
+                artifact_paths=stage["output_artifacts"],
+                transaction_status="staged",
+                previous_hashes=previous_output_hashes,
+            )
+            append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="stage_started", status="started", output_artifact_paths=stage["output_artifacts"], transaction_id=transaction["transaction_id"], source_command=source_command)
+            try:
+                builder()
+                completed.append(stage["stage_id"])
+                called.append(str(builder_name))
+                record_workflow_transaction(
+                    state_dir,
+                    workflow_id=plan["workflow_id"],
+                    run_id=run_id,
+                    stage_id=stage["stage_id"],
+                    artifact_paths=stage["output_artifacts"],
+                    transaction_status="committed",
+                    transaction_id=transaction["transaction_id"],
+                    previous_hashes=previous_output_hashes,
+                )
+                append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="artifact_write_committed", status="committed", output_artifact_paths=stage["output_artifacts"], transaction_id=transaction["transaction_id"], source_command=source_command)
+                append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="stage_completed", status="completed", output_artifact_paths=stage["output_artifacts"], transaction_id=transaction["transaction_id"], source_command=source_command)
+            except Exception as exc:  # deterministic builder failures are lifecycle evidence
+                failed.append({"stage_id": stage["stage_id"], "reason": str(exc)})
+                record_workflow_transaction(
+                    state_dir,
+                    workflow_id=plan["workflow_id"],
+                    run_id=run_id,
+                    stage_id=stage["stage_id"],
+                    artifact_paths=stage["output_artifacts"],
+                    transaction_status="failed",
+                    transaction_id=transaction["transaction_id"],
+                    previous_hashes=previous_output_hashes,
+                    recovery_status="requires_recompute",
+                )
+                append_workflow_checkpoint(state_dir, workflow_id=plan["workflow_id"], run_id=run_id, stage_id=stage["stage_id"], stage_type=stage["stage_type"], checkpoint_type="stage_failed", status="failed", output_artifact_paths=stage["output_artifacts"], transaction_id=transaction["transaction_id"], error_summary=str(exc), recovery_hint="inspect deterministic builder failure and rerun recovery", source_command=source_command)
+    finally:
+        if use_hardening:
+            release_workflow_lock(state_dir, status="released" if not failed else "abandoned")
     _builders(state_dir, run_id)["artifact_state"]()
     after_hashes = _state_hashes(state_dir)
     artifacts_created = sorted(path for path, digest in after_hashes.items() if digest and not before_hashes.get(path))
@@ -382,6 +508,17 @@ def run_workflow(
         "safety_policy": _safety_policy(),
     }
     write_json(state_dir / WORKFLOW_EXECUTION_RESULT_JSON, result)
+    append_workflow_checkpoint(
+        state_dir,
+        workflow_id=plan["workflow_id"],
+        run_id=run_id,
+        stage_id="workflow",
+        stage_type="workflow",
+        checkpoint_type="workflow_failed" if failed else "workflow_completed",
+        status=result["status"],
+        output_artifact_paths=[WORKFLOW_EXECUTION_RESULT_JSON, WORKFLOW_READINESS_SUMMARY_JSON],
+        source_command=source_command,
+    )
     build_workflow_readiness_summary(state_dir, workflow_id=plan["workflow_id"])
     return result
 
@@ -673,6 +810,44 @@ def _stage_collection_status(items: list[dict[str, Any]]) -> str:
 
 def _state_hashes(state_dir: Path) -> dict[str, str]:
     return {path.name: sha256_file(path) for path in sorted(state_dir.iterdir()) if path.is_file()}
+
+
+def _artifact_hashes(state_dir: Path, artifacts: list[str]) -> dict[str, str]:
+    return {artifact: sha256_file(state_dir / artifact) for artifact in artifacts if (state_dir / artifact).is_file()}
+
+
+def _blocked_workflow_result(plan: dict[str, Any], workflow_mode: str, blocker_type: str, evidence: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-workflow-execution-result-v1",
+        "artifact": WORKFLOW_EXECUTION_RESULT_JSON,
+        "workflow_id": plan["workflow_id"],
+        "workflow_mode": workflow_mode,
+        "status": "blocked",
+        "stages_attempted": [],
+        "stages_completed": [],
+        "stages_skipped": [],
+        "stages_blocked": [{"stage_id": "workflow", "status": "blocked", "blockers": [blocker_type]}],
+        "stages_failed": [],
+        "artifacts_created": [],
+        "artifacts_refreshed": [],
+        "artifacts_marked_stale": [],
+        "deterministic_builders_called": [],
+        "provider_model_actions_left_pending": plan.get("required_provider_model_actions", []),
+        "human_actions_left_pending": plan.get("required_human_actions", []),
+        "before_artifact_hashes": {},
+        "after_artifact_hashes": {},
+        "before_readiness_status": {},
+        "after_readiness_status": {},
+        "remaining_blockers": [{"type": blocker_type, "evidence": evidence}],
+        "remaining_forbidden_claims": ["delivery_ready", "apply_ready", "production_ready"],
+        "next_recommended_workflow_mode": "workflow_recovery",
+        "incremental_artifact_references": {},
+        "provider_or_model_called": False,
+        "repair_applied": False,
+        "target_files_mutated": False,
+        "safety_policy": _safety_policy(),
+    }
 
 
 def _readiness_status(state_dir: Path) -> dict[str, str]:
