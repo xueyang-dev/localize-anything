@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-readiness-impact-report.schema.json",
+  "title": "Localize Anything Knowledge Readiness Impact Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "before", "after", "delivery_apply_readiness_impact", "signoff_staleness_impact", "claim_acceptance_staleness_impact", "remaining_review_requirements", "remaining_repair_requirements", "remaining_knowledge_conflicts", "limitations", "recommended_next_actions", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-readiness-impact-report-v1" },
+    "artifact": { "const": "knowledge-readiness-impact-report.json" },
+    "status": { "enum": ["clear", "clear_with_warnings", "blocked", "not_applicable"] },
+    "before": { "type": "object" },
+    "after": { "type": "object" },
+    "delivery_apply_readiness_impact": { "type": "object" },
+    "signoff_staleness_impact": { "type": "string" },
+    "claim_acceptance_staleness_impact": { "type": "string" },
+    "remaining_review_requirements": { "type": "array" },
+    "remaining_repair_requirements": { "type": "array" },
+    "remaining_knowledge_conflicts": { "type": "array" },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "recommended_next_actions": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

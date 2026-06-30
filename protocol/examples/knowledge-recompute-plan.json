@@ -1,0 +1,41 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-recompute-plan-v1",
+  "artifact": "knowledge-recompute-plan.json",
+  "status": "ready",
+  "summary": { "recompute_item_count": 2, "deterministic_item_count": 1, "human_review_required_count": 1, "source_blocker_count": 1 },
+  "recompute_items": [
+    {
+      "recompute_item_id": "knowledge-recompute-1111111111111111",
+      "source_blocker_ids": ["knowledge-repair-1111111111111111"],
+      "source_repair_result_ids": ["knowledge-repair-result-1111111111111111"],
+      "source_qa_item_ids": ["knowledge-repair-qa-1111111111111111"],
+      "source_reconciliation_id": "knowledge-repair-reconciliation.json",
+      "target_artifact": "constraint-application-audit.json",
+      "recompute_reason": "constraint audit must be refreshed after repair reconciliation",
+      "dependency_artifacts": ["knowledge-repair-reconciliation.json", "knowledge-repair-qa-report.json"],
+      "required_order": 1,
+      "status": "pending",
+      "blocking_effect_if_not_recomputed": "knowledge repair closure cannot support downstream readiness",
+      "deterministic": true,
+      "human_review_required": false
+    },
+    {
+      "recompute_item_id": "knowledge-recompute-2222222222222222",
+      "source_blocker_ids": ["knowledge-repair-1111111111111111"],
+      "source_repair_result_ids": ["knowledge-repair-result-1111111111111111"],
+      "source_qa_item_ids": ["knowledge-repair-qa-1111111111111111"],
+      "source_reconciliation_id": "knowledge-repair-reconciliation.json",
+      "target_artifact": "signoff-record.json",
+      "recompute_reason": "signoff must be renewed after repair closure changes evidence",
+      "dependency_artifacts": ["evaluation-scorecard.json"],
+      "required_order": 2,
+      "status": "pending",
+      "blocking_effect_if_not_recomputed": "manual authorization remains stale or blocked",
+      "deterministic": false,
+      "human_review_required": true
+    }
+  ],
+  "source_artifacts": {},
+  "limitations": ["recompute planning does not clear repair blockers"]
+}

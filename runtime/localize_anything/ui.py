@@ -90,6 +90,12 @@ from .knowledge_repair_result import (
     read_knowledge_repair_result_intake,
     record_knowledge_repair_result,
 )
+from .knowledge_repair_closure import (
+    read_knowledge_readiness_impact_report,
+    read_knowledge_recompute_plan,
+    read_knowledge_recompute_result,
+    read_knowledge_repair_closure_decision,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -244,6 +250,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/knowledge-repair-reconciliation":
                     self._handle_knowledge_repair_result_query(parsed.query, "reconciliation")
+                    return
+                if parsed.path == "/api/knowledge-repair-closure-decision":
+                    self._handle_knowledge_repair_closure_query(parsed.query, "closure")
+                    return
+                if parsed.path == "/api/knowledge-recompute-plan":
+                    self._handle_knowledge_repair_closure_query(parsed.query, "plan")
+                    return
+                if parsed.path == "/api/knowledge-recompute-result":
+                    self._handle_knowledge_repair_closure_query(parsed.query, "result")
+                    return
+                if parsed.path == "/api/knowledge-readiness-impact-report":
+                    self._handle_knowledge_repair_closure_query(parsed.query, "impact")
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -846,6 +864,19 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 "intake": ("knowledge_repair_result_intake", read_knowledge_repair_result_intake),
                 "qa": ("knowledge_repair_qa_report", read_knowledge_repair_qa_report),
                 "reconciliation": ("knowledge_repair_reconciliation", read_knowledge_repair_reconciliation),
+            }
+            key, reader = readers[artifact]
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
+
+        def _handle_knowledge_repair_closure_query(self, query: str, artifact: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge repair closure artifact is outside allowed workbench roots: {state_dir}")
+            readers = {
+                "closure": ("knowledge_repair_closure_decision", read_knowledge_repair_closure_decision),
+                "plan": ("knowledge_recompute_plan", read_knowledge_recompute_plan),
+                "result": ("knowledge_recompute_result", read_knowledge_recompute_result),
+                "impact": ("knowledge_readiness_impact_report", read_knowledge_readiness_impact_report),
             }
             key, reader = readers[artifact]
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})

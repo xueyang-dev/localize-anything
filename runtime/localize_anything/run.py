@@ -75,6 +75,12 @@ from .knowledge_repair_result import (
     KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
     build_knowledge_repair_reconciliation,
 )
+from .knowledge_repair_closure import (
+    KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
+    KNOWLEDGE_RECOMPUTE_PLAN_JSON,
+    KNOWLEDGE_RECOMPUTE_RESULT_JSON,
+    KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
+)
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -1098,6 +1104,10 @@ def _summary(
         ("knowledge_repair_result_intake", KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL),
         ("knowledge_repair_qa_report", KNOWLEDGE_REPAIR_QA_REPORT_JSON),
         ("knowledge_repair_reconciliation", KNOWLEDGE_REPAIR_RECONCILIATION_JSON),
+        ("knowledge_recompute_plan", KNOWLEDGE_RECOMPUTE_PLAN_JSON),
+        ("knowledge_recompute_result", KNOWLEDGE_RECOMPUTE_RESULT_JSON),
+        ("knowledge_repair_closure_decision", KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON),
+        ("knowledge_readiness_impact_report", KNOWLEDGE_READINESS_IMPACT_REPORT_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1246,6 +1256,21 @@ def _summary(
             "knowledge_repair_reconciliation_status": (
                 read_json(state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON).get("status", "not_checked")
                 if (state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON).is_file()
+                else "not_checked"
+            ),
+            "knowledge_repair_closure_status": (
+                read_json(state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON).is_file()
+                else "not_checked"
+            ),
+            "knowledge_recompute_result_status": (
+                read_json(state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON).is_file()
+                else "not_checked"
+            ),
+            "knowledge_readiness_impact_status": (
+                read_json(state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON).is_file()
                 else "not_checked"
             ),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),

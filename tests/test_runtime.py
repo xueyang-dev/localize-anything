@@ -161,6 +161,20 @@ from runtime.localize_anything.knowledge_repair_result import (
     read_knowledge_repair_result_intake,
     record_knowledge_repair_result,
 )
+from runtime.localize_anything.knowledge_repair_closure import (
+    KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
+    KNOWLEDGE_RECOMPUTE_PLAN_JSON,
+    KNOWLEDGE_RECOMPUTE_RESULT_JSON,
+    KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
+    build_knowledge_readiness_impact_report,
+    build_knowledge_recompute_plan,
+    build_knowledge_recompute_result,
+    build_knowledge_repair_closure_decision,
+    read_knowledge_readiness_impact_report,
+    read_knowledge_recompute_plan,
+    read_knowledge_recompute_result,
+    read_knowledge_repair_closure_decision,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -9527,6 +9541,207 @@ class KnowledgeRepairResultReconciliationTests(unittest.TestCase):
             self.assertIn("knowledge_repair_reconciliation", run["artifacts"])
 
 
+class KnowledgeRepairClosureRecomputeTests(unittest.TestCase):
+    def test_cleared_reconciliation_requires_recompute_before_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+
+            closure = build_knowledge_repair_closure_decision(state)
+            plan = build_knowledge_recompute_plan(state)
+
+            self.assertEqual(closure["status"], "requires_recompute")
+            self.assertTrue(closure["required_recomputation"])
+            self.assertIn("evaluation-scorecard.json", {item["target_artifact"] for item in plan["recompute_items"]})
+            assert_protocol_schema(self, "knowledge-repair-closure-decision", closure)
+            assert_protocol_schema(self, "knowledge-recompute-plan", plan)
+
+    def test_failed_qa_stale_and_semantic_review_requirements_do_not_close(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request, repaired_target="访问错误实验室")
+            self.assertEqual(build_knowledge_repair_closure_decision(state)["status"], "still_blocked")
+
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            record_knowledge_repair_result(state, _knowledge_repair_result_payload(request, submitted_hash="stale"))
+            self.assertEqual(build_knowledge_repair_closure_decision(state)["status"], "stale")
+
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(
+                Path(directory), _knowledge_repair_issue("hard_constraint_failed", knowledge_id="missing")
+            )
+            _record_matching_knowledge_repair_result(
+                state,
+                request,
+                repair_mode="human_rewrite",
+                knowledge_ids=["missing"],
+                repaired_target="人工重写开放实验室",
+            )
+            self.assertEqual(build_knowledge_repair_closure_decision(state)["status"], "requires_human_review")
+
+    def test_recompute_result_is_provider_free_and_records_manual_follow_up(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call, mock.patch(
+                "runtime.localize_anything.segment_repair.apply_repair_plan"
+            ) as apply_call:
+                result = build_knowledge_recompute_result(state)
+                closure = build_knowledge_repair_closure_decision(state)
+                impact = build_knowledge_readiness_impact_report(state)
+
+            self.assertFalse(provider_call.called)
+            self.assertFalse(apply_call.called)
+            self.assertIn(result["status"], {"completed", "partial"})
+            self.assertTrue(result["recompute_items_requiring_human_review"])
+            self.assertIn(closure["status"], {"closed_with_warnings", "requires_recompute"})
+            self.assertIn("signoff", impact["signoff_staleness_impact"])
+            assert_protocol_schema(self, "knowledge-recompute-result", result)
+            assert_protocol_schema(self, "knowledge-readiness-impact-report", impact)
+
+    def test_scorecard_claim_acceptance_signoff_and_delivery_consume_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_knowledge_repair_fixture(state, [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+            request = read_knowledge_repair_request(state)["requests"][0]
+            _record_matching_knowledge_repair_result(state, request)
+            build_knowledge_repair_closure_decision(state)
+            scorecard = build_evaluation_scorecard(state)
+            claim = build_claim_acceptance_decision(state, requested_claims=["delivery_ready", "apply_ready"])
+            signoff = create_signoff_record(
+                state,
+                {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": True, "limitations_accepted": True},
+            )
+
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "repair-closure-delivery-001")
+            decision = create_delivery_decision_report(Path(packaged["delivery_directory"]), project)
+
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+            self.assertEqual(claim["status"], "blocked")
+            self.assertFalse(signoff["delivery_authorized"])
+            self.assertTrue(any(item["type"] == "knowledge_repair_closure" for item in decision["decisions"]))
+
+    def test_artifact_state_tracks_closure_and_stales_after_reconciliation_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            build_knowledge_recompute_plan(state)
+            build_knowledge_recompute_result(state)
+            build_knowledge_repair_closure_decision(state)
+            build_knowledge_readiness_impact_report(state)
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+            self.assertTrue(
+                {
+                    "knowledge_recompute_plan",
+                    "knowledge_recompute_result",
+                    "knowledge_repair_closure_decision",
+                    "knowledge_readiness_impact_report",
+                }.issubset(ids)
+            )
+
+            reconciliation = read_knowledge_repair_reconciliation(state)
+            reconciliation["status"] = "stale"
+            write_json(state / KNOWLEDGE_REPAIR_RECONCILIATION_JSON, reconciliation)
+            refreshed = build_artifact_state(state)
+            stale = {item["artifact_id"] for item in refreshed["stale_artifacts"]}
+
+            self.assertIn("knowledge_recompute_plan", stale)
+            self.assertIn("knowledge_repair_closure_decision", stale)
+
+    def test_claim_acceptance_and_signoff_stale_when_closure_basis_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            build_knowledge_recompute_plan(state)
+            build_knowledge_recompute_result(state)
+            build_knowledge_repair_closure_decision(state)
+            build_knowledge_readiness_impact_report(state)
+            build_evaluation_scorecard(state)
+            build_claim_acceptance_decision(state, requested_claims=["delivery_ready"])
+            create_signoff_record(
+                state,
+                {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": False, "limitations_accepted": True},
+            )
+            build_artifact_state(state)
+            closure = read_knowledge_repair_closure_decision(state)
+            closure["status"] = "stale"
+            write_json(state / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, closure)
+
+            refreshed = build_artifact_state(state)
+            stale = {item["artifact_id"] for item in refreshed["stale_artifacts"]}
+
+            self.assertIn("claim_acceptance_decision", stale)
+            self.assertIn("signoff_record", stale)
+
+    def test_api_and_cli_expose_closure_recompute_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            self.assertEqual(cli_main(["knowledge-recompute-plan", state.as_posix(), "--output", (Path(directory) / "plan.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-recompute-result", state.as_posix(), "--output", (Path(directory) / "result.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-repair-closure-decision", state.as_posix(), "--output", (Path(directory) / "closure.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-readiness-impact-report", state.as_posix(), "--output", (Path(directory) / "impact.json").as_posix()]), 0)
+            self.assertEqual(read_json(Path(directory) / "closure.json"), read_knowledge_repair_closure_decision(state))
+            self.assertEqual(read_json(Path(directory) / "plan.json"), read_knowledge_recompute_plan(state))
+            self.assertEqual(read_json(Path(directory) / "result.json"), read_knowledge_recompute_result(state))
+            self.assertEqual(read_json(Path(directory) / "impact.json"), read_knowledge_readiness_impact_report(state))
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for endpoint in (
+                    "knowledge-repair-closure-decision",
+                    "knowledge-recompute-plan",
+                    "knowledge-recompute-result",
+                    "knowledge-readiness-impact-report",
+                ):
+                    status, _ = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_delivery_package_and_run_summary_reference_closure_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_knowledge_repair_fixture(state, [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+            request = read_knowledge_repair_request(state)["requests"][0]
+            _record_matching_knowledge_repair_result(state, request)
+            build_knowledge_recompute_plan(state)
+            build_knowledge_recompute_result(state)
+            build_knowledge_repair_closure_decision(state)
+            build_knowledge_readiness_impact_report(state)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "repair-closure-assets-001")
+            run = run_localize(project, "en-US", ["zh-CN"], output_root=root / "out", run_id="repair-closure-run-001", handoff_only=True)
+
+            self.assertEqual(packaged["manifest"]["assets"]["knowledge_repair_closure_decision"], KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["knowledge_recompute_plan"], KNOWLEDGE_RECOMPUTE_PLAN_JSON)
+            self.assertIn("knowledge_repair_closure_decision", run["artifacts"])
+            self.assertEqual(run["summary"]["knowledge_repair_closure_status"], read_knowledge_repair_closure_decision(state)["status"])
+
+
 def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
     state = _knowledge_repair_state(root, [issue or _knowledge_repair_issue("hard_constraint_failed")])
     build_knowledge_repair_plan(state)
@@ -10762,7 +10977,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 77)
+        self.assertEqual(result["schemas_checked"], 81)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-recompute-result.schema.json",
+  "title": "Localize Anything Knowledge Recompute Result",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "recompute_plan_id", "recompute_items_attempted", "target_artifacts_refreshed", "remaining_stale_artifacts", "remaining_blockers", "readiness_impact", "source_artifacts", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-recompute-result-v1" },
+    "artifact": { "const": "knowledge-recompute-result.json" },
+    "status": { "enum": ["completed", "partial", "failed", "blocked"] },
+    "recompute_plan_id": { "type": "string" },
+    "recompute_items_attempted": { "type": "array", "items": { "type": "object" } },
+    "target_artifacts_refreshed": { "type": "array", "items": { "type": "string" } },
+    "remaining_stale_artifacts": { "type": "array", "items": { "type": "string" } },
+    "remaining_blockers": { "type": "array", "items": { "type": "object" } },
+    "readiness_impact": { "type": "object" },
+    "source_artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
