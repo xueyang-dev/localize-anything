@@ -1,0 +1,26 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-locale-risk-report-v1",
+  "artifact": "locale-risk-report.json",
+  "run_id": "run-example",
+  "status": "blocked",
+  "target_locale": "ar",
+  "risks": [
+    {
+      "risk_id": "locale-risk-rtl_without_layout_evidence",
+      "risk_type": "rtl_without_layout_evidence",
+      "severity": "blocking",
+      "summary": "RTL locale lacks bidi/layout safety evidence",
+      "forbidden_claims_affected": ["rtl_safe", "full_product_localization"],
+      "recommended_action": "Provide adapter/runtime evidence or keep the affected locale claims forbidden."
+    }
+  ],
+  "summary": {
+    "risk_count": 1,
+    "blocking_count": 1,
+    "warning_count": 0
+  },
+  "forbidden_claims": ["full_product_localization", "rtl_safe"],
+  "source_artifacts": {},
+  "limitations": ["locale risk report identifies engineering risk only"]
+}

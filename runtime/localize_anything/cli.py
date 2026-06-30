@@ -168,6 +168,15 @@ from .provider_result_gate import (
     record_provider_result_acceptance_decision,
     record_provider_result_review_evidence,
 )
+from .locale_capability import (
+    build_locale_capability_report,
+    build_locale_capability_reports,
+    build_locale_readiness_impact,
+    build_locale_risk_report,
+    read_locale_capability_report,
+    read_locale_readiness_impact,
+    read_locale_risk_report,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -834,6 +843,29 @@ def build_parser() -> argparse.ArgumentParser:
     provider_review_queue_parser = subparsers.add_parser("workbench-provider-review-queue", help="Create workbench-provider-review-queue.json")
     provider_review_queue_parser.add_argument("state_dir", type=Path)
     provider_review_queue_parser.add_argument("--output", type=Path)
+
+    locale_capability_parser = subparsers.add_parser("locale-capability-report", help="Create or read locale-capability-report.json")
+    locale_capability_parser.add_argument("state_dir", type=Path)
+    locale_capability_parser.add_argument("--target-locale")
+    locale_capability_parser.add_argument("--adapter", action="append", default=[], dest="adapters")
+    locale_capability_parser.add_argument("--read", action="store_true")
+    locale_capability_parser.add_argument("--output", type=Path)
+
+    locale_risk_parser = subparsers.add_parser("locale-risk-report", help="Create or read locale-risk-report.json")
+    locale_risk_parser.add_argument("state_dir", type=Path)
+    locale_risk_parser.add_argument("--read", action="store_true")
+    locale_risk_parser.add_argument("--output", type=Path)
+
+    locale_impact_parser = subparsers.add_parser("locale-readiness-impact", help="Create or read locale-readiness-impact.json")
+    locale_impact_parser.add_argument("state_dir", type=Path)
+    locale_impact_parser.add_argument("--read", action="store_true")
+    locale_impact_parser.add_argument("--output", type=Path)
+
+    locale_check_parser = subparsers.add_parser("locale-check", help="Create locale capability, risk, and readiness impact artifacts")
+    locale_check_parser.add_argument("state_dir", type=Path)
+    locale_check_parser.add_argument("--target-locale")
+    locale_check_parser.add_argument("--adapter", action="append", default=[], dest="adapters")
+    locale_check_parser.add_argument("--output", type=Path)
 
     record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
     record_human_review_parser.add_argument("state_dir", type=Path)
@@ -1950,6 +1982,25 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_provider_claim_support_report(args.state_dir), args.output)
         if args.command == "workbench-provider-review-queue":
             return _emit_json(build_workbench_provider_review_queue(args.state_dir), args.output)
+        if args.command == "locale-capability-report":
+            result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
+            return _emit_json(result, args.output)
+        if args.command == "locale-risk-report":
+            result = read_locale_risk_report(args.state_dir) if args.read else build_locale_risk_report(args.state_dir)
+            return _emit_json(result, args.output)
+        if args.command == "locale-readiness-impact":
+            result = read_locale_readiness_impact(args.state_dir) if args.read else build_locale_readiness_impact(args.state_dir)
+            return _emit_json(result, args.output)
+        if args.command == "locale-check":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-locale-check-command-v1",
+                "state_dir": args.state_dir.as_posix(),
+                **build_locale_capability_reports(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None),
+                "provider_or_model_called": False,
+                "target_files_mutated": False,
+            }
+            return _emit_json(result, args.output)
         if args.command == "record-human-review":
             result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)
             return _emit_json(result, args.output)

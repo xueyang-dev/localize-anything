@@ -152,6 +152,11 @@ from .provider_result_gate import (
     record_provider_result_acceptance_decision,
     record_provider_result_review_evidence,
 )
+from .locale_capability import (
+    read_locale_capability_report,
+    read_locale_readiness_impact,
+    read_locale_risk_report,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -360,6 +365,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-provider-review-queue":
                     self._handle_workflow_artifact_query(parsed.query, "workbench_provider_review_queue", read_workbench_provider_review_queue)
+                    return
+                if parsed.path == "/api/locale-capability-report":
+                    self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)
+                    return
+                if parsed.path == "/api/locale-risk-report":
+                    self._handle_locale_artifact_query(parsed.query, "locale_risk_report", read_locale_risk_report)
+                    return
+                if parsed.path == "/api/locale-readiness-impact":
+                    self._handle_locale_artifact_query(parsed.query, "locale_readiness_impact", read_locale_readiness_impact)
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -1074,6 +1088,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 "delivery": ("delivery_readiness_report", read_delivery_readiness_report),
             }
             key, reader = readers[artifact]
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
+
+        def _handle_locale_artifact_query(self, query: str, key: str, reader: Any) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Locale artifact is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
 
         def _handle_evaluation_scorecard_query(self, query: str) -> None:

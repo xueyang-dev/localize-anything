@@ -19,6 +19,11 @@ artifacts until this spec adds schemas/examples and the runtime validates them.
 - Localization briefs record the deterministic draft of task intent, source
   surface, strategy, constraints, and required human confirmations before
   generation.
+- Locale capability artifacts record conservative locale-engineering evidence:
+  `locale-capability-report.json`, `locale-risk-report.json`, and
+  `locale-readiness-impact.json`. They downgrade unsupported locale, RTL,
+  plural, formatting, and full-product claims and are not translation quality
+  evidence.
 - Adapter manifests declare formats, capabilities, permissions, dependencies, and entrypoints.
 - Segment JSONL carries source units and optional localized targets.
 - Delivery manifests record immutable run facts and scoped status.
@@ -128,7 +133,7 @@ artifacts until this spec adds schemas/examples and the runtime validates them.
 ## Lifecycle
 
 ```text
-inspect -> preflight -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> generation-handoff-enforcement
+inspect -> preflight -> locale-capability -> termbase-preflight -> plan -> generation-strategy -> resolution-gate -> generation-handoff-enforcement
         -> artifact-state -> segment-staleness / reuse-decision
         -> retrieve -> draft-request -> draft-prompt -> generation-handoff -> localize -> import-generated-response(s)
         -> collect-generated
@@ -158,6 +163,8 @@ Every lifecycle gate that affects generation, delivery, or apply readiness
 should produce or consume durable evidence. The protocol deliberately separates:
 
 - task intent evidence (`localization-brief`);
+- locale capability evidence (`locale-capability-report`,
+  `locale-risk-report`, and `locale-readiness-impact`);
 - terminology evidence (Term Governance and termbase preflight artifacts);
 - strategy and blocker evidence (Generation Strategy, Resolution Gate, and
   Generation Handoff Enforcement);
@@ -1614,3 +1621,57 @@ evidence only; they do not call providers/models or mutate target files.
 CLI commands are `provider-result-qa-report`,
 `provider-result-review-evidence`, `provider-result-acceptance-decision`,
 `provider-claim-support-report`, and `workbench-provider-review-queue`.
+
+## Locale Capability Report
+
+Locale capability artifacts are conservative engineering evidence. They are
+not full CLDR support, not layout verification, and not translation quality
+evidence.
+
+Artifacts:
+
+- `locale-capability-report.json` records the target locale profile,
+  directionality, seed-level plural complexity, expected plural categories
+  where safely known, adapter plural-capability matches, formatting support
+  status, Unicode/bidi risk flags, source artifacts, and unsupported locale
+  claims.
+- `locale-risk-report.json` records blocking and warning risks, including
+  unknown locale capability, RTL without bidi/layout evidence, plural support
+  not proven, locale-aware formatting not proven, and full-product localization
+  not proven.
+- `locale-readiness-impact.json` records downstream readiness impact,
+  forbidden locale claims, claim-acceptance policy, signoff policy, and
+  recommended next actions.
+
+The built-in profile map is intentionally small and seed-level. It covers
+common directionality and plural-complexity cases such as LTR/simple locales,
+RTL locales, known complex-plural locales, and unknown locales. Unknown profile
+or adapter capability downgrades claims rather than passing silently.
+
+Supported claim behavior:
+
+- `rtl_safe` remains forbidden for RTL locales unless future bidi/layout
+  evidence supports it.
+- `plural_complete` remains forbidden unless plural handling is not required or
+  adapter/runtime plural evidence matches the locale need.
+- `locale_formatting_complete` remains forbidden because date/time/number/
+  currency formatting evidence defaults to unknown in this seed.
+- `locale_complete` and `full_product_localization` remain forbidden unless all
+  required locale capability evidence is current and scoped.
+
+Evaluation Scorecard, Generation Handoff, Artifact State, Claim Acceptance,
+Signoff, Readiness Authorization, Delivery, Apply, workflow summaries, run
+summaries, and delivery packages consume locale readiness impact. They must
+preserve forbidden claims when locale evidence is missing, stale, partial,
+blocked, or unknown.
+
+Artifact-backed APIs are:
+
+- `GET /api/locale-capability-report`
+- `GET /api/locale-risk-report`
+- `GET /api/locale-readiness-impact`
+
+CLI commands are `locale-capability-report`, `locale-risk-report`,
+`locale-readiness-impact`, and `locale-check`. They generate or read structured
+artifacts only. They must not call providers, run models, apply repairs, or
+mutate target project files.

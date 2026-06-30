@@ -281,6 +281,16 @@ from runtime.localize_anything.provider_result_gate import (
     record_provider_result_acceptance_decision,
     record_provider_result_review_evidence,
 )
+from runtime.localize_anything.locale_capability import (
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_READINESS_IMPACT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+    build_locale_capability_report,
+    build_locale_capability_reports,
+    build_locale_readiness_impact,
+    build_locale_risk_report,
+    read_locale_capability_report,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -10337,6 +10347,78 @@ def _readiness_state(
     return state
 
 
+def _locale_state(root: Path, target_locale: str, adapter_counts: dict[str, int]) -> Path:
+    state = root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    adapters = sorted(adapter_counts)
+    source_material = []
+    supported_files = []
+    for adapter in adapters:
+        count = adapter_counts[adapter]
+        for index in range(count):
+            path = f"source-{adapter}-{index}.json"
+            source_material.append({"path": path, "adapter": adapter})
+            supported_files.append({"path": path, "adapter": adapter, "segment_count": 1})
+    write_json(
+        state / "config.json",
+        {
+            "project_root": root.as_posix(),
+            "source_locale": "en-US",
+            "target_locales": [target_locale],
+            "input_paths": [item["path"] for item in source_material],
+        },
+    )
+    write_json(
+        state / "localization-brief.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-localization-brief-v1",
+            "run_id": "locale-test-001",
+            "task_intent": {"source_locale": "en-US", "target_locales": [target_locale]},
+            "source_surface": {"adapter_counts": adapter_counts},
+            "scenario": {"scenario_id": "app_ui", "confidence": "seed"},
+            "summary": {},
+        },
+    )
+    write_json(
+        state / "source-inventory.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-source-inventory-v1",
+            "run_id": "locale-test-001",
+            "supported_files": supported_files,
+        },
+    )
+    write_json(
+        state / "delivery-manifest.json",
+        {
+            "protocol_version": "0.1",
+            "run_id": "locale-test-001",
+            "project": {"target_locales": [target_locale]},
+            "source_material": source_material,
+            "generation": {"provider_status": "not_applicable", "apply_allowed": False},
+            "qa": {"status": "not_checked"},
+            "outputs": [],
+            "assets": {},
+        },
+    )
+    write_jsonl(
+        state / "generated-segments.jsonl",
+        [
+            {
+                "segment_id": "locale-segment-1",
+                "source": "%d files",
+                "target": "%d files",
+                "context": {"resource_type": "plurals"} if any(adapter in {"core.android-strings", "core.ios-strings", "core.xcstrings"} for adapter in adapters) else {},
+            }
+        ],
+    )
+    (state / "localization-context.md").write_text("", encoding="utf-8")
+    (state / "glossary.csv").write_text("source,target,status,notes\n", encoding="utf-8")
+    (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
+    return state
+
+
 def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
     state = _knowledge_repair_state(root, [issue or _knowledge_repair_issue("hard_constraint_failed")])
     build_knowledge_repair_plan(state)
@@ -11572,7 +11654,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 114)
+        self.assertEqual(result["schemas_checked"], 117)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12722,6 +12804,110 @@ class ProviderEvidenceTests(unittest.TestCase):
             self.assertTrue((state / PROVIDER_RESULT_INTAKE_JSONL).is_file())
             self.assertTrue((state / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file())
             self.assertEqual(read_provider_result_intake(state)[0]["status"], "rejected_provenance")
+
+
+class LocaleCapabilityTests(unittest.TestCase):
+    def test_ltr_simple_locale_and_adapter_plural_support_are_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _locale_state(Path(directory), "en-US", {"core.android-strings": 1})
+            report = build_locale_capability_report(state)
+            risk = build_locale_risk_report(state, capability=report)
+            impact = build_locale_readiness_impact(state, capability=report, risk=risk)
+
+            assert_protocol_schema(self, "locale-capability-report", report)
+            assert_protocol_schema(self, "locale-risk-report", risk)
+            assert_protocol_schema(self, "locale-readiness-impact", impact)
+            self.assertEqual(report["locale_profile"]["directionality"], "LTR")
+            self.assertEqual(report["locale_profile"]["plural_complexity"], "simple")
+            self.assertEqual(report["plural_support"]["status"], "supported")
+            self.assertNotIn("rtl_safe", report["unsupported_claims"])
+
+    def test_rtl_locale_forbids_rtl_safe_without_layout_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _locale_state(Path(directory), "ar", {"core.android-strings": 1})
+            result = build_locale_capability_reports(state)
+
+            self.assertEqual(result["locale_capability_report"]["locale_profile"]["directionality"], "RTL")
+            self.assertEqual(result["locale_risk_report"]["status"], "blocked")
+            self.assertIn("rtl_safe", result["locale_readiness_impact"]["forbidden_claims"])
+            self.assertIn("full_product_localization", result["locale_readiness_impact"]["forbidden_claims"])
+
+    def test_complex_plural_locale_downgrades_without_adapter_plural_support(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _locale_state(Path(directory), "ru", {"core.json-locale": 1})
+            report = build_locale_capability_report(state)
+            risk = build_locale_risk_report(state, capability=report)
+
+            self.assertEqual(report["locale_profile"]["plural_complexity"], "complex")
+            self.assertEqual(report["plural_support"]["status"], "not_evidenced")
+            self.assertIn("plural_complete", report["unsupported_claims"])
+            self.assertTrue(any(item["risk_type"] == "plural_support_not_proven" for item in risk["risks"]))
+
+    def test_unknown_locale_and_formatting_support_downgrade_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _locale_state(Path(directory), "xx-YY", {"core.android-strings": 1})
+            result = build_locale_capability_reports(state)
+
+            self.assertEqual(result["locale_risk_report"]["status"], "blocked")
+            self.assertIn("locale_complete", result["locale_readiness_impact"]["forbidden_claims"])
+            self.assertIn("locale_formatting_complete", result["locale_readiness_impact"]["forbidden_claims"])
+
+    def test_scorecard_claim_signoff_and_readiness_consume_locale_impact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _locale_state(Path(directory), "ar", {"core.android-strings": 1})
+            build_locale_capability_reports(state)
+            scorecard = build_evaluation_scorecard(state)
+            claim = build_claim_acceptance_decision(state, requested_claims=["rtl_safe", "locale_complete"])
+            signoff = create_signoff_record(state, {"signed_by": "owner", "authorize_delivery": True})
+            readiness_state = _readiness_state(Path(directory), state=state, overall_claim="review_ready", forbidden_claims=[])
+            matrix = build_readiness_reports(readiness_state)["readiness_authorization_matrix"]
+
+            self.assertIn("rtl_safe", scorecard["forbidden_claims"])
+            self.assertEqual(scorecard["locale_assurance"]["status"], "blocked")
+            self.assertEqual(claim["status"], "blocked")
+            self.assertIn("rtl_safe", signoff["forbidden_claims_remaining"])
+            self.assertEqual(matrix["locale_capability_status"]["status"], "blocked")
+
+    def test_artifact_state_tracks_locale_staleness_and_delivery_references_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _locale_state(root, "ar", {"core.android-strings": 1})
+            build_locale_capability_reports(state)
+            artifact_state = build_artifact_state(state)
+            locale_entry = next(item for item in artifact_state["artifacts"] if item["artifact_id"] == "locale_readiness_impact")
+            self.assertEqual(locale_entry["status"], "blocked")
+
+            staging = root / "staging"
+            staged = staging / "values-ar" / "strings.xml"
+            staged.parent.mkdir(parents=True)
+            staged.write_text("<resources />\n", encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "locale-delivery-001")
+            self.assertEqual(packaged["manifest"]["assets"]["locale_capability_report"], LOCALE_CAPABILITY_REPORT_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["locale_risk_report"], LOCALE_RISK_REPORT_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["locale_readiness_impact"], LOCALE_READINESS_IMPACT_JSON)
+
+    def test_cli_and_api_are_deterministic_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _locale_state(Path(directory), "ru", {"core.android-strings": 1})
+            first = Path(directory) / "locale-first.json"
+            second = Path(directory) / "locale-second.json"
+            self.assertEqual(cli_main(["locale-check", state.as_posix(), "--output", first.as_posix()]), 0)
+            self.assertEqual(cli_main(["locale-check", state.as_posix(), "--output", second.as_posix()]), 0)
+            self.assertEqual(read_json(first), read_json(second))
+            self.assertEqual(cli_main(["locale-capability-report", state.as_posix(), "--read"]), 0)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, body = _http_get(host, port, f"/api/locale-readiness-impact?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["locale_readiness_impact"]["schema"], "localize-anything-locale-readiness-impact-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
 
 
 class ProviderResultGateTests(unittest.TestCase):

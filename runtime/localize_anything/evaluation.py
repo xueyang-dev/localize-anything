@@ -59,6 +59,12 @@ from .provider_result_gate import (
     PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .locale_capability import (
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_CLAIMS,
+    LOCALE_READINESS_IMPACT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -74,6 +80,7 @@ EVIDENCE_LEVELS = [E0, E1, E2, E3, E4]
 DIMENSION_NAMES = [
     "structural_qa",
     "provider_status",
+    "locale_assurance",
     "terminology_assurance",
     "knowledge_assurance",
     "coverage_assurance",
@@ -108,6 +115,7 @@ def build_evaluation_scorecard(
     dimensions = {
         "structural_qa": _structural_qa_dimension(artifacts),
         "provider_status": _provider_dimension(provider),
+        "locale_assurance": _locale_dimension(artifacts),
         "terminology_assurance": _terminology_dimension(artifacts),
         "knowledge_assurance": _knowledge_dimension(artifacts),
         "coverage_assurance": _coverage_dimension(coverage, artifacts),
@@ -277,6 +285,9 @@ def _load_artifacts(
         "provider_result_acceptance_decision": _read_optional_json(state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON),
         "provider_claim_support_report": _read_optional_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
         "workbench_provider_review_queue": _read_optional_json(state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
+        "locale_capability_report": _read_optional_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON),
+        "locale_risk_report": _read_optional_json(state_dir / LOCALE_RISK_REPORT_JSON),
+        "locale_readiness_impact": _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON),
         "readiness_authorization_matrix": _read_optional_json(state_dir / "readiness-authorization-matrix.json"),
         "manual_followup_gap_report": _read_optional_json(state_dir / "manual-followup-gap-report.json"),
         "apply_readiness_report": _read_optional_json(state_dir / "apply-readiness-report.json"),
@@ -345,6 +356,21 @@ def _provider_dimension(provider: dict[str, Any]) -> dict[str, Any]:
     if status in {"synthetic_test", "not_applicable"} or actual in {"synthetic", "none", "synthetic_fallback"}:
         return _dimension("warning", E0, f"provider-backed quality not proven ({status})", warnings=["provider_backed_quality_not_proven"])
     return _dimension("not_provided", E0, "provider evidence was not provided", warnings=["provider_status_missing"])
+
+
+def _locale_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
+    capability = artifacts.get("locale_capability_report", {})
+    risk = artifacts.get("locale_risk_report", {})
+    impact = artifacts.get("locale_readiness_impact", {})
+    if not capability and not risk and not impact:
+        return _dimension("not_provided", E0, "locale capability evidence was not provided", warnings=["locale_capability_missing"])
+    if str(impact.get("status") or "") in {"blocked", "stale"} or str(risk.get("status") or "") == "blocked":
+        return _dimension("blocked", E1, "locale capability evidence blocks strong locale claims", blockers=["locale_capability_blocked"])
+    if str(capability.get("status") or "") in {"unknown", "partial"} or str(risk.get("status") or "") == "review_required" or str(impact.get("status") or "") in {"review_required", "clear_with_warnings"}:
+        return _dimension("warning", E1, "locale capability is partial or requires review", warnings=["locale_capability_downgraded"])
+    if capability:
+        return _dimension("pass", E1, "locale capability report has no active locale blockers")
+    return _dimension("unknown", E0, "locale capability status is unknown", warnings=["locale_capability_unknown"])
 
 
 def _terminology_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
@@ -686,6 +712,18 @@ def _forbidden_claims(
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
     elif reconciliation:
         claims.update(PROVIDER_CLAIMS)
+    locale_impact = artifacts.get("locale_readiness_impact", {})
+    locale_risk = artifacts.get("locale_risk_report", {})
+    locale_capability = artifacts.get("locale_capability_report", {})
+    if dimensions["locale_assurance"]["status"] != "pass":
+        claims.update(LOCALE_CLAIMS)
+    for locale_artifact in (locale_capability, locale_risk, locale_impact):
+        if isinstance(locale_artifact, dict) and locale_artifact:
+            claims.update(str(claim) for claim in locale_artifact.get("unsupported_claims", []) if claim)
+            claims.update(str(claim) for claim in locale_artifact.get("forbidden_claims", []) if claim)
+    if isinstance(locale_impact, dict) and locale_impact:
+        if str(locale_impact.get("status") or "") in {"blocked", "stale", "review_required"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
     if dimensions["knowledge_assurance"]["status"] != "pass":
@@ -791,6 +829,8 @@ def _recommended_next_actions(
     actions.extend(str(item) for item in artifact_state.get("next_actions", []) if item)
     if "provider_backed_quality" in forbidden_claims:
         actions.append("Record and reconcile provider execution evidence before claiming provider-backed quality.")
+    if any(claim in forbidden_claims for claim in LOCALE_CLAIMS):
+        actions.append("Collect locale capability evidence before claiming locale-complete, RTL-safe, plural-complete, formatting-complete, or full-product localization.")
     if "review_complete" in forbidden_claims:
         actions.append("Record explicit qualified human review evidence before claiming review completion.")
     if _document_evidence_blockers(artifacts):
@@ -884,6 +924,9 @@ def _upstream_readiness_blockers(artifacts: dict[str, Any]) -> list[str]:
     reconciliation = artifacts.get("provider_evidence_reconciliation", {})
     if isinstance(reconciliation, dict) and str(reconciliation.get("status") or "") in {"blocked", "stale", "failed"}:
         blockers.append("provider_evidence_not_reconciled")
+    locale_impact = artifacts.get("locale_readiness_impact", {})
+    if isinstance(locale_impact, dict) and str(locale_impact.get("status") or "") in {"blocked", "stale"}:
+        blockers.append("locale_capability_blocked")
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         blockers.append("claim_acceptance_blocked")
@@ -1130,6 +1173,9 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "provider_result_acceptance_decision": state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
         "provider_claim_support_report": state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
         "workbench_provider_review_queue": state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+        "locale_capability_report": state_dir / LOCALE_CAPABILITY_REPORT_JSON,
+        "locale_risk_report": state_dir / LOCALE_RISK_REPORT_JSON,
+        "locale_readiness_impact": state_dir / LOCALE_READINESS_IMPACT_JSON,
         "readiness_authorization_matrix": state_dir / "readiness-authorization-matrix.json",
         "manual_followup_gap_report": state_dir / "manual-followup-gap-report.json",
         "apply_readiness_report": state_dir / "apply-readiness-report.json",

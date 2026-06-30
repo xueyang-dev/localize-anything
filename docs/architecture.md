@@ -87,7 +87,7 @@ support promotion.
 | --- | --- |
 | Stable public baseline | Released v0.4.1 behavior: protocol/runtime contracts, staged delivery, explicit apply confirmation, deterministic structural QA, Workbench UI wiring, and released adapter capabilities within their documented format boundaries. |
 | Implemented architecture seeds | Evidence Spine gates through provider result QA/review acceptance: document evidence, personal knowledge, knowledge consumption/audit/repair, readiness authorization, workflow lifecycle/resume/hardening, provider handoff evidence, and provider result QA/acceptance. |
-| Active draft / under review | Architecture and roadmap progress synchronization. It changes documentation and claim boundaries, not runtime capability. |
+| Active draft / under review | Locale Capability Report seed. It adds conservative locale-engineering evidence and claim downgrades, not full CLDR or full-product localization support. |
 | Experimental | Explicit opt-in Android merged dependency overlays, synthetic/mock provider paths, and other opt-in adapter or benchmark surfaces identified as experimental in their own docs. |
 | Explicit non-claims | Complete product or Android-app localization, locale-complete support, automatic semantic quality, provider- or knowledge-backed quality without scoped evidence, DOCX render fidelity, factual truth verification, and automatic destructive apply. |
 
@@ -103,6 +103,8 @@ Architecture progress by PR range:
 | #51–#52 | Readiness Matrix and Workbench readiness actions | Implemented seeds. |
 | #53–#55 | Workflow orchestration, incremental resume, and hardening | Implemented seeds. |
 | #56–#57 | Provider handoff evidence and provider result QA/review acceptance | Implemented seeds; no provider-backed quality claim follows from intake or QA alone. |
+| #58 | Architecture and roadmap progress synchronization | Documentation and public claim boundaries synced with implemented seed state. |
+| Current | Locale Capability Report | Active seed; locale-complete, RTL-safe, plural-complete, formatting-complete, and full-product claims remain forbidden unless evidence supports them. |
 
 ## Public Claim Boundary
 
@@ -174,6 +176,7 @@ Intake
  -> Capability Scan
  -> Source-of-Truth Confirmation
  -> Target Locale Confirmation
+ -> Locale Capability Report
  -> Localization Brief
  -> Adapter Detection
  -> Preflight Policy Selection
@@ -259,6 +262,7 @@ Each link has a specific contract:
 | Knowledge Repair Lifecycle | Plan, request, impact, result intake, QA, reconciliation, closure, and recompute artifacts | Repair planning/intake cannot clear blockers without matching result and QA evidence. |
 | Provider Evidence | Execution policy, handoff request, ledger, result intake, and reconciliation artifacts | External provider/model evidence is recorded without claiming runtime execution or semantic quality. |
 | Provider Result Acceptance | QA report, scoped review evidence, acceptance decision, claim support report, and Workbench provider queue | QA pass is not semantic quality; limited acceptance remains limited and unsupported provider claims stay forbidden. |
+| Locale Capability | `locale-capability-report.json`, `locale-risk-report.json`, `locale-readiness-impact.json` | Seed-level locale engineering evidence downgrades unsupported locale, RTL, plural, formatting, and full-product claims. |
 | Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
 | Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
 | Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
@@ -1499,3 +1503,42 @@ delivery packages, and run summaries consume the gate artifacts and preserve
 unsupported claims. The API exposes artifact-backed GET routes for all five
 artifacts and POST routes only for review evidence and acceptance decisions.
 These paths never call providers/models, apply repairs, or mutate target files.
+
+## Locale Capability Report
+
+Locale Capability Report is the first conservative locale-engineering seed. It
+does not implement full CLDR, complete product localization, or semantic
+translation quality. Its job is to prevent unsupported locale-sensitive claims
+from passing silently.
+
+The seed emits:
+
+- `locale-capability-report.json`: target locale profile, directionality,
+  seed-level plural complexity, expected plural categories where safely known,
+  adapter plural-capability matches, formatting support status, Unicode/bidi
+  risk flags, and unsupported locale claims;
+- `locale-risk-report.json`: blocking or warning risks such as unknown locale
+  capability, RTL without bidi/layout evidence, plural support not proven, and
+  locale-aware formatting not proven;
+- `locale-readiness-impact.json`: downstream readiness impact, forbidden
+  locale claims, claim-acceptance policy, signoff policy, and recommended next
+  actions.
+
+Unknown capability downgrades claims. RTL locales without layout/bidi evidence
+forbid `rtl_safe` and full-product claims. Complex plural locales require
+adapter/runtime plural evidence before `plural_complete` can be supported.
+Date/time/number/currency formatting support defaults to unknown in this seed,
+so `locale_formatting_complete` remains forbidden unless future evidence says
+otherwise.
+
+The report is engineering evidence only. It cannot prove `locale_complete`,
+`full_product_localization`, translation quality, or provider/knowledge-backed
+quality. Evaluation Scorecard, Claim Acceptance, Signoff, Artifact State,
+Generation Handoff, Readiness Authorization, delivery decisions, run summaries,
+and delivery packages consume the three locale artifacts and preserve forbidden
+claims when evidence is missing, stale, blocked, unknown, or partial.
+
+CLI commands are `locale-capability-report`, `locale-risk-report`,
+`locale-readiness-impact`, and `locale-check`. API GET endpoints expose the
+same artifacts. They are deterministic and provider-free; there are no locale
+write endpoints in this seed beyond generating the report artifacts.

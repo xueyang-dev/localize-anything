@@ -1,0 +1,26 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-locale-readiness-impact-v1",
+  "artifact": "locale-readiness-impact.json",
+  "run_id": "run-example",
+  "status": "blocked",
+  "target_locale": "ar",
+  "delivery_readiness_impact": "blocked",
+  "apply_readiness_impact": "blocked",
+  "scorecard_impact": "forbid_locale_claims",
+  "forbidden_claims": ["full_product_localization", "locale_complete", "locale_formatting_complete", "rtl_safe"],
+  "claim_acceptance_policy": {
+    "unsupported_locale_claims_cannot_be_accepted": true,
+    "limited_scope_acceptance_must_preserve_forbidden_claims": true
+  },
+  "signoff_policy": {
+    "signoff_cannot_override_missing_locale_capability_evidence": true,
+    "locale_limitations_must_remain_visible": true
+  },
+  "required_next_actions": ["Collect bidi/layout evidence before claiming RTL-safe delivery."],
+  "source_artifacts": {
+    "locale_capability_report": "locale-capability-report.json",
+    "locale_risk_report": "locale-risk-report.json"
+  },
+  "limitations": ["locale readiness impact is a consolidation artifact and does not prove translation quality"]
+}

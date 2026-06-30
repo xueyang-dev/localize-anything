@@ -54,6 +54,7 @@
     "dimensions": { "type": "object" },
     "structural_qa": { "type": "object" },
     "provider_status": { "type": "object" },
+    "locale_assurance": { "type": "object" },
     "terminology_assurance": { "type": "object" },
     "knowledge_assurance": { "type": "object" },
     "coverage_assurance": { "type": "object" },
@@ -86,7 +87,12 @@
           "knowledge_review_complete",
           "provider_execution_complete",
           "provider_repair_complete",
-          "model_repair_complete"
+          "model_repair_complete",
+          "locale_complete",
+          "rtl_safe",
+          "plural_complete",
+          "locale_formatting_complete",
+          "full_product_localization"
         ]
       },
       "uniqueItems": true

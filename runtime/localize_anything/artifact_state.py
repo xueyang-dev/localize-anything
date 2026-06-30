@@ -113,6 +113,11 @@ from .provider_result_gate import (
     PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .locale_capability import (
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_READINESS_IMPACT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -167,6 +172,9 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_result_acceptance_decision", "provider_result_acceptance_decision", PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON, "provider_result_acceptance", ("provider_evidence_reconciliation", "provider_result_qa_report", "provider_result_review_evidence"), required_for_delivery=True),
     ArtifactSpec("provider_claim_support_report", "provider_claim_support_report", PROVIDER_CLAIM_SUPPORT_REPORT_JSON, "provider_result_acceptance", ("provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "signoff_record"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("workbench_provider_review_queue", "workbench_provider_review_queue", WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON, "provider_result_review", ("provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "provider_claim_support_report")),
+    ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),
@@ -649,6 +657,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_recompute_result",
             "knowledge_readiness_impact_report",
             "provider_evidence_reconciliation",
+            "locale_readiness_impact",
         ),
         required_for_delivery=True,
     ),
@@ -672,6 +681,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_repair_closure_decision",
             "knowledge_recompute_result",
             "knowledge_readiness_impact_report",
+            "locale_readiness_impact",
         ),
         required_for_delivery=True,
     ),
@@ -717,6 +727,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_recompute_result",
             "knowledge_readiness_impact_report",
             "provider_evidence_reconciliation",
+            "locale_readiness_impact",
             "repair_result",
             "repair_history",
         ),
@@ -1414,6 +1425,14 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
         if name == WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON and str(content.get("status") or "") == "action_required":
             entry["status"] = "requires_human_review"
             entry["blocking_reason"] = "provider_review_action_required"
+        if name in {LOCALE_CAPABILITY_REPORT_JSON, LOCALE_RISK_REPORT_JSON, LOCALE_READINESS_IMPACT_JSON}:
+            locale_status = str(content.get("status") or "")
+            if locale_status in {"blocked", "stale"}:
+                entry["status"] = locale_status
+                entry["blocking_reason"] = "locale_capability_not_ready"
+            elif locale_status in {"partial", "unknown", "review_required", "clear_with_warnings"}:
+                entry["status"] = "requires_human_review"
+                entry["blocking_reason"] = "locale_capability_downgraded"
         if status in STATUS_VALUES and status not in {"current", ""}:
             entry["status"] = "requires_human_review" if status in {"review_required", "owner_review_required"} else status
         if status == "draft_package":
@@ -1510,6 +1529,13 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "provider_claim_support_report",
         "workbench_provider_review_queue",
     }
+    locale_dependency_ids = {
+        "locale_capability_report",
+        "locale_risk_report",
+        "locale_readiness_impact",
+    }
+    if entry["status"] == "blocked" and spec.artifact_id in locale_dependency_ids:
+        return
     knowledge_dependency_ids = {
         "knowledge_pack_selection",
         "knowledge_eligibility_report",
@@ -1546,6 +1572,17 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "apply_readiness_report",
         "delivery_readiness_report",
     }
+    locale_consumers = {
+        "generation_handoff_decision",
+        "delivery_decision",
+        "evaluation_scorecard",
+        "claim_acceptance_decision",
+        "signoff_record",
+        "readiness_authorization_matrix",
+        "manual_followup_gap_report",
+        "apply_readiness_report",
+        "delivery_readiness_report",
+    }
     stale_dependencies = sorted(
         dependency_id
         for dependency_id in spec.dependencies
@@ -1560,7 +1597,9 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & workflow_dependency_ids))
     if spec.artifact_id in provider_dependency_ids | readiness_dependency_ids:
         relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & provider_dependency_ids))
-    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids | provider_dependency_ids or not relevant_dependencies:
+    if spec.artifact_id in locale_dependency_ids | locale_consumers | readiness_dependency_ids:
+        relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & locale_dependency_ids))
+    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids | provider_dependency_ids | locale_dependency_ids | locale_consumers or not relevant_dependencies:
         return
     entry["status"] = "stale"
     entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"

@@ -1,0 +1,40 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-locale-capability-report-v1",
+  "artifact": "locale-capability-report.json",
+  "run_id": "run-example",
+  "status": "partial",
+  "target_locale": "ar",
+  "normalized_language": "ar",
+  "locale_profile": {
+    "directionality": "RTL",
+    "plural_complexity": "complex",
+    "expected_plural_categories": ["zero", "one", "two", "few", "many", "other"],
+    "formatting_support_status": "unknown",
+    "unicode_risk_flags": ["rtl_bidi_layout_evidence_required"],
+    "profile_source": "built_in_seed_profile"
+  },
+  "adapter_capability_matches": [
+    {
+      "adapter": "core.android-strings",
+      "plural_support_status": "supported",
+      "rtl_layout_support_status": "unknown",
+      "formatting_support_status": "unknown"
+    }
+  ],
+  "plural_support": {
+    "source_has_plural_resources": true,
+    "status": "supported",
+    "expected_categories": ["zero", "one", "two", "few", "many", "other"],
+    "adapter_evidence": []
+  },
+  "formatting_support": {
+    "date_time": "unknown",
+    "number": "unknown",
+    "currency": "unknown"
+  },
+  "unicode_bidi_risk_flags": ["rtl_bidi_layout_evidence_required"],
+  "unsupported_claims": ["full_product_localization", "locale_complete", "locale_formatting_complete", "rtl_safe"],
+  "source_artifacts": {},
+  "limitations": ["locale capability report is seed-level engineering evidence, not full CLDR support"]
+}
