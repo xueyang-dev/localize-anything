@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/manual-followup-gap-report.schema.json",
+  "title": "Localize Anything Manual Follow-up Gap Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "gaps", "summary", "source_artifacts", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-manual-followup-gap-report-v1" },
+    "artifact": { "const": "manual-followup-gap-report.json" },
+    "status": { "enum": ["ready", "ready_with_warnings", "blocked"] },
+    "gaps": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "source_artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

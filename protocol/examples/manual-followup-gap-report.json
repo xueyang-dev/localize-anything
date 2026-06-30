@@ -1,0 +1,26 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-manual-followup-gap-report-v1",
+  "artifact": "manual-followup-gap-report.json",
+  "run_id": "readiness-example-001",
+  "status": "blocked",
+  "gaps": [
+    {
+      "gap_id": "gap-abc",
+      "gap_type": "signoff_required",
+      "severity": "blocking",
+      "owner_role": "project_owner",
+      "affected_scope": { "scope_type": "limited" },
+      "source_artifact_references": ["signoff-record.json"],
+      "required_decision": "signoff_required",
+      "recommended_action": "Delivery/apply signoff is missing, stale, or blocked.",
+      "blocks_delivery": true,
+      "blocks_apply": true,
+      "blocks_production_ready_claim": true,
+      "warning_only": false
+    }
+  ],
+  "summary": { "gap_count": 1, "delivery_blocking_count": 1, "apply_blocking_count": 1, "production_blocking_count": 1, "warning_count": 0 },
+  "source_artifacts": { "readiness_authorization_matrix": { "path": "readiness-authorization-matrix.json", "sha256": "abc" } },
+  "limitations": ["manual follow-up gaps are projections over artifacts and do not resolve decisions by themselves"]
+}

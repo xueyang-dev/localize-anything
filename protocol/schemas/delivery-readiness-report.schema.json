@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/delivery-readiness-report.schema.json",
+  "title": "Localize Anything Delivery Readiness Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "delivery_status", "delivery_mode", "target_audience", "effective_scope", "included_artifacts", "excluded_artifacts", "warnings", "blockers", "forbidden_claims", "limitations", "review_requirements", "signoff_requirements", "recommended_next_action", "source_artifacts"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-delivery-readiness-report-v1" },
+    "artifact": { "const": "delivery-readiness-report.json" },
+    "delivery_status": { "enum": ["ready", "ready_with_warnings", "review_required", "authorization_required", "blocked", "stale", "partial", "not_applicable", "unknown"] },
+    "delivery_mode": { "type": "string" },
+    "target_audience": { "type": "string" },
+    "effective_scope": { "type": "object" },
+    "included_artifacts": { "type": "array", "items": { "type": "string" } },
+    "excluded_artifacts": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "review_requirements": { "type": "array", "items": { "type": "object" } },
+    "signoff_requirements": { "type": "object" },
+    "recommended_next_action": { "type": "string" },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,20 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-delivery-readiness-report-v1",
+  "artifact": "delivery-readiness-report.json",
+  "run_id": "readiness-example-001",
+  "delivery_status": "review_required",
+  "delivery_mode": "review_package_only",
+  "target_audience": "reviewer_or_project_owner",
+  "effective_scope": { "scope_type": "limited" },
+  "included_artifacts": ["evaluation_scorecard", "artifact_state"],
+  "excluded_artifacts": ["signoff_record"],
+  "warnings": [{ "type": "coverage_blocked", "summary": "coverage is partial, unknown, or downgraded" }],
+  "blockers": [],
+  "forbidden_claims": ["delivery_ready", "production_ready"],
+  "limitations": ["delivery readiness and apply readiness are separate decisions"],
+  "review_requirements": [{ "gap_type": "human_review_required" }],
+  "signoff_requirements": { "required": true, "status": "authorization_required", "artifact": "signoff-record.json" },
+  "recommended_next_action": "Resolve delivery blockers, then refresh delivery readiness.",
+  "source_artifacts": { "readiness_authorization_matrix": { "path": "readiness-authorization-matrix.json", "sha256": "abc" } }
+}

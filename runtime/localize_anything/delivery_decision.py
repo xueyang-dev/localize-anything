@@ -31,6 +31,9 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     knowledge_repair_reconciliation = _read_optional_json(delivery_dir / "knowledge-repair-reconciliation.json")
     knowledge_repair_closure = _read_optional_json(delivery_dir / "knowledge-repair-closure-decision.json")
     knowledge_readiness_impact = _read_optional_json(delivery_dir / "knowledge-readiness-impact-report.json")
+    readiness_matrix = _read_optional_json(delivery_dir / "readiness-authorization-matrix.json")
+    apply_readiness = _read_optional_json(delivery_dir / "apply-readiness-report.json")
+    delivery_readiness = _read_optional_json(delivery_dir / "delivery-readiness-report.json")
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -240,6 +243,46 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 },
             }
         )
+    if str(readiness_matrix.get("delivery_readiness_status") or "") in {"blocked", "stale", "partial"} or str(
+        readiness_matrix.get("apply_readiness_status") or ""
+    ) in {"blocked", "stale", "partial"}:
+        decisions.append(
+            {
+                "id": f"readiness-authorization-{len(decisions) + 1:04d}",
+                "type": "readiness_authorization_matrix",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Resolve readiness authorization blockers before delivery/apply claims or source apply.",
+                "evidence": {
+                    "delivery_readiness_status": readiness_matrix.get("delivery_readiness_status", "not_checked"),
+                    "apply_readiness_status": readiness_matrix.get("apply_readiness_status", "not_checked"),
+                    "forbidden_claims": readiness_matrix.get("forbidden_claims", []),
+                    "blocker_count": readiness_matrix.get("summary", {}).get("blocker_count", 0),
+                },
+            }
+        )
+    if str(apply_readiness.get("apply_status") or "") in {"blocked", "stale", "partial"}:
+        decisions.append(
+            {
+                "id": f"apply-readiness-{len(decisions) + 1:04d}",
+                "type": "apply_readiness_report",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Do not apply staged files until apply readiness is current and explicitly authorized.",
+                "evidence": {"apply_status": apply_readiness.get("apply_status", "not_checked")},
+            }
+        )
+    if str(delivery_readiness.get("delivery_status") or "") in {"blocked", "stale", "partial"}:
+        decisions.append(
+            {
+                "id": f"delivery-readiness-{len(decisions) + 1:04d}",
+                "type": "delivery_readiness_report",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Refresh delivery readiness before handing off a delivery package as ready.",
+                "evidence": {"delivery_status": delivery_readiness.get("delivery_status", "not_checked")},
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -296,6 +339,10 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "knowledge_repair_reconciliation_status": knowledge_repair_reconciliation.get("status", "not_checked"),
             "knowledge_repair_closure_status": knowledge_repair_closure.get("status", "not_checked"),
             "knowledge_readiness_impact_status": knowledge_readiness_impact.get("status", "not_checked"),
+            "readiness_authorization_delivery_status": readiness_matrix.get("delivery_readiness_status", "not_checked"),
+            "readiness_authorization_apply_status": readiness_matrix.get("apply_readiness_status", "not_checked"),
+            "apply_readiness_report_status": apply_readiness.get("apply_status", "not_checked"),
+            "delivery_readiness_report_status": delivery_readiness.get("delivery_status", "not_checked"),
         },
         "localization": localization,
         "artifact_state": artifact_state,

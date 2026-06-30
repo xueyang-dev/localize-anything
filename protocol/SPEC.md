@@ -1066,6 +1066,61 @@ CLI commands are `knowledge-repair-closure-decision`,
 `knowledge-repair-recompute` is provider-free and repair-application-free; it
 only orchestrates deterministic recomputation of existing derived artifacts.
 
+## Delivery / Apply Readiness Authorization Matrix
+
+Readiness authorization is the final seed consolidation layer before delivery
+or apply claims. It is artifact-backed and deterministic. It does not bypass
+Evaluation Scorecard, Artifact State, claim acceptance, signoff, delivery
+decision, generation handoff, repair closure, document evidence, or knowledge
+audit gates.
+
+The seed defines four artifacts:
+
+- `readiness-authorization-matrix.json`
+- `manual-followup-gap-report.json`
+- `apply-readiness-report.json`
+- `delivery-readiness-report.json`
+
+`readiness-authorization-matrix.json` consolidates scorecard, handoff, delivery
+decision, artifact-state, claim acceptance, signoff, human review, document
+evidence, knowledge audit, repair closure, provider status, coverage, QA, and
+related artifacts. It records delivery/apply/review/production readiness
+statuses, freshness, signoff and claim state, repair/document/knowledge
+evidence state, provider and coverage state, authorization requirements,
+blockers, warnings, forbidden claims, limitations, effective scope, and next
+actions.
+
+`manual-followup-gap-report.json` lists unresolved human or operator gaps:
+term decisions, human/native/professional review, claim acceptance, signoff,
+leadership review, document decisions, knowledge review and conflict
+resolution, repair closure recomputation, provider policy resolution, coverage
+confirmation, artifact refresh, forbidden claim acknowledgement, and apply
+authorization. It is a projection and does not resolve those gaps.
+
+`apply-readiness-report.json` answers whether staged localized output may be
+applied back to the project. Apply readiness is blocked when scorecard,
+artifact-state, signoff, repair closure, provider policy, QA, coverage,
+handoff, document/knowledge evidence, or matrix inputs are blocked or stale for
+the affected scope. Delivery readiness alone never grants apply readiness.
+
+`delivery-readiness-report.json` answers whether a delivery package may be
+handed to a reviewer or recipient. Review-ready delivery may be allowed with
+explicit warnings and scope. Production-ready delivery requires current
+scorecard, signoff, claim acceptance, repair closure, QA, and evidence
+freshness. Draft-only delivery must preserve unsupported forbidden claims.
+
+Workbench/API endpoints are artifact-backed:
+
+- `GET /api/readiness-authorization-matrix`
+- `GET /api/manual-followup-gap-report`
+- `GET /api/apply-readiness-report`
+- `GET /api/delivery-readiness-report`
+
+CLI commands are `readiness-authorization-matrix`,
+`manual-followup-gap-report`, `apply-readiness-report`,
+`delivery-readiness-report`, and `readiness-check`. These commands do not call
+providers, apply repairs, execute semantic rewrites, or mutate target files.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

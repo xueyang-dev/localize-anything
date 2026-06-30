@@ -252,6 +252,10 @@ def _load_artifacts(
         "knowledge_recompute_result": _read_optional_json(state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON),
         "knowledge_repair_closure_decision": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON),
         "knowledge_readiness_impact_report": _read_optional_json(state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON),
+        "readiness_authorization_matrix": _read_optional_json(state_dir / "readiness-authorization-matrix.json"),
+        "manual_followup_gap_report": _read_optional_json(state_dir / "manual-followup-gap-report.json"),
+        "apply_readiness_report": _read_optional_json(state_dir / "apply-readiness-report.json"),
+        "delivery_readiness_report": _read_optional_json(state_dir / "delivery-readiness-report.json"),
         "blocking_questions": _read_optional_json(state_dir / "blocking-questions.json"),
         "resolution_options": _read_optional_json(state_dir / "resolution-options.json"),
         "user_resolution_decisions": _read_optional_jsonl(state_dir / "user-resolution-decisions.jsonl"),
@@ -681,6 +685,13 @@ def _forbidden_claims(
         claims.add("delivery_ready")
     if dimensions["apply_readiness"]["status"] != "pass":
         claims.add("apply_ready")
+    readiness_matrix = artifacts.get("readiness_authorization_matrix", {})
+    if isinstance(readiness_matrix, dict) and readiness_matrix:
+        claims.update(str(claim) for claim in readiness_matrix.get("forbidden_claims", []) if claim)
+        if str(readiness_matrix.get("delivery_readiness_status") or "") in {"blocked", "stale", "partial"}:
+            claims.update({"delivery_ready", "production_ready"})
+        if str(readiness_matrix.get("apply_readiness_status") or "") in {"blocked", "stale", "partial", "authorization_required"}:
+            claims.update({"apply_ready", "production_ready"})
     if any(dimension["status"] == "blocked" for dimension in dimensions.values()) or dimensions["review_readiness"]["status"] != "pass":
         claims.add("production_ready")
     if dimensions["artifact_freshness"]["status"] != "pass":
@@ -747,6 +758,9 @@ def _recommended_next_actions(
     closure = artifacts.get("knowledge_repair_closure_decision", {})
     if isinstance(closure, dict) and closure.get("status") in {"requires_recompute", "partially_closed", "still_blocked", "requires_human_review", "stale"}:
         actions.append("Run knowledge repair recompute orchestration and renew affected scorecard, claim, signoff, delivery, or apply evidence.")
+    readiness_matrix = artifacts.get("readiness_authorization_matrix", {})
+    if isinstance(readiness_matrix, dict):
+        actions.extend(str(item) for item in readiness_matrix.get("recommended_next_actions", []) if item)
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         actions.append("Resolve blocked claim acceptance before delivery or apply readiness claims.")
@@ -1045,6 +1059,10 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "knowledge_recompute_result": state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON,
         "knowledge_repair_closure_decision": state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
         "knowledge_readiness_impact_report": state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
+        "readiness_authorization_matrix": state_dir / "readiness-authorization-matrix.json",
+        "manual_followup_gap_report": state_dir / "manual-followup-gap-report.json",
+        "apply_readiness_report": state_dir / "apply-readiness-report.json",
+        "delivery_readiness_report": state_dir / "delivery-readiness-report.json",
         "blocking_questions": state_dir / "blocking-questions.json",
         "resolution_options": state_dir / "resolution-options.json",
         "user_resolution_decisions": state_dir / "user-resolution-decisions.jsonl",

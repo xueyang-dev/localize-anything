@@ -81,6 +81,12 @@ from .knowledge_repair_closure import (
     KNOWLEDGE_RECOMPUTE_RESULT_JSON,
     KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
 )
+from .readiness_authorization import (
+    APPLY_READINESS_REPORT_JSON,
+    DELIVERY_READINESS_REPORT_JSON,
+    MANUAL_FOLLOWUP_GAP_REPORT_JSON,
+    READINESS_AUTHORIZATION_MATRIX_JSON,
+)
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -1108,6 +1114,10 @@ def _summary(
         ("knowledge_recompute_result", KNOWLEDGE_RECOMPUTE_RESULT_JSON),
         ("knowledge_repair_closure_decision", KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON),
         ("knowledge_readiness_impact_report", KNOWLEDGE_READINESS_IMPACT_REPORT_JSON),
+        ("readiness_authorization_matrix", READINESS_AUTHORIZATION_MATRIX_JSON),
+        ("manual_followup_gap_report", MANUAL_FOLLOWUP_GAP_REPORT_JSON),
+        ("apply_readiness_report", APPLY_READINESS_REPORT_JSON),
+        ("delivery_readiness_report", DELIVERY_READINESS_REPORT_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1271,6 +1281,31 @@ def _summary(
             "knowledge_readiness_impact_status": (
                 read_json(state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON).get("status", "not_checked")
                 if (state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "readiness_authorization_delivery_status": (
+                read_json(state_dir / READINESS_AUTHORIZATION_MATRIX_JSON).get("delivery_readiness_status", "not_checked")
+                if (state_dir / READINESS_AUTHORIZATION_MATRIX_JSON).is_file()
+                else "not_checked"
+            ),
+            "readiness_authorization_apply_status": (
+                read_json(state_dir / READINESS_AUTHORIZATION_MATRIX_JSON).get("apply_readiness_status", "not_checked")
+                if (state_dir / READINESS_AUTHORIZATION_MATRIX_JSON).is_file()
+                else "not_checked"
+            ),
+            "manual_followup_gap_count": (
+                read_json(state_dir / MANUAL_FOLLOWUP_GAP_REPORT_JSON).get("summary", {}).get("gap_count", 0)
+                if (state_dir / MANUAL_FOLLOWUP_GAP_REPORT_JSON).is_file()
+                else 0
+            ),
+            "apply_readiness_report_status": (
+                read_json(state_dir / APPLY_READINESS_REPORT_JSON).get("apply_status", "not_checked")
+                if (state_dir / APPLY_READINESS_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "delivery_readiness_report_status": (
+                read_json(state_dir / DELIVERY_READINESS_REPORT_JSON).get("delivery_status", "not_checked")
+                if (state_dir / DELIVERY_READINESS_REPORT_JSON).is_file()
                 else "not_checked"
             ),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),
