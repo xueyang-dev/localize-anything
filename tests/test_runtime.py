@@ -126,6 +126,18 @@ from runtime.localize_anything.knowledge_audit_enforcement import (
     build_knowledge_audit_enforcement_decision,
     build_workbench_knowledge_review_queue,
 )
+from runtime.localize_anything.knowledge_review_confirmation import (
+    KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+    KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL,
+    KNOWLEDGE_CONFLICT_RESOLUTION_JSON,
+    KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
+    build_knowledge_assurance_summary,
+    build_knowledge_conflict_resolution,
+    read_knowledge_audit_resolution_log,
+    read_knowledge_constraint_review_evidence,
+    record_knowledge_audit_resolution,
+    record_knowledge_constraint_review_evidence,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -8557,7 +8569,337 @@ class KnowledgeAuditEnforcementGateTests(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=2)
 
-    def test_delivery_package_and_run_summary_reference_knowledge_enforcement(self) -> None:
+
+class KnowledgeReviewConfirmationSeedTests(unittest.TestCase):
+    def test_resolution_log_records_accepted_rejected_and_follow_up_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+
+            accepted = record_knowledge_audit_resolution(
+                state,
+                {
+                    "decision_type": "accept_constraint_application",
+                    "decision_status": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "related_constraint_audit_id": "constraint-open-lab",
+                    "accepted_limitation": "Only reviewed segment s1.",
+                    "effective_scope": {"segment_ids": ["s1"]},
+                },
+            )
+            record_knowledge_audit_resolution(
+                state,
+                {"decision_type": "reject_pack_knowledge", "decision_status": "rejected", "reviewer_reference": "reviewer@example.test"},
+            )
+            record_knowledge_audit_resolution(
+                state,
+                {"decision_type": "request_follow_up", "decision_status": "requires_follow_up", "reviewer_reference": "reviewer@example.test"},
+            )
+
+            log = read_knowledge_audit_resolution_log(state)
+
+            self.assertEqual(len(log), 3)
+            self.assertEqual(accepted["decision_status"], "accepted_with_limitations")
+            assert_protocol_schema(self, "knowledge-audit-resolution-log", accepted)
+
+    def test_constraint_review_evidence_supports_narrow_constraint_claim_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_knowledge_audit_enforcement_decision(state)
+
+            evidence = record_knowledge_constraint_review_evidence(
+                state,
+                {
+                    "decision": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "review_scope": {"segment_ids": ["s1"]},
+                    "reviewed_constraints": ["constraint-k-term-open-lab"],
+                    "supports_knowledge_constraints_applied": True,
+                    "supports_knowledge_review_complete": False,
+                    "limitations": ["Only one segment reviewed."],
+                },
+            )
+            summary = build_knowledge_assurance_summary(state)
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertIn("knowledge_constraints_applied", summary["supported_claims"])
+            self.assertIn("knowledge_backed_quality", summary["forbidden_claims_remaining"])
+            self.assertNotIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+            self.assertIn("knowledge_backed_quality", scorecard["forbidden_claims"])
+            assert_protocol_schema(self, "knowledge-constraint-review-evidence", evidence)
+            assert_protocol_schema(self, "knowledge-assurance-summary", summary)
+
+    def test_conflict_resolution_resolves_matching_conflict_by_id_and_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "Other Lab")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+            report = build_knowledge_conflict_report(state)
+            conflict_id = report["conflicts"][0]["conflict_id"]
+
+            record_knowledge_audit_resolution(
+                state,
+                {
+                    "decision_type": "prefer_project_term",
+                    "decision_status": "accepted_with_limitations",
+                    "reviewer_reference": "owner@example.test",
+                    "related_conflict_id": conflict_id,
+                    "effective_scope": {"scenario": "scenario-a"},
+                    "accepted_limitation": "Project-local term priority only in scenario-a.",
+                },
+            )
+            resolution = build_knowledge_conflict_resolution(state)
+
+            self.assertEqual(resolution["status"], "resolved")
+            self.assertEqual(resolution["resolved_conflicts"][0]["conflict_id"], conflict_id)
+            self.assertEqual(resolution["project_local_overrides"][0]["decision_type"], "prefer_project_term")
+            assert_protocol_schema(self, "knowledge-conflict-resolution", resolution)
+
+    def test_unresolved_p1_conflict_keeps_strong_claims_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "Other Lab")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+            build_knowledge_conflict_report(state)
+
+            summary = build_knowledge_assurance_summary(state)
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertEqual(summary["status"], "blocked")
+            self.assertIn("knowledge_backed_quality", scorecard["forbidden_claims"])
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+
+    def test_reference_only_confirmation_does_not_create_hard_constraint_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            context = read_working_context_packet(state)
+            context["hard_constraints"].append(
+                {"knowledge_id": "ref-leak", "knowledge_type": "term", "classification": "reference_only", "status": "reference", "source_value": "Reference", "target_value": "参考"}
+            )
+            write_json(state / WORKING_CONTEXT_PACKET_JSON, context)
+            build_knowledge_audit_enforcement_decision(state)
+
+            record_knowledge_audit_resolution(
+                state,
+                {
+                    "decision_type": "accept_reference_only_use",
+                    "decision_status": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "affected_knowledge_item_ids": ["ref-leak"],
+                    "accepted_limitation": "Reference only; not a hard constraint.",
+                    "effective_scope": {"usage": "reference_only"},
+                },
+            )
+            summary = build_knowledge_assurance_summary(state)
+
+            self.assertNotIn("knowledge_constraints_applied", summary["supported_claims"])
+            self.assertIn("knowledge_constraints_applied", summary["forbidden_claims_remaining"])
+
+    def test_stale_usage_audit_or_conflict_report_stales_assurance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_constraint_application_audit(state)
+            build_knowledge_conflict_report(state)
+            build_knowledge_usage_report(state)
+            record_knowledge_constraint_review_evidence(
+                state,
+                {
+                    "decision": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "reviewed_constraints": ["constraint-k-term-open-lab"],
+                    "supports_knowledge_constraints_applied": True,
+                },
+            )
+            build_artifact_state(state)
+            usage = read_json(state / KNOWLEDGE_USAGE_REPORT_JSON)
+            usage["status"] = "blocked"
+            write_json(state / KNOWLEDGE_USAGE_REPORT_JSON, usage)
+
+            artifact_state = build_artifact_state(state)
+            summary = build_knowledge_assurance_summary(state)
+
+            stale_ids = {item["artifact_id"] for item in artifact_state["stale_artifacts"]}
+            self.assertIn("knowledge_assurance_summary", stale_ids)
+            self.assertEqual(summary["status"], "stale")
+
+    def test_scorecard_claim_acceptance_and_signoff_consume_assurance_conservatively(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_knowledge_audit_enforcement_decision(state)
+            build_knowledge_assurance_summary(state)
+            build_evaluation_scorecard(state)
+
+            claim = build_claim_acceptance_decision(state, requested_claims=["knowledge_backed_quality"])
+            signoff = create_signoff_record(state, {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": True})
+
+            self.assertEqual(claim["status"], "blocked")
+            self.assertIn("knowledge_backed_quality", claim["rejected_claims"])
+            self.assertFalse(signoff["delivery_authorized"])
+            self.assertFalse(signoff["apply_authorized"])
+
+    def test_artifact_state_tracks_knowledge_resolution_and_assurance_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _select_consumption_pack(state)
+            build_knowledge_audit_enforcement_decision(state)
+            record_knowledge_audit_resolution(
+                state,
+                {"decision_type": "keep_blocked", "decision_status": "blocked", "reviewer_reference": "reviewer@example.test"},
+            )
+            record_knowledge_constraint_review_evidence(
+                state,
+                {"decision": "accepted_with_limitations", "reviewer_reference": "reviewer@example.test", "supports_knowledge_constraints_applied": True},
+            )
+            build_knowledge_conflict_resolution(state)
+            build_knowledge_assurance_summary(state)
+
+            artifact_state = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+
+            self.assertTrue(
+                {
+                    "knowledge_audit_resolution_log",
+                    "knowledge_constraint_review_evidence",
+                    "knowledge_conflict_resolution",
+                    "knowledge_assurance_summary",
+                }.issubset(ids)
+            )
+
+    def test_workbench_queue_reflects_resolved_rejected_and_stale_states(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            _add_locked_pack(state, "pack-two", "Other Lab")
+            select_knowledge_packs(
+                state,
+                pack_ids=["pack", "pack-two"],
+                source_locale="en-US",
+                target_locale="zh-CN",
+                domains=["domain-a"],
+                scenario="scenario-a",
+            )
+            report = build_knowledge_conflict_report(state)
+            conflict_id = report["conflicts"][0]["conflict_id"]
+            build_knowledge_audit_enforcement_decision(state)
+            record_knowledge_audit_resolution(
+                state,
+                {
+                    "decision_type": "resolve_knowledge_conflict",
+                    "decision_status": "accepted",
+                    "reviewer_reference": "reviewer@example.test",
+                    "related_conflict_id": conflict_id,
+                    "effective_scope": {"scenario": "scenario-a"},
+                },
+            )
+
+            queue = build_workbench_knowledge_review_queue(state)
+
+            item = next(item for item in queue["items"] if item["related_conflict_id"] == conflict_id)
+            self.assertEqual(item["resolution_status"], "resolved")
+            self.assertIn("/api/knowledge-audit-resolution-log", item["action_endpoint_hint"])
+
+    def test_api_endpoints_read_write_artifact_backed_decisions_without_provider_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    status, _ = _http_post_json(
+                        host,
+                        port,
+                        "/api/knowledge-audit-resolution-log",
+                        {
+                            "state_dir": state.as_posix(),
+                            "decision": {
+                                "decision_type": "accept_limited_knowledge_risk",
+                                "decision_status": "accepted_with_limitations",
+                                "reviewer_reference": "reviewer@example.test",
+                                "accepted_limitation": "Limited seed review.",
+                            },
+                        },
+                    )
+                    self.assertEqual(status, 200)
+                    status, _ = _http_post_json(
+                        host,
+                        port,
+                        "/api/knowledge-constraint-review-evidence",
+                        {
+                            "state_dir": state.as_posix(),
+                            "evidence": {
+                                "decision": "accepted_with_limitations",
+                                "reviewer_reference": "reviewer@example.test",
+                                "supports_knowledge_constraints_applied": True,
+                            },
+                        },
+                    )
+                    self.assertEqual(status, 200)
+                    self.assertFalse(provider_call.called)
+                for endpoint in (
+                    "knowledge-audit-resolution-log",
+                    "knowledge-constraint-review-evidence",
+                    "knowledge-conflict-resolution",
+                    "knowledge-assurance-summary",
+                ):
+                    get_status, _ = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(get_status, 200)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_commands_are_deterministic_and_artifact_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _consumption_state(Path(directory))
+            resolution_input = Path(directory) / "resolution.json"
+            review_input = Path(directory) / "review.json"
+            write_json(
+                resolution_input,
+                {
+                    "decision_type": "accept_constraint_application",
+                    "decision_status": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "related_constraint_audit_id": "constraint-k-term-open-lab",
+                },
+            )
+            write_json(
+                review_input,
+                {
+                    "decision": "accepted_with_limitations",
+                    "reviewer_reference": "reviewer@example.test",
+                    "reviewed_constraints": ["constraint-k-term-open-lab"],
+                    "supports_knowledge_constraints_applied": True,
+                },
+            )
+
+            self.assertEqual(cli_main(["record-knowledge-audit-resolution", state.as_posix(), "--input", resolution_input.as_posix()]), 0)
+            self.assertEqual(cli_main(["record-knowledge-constraint-review", state.as_posix(), "--input", review_input.as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-conflict-resolution", state.as_posix(), "--output", (Path(directory) / "conflict.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-assurance-summary", state.as_posix(), "--output", (Path(directory) / "assurance.json").as_posix()]), 0)
+            self.assertTrue((state / KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL).is_file())
+            self.assertTrue((state / KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL).is_file())
+            self.assertTrue((state / KNOWLEDGE_CONFLICT_RESOLUTION_JSON).is_file())
+            self.assertTrue((state / KNOWLEDGE_ASSURANCE_SUMMARY_JSON).is_file())
+
+    def test_delivery_package_and_run_summary_reference_knowledge_resolution_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             project = _make_json_project(root)
@@ -8567,6 +8909,16 @@ class KnowledgeAuditEnforcementGateTests(unittest.TestCase):
             _select_consumption_pack(state)
             build_knowledge_audit_enforcement_decision(state)
             build_workbench_knowledge_review_queue(state)
+            record_knowledge_audit_resolution(
+                state,
+                {"decision_type": "accept_limited_knowledge_risk", "decision_status": "accepted_with_limitations", "reviewer_reference": "reviewer@example.test"},
+            )
+            record_knowledge_constraint_review_evidence(
+                state,
+                {"decision": "accepted_with_limitations", "reviewer_reference": "reviewer@example.test", "supports_knowledge_constraints_applied": True},
+            )
+            build_knowledge_conflict_resolution(state)
+            build_knowledge_assurance_summary(state)
             staging = root / "staging"
             staged = staging / "locales" / "zh-CN.json"
             staged.parent.mkdir(parents=True)
@@ -8577,6 +8929,10 @@ class KnowledgeAuditEnforcementGateTests(unittest.TestCase):
             assets = packaged["manifest"]["assets"]
             self.assertEqual(assets["knowledge_audit_enforcement_decision"], KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON)
             self.assertEqual(assets["workbench_knowledge_review_queue"], WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON)
+            self.assertEqual(assets["knowledge_audit_resolution_log"], KNOWLEDGE_AUDIT_RESOLUTION_LOG_JSONL)
+            self.assertEqual(assets["knowledge_constraint_review_evidence"], KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL)
+            self.assertEqual(assets["knowledge_conflict_resolution"], KNOWLEDGE_CONFLICT_RESOLUTION_JSON)
+            self.assertEqual(assets["knowledge_assurance_summary"], KNOWLEDGE_ASSURANCE_SUMMARY_JSON)
 
 
 def _consumption_state(root: Path) -> Path:
@@ -9679,7 +10035,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 67)
+        self.assertEqual(result["schemas_checked"], 71)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

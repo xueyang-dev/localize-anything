@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/knowledge-conflict-resolution.schema.json",
+  "title": "Localize Anything Knowledge Conflict Resolution",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "schema",
+    "artifact",
+    "status",
+    "resolved_conflicts",
+    "unresolved_conflicts",
+    "blocking_conflicts_remaining",
+    "readiness_impact",
+    "required_next_actions",
+    "source_artifacts"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-knowledge-conflict-resolution-v1" },
+    "artifact": { "const": "knowledge-conflict-resolution.json" },
+    "status": { "enum": ["resolved", "review_required", "blocked"] },
+    "resolved_conflicts": { "type": "array", "items": { "type": "object" } },
+    "unresolved_conflicts": { "type": "array", "items": { "type": "object" } },
+    "accepted_priority_decisions": { "type": "array", "items": { "type": "object" } },
+    "rejected_knowledge_items": { "type": "array", "items": { "type": "string" } },
+    "scoped_limitations": { "type": "array", "items": { "type": "object" } },
+    "project_local_overrides": { "type": "array", "items": { "type": "object" } },
+    "pack_overrides": { "type": "array", "items": { "type": "object" } },
+    "blocking_conflicts_remaining": { "type": "array", "items": { "type": "object" } },
+    "readiness_impact": { "type": "string" },
+    "required_next_actions": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

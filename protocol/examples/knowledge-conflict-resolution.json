@@ -1,0 +1,30 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-conflict-resolution-v1",
+  "artifact": "knowledge-conflict-resolution.json",
+  "status": "review_required",
+  "resolved_conflicts": [],
+  "unresolved_conflicts": [
+    {
+      "conflict_id": "knowledge-conflict-0001",
+      "severity": "P1",
+      "blocking": true,
+      "recommended_resolution": "Record scoped resolution before delivery."
+    }
+  ],
+  "accepted_priority_decisions": [],
+  "rejected_knowledge_items": [],
+  "scoped_limitations": [],
+  "project_local_overrides": [],
+  "pack_overrides": [],
+  "blocking_conflicts_remaining": [
+    {
+      "conflict_id": "knowledge-conflict-0001",
+      "severity": "P1",
+      "blocking": true
+    }
+  ],
+  "readiness_impact": "blocked",
+  "required_next_actions": ["Record explicit scoped knowledge conflict resolution decisions for unresolved P1/P2 conflicts."],
+  "source_artifacts": { "knowledge_conflict_report": "knowledge-conflict-report.json" }
+}

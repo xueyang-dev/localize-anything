@@ -858,6 +858,49 @@ reference the enforcement artifacts when present. This gate comes before full
 RAG/model generation because retrieval output must be enforceable before it can
 be expanded.
 
+## Knowledge Review Decisions And Human Confirmation
+
+Knowledge Review Decision / Human Confirmation adds explicit artifacts for
+resolving knowledge audit blockers without putting decisions in the UI:
+
+- `knowledge-audit-resolution-log.jsonl`
+- `knowledge-constraint-review-evidence.jsonl`
+- `knowledge-conflict-resolution.json`
+- `knowledge-assurance-summary.json`
+
+The resolution log records scoped decisions such as accepting or rejecting
+constraint application, resolving conflicts, preferring project terms, limiting
+knowledge scope, confirming or rejecting blind-benchmark firewall status,
+requesting repair, accepting limited knowledge risk, or keeping a blocker
+active. The constraint review evidence records which constraints, negative
+constraints, usage entries, conflicts, and generated or staged segments were
+actually reviewed.
+
+These artifacts are deliberately conservative. Human confirmation can support a
+narrow `knowledge_constraints_applied` claim when deterministic audit or scoped
+review evidence supports it. It does not automatically prove
+`knowledge_backed_quality`, semantic correctness, global review completion, or
+delivery/apply readiness. Reference-only knowledge remains non-binding, stale or
+rejected knowledge remains ineligible, and project-local locked terms remain
+higher priority unless a scoped decision explicitly records otherwise.
+
+`knowledge-conflict-resolution.json` summarizes resolved and unresolved
+knowledge conflicts by conflict id, provenance, and scope.
+`knowledge-assurance-summary.json` summarizes supported claims, unsupported
+claims, remaining forbidden claims, limitations, and readiness impact.
+Evaluation Scorecard consumes this summary but still derives readiness from the
+weakest required evidence. Claim acceptance and signoff inherit unsupported
+knowledge claims rather than bypassing them. Generation Strategy may treat valid
+scoped review as a warning-limited path, while stale review evidence, unresolved
+P1/P2 conflicts, failed QA, unsafe provider policy, blocked handoff, and pending
+repairs remain blockers.
+
+Workbench knowledge queue entries can display whether a blocker is resolved by
+the resolution log or constraint review evidence, but the queue stays a
+projection over artifacts. A blocker is not resolved because it was displayed,
+acknowledged, or hidden in UI state. This seed still performs no vector search,
+RAG, provider/model generation, or provider/model repair.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

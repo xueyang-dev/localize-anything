@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add Knowledge Review Decision / Human Confirmation seed with
+  `knowledge-audit-resolution-log.jsonl`,
+  `knowledge-constraint-review-evidence.jsonl`,
+  `knowledge-conflict-resolution.json`, and
+  `knowledge-assurance-summary.json`, plus conservative scorecard,
+  generation-strategy, delivery, artifact-state, CLI, API, and Workbench queue
+  projection integration.
 - Add Knowledge Audit Enforcement / Delivery Apply Gate seed with
   `knowledge-audit-enforcement-decision.json`,
   `workbench-knowledge-review-queue.json`, conservative scorecard/handoff/
