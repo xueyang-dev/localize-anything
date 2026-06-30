@@ -1,0 +1,32 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-readiness-action-log-record-v1",
+  "action_id": "readiness-action-example",
+  "action_type": "request_follow_up",
+  "actor_role": "project_owner",
+  "actor_reference": "owner@example.test",
+  "target_gap_id": "gap-example",
+  "target_queue_item_id": "readiness-action-item-example",
+  "input_payload_summary": {
+    "reason": "Need scoped signoff before apply can be authorized."
+  },
+  "runtime_writer_delegated_to": "workbench_readiness_action_log",
+  "affected_artifact_references": [],
+  "before_readiness_status": {
+    "delivery": "authorization_required",
+    "apply": "authorization_required"
+  },
+  "after_readiness_status": {
+    "delivery": "authorization_required",
+    "apply": "authorization_required"
+  },
+  "runtime_validation_result": {
+    "status": "requires_follow_up"
+  },
+  "created_at": "2026-06-30T00:00:00+00:00",
+  "outcome": "requires_follow_up",
+  "limitations": [
+    "readiness action result does not imply readiness unless refreshed readiness artifacts support it"
+  ],
+  "follow_up_required": true
+}

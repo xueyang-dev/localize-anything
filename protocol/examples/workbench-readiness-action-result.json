@@ -1,0 +1,42 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workbench-readiness-action-result-v1",
+  "artifact": "workbench-readiness-action-result.json",
+  "action_id": "readiness-action-example",
+  "requested_action_type": "request_follow_up",
+  "target_queue_item_id": "readiness-action-item-example",
+  "target_gap_id": "gap-example",
+  "actor_role": "project_owner",
+  "actor_reference": "owner@example.test",
+  "status": "requires_follow_up",
+  "runtime_artifacts_written_or_updated": [],
+  "source_artifact_references": [
+    "workbench-readiness-action-queue.json",
+    "manual-followup-gap-report.json",
+    "readiness-authorization-matrix.json"
+  ],
+  "refreshed_artifacts": [
+    "artifact-state.json",
+    "readiness-authorization-matrix.json",
+    "manual-followup-gap-report.json",
+    "apply-readiness-report.json",
+    "delivery-readiness-report.json",
+    "workbench-readiness-action-queue.json"
+  ],
+  "remaining_blockers": [],
+  "remaining_forbidden_claims": ["apply_ready", "production_ready"],
+  "readiness_impact": {
+    "before": { "delivery": "authorization_required", "apply": "authorization_required" },
+    "after": { "delivery": "authorization_required", "apply": "authorization_required" },
+    "queue_status": "blocked"
+  },
+  "limitations": [
+    "readiness action result does not imply readiness unless refreshed readiness artifacts support it",
+    "underlying artifact-backed evidence still requires follow-up"
+  ],
+  "next_action": "Resolve the remaining readiness action queue items with artifact-backed decisions.",
+  "runtime_validation_result": {
+    "status": "requires_follow_up",
+    "message": "request_follow_up recorded in readiness action log only; forbidden claims and blockers remain artifact-backed"
+  }
+}

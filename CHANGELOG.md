@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add Workbench Readiness / Manual Follow-up Action Surface with
+  `workbench-readiness-action-queue.json`,
+  `workbench-readiness-action-result.json`, and
+  `workbench-readiness-action-log.jsonl`, plus artifact-backed CLI/API access,
+  Review Console visibility, delivery/run summary references, and conservative
+  delegation to existing runtime writers without provider calls or UI-owned
+  readiness logic.
 - Add Delivery / Apply Readiness Authorization Matrix with
   `readiness-authorization-matrix.json`,
   `manual-followup-gap-report.json`, `apply-readiness-report.json`, and

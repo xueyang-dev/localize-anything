@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-readiness-action-log.schema.json",
+  "title": "Localize Anything Workbench Readiness Action Log Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "action_id", "action_type", "actor_role", "runtime_writer_delegated_to", "affected_artifact_references", "runtime_validation_result", "created_at", "outcome", "limitations", "follow_up_required"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workbench-readiness-action-log-record-v1" },
+    "action_id": { "type": "string" },
+    "action_type": { "type": "string" },
+    "actor_role": { "type": "string" },
+    "runtime_writer_delegated_to": { "type": "string" },
+    "affected_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "runtime_validation_result": { "type": "object" },
+    "created_at": { "type": "string" },
+    "outcome": { "enum": ["accepted", "accepted_with_limitations", "rejected", "blocked", "requires_follow_up", "stale", "not_applicable"] },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "follow_up_required": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

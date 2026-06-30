@@ -102,6 +102,12 @@ from .readiness_authorization import (
     read_manual_followup_gap_report,
     read_readiness_authorization_matrix,
 )
+from .readiness_action import (
+    perform_workbench_readiness_action,
+    read_workbench_readiness_action_log,
+    read_workbench_readiness_action_queue,
+    read_workbench_readiness_action_result,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -314,6 +320,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/workbench-action-result":
                     self._handle_workbench_action_result_query(parsed.query)
                     return
+                if parsed.path == "/api/workbench-readiness-action-queue":
+                    self._handle_workbench_readiness_action_queue_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-readiness-action-log":
+                    self._handle_workbench_readiness_action_log_query(parsed.query)
+                    return
+                if parsed.path == "/api/workbench-readiness-action-result":
+                    self._handle_workbench_readiness_action_result_query(parsed.query)
+                    return
                 if parsed.path == "/api/workbench-console":
                     self._handle_workbench_console_query(parsed.query)
                     return
@@ -447,6 +462,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-action":
                     self._handle_workbench_action(payload)
+                    return
+                if parsed.path == "/api/workbench-readiness-action":
+                    self._handle_workbench_readiness_action(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -978,6 +996,42 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 raise ValueError(f"Workbench action result is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_result": read_workbench_action_result(state_dir)})
 
+        def _handle_workbench_readiness_action_queue_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench readiness action queue is outside allowed workbench roots: {state_dir}")
+            self._send_json(
+                {
+                    "status": "pass",
+                    "state_dir": state_dir.as_posix(),
+                    "workbench_readiness_action_queue": read_workbench_readiness_action_queue(state_dir),
+                }
+            )
+
+        def _handle_workbench_readiness_action_log_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench readiness action log is outside allowed workbench roots: {state_dir}")
+            self._send_json(
+                {
+                    "status": "pass",
+                    "state_dir": state_dir.as_posix(),
+                    "workbench_readiness_action_log": read_workbench_readiness_action_log(state_dir),
+                }
+            )
+
+        def _handle_workbench_readiness_action_result_query(self, query: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench readiness action result is outside allowed workbench roots: {state_dir}")
+            self._send_json(
+                {
+                    "status": "pass",
+                    "state_dir": state_dir.as_posix(),
+                    "workbench_readiness_action_result": read_workbench_readiness_action_result(state_dir),
+                }
+            )
+
         def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
             if not state.is_allowed(state_dir):
@@ -1054,6 +1108,17 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = perform_workbench_action(state_dir, action, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_action_result": result})
+
+        def _handle_workbench_readiness_action(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workbench readiness action is outside allowed workbench roots: {state_dir}")
+            action = payload.get("action")
+            if not isinstance(action, dict):
+                raise ValueError("action must be a JSON object")
+            result = perform_workbench_readiness_action(state_dir, action, run_id=_optional_string(payload.get("run_id")))
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_readiness_action_result": result})
 
         def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

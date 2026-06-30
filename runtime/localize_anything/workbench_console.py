@@ -8,6 +8,7 @@ from typing import Any
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl
 from .workbench_action import read_workbench_action_log, read_workbench_action_result
+from .readiness_action import read_workbench_readiness_action_log, read_workbench_readiness_action_result
 
 
 EVIDENCE_LEVEL_REPORT_MD = "evidence-level-report.md"
@@ -22,6 +23,13 @@ CONSOLE_ENDPOINTS = [
     ("Human Review Evidence", "/api/human-review-evidence", "human_review_evidence"),
     ("Claim Acceptance Decision", "/api/claim-acceptance-decision", "claim_acceptance_decision"),
     ("Signoff Record", "/api/signoff-record", "signoff_record"),
+    ("Readiness Authorization Matrix", "/api/readiness-authorization-matrix", "readiness_authorization_matrix"),
+    ("Manual Follow-up Gap Report", "/api/manual-followup-gap-report", "manual_followup_gap_report"),
+    ("Delivery Readiness Report", "/api/delivery-readiness-report", "delivery_readiness_report"),
+    ("Apply Readiness Report", "/api/apply-readiness-report", "apply_readiness_report"),
+    ("Workbench Readiness Action Queue", "/api/workbench-readiness-action-queue", "workbench_readiness_action_queue"),
+    ("Workbench Readiness Action Log", "/api/workbench-readiness-action-log", "workbench_readiness_action_log"),
+    ("Workbench Readiness Action Result", "/api/workbench-readiness-action-result", "workbench_readiness_action_result"),
     ("Artifact State", "/api/artifact-state", "artifact_state"),
     ("Repair Request", "/api/repair-request", "repair_request"),
     ("Repair Result", "/api/repair-result", "repair_result"),
@@ -49,6 +57,13 @@ def build_workbench_console_view(state_dir: Path) -> dict[str, Any]:
         "human_review_evidence": _optional_jsonl(state_dir / "human-review-evidence.jsonl"),
         "claim_acceptance_decision": _optional_json(state_dir / "claim-acceptance-decision.json"),
         "signoff_record": _optional_json(state_dir / "signoff-record.json"),
+        "readiness_authorization_matrix": _optional_json(state_dir / "readiness-authorization-matrix.json"),
+        "manual_followup_gap_report": _optional_json(state_dir / "manual-followup-gap-report.json"),
+        "delivery_readiness_report": _optional_json(state_dir / "delivery-readiness-report.json"),
+        "apply_readiness_report": _optional_json(state_dir / "apply-readiness-report.json"),
+        "workbench_readiness_action_queue": _optional_json(state_dir / "workbench-readiness-action-queue.json"),
+        "workbench_readiness_action_log": _optional_readiness_action_log(state_dir),
+        "workbench_readiness_action_result": _optional_readiness_action_result(state_dir),
         "artifact_state": _optional_json(state_dir / "artifact-state.json"),
         "repair_request": _optional_json(state_dir / "repair-request.json"),
         "repair_result": _optional_json(state_dir / "repair-result.json"),
@@ -60,6 +75,8 @@ def build_workbench_console_view(state_dir: Path) -> dict[str, Any]:
     claim_queue = _data(sections["workbench_claim_queue"])
     review_queue = _data(sections["workbench_review_queue"])
     signoff = _data(sections["workbench_signoff_summary"])
+    matrix = _data(sections["readiness_authorization_matrix"])
+    readiness_queue = _data(sections["workbench_readiness_action_queue"])
     return {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-workbench-console-view-v1",
@@ -70,6 +87,9 @@ def build_workbench_console_view(state_dir: Path) -> dict[str, Any]:
             "review_queue_status": _get(review_queue, "status"),
             "claim_queue_status": _get(claim_queue, "status"),
             "signoff_status": _get(signoff, "current_signoff_status"),
+            "delivery_readiness_status": _get(matrix, "delivery_readiness_status"),
+            "apply_readiness_status": _get(matrix, "apply_readiness_status"),
+            "readiness_action_queue_status": _get(readiness_queue, "status"),
             "source_artifacts": _present_artifacts(sections),
         },
         "forbidden_claims": _forbidden_claims(scorecard, claim_queue),
@@ -94,10 +114,17 @@ def render_workbench_console_html(state_dir: Path | None = None) -> str:
         _section("Workbench Review Queue", "workbench-review-queue", _data(view["sections"]["workbench_review_queue"])),
         _section("Workbench Claim Queue", "workbench-claim-queue", _data(view["sections"]["workbench_claim_queue"])),
         _section("Workbench Signoff Summary", "workbench-signoff-summary", _data(view["sections"]["workbench_signoff_summary"])),
+        _section("Readiness Authorization Matrix", "readiness-authorization-matrix", _data(view["sections"]["readiness_authorization_matrix"])),
+        _section("Manual Follow-up Gap Report", "manual-followup-gap-report", _data(view["sections"]["manual_followup_gap_report"])),
+        _section("Delivery Readiness Report", "delivery-readiness-report", _data(view["sections"]["delivery_readiness_report"])),
+        _section("Apply Readiness Report", "apply-readiness-report", _data(view["sections"]["apply_readiness_report"])),
+        _section("Workbench Readiness Action Queue", "workbench-readiness-action-queue", _data(view["sections"]["workbench_readiness_action_queue"])),
         _section("Forbidden Claims", "forbidden-claims", view["forbidden_claims"]),
         _section("Pending Repairs", "pending-repairs", view["pending_repairs"]),
         _section("Stale Artifact Warnings", "stale-artifact-warnings", view["stale_artifact_warnings"]),
         _section("Generation Handoff", "generation-handoff-status", _data(view["sections"]["generation_handoff_status"])),
+        _section("Readiness Action Log", "workbench-readiness-action-log", _data(view["sections"]["workbench_readiness_action_log"])),
+        _section("Readiness Action Result", "workbench-readiness-action-result", _data(view["sections"]["workbench_readiness_action_result"])),
         _section("Action Log", "workbench-action-log", _data(view["sections"]["workbench_action_log"])),
         _section("Action Result", "workbench-action-result", _data(view["sections"]["workbench_action_result"])),
     ]
@@ -217,6 +244,7 @@ def render_workbench_console_html(state_dir: Path | None = None) -> str:
       <span class="badge">No UI-local readiness logic</span>
       <span class="badge">Forbidden claims stay visible</span>
       <span class="badge">Actions POST to /api/workbench-action</span>
+      <span class="badge">Readiness actions POST to /api/workbench-readiness-action</span>
     </div>
   </header>
   <main>
@@ -234,6 +262,17 @@ def render_workbench_console_html(state_dir: Path | None = None) -> str:
           <button type="submit">Submit Runtime Action</button>
         </form>
         <p id="actionMessage" role="status" aria-live="polite"></p>
+      </section>
+      <section aria-labelledby="readiness-action-submission-heading">
+        <h2 id="readiness-action-submission-heading">Readiness Action Submission</h2>
+        <form class="actions" onsubmit="submitWorkbenchReadinessAction(event)">
+          <label for="readinessStateDirInput">State directory</label>
+          <input id="readinessStateDirInput" name="state_dir" value="{html.escape(str(state_dir_value), quote=True)}">
+          <label for="readinessActionInput">Readiness Action JSON</label>
+          <textarea id="readinessActionInput" name="action">{html.escape(_sample_readiness_action(), quote=False)}</textarea>
+          <button type="submit">Submit Readiness Action</button>
+        </form>
+        <p id="readinessActionMessage" role="status" aria-live="polite"></p>
       </section>
       {''.join(sections[9:])}
     </aside>
@@ -276,6 +315,27 @@ def render_workbench_console_html(state_dir: Path | None = None) -> str:
         }} catch (error) {{
           element.textContent = "Unavailable: " + error.message;
         }}
+      }}
+    }}
+
+    async function submitWorkbenchReadinessAction(event) {{
+      event.preventDefault();
+      const stateDir = document.getElementById("readinessStateDirInput").value.trim();
+      const actionText = document.getElementById("readinessActionInput").value;
+      const message = document.getElementById("readinessActionMessage");
+      try {{
+        const action = JSON.parse(actionText);
+        const response = await fetch("/api/workbench-readiness-action", {{
+          method: "POST",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify({{ state_dir: stateDir, action }})
+        }});
+        const payload = await response.json();
+        document.getElementById("workbench-readiness-action-result-data").textContent = JSON.stringify(payload, null, 2);
+        message.textContent = response.ok ? "Runtime readiness action completed. Refreshing artifact views." : "Runtime readiness action returned an error.";
+        await refreshConsoleArtifacts(stateDir);
+      }} catch (error) {{
+        message.textContent = "Readiness action JSON could not be submitted: " + error.message;
       }}
     }}
   </script>
@@ -326,6 +386,18 @@ def _optional_action_result(state_dir: Path) -> dict[str, Any]:
     if not path.is_file():
         return {"status": "missing", "artifact": path.name}
     return {"status": "present", "artifact": path.name, "data": read_workbench_action_result(state_dir)}
+
+
+def _optional_readiness_action_log(state_dir: Path) -> dict[str, Any]:
+    records = read_workbench_readiness_action_log(state_dir)
+    return {"status": "present" if records else "missing", "artifact": "workbench-readiness-action-log.jsonl", "data": records}
+
+
+def _optional_readiness_action_result(state_dir: Path) -> dict[str, Any]:
+    path = state_dir / "workbench-readiness-action-result.json"
+    if not path.is_file():
+        return {"status": "missing", "artifact": path.name}
+    return {"status": "present", "artifact": path.name, "data": read_workbench_readiness_action_result(state_dir)}
 
 
 def _empty_view() -> dict[str, Any]:
@@ -410,6 +482,18 @@ def _sample_action() -> str:
             "action_type": "acknowledge_limitation",
             "actor_role": "project_owner",
             "payload": {"claim": "draft_only"},
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def _sample_readiness_action() -> str:
+    return json.dumps(
+        {
+            "action_type": "request_follow_up",
+            "actor_role": "project_owner",
+            "payload": {"reason": "Need artifact-backed decision before readiness can change."},
         },
         ensure_ascii=False,
         indent=2,

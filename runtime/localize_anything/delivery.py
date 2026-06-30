@@ -64,6 +64,12 @@ from .readiness_authorization import (
     READINESS_AUTHORIZATION_MATRIX_JSON,
     readiness_authorization_asset_paths,
 )
+from .readiness_action import (
+    WORKBENCH_READINESS_ACTION_LOG_JSONL,
+    WORKBENCH_READINESS_ACTION_QUEUE_JSON,
+    WORKBENCH_READINESS_ACTION_RESULT_JSON,
+    workbench_readiness_action_asset_paths,
+)
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
 from .resolution_gate import (
     BLOCKING_QUESTIONS_JSON,
@@ -149,6 +155,9 @@ OPTIONAL_CANONICAL_ASSETS = (
     MANUAL_FOLLOWUP_GAP_REPORT_JSON,
     APPLY_READINESS_REPORT_JSON,
     DELIVERY_READINESS_REPORT_JSON,
+    WORKBENCH_READINESS_ACTION_QUEUE_JSON,
+    WORKBENCH_READINESS_ACTION_RESULT_JSON,
+    WORKBENCH_READINESS_ACTION_LOG_JSONL,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -263,6 +272,7 @@ def package_delivery(
                 **knowledge_repair_result_asset_paths(state_dir),
                 **knowledge_repair_closure_asset_paths(state_dir),
                 **readiness_authorization_asset_paths(state_dir),
+                **workbench_readiness_action_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

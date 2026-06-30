@@ -186,6 +186,14 @@ from runtime.localize_anything.readiness_authorization import (
     build_readiness_authorization_matrix,
     build_readiness_reports,
 )
+from runtime.localize_anything.readiness_action import (
+    WORKBENCH_READINESS_ACTION_LOG_JSONL,
+    WORKBENCH_READINESS_ACTION_QUEUE_JSON,
+    WORKBENCH_READINESS_ACTION_RESULT_JSON,
+    build_workbench_readiness_action_queue,
+    perform_workbench_readiness_action,
+    read_workbench_readiness_action_log,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -9966,6 +9974,190 @@ class ReadinessAuthorizationMatrixTests(unittest.TestCase):
             self.assertEqual(run["summary"]["readiness_authorization_delivery_status"], read_json(state / READINESS_AUTHORIZATION_MATRIX_JSON)["delivery_readiness_status"])
 
 
+class WorkbenchReadinessActionTests(unittest.TestCase):
+    def test_readiness_action_queue_is_generated_from_manual_followup_gaps(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=["delivery_ready", "apply_ready"])
+            write_json(state / "term-review-queue.json", {"items": [{"item_id": "term-1", "status": "needs_review"}]})
+            write_json(state / "workbench-document-evidence-queue.json", {"summary": {"item_count": 1, "blocking_count": 1}})
+            write_json(state / "knowledge-audit-enforcement-decision.json", {"status": "blocked"})
+
+            queue = build_workbench_readiness_action_queue(state)
+            assert_protocol_schema(self, "workbench-readiness-action-queue", queue)
+            item_types = {item["item_type"] for item in queue["items"]}
+
+            self.assertIn("term_decision_action_required", item_types)
+            self.assertIn("document_decision_action_required", item_types)
+            self.assertIn("knowledge_review_action_required", item_types)
+            self.assertTrue(any(item["blocking_delivery"] for item in queue["items"]))
+            self.assertTrue(any(item["blocking_apply"] for item in queue["items"]))
+            self.assertIn("apply_ready", queue["forbidden_claims"])
+
+    def test_readiness_action_result_preserves_remaining_blockers_and_forbidden_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=["delivery_ready", "apply_ready"])
+            queue = build_workbench_readiness_action_queue(state)
+            target = queue["items"][0]
+
+            result = perform_workbench_readiness_action(
+                state,
+                {
+                    "action_type": "acknowledge_forbidden_claim",
+                    "actor_role": "project_owner",
+                    "target_queue_item_id": target["item_id"],
+                    "target_gap_id": target.get("gap_id", ""),
+                    "payload": {"claim": "apply_ready"},
+                },
+            )
+            log = read_workbench_readiness_action_log(state)
+
+            assert_protocol_schema(self, "workbench-readiness-action-result", result)
+            assert_protocol_schema(self, "workbench-readiness-action-log", log[-1])
+            self.assertIn("apply_ready", result["remaining_forbidden_claims"])
+            self.assertIn("acknowledgement does not remove forbidden claims", result["limitations"])
+            self.assertEqual(log[-1]["runtime_writer_delegated_to"], "workbench_readiness_action_log")
+
+    def test_readiness_action_delegates_human_review_claim_and_signoff_writers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=[])
+
+            review = perform_workbench_readiness_action(
+                state,
+                {
+                    "action_type": "record_human_review",
+                    "actor_role": "bilingual_reviewer",
+                    "payload": {"evidence": _human_review_record("bilingual_reviewer", "E2_bilingual_human_spot_check", "full_run")},
+                },
+            )
+            claim = perform_workbench_readiness_action(
+                state,
+                {"action_type": "accept_claim", "actor_role": "project_owner", "payload": {"claim": "review_ready"}},
+            )
+            signoff = perform_workbench_readiness_action(
+                state,
+                {"action_type": "create_signoff", "actor_role": "project_owner", "payload": {"signoff": _signoff_request(delivery=True)}},
+            )
+
+            self.assertTrue((state / "human-review-evidence.jsonl").is_file())
+            self.assertTrue((state / "claim-acceptance-decision.json").is_file())
+            self.assertTrue((state / "signoff-record.json").is_file())
+            self.assertIn("human-review-evidence.jsonl", review["runtime_artifacts_written_or_updated"])
+            self.assertIn("claim-acceptance-decision.json", claim["runtime_artifacts_written_or_updated"])
+            self.assertIn("signoff-record.json", signoff["runtime_artifacts_written_or_updated"])
+
+    def test_readiness_action_delegates_document_knowledge_and_repair_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=[])
+            with (
+                mock.patch("runtime.localize_anything.readiness_action.record_document_decision", return_value={"status": "accepted"}) as document_writer,
+                mock.patch("runtime.localize_anything.readiness_action.record_knowledge_audit_resolution", return_value={"status": "accepted"}) as knowledge_writer,
+                mock.patch("runtime.localize_anything.readiness_action.record_knowledge_repair_result", return_value={"status": "requires_follow_up"}) as repair_writer,
+            ):
+                document = perform_workbench_readiness_action(
+                    state,
+                    {"action_type": "record_document_decision", "payload": {"decision_type": "request_follow_up", "decision_status": "requires_follow_up"}},
+                )
+                knowledge = perform_workbench_readiness_action(
+                    state,
+                    {"action_type": "record_knowledge_audit_resolution", "payload": {"decision_type": "request_follow_up", "decision_status": "requires_follow_up"}},
+                )
+                repair = perform_workbench_readiness_action(
+                    state,
+                    {"action_type": "record_knowledge_repair_result", "payload": {"result": {"result_id": "repair-result-1"}}},
+                )
+
+            document_writer.assert_called_once()
+            knowledge_writer.assert_called_once()
+            repair_writer.assert_called_once()
+            self.assertIn("document-decision-log.jsonl", document["runtime_artifacts_written_or_updated"])
+            self.assertIn("knowledge-audit-resolution-log.jsonl", knowledge["runtime_artifacts_written_or_updated"])
+            self.assertIn("knowledge-repair-result-intake.jsonl", repair["runtime_artifacts_written_or_updated"])
+
+    def test_readiness_action_cannot_authorize_apply_when_matrix_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="apply_ready", forbidden_claims=[])
+            write_json(
+                state / READINESS_AUTHORIZATION_MATRIX_JSON,
+                {
+                    "schema": "localize-anything-readiness-authorization-matrix-v1",
+                    "delivery_readiness_status": "ready",
+                    "apply_readiness_status": "blocked",
+                    "production_readiness_status": "blocked",
+                    "forbidden_claims": [],
+                },
+            )
+
+            result = perform_workbench_readiness_action(
+                state,
+                {"action_type": "create_signoff", "actor_role": "project_owner", "payload": {"signoff": _signoff_request(apply=True)}},
+            )
+            signoff = read_json(state / "signoff-record.json")
+
+            self.assertFalse(signoff["apply_authorized"])
+            self.assertIn("readiness_matrix_apply_status_blocked", json.dumps(signoff["blocked_authorizations"]))
+            self.assertNotEqual(result["status"], "accepted")
+
+    def test_readiness_action_cli_and_api_are_artifact_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready")
+            output = Path(directory) / "queue.json"
+            action_path = Path(directory) / "action.json"
+            result_path = Path(directory) / "result.json"
+            write_json(action_path, {"action_type": "request_follow_up", "actor_role": "project_owner", "payload": {"reason": "still blocked"}})
+
+            self.assertEqual(cli_main(["workbench-readiness-action-queue", state.as_posix(), "--output", output.as_posix()]), 0)
+            self.assertEqual(cli_main(["workbench-readiness-action", state.as_posix(), "--input", action_path.as_posix(), "--output", result_path.as_posix()]), 0)
+            self.assertEqual(read_json(output)["schema"], "localize-anything-workbench-readiness-action-queue-v1")
+            self.assertEqual(read_json(result_path)["schema"], "localize-anything-workbench-readiness-action-result-v1")
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                get_status, body = _http_get(host, port, f"/api/workbench-readiness-action-queue?state_dir={state.as_posix()}")
+                post_status, post_body = _http_post_json(
+                    host,
+                    port,
+                    "/api/workbench-readiness-action",
+                    {"state_dir": state.as_posix(), "action": {"action_type": "request_follow_up", "actor_role": "project_owner", "payload": {"reason": "api"}}},
+                )
+                self.assertEqual(get_status, 200)
+                self.assertEqual(post_status, 200)
+                self.assertEqual(json.loads(body)["workbench_readiness_action_queue"]["schema"], "localize-anything-workbench-readiness-action-queue-v1")
+                self.assertEqual(post_body["workbench_readiness_action_result"]["schema"], "localize-anything-workbench-readiness-action-result-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_artifact_state_delivery_package_and_console_reference_readiness_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _readiness_state(root, state=state, overall_claim="review_ready")
+            build_workbench_readiness_action_queue(state)
+            perform_workbench_readiness_action(state, {"action_type": "request_follow_up", "actor_role": "project_owner", "payload": {"reason": "console"}})
+            artifact_state = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "readiness-action-delivery-001")
+            html = render_workbench_console_html(state)
+
+            self.assertTrue({"workbench_readiness_action_queue", "workbench_readiness_action_result", "workbench_readiness_action_log"}.issubset(ids))
+            self.assertEqual(packaged["manifest"]["assets"]["workbench_readiness_action_queue"], WORKBENCH_READINESS_ACTION_QUEUE_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["workbench_readiness_action_result"], WORKBENCH_READINESS_ACTION_RESULT_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["workbench_readiness_action_log"], WORKBENCH_READINESS_ACTION_LOG_JSONL)
+            self.assertIn("/api/workbench-readiness-action", html)
+            self.assertIn("Workbench Readiness Action Queue", html)
+
+
 def _readiness_state(
     root: Path,
     *,
@@ -11315,7 +11507,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 85)
+        self.assertEqual(result["schemas_checked"], 88)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
