@@ -1272,3 +1272,33 @@ workflow completion alone never authorizes either operation.
 This layer comes before provider/model repair or full RAG because lifecycle
 ordering, provenance, blocker visibility, and staleness must be deterministic
 before external or probabilistic execution can be safely coordinated.
+
+## Incremental Workflow Resume / Selective Recompute
+
+Incremental resume consumes Workflow Orchestration, Artifact State, and the
+dependency graph to distinguish dependency-clean outputs from stale, missing,
+blocked, human-pending, and provider-pending stages. It emits:
+
+- `workflow-resume-plan.json`: reusable outputs, pending stages, safe resume
+  candidates, and the next stage;
+- `artifact-invalidation-report.json`: changed dependency/hash evidence and
+  the affected downstream artifacts, stages, and readiness claims;
+- `selective-recompute-plan.json`: ordered deterministic builders plus reused,
+  skipped, blocked, human-required, and provider-required work;
+- `selective-recompute-result.json`: honest partial execution, hashes,
+  remaining stale artifacts, blockers, and forbidden claims;
+- `incremental-workflow-summary.json`: readiness before/after, remaining work,
+  limitations, and the next action.
+
+Reuse requires current outputs and dependency-clean Artifact State evidence.
+Known upstream changes propagate staleness through the workflow dependency
+graph; missing or unknown dependency evidence is handled conservatively.
+Selective recompute calls only the existing deterministic workflow builder
+whitelist. Provider/model stages, human review, semantic rewrite, repair
+application, and target-file mutation remain pending.
+
+The incremental summary consumes the current Readiness Authorization Matrix
+when available. Resume or recompute completion cannot authorize delivery or
+apply, cannot remove forbidden claims, and cannot infer success from a clean
+process exit. Current readiness reports remain authoritative, and stale or
+missing readiness evidence stays visible in delivery and run summaries.

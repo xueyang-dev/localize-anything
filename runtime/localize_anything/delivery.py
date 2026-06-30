@@ -113,6 +113,14 @@ from .workflow import (
     WORKFLOW_STAGE_STATUS_JSON,
     workflow_asset_paths,
 )
+from .workflow_incremental import (
+    ARTIFACT_INVALIDATION_REPORT_JSON,
+    INCREMENTAL_WORKFLOW_SUMMARY_JSON,
+    SELECTIVE_RECOMPUTE_PLAN_JSON,
+    SELECTIVE_RECOMPUTE_RESULT_JSON,
+    WORKFLOW_RESUME_PLAN_JSON,
+    incremental_workflow_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -171,6 +179,11 @@ OPTIONAL_CANONICAL_ASSETS = (
     WORKFLOW_EXECUTION_RESULT_JSON,
     WORKFLOW_READINESS_SUMMARY_JSON,
     WORKFLOW_DEPENDENCY_GRAPH_JSON,
+    WORKFLOW_RESUME_PLAN_JSON,
+    ARTIFACT_INVALIDATION_REPORT_JSON,
+    SELECTIVE_RECOMPUTE_PLAN_JSON,
+    SELECTIVE_RECOMPUTE_RESULT_JSON,
+    INCREMENTAL_WORKFLOW_SUMMARY_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -287,6 +300,7 @@ def package_delivery(
                 **readiness_authorization_asset_paths(state_dir),
                 **workbench_readiness_action_asset_paths(state_dir),
                 **workflow_asset_paths(state_dir),
+                **incremental_workflow_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

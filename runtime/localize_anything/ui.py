@@ -116,6 +116,15 @@ from .workflow import (
     read_workflow_stage_status,
     run_workflow,
 )
+from .workflow_incremental import (
+    read_artifact_invalidation_report,
+    read_incremental_workflow_summary,
+    read_selective_recompute_plan,
+    read_selective_recompute_result,
+    read_workflow_resume_plan,
+    resume_workflow,
+    run_selective_recompute,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -352,6 +361,21 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/workflow-dependency-graph":
                     self._handle_workflow_artifact_query(parsed.query, "workflow_dependency_graph", read_workflow_dependency_graph)
                     return
+                if parsed.path == "/api/workflow-resume-plan":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_resume_plan", read_workflow_resume_plan)
+                    return
+                if parsed.path == "/api/artifact-invalidation-report":
+                    self._handle_workflow_artifact_query(parsed.query, "artifact_invalidation_report", read_artifact_invalidation_report)
+                    return
+                if parsed.path == "/api/selective-recompute-plan":
+                    self._handle_workflow_artifact_query(parsed.query, "selective_recompute_plan", read_selective_recompute_plan)
+                    return
+                if parsed.path == "/api/selective-recompute-result":
+                    self._handle_workflow_artifact_query(parsed.query, "selective_recompute_result", read_selective_recompute_result)
+                    return
+                if parsed.path == "/api/incremental-workflow-summary":
+                    self._handle_workflow_artifact_query(parsed.query, "incremental_workflow_summary", read_incremental_workflow_summary)
+                    return
                 if parsed.path == "/api/workbench-console":
                     self._handle_workbench_console_query(parsed.query)
                     return
@@ -491,6 +515,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workflow-run":
                     self._handle_workflow_run(payload)
+                    return
+                if parsed.path == "/api/workflow-resume":
+                    self._handle_workflow_resume(payload)
+                    return
+                if parsed.path == "/api/selective-recompute":
+                    self._handle_selective_recompute(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -1176,6 +1206,49 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     "state_dir": state_dir.as_posix(),
                     "workflow_execution_result": result,
                     "workflow_readiness_summary": read_workflow_readiness_summary(state_dir),
+                }
+            )
+
+        def _handle_workflow_resume(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workflow resume is outside allowed workbench roots: {state_dir}")
+            selected = payload.get("selected_stages")
+            if selected is not None and not isinstance(selected, list):
+                raise ValueError("selected_stages must be a list when provided")
+            result = resume_workflow(
+                state_dir,
+                requested_workflow_mode=str(payload.get("workflow_mode") or "diagnose_only"),
+                resume_source=_optional_string(payload.get("resume_source")),
+                recompute_strategy=str(payload.get("recompute_strategy") or "minimal_safe"),
+                selected_stages=[str(item) for item in selected] if selected is not None else None,
+                run_id=_optional_string(payload.get("run_id")),
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), **result})
+
+        def _handle_selective_recompute(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Selective recompute is outside allowed workbench roots: {state_dir}")
+            selected = payload.get("selected_stages")
+            if selected is not None and not isinstance(selected, list):
+                raise ValueError("selected_stages must be a list when provided")
+            result = run_selective_recompute(
+                state_dir,
+                recompute_strategy=str(payload.get("recompute_strategy") or "minimal_safe"),
+                target_workflow_mode=str(payload.get("workflow_mode") or "diagnose_only"),
+                selected_stages=[str(item) for item in selected] if selected is not None else None,
+                trigger_source=str(payload.get("trigger_source") or "manual-request"),
+                run_id=_optional_string(payload.get("run_id")),
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json(
+                {
+                    "status": "pass",
+                    "state_dir": state_dir.as_posix(),
+                    "selective_recompute_result": result,
+                    "incremental_workflow_summary": read_incremental_workflow_summary(state_dir),
                 }
             )
 

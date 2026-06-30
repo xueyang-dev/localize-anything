@@ -125,6 +125,13 @@ from .workflow import (
     WORKFLOW_RUN_PLAN_JSON,
     WORKFLOW_STAGE_STATUS_JSON,
 )
+from .workflow_incremental import (
+    ARTIFACT_INVALIDATION_REPORT_JSON,
+    INCREMENTAL_WORKFLOW_SUMMARY_JSON,
+    SELECTIVE_RECOMPUTE_PLAN_JSON,
+    SELECTIVE_RECOMPUTE_RESULT_JSON,
+    WORKFLOW_RESUME_PLAN_JSON,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1138,6 +1145,11 @@ def _summary(
         ("workflow_execution_result", WORKFLOW_EXECUTION_RESULT_JSON),
         ("workflow_readiness_summary", WORKFLOW_READINESS_SUMMARY_JSON),
         ("workflow_dependency_graph", WORKFLOW_DEPENDENCY_GRAPH_JSON),
+        ("workflow_resume_plan", WORKFLOW_RESUME_PLAN_JSON),
+        ("artifact_invalidation_report", ARTIFACT_INVALIDATION_REPORT_JSON),
+        ("selective_recompute_plan", SELECTIVE_RECOMPUTE_PLAN_JSON),
+        ("selective_recompute_result", SELECTIVE_RECOMPUTE_RESULT_JSON),
+        ("incremental_workflow_summary", INCREMENTAL_WORKFLOW_SUMMARY_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1345,6 +1357,21 @@ def _summary(
                 read_json(state_dir / WORKFLOW_READINESS_SUMMARY_JSON).get("overall_workflow_status", "not_checked")
                 if (state_dir / WORKFLOW_READINESS_SUMMARY_JSON).is_file()
                 else "not_checked"
+            ),
+            "workflow_resume_status": (
+                read_json(state_dir / WORKFLOW_RESUME_PLAN_JSON).get("resume_status", "not_checked")
+                if (state_dir / WORKFLOW_RESUME_PLAN_JSON).is_file()
+                else "not_checked"
+            ),
+            "selective_recompute_status": (
+                read_json(state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON).get("status", "not_checked")
+                if (state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON).is_file()
+                else "not_checked"
+            ),
+            "incremental_remaining_blocker_count": (
+                len(read_json(state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON).get("remaining_blockers", []))
+                if (state_dir / SELECTIVE_RECOMPUTE_RESULT_JSON).is_file()
+                else 0
             ),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),
             "workbench_action_log_present": (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file(),

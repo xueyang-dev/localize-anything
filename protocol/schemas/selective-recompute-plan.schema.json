@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/selective-recompute-plan.schema.json",
+  "title": "Localize Anything Selective Recompute Plan",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "recompute_plan_id", "trigger_source", "target_workflow_mode", "recompute_strategy", "artifacts_to_recompute", "artifacts_to_reuse", "artifacts_to_skip", "artifacts_blocked", "artifacts_requiring_human_action", "artifacts_requiring_provider_action", "dependency_order", "deterministic_builder_mapping", "safety_policy", "expected_readiness_impact"],
+  "properties": {
+    "protocol_version": {"const": "0.1"},
+    "schema": {"const": "localize-anything-selective-recompute-plan-v1"},
+    "artifact": {"const": "selective-recompute-plan.json"},
+    "recompute_plan_id": {"type": "string"},
+    "recompute_strategy": {"enum": ["minimal_safe", "all_stale_deterministic", "readiness_only", "knowledge_only", "document_only", "repair_only", "full_deterministic_refresh", "custom"]},
+    "artifacts_to_recompute": {"type": "array"},
+    "artifacts_to_reuse": {"type": "array"},
+    "artifacts_to_skip": {"type": "array"},
+    "artifacts_blocked": {"type": "array"},
+    "artifacts_requiring_human_action": {"type": "array"},
+    "artifacts_requiring_provider_action": {"type": "array"},
+    "dependency_order": {"type": "array", "items": {"type": "string"}},
+    "deterministic_builder_mapping": {"type": "object"},
+    "safety_policy": {"type": "object"},
+    "expected_readiness_impact": {"type": "object"}
+  },
+  "additionalProperties": true
+}
