@@ -962,6 +962,58 @@ CLI commands are `knowledge-repair-plan`, `knowledge-repair-request`, and
 `knowledge-repair-impact-report`. No endpoint or command performs provider/model
 generation or repair.
 
+## Knowledge Repair Result Intake And QA Reconciliation
+
+Repair result intake is evidence intake, not repair execution or acceptance.
+The seed adds:
+
+- `knowledge-repair-result-intake.jsonl`
+- `knowledge-repair-qa-report.json`
+- `knowledge-repair-reconciliation.json`
+
+Each intake record links a known knowledge repair request and plan item to its
+segment scope, actor, source, repair mode, request/base hash, repaired hash,
+knowledge/constraint/conflict ids, provenance, claimed fix types, limitations,
+and status. Manual, deterministic-local, reviewer, imported, external-provider,
+and external-model results may be recorded, but external sources remain
+external evidence and never imply that this runtime executed a provider/model.
+The intake endpoint writes evidence only; it does not apply target text.
+
+Deterministic QA checks request and scope matching, request/base and current
+target hashes, provenance, required terms, forbidden and negative constraints,
+placeholder/markup/escape signatures, blind-benchmark firewall state,
+project-local priority, reference/raw/candidate promotion, conflict resolution,
+and scoped qualified human review for semantic/high-risk changes. A repaired
+hash must already match the current segment artifact before the result can
+clear a blocker.
+
+Reconciliation maps every repair-plan blocker to matching result ids and QA
+status. It records cleared and remaining constraints/conflicts, stale evidence,
+follow-up, readiness impact, and remaining forbidden claims. Missing, stale,
+hash-mismatched, provenance-mismatched, failed-QA, unresolved-conflict, or
+human-review-required evidence keeps the blocker active. Generic
+`repair-result.json` and `repair-history.jsonl` remain referenced evidence; the
+knowledge workflow does not replace them.
+
+Generation Strategy, handoff, Evaluation Scorecard, Claim Acceptance, Signoff,
+delivery decisions, Workbench queues, run summaries, and Artifact State consume
+or track reconciliation conservatively. Intake alone never unblocks them.
+Cleared deterministic reconciliation can support only the narrow
+`knowledge_constraints_applied` path after audit/readiness recomputation;
+`knowledge_backed_quality` remains unsupported by repair QA alone.
+
+Workbench/API endpoints are artifact-backed:
+
+- `GET /api/knowledge-repair-result-intake`
+- `POST /api/knowledge-repair-result-intake`
+- `GET /api/knowledge-repair-qa-report`
+- `GET /api/knowledge-repair-reconciliation`
+
+CLI commands are `record-knowledge-repair-result`,
+`knowledge-repair-result-intake`, `knowledge-repair-qa-report`, and
+`knowledge-repair-reconciliation`. No command or endpoint performs semantic,
+provider, or model repair.
+
 ## Human Review Evidence, Claim Acceptance, And Signoff
 
 `human-review-evidence.jsonl` stores one `human-review-evidence` record per

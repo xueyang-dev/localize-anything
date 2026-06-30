@@ -69,6 +69,12 @@ from .knowledge_repair import (
     KNOWLEDGE_REPAIR_REQUEST_JSON,
     build_knowledge_repair_plan,
 )
+from .knowledge_repair_result import (
+    KNOWLEDGE_REPAIR_QA_REPORT_JSON,
+    KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
+    KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
+    build_knowledge_repair_reconciliation,
+)
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import validate_pair as validate_ios_strings
 from .json_adapter import extract_segments as extract_json_segments
@@ -432,6 +438,8 @@ def run_localize(
     build_segment_regeneration_plan(state_dir, run_id=run_id)
     if (state_dir / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON).is_file():
         build_knowledge_repair_plan(state_dir, run_id=run_id)
+    if (state_dir / KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL).is_file():
+        build_knowledge_repair_reconciliation(state_dir)
     review_markdown_path = run_dir / "review-sheet.md"
     review_csv_path = run_dir / "review-sheet.csv"
     review_sheet_path = run_dir / "review-sheet.json"
@@ -1087,6 +1095,9 @@ def _summary(
         ("knowledge_repair_plan", KNOWLEDGE_REPAIR_PLAN_JSON),
         ("knowledge_repair_request", KNOWLEDGE_REPAIR_REQUEST_JSON),
         ("knowledge_repair_impact_report", KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON),
+        ("knowledge_repair_result_intake", KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL),
+        ("knowledge_repair_qa_report", KNOWLEDGE_REPAIR_QA_REPORT_JSON),
+        ("knowledge_repair_reconciliation", KNOWLEDGE_REPAIR_RECONCILIATION_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1226,6 +1237,16 @@ def _summary(
                 read_json(state_dir / KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON).get("summary", {}).get("repair_item_count", 0)
                 if (state_dir / KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON).is_file()
                 else 0
+            ),
+            "knowledge_repair_qa_status": (
+                read_json(state_dir / KNOWLEDGE_REPAIR_QA_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_REPAIR_QA_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "knowledge_repair_reconciliation_status": (
+                read_json(state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON).get("status", "not_checked")
+                if (state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON).is_file()
+                else "not_checked"
             ),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),
             "workbench_action_log_present": (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file(),

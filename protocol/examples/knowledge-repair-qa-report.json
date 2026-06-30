@@ -1,0 +1,24 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-repair-qa-report-v1",
+  "artifact": "knowledge-repair-qa-report.json",
+  "status": "passed",
+  "summary": { "result_count": 1, "qa_item_count": 1, "passed_result_count": 1, "failed_result_count": 0, "human_review_required_count": 0 },
+  "results": [{ "result_id": "knowledge-repair-result-1111111111111111", "repair_request_id": "knowledge-repair-request-1111111111111111", "status": "passed", "blocking_check_count": 0, "failed_check_types": [], "requires_human_review": false }],
+  "qa_items": [{
+    "qa_item_id": "knowledge-repair-qa-1111111111111111",
+    "result_id": "knowledge-repair-result-1111111111111111",
+    "repair_request_id": "knowledge-repair-request-1111111111111111",
+    "affected_segment_ids": ["segment-1"],
+    "affected_scope": { "scenario": "product_ui" },
+    "check_type": "required_term_present",
+    "status": "passed",
+    "reason": "required term is present",
+    "source_artifact_references": ["knowledge-repair-result-intake.jsonl", "knowledge-repair-request.json"],
+    "target_artifact_references": ["generated-segments.jsonl"],
+    "blocking": false,
+    "limitations": []
+  }],
+  "source_artifacts": { "knowledge_repair_result_intake": "knowledge-repair-result-intake.jsonl" },
+  "limitations": ["QA is deterministic and does not execute repair"]
+}

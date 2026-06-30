@@ -27,6 +27,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     document_signoff_summary = _read_optional_json(delivery_dir / "document-signoff-summary.json")
     knowledge_assurance_summary = _read_optional_json(delivery_dir / "knowledge-assurance-summary.json")
     knowledge_repair_impact = _read_optional_json(delivery_dir / "knowledge-repair-impact-report.json")
+    knowledge_repair_qa = _read_optional_json(delivery_dir / "knowledge-repair-qa-report.json")
+    knowledge_repair_reconciliation = _read_optional_json(delivery_dir / "knowledge-repair-reconciliation.json")
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -179,7 +181,10 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 },
             }
         )
-    if int(knowledge_repair_impact.get("summary", {}).get("repair_item_count", 0) or 0):
+    if (
+        int(knowledge_repair_impact.get("summary", {}).get("repair_item_count", 0) or 0)
+        and knowledge_repair_reconciliation.get("status") != "clear"
+    ):
         decisions.append(
             {
                 "id": f"knowledge-repair-{len(decisions) + 1:04d}",
@@ -191,6 +196,23 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                     "status": knowledge_repair_impact.get("status"),
                     "summary": knowledge_repair_impact.get("summary", {}),
                     "affected_claims": knowledge_repair_impact.get("affected_claims", []),
+                },
+            }
+        )
+    if str(knowledge_repair_qa.get("status") or "") in {"blocked", "requires_human_review", "stale"} or str(
+        knowledge_repair_reconciliation.get("status") or ""
+    ) in {"blocked", "partial", "stale"}:
+        decisions.append(
+            {
+                "id": f"knowledge-repair-reconciliation-{len(decisions) + 1:04d}",
+                "type": "knowledge_repair_reconciliation",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Resolve failed, stale, or incomplete knowledge repair QA before delivery/apply authorization.",
+                "evidence": {
+                    "qa_status": knowledge_repair_qa.get("status", "not_checked"),
+                    "reconciliation_status": knowledge_repair_reconciliation.get("status", "not_checked"),
+                    "remaining_blockers": knowledge_repair_reconciliation.get("summary", {}).get("remaining_blocker_count", 0),
                 },
             }
         )
@@ -246,6 +268,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "knowledge_assurance_status": knowledge_assurance_summary.get("status", "not_checked"),
             "knowledge_repair_impact_status": knowledge_repair_impact.get("status", "not_checked"),
             "pending_knowledge_repair_count": knowledge_repair_impact.get("summary", {}).get("repair_item_count", 0),
+            "knowledge_repair_qa_status": knowledge_repair_qa.get("status", "not_checked"),
+            "knowledge_repair_reconciliation_status": knowledge_repair_reconciliation.get("status", "not_checked"),
         },
         "localization": localization,
         "artifact_state": artifact_state,

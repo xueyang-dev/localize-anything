@@ -55,6 +55,11 @@ from .knowledge_repair import (
     KNOWLEDGE_REPAIR_PLAN_JSON,
     KNOWLEDGE_REPAIR_REQUEST_JSON,
 )
+from .knowledge_repair_result import (
+    KNOWLEDGE_REPAIR_QA_REPORT_JSON,
+    KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
+    KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -242,6 +247,8 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_assurance_summary",
             "knowledge_repair_plan",
             "knowledge_repair_impact_report",
+            "knowledge_repair_qa_report",
+            "knowledge_repair_reconciliation",
             "user_resolution_decisions",
         ),
         required_for_handoff=True,
@@ -277,6 +284,8 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "working_context_packet",
             "knowledge_repair_plan",
             "knowledge_repair_impact_report",
+            "knowledge_repair_qa_report",
+            "knowledge_repair_reconciliation",
         ),
         required_for_handoff=True,
         required_for_delivery=True,
@@ -293,6 +302,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("repair_request", "repair_request", REPAIR_REQUEST_JSON, "targeted_repair", ("segment_regeneration_plan",)),
     ArtifactSpec("repair_result", "repair_result", REPAIR_RESULT_JSON, "targeted_repair", ("repair_request",)),
     ArtifactSpec("repair_history", "repair_history", REPAIR_HISTORY_JSONL, "targeted_repair", ("repair_result",)),
+    ArtifactSpec("state_generated_segments", "generated_segments", "generated-segments.jsonl", "generation"),
     ArtifactSpec(
         "knowledge_repair_plan",
         "knowledge_repair_plan",
@@ -328,6 +338,52 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
         "knowledge_assisted_repair_planning",
         ("knowledge_repair_plan", "knowledge_repair_request", "repair_result"),
+    ),
+    ArtifactSpec(
+        "knowledge_repair_result_intake",
+        "knowledge_repair_result_intake",
+        KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
+        "knowledge_repair_result_intake",
+        ("knowledge_repair_request", "state_generated_segments", "generated_segments"),
+    ),
+    ArtifactSpec(
+        "knowledge_repair_qa_report",
+        "knowledge_repair_qa_report",
+        KNOWLEDGE_REPAIR_QA_REPORT_JSON,
+        "knowledge_repair_qa_reconciliation",
+        (
+            "knowledge_repair_result_intake",
+            "knowledge_repair_request",
+            "generated_segments",
+            "state_generated_segments",
+            "constraint_application_audit",
+            "knowledge_conflict_report",
+            "knowledge_conflict_resolution",
+            "human_review_evidence",
+        ),
+    ),
+    ArtifactSpec(
+        "knowledge_repair_reconciliation",
+        "knowledge_repair_reconciliation",
+        KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
+        "knowledge_repair_qa_reconciliation",
+        (
+            "knowledge_repair_plan",
+            "knowledge_repair_request",
+            "knowledge_repair_impact_report",
+            "knowledge_repair_result_intake",
+            "knowledge_repair_qa_report",
+            "repair_result",
+            "repair_history",
+            "knowledge_audit_enforcement_decision",
+            "knowledge_assurance_summary",
+            "constraint_application_audit",
+            "knowledge_conflict_report",
+            "knowledge_conflict_resolution",
+            "human_review_evidence",
+            "generated_segments",
+            "state_generated_segments",
+        ),
     ),
     ArtifactSpec(
         "document_intake_report",
@@ -458,6 +514,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_repair_plan",
             "knowledge_repair_request",
             "knowledge_repair_impact_report",
+            "knowledge_repair_reconciliation",
         ),
         required_for_delivery=True,
     ),
@@ -483,7 +540,17 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         "signoff_record",
         SIGNOFF_RECORD_JSON,
         "signoff",
-        ("claim_acceptance_decision", "evaluation_scorecard", "human_review_evidence", "document_evidence_manifest", "state_delivery_manifest", "delivery_decision"),
+        (
+            "claim_acceptance_decision",
+            "evaluation_scorecard",
+            "human_review_evidence",
+            "document_evidence_manifest",
+            "state_delivery_manifest",
+            "delivery_decision",
+            "knowledge_repair_reconciliation",
+            "generated_segments",
+            "state_generated_segments",
+        ),
         required_for_delivery=True,
     ),
     ArtifactSpec(
@@ -970,6 +1037,10 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "knowledge_repair_plan",
         "knowledge_repair_request",
         "knowledge_repair_impact_report",
+        "knowledge_repair_result_intake",
+        "knowledge_repair_qa_report",
+        "knowledge_repair_reconciliation",
+        "state_generated_segments",
     }
     knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard", "signoff_record"}
     stale_dependencies = sorted(

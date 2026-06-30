@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .agent import run_agent
-from .artifact_state import read_artifact_state
+from .artifact_state import build_artifact_state, read_artifact_state
 from .document_evidence import (
     read_claim_metric_report,
     read_document_evidence_manifest,
@@ -37,7 +37,7 @@ from .document_decision import (
     record_document_decision,
     record_leadership_review_evidence,
 )
-from .evaluation import read_evaluation_scorecard
+from .evaluation import build_evaluation_scorecard, read_evaluation_scorecard
 from .generation_handoff_policy import read_generation_handoff_decision
 from .generation_strategy import read_generation_strategy
 from .human_review import (
@@ -84,6 +84,12 @@ from .knowledge_repair import (
     read_knowledge_repair_plan,
     read_knowledge_repair_request,
 )
+from .knowledge_repair_result import (
+    read_knowledge_repair_qa_report,
+    read_knowledge_repair_reconciliation,
+    read_knowledge_repair_result_intake,
+    record_knowledge_repair_result,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -97,7 +103,14 @@ from .segment_staleness import read_reuse_decision, read_stale_segments
 from .termbase_preflight import read_term_review_queue, record_term_review_decision
 from .workbench_action import perform_workbench_action, read_workbench_action_log, read_workbench_action_result
 from .workbench_console import build_workbench_console_view, read_evidence_level_report, render_workbench_console_html
-from .workbench_queue import read_workbench_claim_queue, read_workbench_review_queue, read_workbench_signoff_summary
+from .workbench_queue import (
+    build_workbench_claim_queue,
+    build_workbench_review_queue,
+    build_workbench_signoff_summary,
+    read_workbench_claim_queue,
+    read_workbench_review_queue,
+    read_workbench_signoff_summary,
+)
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -222,6 +235,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/knowledge-repair-impact-report":
                     self._handle_knowledge_repair_query(parsed.query, "impact")
+                    return
+                if parsed.path == "/api/knowledge-repair-result-intake":
+                    self._handle_knowledge_repair_result_query(parsed.query, "intake")
+                    return
+                if parsed.path == "/api/knowledge-repair-qa-report":
+                    self._handle_knowledge_repair_result_query(parsed.query, "qa")
+                    return
+                if parsed.path == "/api/knowledge-repair-reconciliation":
+                    self._handle_knowledge_repair_result_query(parsed.query, "reconciliation")
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -413,6 +435,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/knowledge-constraint-review-evidence":
                     self._handle_record_knowledge_constraint_review(payload)
+                    return
+                if parsed.path == "/api/knowledge-repair-result-intake":
+                    self._handle_record_knowledge_repair_result(payload)
                     return
                 self._send_json({"status": "fail", "error": "Not found"}, HTTPStatus.NOT_FOUND)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -813,6 +838,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             key, reader = readers[artifact]
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
 
+        def _handle_knowledge_repair_result_query(self, query: str, artifact: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge repair result artifact is outside allowed workbench roots: {state_dir}")
+            readers = {
+                "intake": ("knowledge_repair_result_intake", read_knowledge_repair_result_intake),
+                "qa": ("knowledge_repair_qa_report", read_knowledge_repair_qa_report),
+                "reconciliation": ("knowledge_repair_reconciliation", read_knowledge_repair_reconciliation),
+            }
+            key, reader = readers[artifact]
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
+
         def _handle_evaluation_scorecard_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)
             if not state.is_allowed(state_dir):
@@ -1069,6 +1106,23 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = record_knowledge_constraint_review_evidence(state_dir, evidence, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": result})
+
+        def _handle_record_knowledge_repair_result(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge repair result is outside allowed workbench roots: {state_dir}")
+            result = payload.get("result")
+            if not isinstance(result, dict):
+                raise ValueError("result must be a JSON object")
+            record = record_knowledge_repair_result(state_dir, result, run_id=_optional_string(payload.get("run_id")))
+            build_artifact_state(state_dir)
+            build_evaluation_scorecard(state_dir)
+            build_artifact_state(state_dir)
+            build_workbench_review_queue(state_dir)
+            build_workbench_claim_queue(state_dir)
+            build_workbench_signoff_summary(state_dir)
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "result": record})
 
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))

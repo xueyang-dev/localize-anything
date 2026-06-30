@@ -1,0 +1,28 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-repair-reconciliation-v1",
+  "artifact": "knowledge-repair-reconciliation.json",
+  "status": "clear",
+  "summary": { "blocker_count": 1, "cleared_count": 1, "partially_cleared_count": 0, "remaining_blocker_count": 0, "failed_qa_count": 0, "stale_result_count": 0, "human_review_required_count": 0 },
+  "blockers": [{
+    "blocker_id": "knowledge-repair-1111111111111111",
+    "issue_type": "hard_term_constraint_failed",
+    "source_repair_request_id": "knowledge-repair-request-1111111111111111",
+    "matching_result_ids": ["knowledge-repair-result-1111111111111111"],
+    "qa_status": "passed",
+    "reconciliation_status": "cleared",
+    "cleared_constraints": ["constraint-term-1"],
+    "remaining_constraints": [],
+    "remaining_conflicts": [],
+    "stale_evidence": false,
+    "required_follow_up": [],
+    "readiness_impact": "clear",
+    "affected_forbidden_claims": [],
+    "source_artifact_references": ["knowledge-repair-plan.json", "knowledge-repair-request.json", "knowledge-repair-result-intake.jsonl", "knowledge-repair-qa-report.json"]
+  }],
+  "forbidden_claims_remaining": [],
+  "recompute_required": ["knowledge-audit-enforcement-decision.json", "evaluation-scorecard.json", "signoff-record.json"],
+  "generic_repair_evidence": { "repair_result": "repair-result.json", "repair_history": "repair-history.jsonl" },
+  "source_artifacts": { "knowledge_repair_plan": "knowledge-repair-plan.json" },
+  "limitations": ["reconciliation does not apply patches or execute provider/model repair"]
+}

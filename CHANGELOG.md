@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add Knowledge Repair Result Intake / QA Reconciliation with artifact-backed
+  result intake, deterministic request/hash/provenance/constraint QA,
+  conservative blocker reconciliation, CLI/API access, and scorecard,
+  signoff, delivery, Workbench, and artifact-state integration without repair
+  execution.
 - Add Knowledge-Assisted Targeted Repair Planning with deterministic
   `knowledge-repair-plan.json`, `knowledge-repair-request.json`, and
   `knowledge-repair-impact-report.json` artifacts, conservative repair-result

@@ -932,6 +932,39 @@ RAG in this seed. Establishing auditable failure-to-repair handoff before full
 RAG prevents retrieved context from bypassing scope, provenance, mode, review,
 or readiness controls.
 
+## Knowledge Repair Result Intake And Reconciliation
+
+Result intake closes the evidence loop without adding an executor. A manual,
+reviewer, deterministic-local, imported, external-provider, or external-model
+result is appended to `knowledge-repair-result-intake.jsonl` with its request,
+plan item, scope, actor, hashes, knowledge/constraint/conflict ids, provenance,
+fix claims, and limitations. The runtime never applies the submitted text and
+never represents external provider/model evidence as a system provider run.
+
+`knowledge-repair-qa-report.json` checks the result against the current repair
+request and segment state. Request/base hash, current repaired hash, provenance,
+scope, required and forbidden terms, negative constraints,
+placeholder/markup/escape signatures, blind-benchmark isolation,
+project-local priority, reference/raw knowledge boundaries, conflict resolution,
+and required human review are separate QA items. Keeping these checks separate
+prevents one passing term check from hiding a stale hash or provenance failure.
+
+`knowledge-repair-reconciliation.json` projects QA back onto every repair-plan
+blocker. Intake alone never changes readiness. A blocker clears only when the
+request, current target hash, provenance, deterministic QA, active constraints,
+conflict resolution, and any required scoped human review all agree. Semantic
+or high-risk changes remain review-bound. Failed, partial, stale, or missing
+reconciliation keeps scorecard claims, claim acceptance, signoff,
+delivery/apply, handoff, and Workbench actions blocked or downgraded.
+
+The reconciliation references rather than replaces generic
+`repair-result.json` and `repair-history.jsonl`. Artifact State invalidates the
+intake/QA/reconciliation chain when requests, target segments, audit/conflict
+evidence, or human review changes. After a clear result, enforcement, assurance,
+scorecard, claim acceptance, signoff, delivery decision, and apply readiness
+still require recomputation. Passing repair QA does not prove broad
+`knowledge_backed_quality`.
+
 ## Human Review Evidence And Claim Acceptance
 
 Human Review Evidence Intake records explicit human review in

@@ -150,6 +150,17 @@ from runtime.localize_anything.knowledge_repair import (
     read_knowledge_repair_plan,
     read_knowledge_repair_request,
 )
+from runtime.localize_anything.knowledge_repair_result import (
+    KNOWLEDGE_REPAIR_QA_REPORT_JSON,
+    KNOWLEDGE_REPAIR_RECONCILIATION_JSON,
+    KNOWLEDGE_REPAIR_RESULT_INTAKE_JSONL,
+    build_knowledge_repair_qa_report,
+    build_knowledge_repair_reconciliation,
+    read_knowledge_repair_qa_report,
+    read_knowledge_repair_reconciliation,
+    read_knowledge_repair_result_intake,
+    record_knowledge_repair_result,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -9226,6 +9237,357 @@ class KnowledgeAssistedRepairPlanningTests(unittest.TestCase):
             self.assertIn("knowledge_repair_impact_report", run["artifacts"])
 
 
+class KnowledgeRepairResultReconciliationTests(unittest.TestCase):
+    def test_manual_result_intake_records_request_hash_provenance_and_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+
+            record = _record_matching_knowledge_repair_result(state, request)
+
+            self.assertEqual(record["status"], "accepted_for_qa")
+            self.assertEqual(record["source_repair_request_id"], request["request_id"])
+            self.assertEqual(record["affected_scope"], request["affected_scope"])
+            self.assertTrue(record["provenance_references"])
+            self.assertFalse(record["system_provider_or_model_execution_performed"])
+            assert_protocol_schema(self, "knowledge-repair-result-intake", record)
+
+    def test_stale_hash_and_missing_provenance_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            stale = _knowledge_repair_result_payload(request, submitted_hash="stale")
+            missing = _knowledge_repair_result_payload(request, provenance=[])
+
+            stale_record = record_knowledge_repair_result(state, stale)
+            missing_record = record_knowledge_repair_result(state, missing)
+
+            self.assertEqual(stale_record["status"], "rejected_stale")
+            self.assertEqual(missing_record["status"], "rejected_provenance")
+
+    def test_term_and_forbidden_repairs_require_expected_target_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request, repaired_target="访问错误实验室")
+            failed = read_knowledge_repair_qa_report(state)
+            self.assertIn("required_term_present", failed["results"][0]["failed_check_types"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(
+                Path(directory), _knowledge_repair_issue("negative_constraint_failed", knowledge_id="p-forbidden")
+            )
+            _record_matching_knowledge_repair_result(state, request, repaired_target="访问开放实验室")
+            passed = read_knowledge_repair_qa_report(state)
+            self.assertEqual(passed["status"], "passed")
+
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(
+                Path(directory), _knowledge_repair_issue("negative_constraint_failed", knowledge_id="p-forbidden")
+            )
+            _record_matching_knowledge_repair_result(state, request, repaired_target="Forbidden target")
+            failed = read_knowledge_repair_qa_report(state)
+            self.assertIn("negative_constraint_satisfied", failed["results"][0]["failed_check_types"])
+
+    def test_placeholder_markup_and_escape_signatures_are_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _knowledge_repair_state(Path(directory), [_knowledge_repair_issue("hard_constraint_failed")])
+            write_jsonl(
+                state / "generated-segments.jsonl",
+                [{"segment_id": "s1", "source": "Hello {name} <b>now</b>\\n", "target": "错误 {name} <b>now</b>\\n"}],
+            )
+            build_knowledge_repair_plan(state)
+            request = read_knowledge_repair_request(state)["requests"][0]
+
+            _record_matching_knowledge_repair_result(state, request, repaired_target="开放实验室 {name} <b>now</b>\\n")
+            report = read_knowledge_repair_qa_report(state)
+            checks = {item["check_type"]: item["status"] for item in report["qa_items"]}
+
+            self.assertEqual(checks["placeholder_preservation"], "passed")
+            self.assertEqual(checks["markup_preservation"], "passed")
+            self.assertEqual(checks["escape_preservation"], "passed")
+
+    def test_blind_firewall_reference_only_and_unresolved_conflict_block_qa(self) -> None:
+        for issue_type, knowledge_id, expected_check in (
+            ("reference_only_leakage", "p-reference", "no_reference_only_promotion"),
+            ("knowledge_conflict_unresolved", "p-term", "conflict_resolution_exists"),
+        ):
+            with self.subTest(issue_type):
+                with tempfile.TemporaryDirectory() as directory:
+                    conflict_id = "conflict-1" if issue_type == "knowledge_conflict_unresolved" else ""
+                    state, request = _knowledge_repair_result_state(
+                        Path(directory), _knowledge_repair_issue(issue_type, knowledge_id=knowledge_id, conflict_id=conflict_id)
+                    )
+                    _record_matching_knowledge_repair_result(
+                        state,
+                        request,
+                        knowledge_ids=[knowledge_id],
+                        repair_mode="human_rewrite" if issue_type == "reference_only_leakage" else "scope_limit",
+                    )
+                    report = read_knowledge_repair_qa_report(state)
+                    self.assertIn(expected_check, report["results"][0]["failed_check_types"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(
+                Path(directory), _knowledge_repair_issue("reference_only_leakage", knowledge_id="p-reference")
+            )
+            plan = read_knowledge_repair_plan(state)
+            plan["repair_items"][0]["issue_type"] = "blind_benchmark_firewall_violation"
+            write_json(state / KNOWLEDGE_REPAIR_PLAN_JSON, plan)
+            _record_matching_knowledge_repair_result(
+                state,
+                request,
+                knowledge_ids=["p-reference"],
+                repair_mode="human_rewrite",
+            )
+            report = read_knowledge_repair_qa_report(state)
+            self.assertIn("blind_benchmark_firewall_preserved", report["results"][0]["failed_check_types"])
+
+    def test_matching_hash_provenance_and_qa_clear_deterministic_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+
+            _record_matching_knowledge_repair_result(state, request)
+            reconciliation = read_knowledge_repair_reconciliation(state)
+
+            self.assertEqual(reconciliation["status"], "clear")
+            self.assertEqual(reconciliation["blockers"][0]["reconciliation_status"], "cleared")
+            self.assertEqual(reconciliation["forbidden_claims_remaining"], [])
+            assert_protocol_schema(self, "knowledge-repair-qa-report", read_knowledge_repair_qa_report(state))
+            assert_protocol_schema(self, "knowledge-repair-reconciliation", reconciliation)
+
+    def test_clear_reconciliation_and_refreshed_audit_support_narrow_constraint_claim_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            write_json(
+                state / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+                {"status": "clear", "issues": [], "forbidden_claims": ["knowledge_backed_quality", "knowledge_review_complete"]},
+            )
+            write_json(
+                state / KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+                {
+                    "status": "constraints_applied",
+                    "supported_claims": ["knowledge_constraints_applied"],
+                    "forbidden_claims_remaining": ["knowledge_backed_quality", "knowledge_review_complete"],
+                },
+            )
+
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertNotIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+            self.assertIn("knowledge_backed_quality", scorecard["forbidden_claims"])
+
+    def test_stale_or_failed_result_keeps_blocker_and_scorecard_claims_forbidden(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            record_knowledge_repair_result(state, _knowledge_repair_result_payload(request, submitted_hash="stale"))
+            reconciliation = read_knowledge_repair_reconciliation(state)
+            scorecard = build_evaluation_scorecard(state, write=False)
+
+            self.assertEqual(reconciliation["blockers"][0]["reconciliation_status"], "stale_result")
+            self.assertIn("knowledge_constraints_applied", scorecard["forbidden_claims"])
+            self.assertIn("delivery_ready", scorecard["forbidden_claims"])
+
+    def test_semantic_repair_requires_scoped_human_review_before_clear(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(
+                Path(directory), _knowledge_repair_issue("hard_constraint_failed", knowledge_id="missing")
+            )
+            _record_matching_knowledge_repair_result(
+                state,
+                request,
+                repair_mode="human_rewrite",
+                knowledge_ids=["missing"],
+                repaired_target="人工重写开放实验室",
+            )
+            self.assertEqual(read_knowledge_repair_reconciliation(state)["blockers"][0]["reconciliation_status"], "requires_human_review")
+            record_human_review_evidence(
+                state,
+                {
+                    "reviewer_role": "bilingual_reviewer",
+                    "status": "accepted",
+                    "review_scope": {"scope_type": "limited", "segment_ids": ["s1"]},
+                },
+            )
+
+            reconciliation = build_knowledge_repair_reconciliation(state)
+
+            self.assertEqual(reconciliation["blockers"][0]["reconciliation_status"], "cleared")
+
+    def test_claim_acceptance_and_signoff_require_clear_reconciliation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            record_knowledge_repair_result(state, _knowledge_repair_result_payload(request, submitted_hash="stale"))
+            build_evaluation_scorecard(state)
+
+            claim = build_claim_acceptance_decision(state, requested_claims=["knowledge_constraints_applied", "delivery_ready"])
+            signoff = create_signoff_record(
+                state,
+                {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": True, "limitations_accepted": True},
+            )
+
+            self.assertEqual(claim["status"], "blocked")
+            self.assertFalse(signoff["delivery_authorized"])
+            self.assertFalse(signoff["apply_authorized"])
+
+    def test_artifact_state_tracks_and_stales_intake_qa_and_reconciliation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            _record_matching_knowledge_repair_result(state, request)
+            write_json(
+                state / KNOWLEDGE_AUDIT_ENFORCEMENT_DECISION_JSON,
+                {"status": "clear", "issues": [], "forbidden_claims": ["knowledge_backed_quality"]},
+            )
+            write_json(
+                state / KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+                {"status": "constraints_applied", "supported_claims": ["knowledge_constraints_applied"], "forbidden_claims_remaining": ["knowledge_backed_quality"]},
+            )
+            write_json(state / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON, {"status": "empty", "items": []})
+            write_json(state / CONSTRAINT_APPLICATION_AUDIT_JSON, {"status": "pass", "summary": {"checked_fail_count": 0}})
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+            self.assertTrue({"knowledge_repair_result_intake", "knowledge_repair_qa_report", "knowledge_repair_reconciliation"}.issubset(ids))
+            initial_stale = {item["artifact_id"] for item in initial["stale_artifacts"]}
+            self.assertNotIn("knowledge_repair_result_intake", initial_stale)
+            generated = read_jsonl(state / "generated-segments.jsonl")
+            generated[0]["target"] = "再次修改"
+            write_jsonl(state / "generated-segments.jsonl", generated)
+
+            refreshed = build_artifact_state(state)
+            stale = {item["artifact_id"] for item in refreshed["stale_artifacts"]}
+
+            self.assertIn("knowledge_repair_result_intake", stale)
+            self.assertIn("knowledge_repair_qa_report", stale)
+            self.assertIn("knowledge_repair_reconciliation", stale)
+
+    def test_api_read_write_is_artifact_backed_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            repaired = "访问开放实验室"
+            generated = read_jsonl(state / "generated-segments.jsonl")
+            generated[0]["target"] = repaired
+            write_jsonl(state / "generated-segments.jsonl", generated)
+            payload = _knowledge_repair_result_payload(request, repaired_target=repaired)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider") as provider_call:
+                    status, _ = _http_post_json(
+                        host,
+                        port,
+                        "/api/knowledge-repair-result-intake",
+                        {"state_dir": state.as_posix(), "result": payload},
+                    )
+                    self.assertEqual(status, 200)
+                    for endpoint in ("knowledge-repair-result-intake", "knowledge-repair-qa-report", "knowledge-repair-reconciliation"):
+                        get_status, _ = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                        self.assertEqual(get_status, 200)
+                    self.assertFalse(provider_call.called)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_cli_commands_are_deterministic_and_artifact_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, request = _knowledge_repair_result_state(Path(directory))
+            repaired = "访问开放实验室"
+            generated = read_jsonl(state / "generated-segments.jsonl")
+            generated[0]["target"] = repaired
+            write_jsonl(state / "generated-segments.jsonl", generated)
+            input_path = Path(directory) / "result.json"
+            write_json(input_path, _knowledge_repair_result_payload(request, repaired_target=repaired))
+
+            self.assertEqual(cli_main(["record-knowledge-repair-result", state.as_posix(), "--input", input_path.as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-repair-result-intake", state.as_posix(), "--output", (Path(directory) / "intake.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-repair-qa-report", state.as_posix(), "--output", (Path(directory) / "qa.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["knowledge-repair-reconciliation", state.as_posix(), "--output", (Path(directory) / "reconciliation.json").as_posix()]), 0)
+            self.assertEqual(read_json(Path(directory) / "qa.json"), read_knowledge_repair_qa_report(state))
+
+    def test_delivery_package_and_run_summary_reference_reconciliation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _write_knowledge_repair_fixture(state, [_knowledge_repair_issue("hard_constraint_failed")])
+            build_knowledge_repair_plan(state)
+            request = read_knowledge_repair_request(state)["requests"][0]
+            _record_matching_knowledge_repair_result(state, request)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始游戏"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "repair-reconciliation-delivery-001")
+            run = run_localize(project, "en-US", ["zh-CN"], output_root=root / "out", run_id="repair-reconciliation-run-001", handoff_only=True)
+
+            self.assertEqual(packaged["manifest"]["assets"]["knowledge_repair_qa_report"], KNOWLEDGE_REPAIR_QA_REPORT_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["knowledge_repair_reconciliation"], KNOWLEDGE_REPAIR_RECONCILIATION_JSON)
+            self.assertIn("knowledge_repair_reconciliation", run["artifacts"])
+
+
+def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
+    state = _knowledge_repair_state(root, [issue or _knowledge_repair_issue("hard_constraint_failed")])
+    build_knowledge_repair_plan(state)
+    return state, read_knowledge_repair_request(state)["requests"][0]
+
+
+def _knowledge_repair_result_payload(
+    request: dict[str, Any],
+    *,
+    repaired_target: str = "访问开放实验室",
+    submitted_hash: str | None = None,
+    provenance: list[str] | None = None,
+    knowledge_ids: list[str] | None = None,
+    repair_mode: str | None = None,
+) -> dict[str, Any]:
+    expected_hash = next(iter(request.get("current_target_hashes", {}).values()), "")
+    return {
+        "source_repair_request_id": request["request_id"],
+        "source_repair_plan_item_id": request["knowledge_repair_item_id"],
+        "affected_segment_ids": request["affected_segment_ids"],
+        "affected_scope": request["affected_scope"],
+        "result_source": "manual_repair",
+        "actor_role": "localization_reviewer",
+        "actor_reference": "reviewer@example.test",
+        "repair_mode": repair_mode or request["request_type"],
+        "submitted_target_hash": submitted_hash if submitted_hash is not None else expected_hash,
+        "previous_target_hash": submitted_hash if submitted_hash is not None else expected_hash,
+        "repaired_target_text": repaired_target,
+        "source_knowledge_item_ids": knowledge_ids if knowledge_ids is not None else request["source_knowledge_provenance"]["knowledge_item_ids"],
+        "source_constraint_ids": [request["required_constraint"]] if request.get("required_constraint") else [],
+        "source_conflict_ids": [],
+        "provenance_references": ["reviewed-source.json"] if provenance is None else provenance,
+        "claimed_fix_types": [repair_mode or request["request_type"]],
+        "limitations": [],
+    }
+
+
+def _record_matching_knowledge_repair_result(
+    state: Path,
+    request: dict[str, Any],
+    *,
+    repaired_target: str = "访问开放实验室",
+    repair_mode: str | None = None,
+    knowledge_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    generated = read_jsonl(state / "generated-segments.jsonl")
+    for item in generated:
+        if item.get("segment_id") in request.get("affected_segment_ids", []):
+            item["target"] = repaired_target
+    write_jsonl(state / "generated-segments.jsonl", generated)
+    return record_knowledge_repair_result(
+        state,
+        _knowledge_repair_result_payload(
+            request,
+            repaired_target=repaired_target,
+            repair_mode=repair_mode,
+            knowledge_ids=knowledge_ids,
+        ),
+    )
+
+
 def _knowledge_repair_issue(
     issue_type: str,
     *,
@@ -10400,7 +10762,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 74)
+        self.assertEqual(result["schemas_checked"], 77)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

@@ -21,6 +21,7 @@ from .knowledge_audit_enforcement import (
 )
 from .knowledge_review_confirmation import KNOWLEDGE_ASSURANCE_SUMMARY_JSON
 from .knowledge_repair import KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON, KNOWLEDGE_REPAIR_PLAN_JSON
+from .knowledge_repair_result import KNOWLEDGE_REPAIR_QA_REPORT_JSON, KNOWLEDGE_REPAIR_RECONCILIATION_JSON
 from .localization_brief import LOCALIZATION_BRIEF_JSON
 from .termbase_preflight import TERMBASE_PREFLIGHT_REPORT_JSON
 
@@ -310,6 +311,8 @@ def _generation_strategy_asset_paths(
         ("knowledge_assurance_summary", KNOWLEDGE_ASSURANCE_SUMMARY_JSON),
         ("knowledge_repair_plan", KNOWLEDGE_REPAIR_PLAN_JSON),
         ("knowledge_repair_impact_report", KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON),
+        ("knowledge_repair_qa_report", KNOWLEDGE_REPAIR_QA_REPORT_JSON),
+        ("knowledge_repair_reconciliation", KNOWLEDGE_REPAIR_RECONCILIATION_JSON),
     ):
         if knowledge_gate["selected"] and (state_dir / name).is_file():
             artifacts[key] = name
@@ -327,6 +330,8 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     assurance = _read_optional_json(state_dir / KNOWLEDGE_ASSURANCE_SUMMARY_JSON) or {}
     repair_plan = _read_optional_json(state_dir / KNOWLEDGE_REPAIR_PLAN_JSON) or {}
     repair_impact = _read_optional_json(state_dir / KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON) or {}
+    repair_qa = _read_optional_json(state_dir / KNOWLEDGE_REPAIR_QA_REPORT_JSON) or {}
+    reconciliation = _read_optional_json(state_dir / KNOWLEDGE_REPAIR_RECONCILIATION_JSON) or {}
     if not selection:
         return {
             "status": "not_selected",
@@ -384,9 +389,25 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
     if stale_ids.intersection({"knowledge_audit_resolution_log", "knowledge_constraint_review_evidence", "knowledge_conflict_resolution", "knowledge_assurance_summary"}):
         blocking.append("knowledge_review_evidence_stale")
     repair_status = str(repair_impact.get("status") or repair_plan.get("status") or "not_run")
-    if repair_status in {"blocked", "repair_required"}:
+    reconciliation_status = str(reconciliation.get("status") or "not_run")
+    if repair_status in {"blocked", "repair_required"} and reconciliation_status != "clear":
         blocking.append("knowledge_repairs_pending")
-    if stale_ids.intersection({"knowledge_repair_plan", "knowledge_repair_request", "knowledge_repair_impact_report"}):
+        if reconciliation_status == "not_run":
+            blocking.append("knowledge_repair_reconciliation_missing")
+    if str(repair_qa.get("status") or "") in {"blocked", "requires_human_review", "stale"}:
+        blocking.append("knowledge_repair_qa_not_clear")
+    if reconciliation_status in {"blocked", "partial", "stale"}:
+        blocking.append("knowledge_repair_reconciliation_not_clear")
+    if stale_ids.intersection(
+        {
+            "knowledge_repair_plan",
+            "knowledge_repair_request",
+            "knowledge_repair_impact_report",
+            "knowledge_repair_result_intake",
+            "knowledge_repair_qa_report",
+            "knowledge_repair_reconciliation",
+        }
+    ):
         blocking.append("knowledge_repair_artifacts_stale")
     allowed = sorted(set((context or {}).get("knowledge_policy", {}).get("allowed_classes", [])))
     enabled = bool((context or {}).get("knowledge_policy", {}).get("enabled")) and not blocking
@@ -405,6 +426,9 @@ def _knowledge_gate(state_dir: Path, operating_mode: str) -> dict[str, Any]:
             "status": repair_status,
             "plan": KNOWLEDGE_REPAIR_PLAN_JSON if repair_plan else None,
             "impact_report": KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON if repair_impact else None,
+            "qa_report": KNOWLEDGE_REPAIR_QA_REPORT_JSON if repair_qa else None,
+            "reconciliation": KNOWLEDGE_REPAIR_RECONCILIATION_JSON if reconciliation else None,
+            "reconciliation_status": reconciliation_status,
             "execution_performed": False,
         },
         "artifacts": {
