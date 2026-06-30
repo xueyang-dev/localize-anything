@@ -154,6 +154,7 @@ Localization Brief
  -> Human Review Evidence
  -> Claim Acceptance
  -> Signoff
+ -> Readiness Authorization Matrix
  -> Delivery / Apply Decision
 ```
 
@@ -176,6 +177,7 @@ Each link has a specific contract:
 | Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
 | Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
 | Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
+| Readiness Authorization | `readiness-authorization-matrix.json`, `manual-followup-gap-report.json`, `apply-readiness-report.json`, `delivery-readiness-report.json` | Delivery/apply readiness is explicit, scoped, and evidence-backed across the full pipeline. |
 | Delivery / Apply | `delivery-manifest.json`, `delivery-decision.json`, `apply-plan.json` | Delivery and source writes remain staged, reviewable, and blocked when evidence is insufficient. |
 
 ## Delivery Modes
@@ -230,6 +232,10 @@ document-evidence-manifest.json
 human-review-evidence.jsonl
 claim-acceptance-decision.json
 signoff-record.json
+readiness-authorization-matrix.json
+manual-followup-gap-report.json
+apply-readiness-report.json
+delivery-readiness-report.json
 workbench-action-log.jsonl
 workbench-action-result.json
 workbench-review-queue.json
@@ -999,6 +1005,46 @@ Acceptance, Signoff, delivery decisions, delivery packaging, run summary, and
 Artifact State consume these closure artifacts. QA-passed repair evidence is
 therefore not allowed to silently become delivery readiness, apply readiness, or
 knowledge-backed quality.
+
+## Delivery / Apply Readiness Authorization Matrix
+
+The readiness authorization seed adds a final artifact-backed consolidation
+layer after scorecard, repair closure, document evidence, knowledge evidence,
+claim acceptance, and signoff. It produces:
+
+- `readiness-authorization-matrix.json`
+- `manual-followup-gap-report.json`
+- `apply-readiness-report.json`
+- `delivery-readiness-report.json`
+
+The matrix answers whether the current run can be delivered, applied, reviewed,
+or described as production-ready. It does not override the Evaluation
+Scorecard, Artifact State, claim acceptance, signoff, handoff, delivery
+decision, or apply plan. It only consolidates their current evidence into
+statuses, blockers, warnings, forbidden claims, limitations, effective scope,
+authorization requirements, and recommended next actions.
+
+Delivery readiness and apply readiness are intentionally separate. A run may be
+safe to hand to a reviewer with warnings while still blocked from writing files
+back into the project. Apply readiness requires current evidence for the
+affected scope plus explicit apply authorization; delivery readiness alone does
+not authorize apply.
+
+`manual-followup-gap-report.json` gathers unresolved human and operator work:
+term decisions, blocking questions, human review gaps, claim acceptance,
+signoff, document/leadership decisions, knowledge audit and repair follow-up,
+artifact refreshes, provider policy blockers, coverage confirmation, and
+forbidden claim acknowledgement. The report is a projection over artifacts, not
+a new decision writer.
+
+The apply and delivery readiness reports turn the matrix into two focused
+answers. Draft-only or review-ready delivery must keep unsupported claims
+visible: full quality, production-ready, review-complete, apply-ready,
+layout-verified, provider-backed, and knowledge-backed claims remain forbidden
+unless current evidence supports them. Production-ready delivery requires
+current scorecard, claim acceptance, signoff, repair closure, QA, and evidence
+freshness. Readiness reports are included in delivery packages and run
+summaries when present, but their existence never upgrades readiness.
 
 ## Human Review Evidence And Claim Acceptance
 

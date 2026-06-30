@@ -19,6 +19,10 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
     stale_block_reason = _artifact_state_apply_block_reason(artifact_state)
     scorecard_block_reason = _scorecard_apply_block_reason(_read_optional_json(delivery_dir / "evaluation-scorecard.json"))
     signoff_block_reason = _signoff_apply_block_reason(_read_optional_json(delivery_dir / "signoff-record.json"))
+    readiness_block_reason = _readiness_apply_block_reason(
+        _read_optional_json(delivery_dir / "readiness-authorization-matrix.json"),
+        _read_optional_json(delivery_dir / "apply-readiness-report.json"),
+    )
     operations: list[dict[str, Any]] = []
     for output in manifest.get("outputs", []):
         package_path = _safe_relative(str(output.get("package_path", "")), "package_path")
@@ -71,6 +75,8 @@ def create_apply_plan(delivery_dir: Path, project_root: Path) -> dict[str, Any]:
         "evaluation_scorecard_apply_block_reason": scorecard_block_reason,
         "blocked_by_signoff": bool(signoff_block_reason),
         "signoff_apply_block_reason": signoff_block_reason,
+        "blocked_by_readiness_authorization": bool(readiness_block_reason),
+        "readiness_authorization_apply_block_reason": readiness_block_reason,
         "artifact_state": artifact_state,
         "rollback": {"backup_required_for": [item["destination"] for item in operations if item["backup_required"]]},
     }
@@ -94,6 +100,7 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
         f"- Blocked by stale artifacts: `{bool(plan.get('blocked_by_stale_artifacts'))}`",
         f"- Blocked by evaluation scorecard: `{bool(plan.get('blocked_by_evaluation_scorecard'))}`",
         f"- Blocked by signoff: `{bool(plan.get('blocked_by_signoff'))}`",
+        f"- Blocked by readiness authorization: `{bool(plan.get('blocked_by_readiness_authorization'))}`",
         "",
         "## Operations",
         "",
@@ -131,6 +138,15 @@ def render_apply_plan_markdown(plan: dict[str, Any]) -> str:
                 "## Signoff Block",
                 "",
                 str(plan.get("signoff_apply_block_reason")),
+                "",
+            ]
+        )
+    if plan.get("blocked_by_readiness_authorization"):
+        lines.extend(
+            [
+                "## Readiness Authorization Block",
+                "",
+                str(plan.get("readiness_authorization_apply_block_reason")),
                 "",
             ]
         )
@@ -182,6 +198,8 @@ def execute_apply(
         raise ValueError(f"Apply is blocked by evaluation scorecard: {plan.get('evaluation_scorecard_apply_block_reason')}")
     if plan.get("blocked_by_signoff"):
         raise ValueError(f"Apply is blocked by signoff: {plan.get('signoff_apply_block_reason')}")
+    if plan.get("blocked_by_readiness_authorization"):
+        raise ValueError(f"Apply is blocked by readiness authorization: {plan.get('readiness_authorization_apply_block_reason')}")
     if plan["blocked_by_conflicts"]:
         raise ValueError("Apply is blocked by destination conflicts; create a fresh plan after resolving them")
     dirty = _git_status_short(project_root)
@@ -305,6 +323,16 @@ def _signoff_apply_block_reason(signoff: dict[str, Any]) -> str | None:
     if str(signoff.get("status") or "") in {"rejected", "stale", "superseded", "requires_follow_up"}:
         return f"signoff status is {signoff.get('status')}"
     return "signoff does not authorize apply"
+
+
+def _readiness_apply_block_reason(matrix: dict[str, Any], apply_report: dict[str, Any]) -> str | None:
+    matrix_status = str(matrix.get("apply_readiness_status") or "")
+    report_status = str(apply_report.get("apply_status") or "")
+    if matrix_status in {"blocked", "stale", "partial"}:
+        return f"readiness authorization matrix apply status is {matrix_status}"
+    if report_status in {"blocked", "stale", "partial"}:
+        return f"apply readiness report status is {report_status}"
+    return None
 
 
 def _read_optional_json(path: Path) -> dict[str, Any]:

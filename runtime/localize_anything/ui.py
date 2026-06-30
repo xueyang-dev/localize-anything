@@ -96,6 +96,12 @@ from .knowledge_repair_closure import (
     read_knowledge_recompute_result,
     read_knowledge_repair_closure_decision,
 )
+from .readiness_authorization import (
+    read_apply_readiness_report,
+    read_delivery_readiness_report,
+    read_manual_followup_gap_report,
+    read_readiness_authorization_matrix,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -262,6 +268,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/knowledge-readiness-impact-report":
                     self._handle_knowledge_repair_closure_query(parsed.query, "impact")
+                    return
+                if parsed.path == "/api/readiness-authorization-matrix":
+                    self._handle_readiness_authorization_query(parsed.query, "matrix")
+                    return
+                if parsed.path == "/api/manual-followup-gap-report":
+                    self._handle_readiness_authorization_query(parsed.query, "manual_followup")
+                    return
+                if parsed.path == "/api/apply-readiness-report":
+                    self._handle_readiness_authorization_query(parsed.query, "apply")
+                    return
+                if parsed.path == "/api/delivery-readiness-report":
+                    self._handle_readiness_authorization_query(parsed.query, "delivery")
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -877,6 +895,19 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 "plan": ("knowledge_recompute_plan", read_knowledge_recompute_plan),
                 "result": ("knowledge_recompute_result", read_knowledge_recompute_result),
                 "impact": ("knowledge_readiness_impact_report", read_knowledge_readiness_impact_report),
+            }
+            key, reader = readers[artifact]
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
+
+        def _handle_readiness_authorization_query(self, query: str, artifact: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Readiness artifact is outside allowed workbench roots: {state_dir}")
+            readers = {
+                "matrix": ("readiness_authorization_matrix", read_readiness_authorization_matrix),
+                "manual_followup": ("manual_followup_gap_report", read_manual_followup_gap_report),
+                "apply": ("apply_readiness_report", read_apply_readiness_report),
+                "delivery": ("delivery_readiness_report", read_delivery_readiness_report),
             }
             key, reader = readers[artifact]
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})

@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add Delivery / Apply Readiness Authorization Matrix with
+  `readiness-authorization-matrix.json`,
+  `manual-followup-gap-report.json`, `apply-readiness-report.json`, and
+  `delivery-readiness-report.json`, plus artifact-state tracking,
+  conservative claim/signoff integration, delivery/run summary references,
+  protocol schemas, and artifact-backed CLI/API access.
 - Add Knowledge Repair Closure / Recompute Orchestration with
   `knowledge-repair-closure-decision.json`, `knowledge-recompute-plan.json`,
   `knowledge-recompute-result.json`, and

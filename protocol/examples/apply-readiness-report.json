@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-apply-readiness-report-v1",
+  "artifact": "apply-readiness-report.json",
+  "run_id": "readiness-example-001",
+  "apply_status": "blocked",
+  "apply_mode": "blocked",
+  "target_scope": { "scope_type": "limited" },
+  "blocking_risks": [{ "type": "signoff_required", "summary": "Apply authorization is not present." }],
+  "stale_artifacts": [],
+  "required_signoff": { "required": true, "status": "authorization_required", "artifact": "signoff-record.json" },
+  "required_claim_acceptance": { "required": true, "status": "authorization_required", "artifact": "claim-acceptance-decision.json" },
+  "required_repair_closure": { "status": "partial" },
+  "required_qa": { "status": "unknown" },
+  "provider_policy_status": { "status": "review_required" },
+  "knowledge_document_evidence_status": { "knowledge": { "status": "blocked" }, "document": { "status": "review_required" } },
+  "forbidden_claims_that_prevent_apply": ["apply_ready", "production_ready"],
+  "safe_apply_limitations": ["apply requires explicit run-id confirmation and current target-file evidence"],
+  "recommended_next_action": "Resolve apply blockers, then refresh apply readiness.",
+  "source_artifacts": { "readiness_authorization_matrix": { "path": "readiness-authorization-matrix.json", "sha256": "abc" } },
+  "limitations": ["apply readiness is separate from delivery readiness and still requires explicit apply authorization"]
+}

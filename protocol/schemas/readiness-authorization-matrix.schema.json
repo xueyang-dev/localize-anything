@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/readiness-authorization-matrix.schema.json",
+  "title": "Localize Anything Readiness Authorization Matrix",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "delivery_readiness_status", "apply_readiness_status", "review_readiness_status", "production_readiness_status", "blockers", "warnings", "forbidden_claims", "authorization_requirements", "recommended_next_actions", "source_artifacts", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-readiness-authorization-matrix-v1" },
+    "artifact": { "const": "readiness-authorization-matrix.json" },
+    "delivery_readiness_status": { "enum": ["ready", "ready_with_warnings", "review_required", "authorization_required", "blocked", "stale", "partial", "not_applicable", "unknown"] },
+    "apply_readiness_status": { "enum": ["ready", "ready_with_warnings", "review_required", "authorization_required", "blocked", "stale", "partial", "not_applicable", "unknown"] },
+    "review_readiness_status": { "enum": ["ready", "ready_with_warnings", "review_required", "authorization_required", "blocked", "stale", "partial", "not_applicable", "unknown"] },
+    "production_readiness_status": { "enum": ["ready", "ready_with_warnings", "review_required", "authorization_required", "blocked", "stale", "partial", "not_applicable", "unknown"] },
+    "blockers": { "type": "array", "items": { "type": "object" } },
+    "warnings": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "authorization_requirements": { "type": "array", "items": { "type": "object" } },
+    "recommended_next_actions": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

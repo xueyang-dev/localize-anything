@@ -13,6 +13,7 @@ from .io_utils import read_json, read_jsonl, write_json, write_jsonl
 HUMAN_REVIEW_EVIDENCE_JSONL = "human-review-evidence.jsonl"
 CLAIM_ACCEPTANCE_DECISION_JSON = "claim-acceptance-decision.json"
 SIGNOFF_RECORD_JSON = "signoff-record.json"
+READINESS_AUTHORIZATION_MATRIX_JSON = "readiness-authorization-matrix.json"
 
 E2 = "E2_bilingual_human_spot_check"
 E3 = "E3_native_language_review"
@@ -143,6 +144,8 @@ def build_claim_acceptance_decision(
     review = human_review_summary(state_dir)
     claims = _requested_claims(requested_claims)
     forbidden = set(scorecard.get("forbidden_claims", [])) if isinstance(scorecard, dict) else set()
+    readiness_matrix = _read_optional_json(state_dir / READINESS_AUTHORIZATION_MATRIX_JSON)
+    forbidden.update(_forbidden_from_readiness_matrix(readiness_matrix, claims))
     repair_reconciliation = _read_optional_json(state_dir / "knowledge-repair-reconciliation.json")
     if (state_dir / "knowledge-repair-plan.json").is_file() and str(repair_reconciliation.get("status") or "not_run") != "clear":
         forbidden.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
@@ -211,6 +214,8 @@ def create_signoff_record(
     artifact_state = _read_optional_json(state_dir / "artifact-state.json")
     requested = _authorization_requests(signoff)
     forbidden = set(scorecard.get("forbidden_claims", [])) if scorecard else set()
+    readiness_matrix = _read_optional_json(state_dir / READINESS_AUTHORIZATION_MATRIX_JSON)
+    forbidden.update(_forbidden_from_readiness_matrix(readiness_matrix, ["delivery_ready", "apply_ready", "production_ready"]))
     repair_reconciliation = _read_optional_json(state_dir / "knowledge-repair-reconciliation.json")
     if (state_dir / "knowledge-repair-plan.json").is_file() and str(repair_reconciliation.get("status") or "not_run") != "clear":
         forbidden.update({"knowledge_constraints_applied", "knowledge_review_complete", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
@@ -269,6 +274,11 @@ def create_signoff_record(
         apply_authorized = overall == "apply_ready" and "apply_ready" not in forbidden and claim_status != "blocked" and not stale_state
         if not apply_authorized:
             blocked.append({"authorization": "apply", "reason": _apply_block_reason(overall, forbidden, claim_status, stale_state)})
+    blocked.extend(_signoff_blocks_from_readiness_matrix(readiness_matrix, requested))
+    if any(item["authorization"] == "delivery" for item in blocked):
+        delivery_authorized = False
+    if any(item["authorization"] == "apply" for item in blocked):
+        apply_authorized = False
     status = "requires_follow_up" if blocked else "accepted_with_limitations" if limitations_accepted else "accepted"
     record = {
         "protocol_version": PROTOCOL_VERSION,
@@ -454,6 +464,35 @@ def _apply_block_reason(overall: str, forbidden: set[str], claim_status: str, st
     if "apply_ready" in forbidden:
         return "apply_ready_claim_is_forbidden"
     return f"scorecard_overall_claim_is_{overall}"
+
+
+def _forbidden_from_readiness_matrix(matrix: dict[str, Any], requested_claims: list[str]) -> set[str]:
+    if not matrix:
+        return set()
+    forbidden = set(str(item) for item in matrix.get("forbidden_claims", []))
+    delivery_status = str(matrix.get("delivery_readiness_status") or "")
+    apply_status = str(matrix.get("apply_readiness_status") or "")
+    production_status = str(matrix.get("production_readiness_status") or "")
+    if delivery_status in {"blocked", "stale", "partial"}:
+        forbidden.update({"delivery_ready", "production_ready"})
+    if apply_status in {"blocked", "stale", "partial", "authorization_required"}:
+        forbidden.update({"apply_ready", "production_ready"})
+    if production_status and production_status != "ready":
+        forbidden.add("production_ready")
+    return forbidden if not requested_claims else forbidden & set(requested_claims) | (forbidden - {"review_ready", "draft_only"})
+
+
+def _signoff_blocks_from_readiness_matrix(matrix: dict[str, Any], requested: dict[str, bool]) -> list[dict[str, str]]:
+    if not matrix:
+        return []
+    blocked: list[dict[str, str]] = []
+    delivery_status = str(matrix.get("delivery_readiness_status") or "")
+    apply_status = str(matrix.get("apply_readiness_status") or "")
+    if requested.get("delivery") and delivery_status in {"blocked", "stale", "partial"}:
+        blocked.append({"authorization": "delivery", "reason": f"readiness_matrix_delivery_status_{delivery_status}"})
+    if requested.get("apply") and apply_status in {"blocked", "stale", "partial", "authorization_required"}:
+        blocked.append({"authorization": "apply", "reason": f"readiness_matrix_apply_status_{apply_status}"})
+    return blocked
 
 
 def _read_optional_json(path: Path) -> dict[str, Any]:

@@ -105,6 +105,13 @@ from .knowledge_repair_closure import (
     build_knowledge_recompute_result,
     build_knowledge_repair_closure_decision,
 )
+from .readiness_authorization import (
+    build_apply_readiness_report,
+    build_delivery_readiness_report,
+    build_manual_followup_gap_report,
+    build_readiness_authorization_matrix,
+    build_readiness_reports,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -673,6 +680,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     knowledge_repair_recompute_parser.add_argument("state_dir", type=Path)
     knowledge_repair_recompute_parser.add_argument("--output", type=Path)
+
+    readiness_matrix_parser = subparsers.add_parser(
+        "readiness-authorization-matrix", help="Create readiness-authorization-matrix.json from current evidence"
+    )
+    readiness_matrix_parser.add_argument("state_dir", type=Path)
+    readiness_matrix_parser.add_argument("--delivery-dir", type=Path)
+    readiness_matrix_parser.add_argument("--run-id")
+    readiness_matrix_parser.add_argument("--output", type=Path)
+
+    manual_followup_parser = subparsers.add_parser(
+        "manual-followup-gap-report", help="Create manual-followup-gap-report.json from unresolved follow-up evidence"
+    )
+    manual_followup_parser.add_argument("state_dir", type=Path)
+    manual_followup_parser.add_argument("--delivery-dir", type=Path)
+    manual_followup_parser.add_argument("--run-id")
+    manual_followup_parser.add_argument("--output", type=Path)
+
+    apply_readiness_parser = subparsers.add_parser(
+        "apply-readiness-report", help="Create apply-readiness-report.json without mutating target files"
+    )
+    apply_readiness_parser.add_argument("state_dir", type=Path)
+    apply_readiness_parser.add_argument("--delivery-dir", type=Path)
+    apply_readiness_parser.add_argument("--run-id")
+    apply_readiness_parser.add_argument("--output", type=Path)
+
+    delivery_readiness_parser = subparsers.add_parser(
+        "delivery-readiness-report", help="Create delivery-readiness-report.json from current evidence"
+    )
+    delivery_readiness_parser.add_argument("state_dir", type=Path)
+    delivery_readiness_parser.add_argument("--delivery-dir", type=Path)
+    delivery_readiness_parser.add_argument("--run-id")
+    delivery_readiness_parser.add_argument("--output", type=Path)
+
+    readiness_check_parser = subparsers.add_parser(
+        "readiness-check", help="Refresh readiness matrix, manual gaps, apply report, and delivery report"
+    )
+    readiness_check_parser.add_argument("state_dir", type=Path)
+    readiness_check_parser.add_argument("--delivery-dir", type=Path)
+    readiness_check_parser.add_argument("--run-id")
+    readiness_check_parser.add_argument("--output", type=Path)
 
     evaluation_parser = subparsers.add_parser("evaluation-scorecard", help="Create evaluation-scorecard.json and evidence-level-report.md")
     evaluation_parser.add_argument("state_dir", type=Path)
@@ -1630,6 +1677,37 @@ def main(argv: list[str] | None = None) -> int:
                 "readiness_impact_report": build_knowledge_readiness_impact_report(args.state_dir),
                 "provider_or_model_called": False,
                 "repair_applied": False,
+            }
+            return _emit_json(result, args.output)
+        if args.command == "readiness-authorization-matrix":
+            return _emit_json(
+                build_readiness_authorization_matrix(args.state_dir, delivery_dir=args.delivery_dir, run_id=args.run_id),
+                args.output,
+            )
+        if args.command == "manual-followup-gap-report":
+            return _emit_json(
+                build_manual_followup_gap_report(args.state_dir, delivery_dir=args.delivery_dir, run_id=args.run_id),
+                args.output,
+            )
+        if args.command == "apply-readiness-report":
+            return _emit_json(
+                build_apply_readiness_report(args.state_dir, delivery_dir=args.delivery_dir, run_id=args.run_id),
+                args.output,
+            )
+        if args.command == "delivery-readiness-report":
+            return _emit_json(
+                build_delivery_readiness_report(args.state_dir, delivery_dir=args.delivery_dir, run_id=args.run_id),
+                args.output,
+            )
+        if args.command == "readiness-check":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-readiness-check-command-v1",
+                "state_dir": args.state_dir.as_posix(),
+                **build_readiness_reports(args.state_dir, delivery_dir=args.delivery_dir, run_id=args.run_id),
+                "provider_or_model_called": False,
+                "repair_applied": False,
+                "target_files_mutated": False,
             }
             return _emit_json(result, args.output)
         if args.command == "evaluation-scorecard":

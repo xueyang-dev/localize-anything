@@ -66,6 +66,12 @@ from .knowledge_repair_closure import (
     KNOWLEDGE_RECOMPUTE_RESULT_JSON,
     KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
 )
+from .readiness_authorization import (
+    APPLY_READINESS_REPORT_JSON,
+    DELIVERY_READINESS_REPORT_JSON,
+    MANUAL_FOLLOWUP_GAP_REPORT_JSON,
+    READINESS_AUTHORIZATION_MATRIX_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -639,6 +645,67 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         required_for_delivery=True,
     ),
     ArtifactSpec(
+        "readiness_authorization_matrix",
+        "readiness_authorization_matrix",
+        READINESS_AUTHORIZATION_MATRIX_JSON,
+        "readiness_authorization",
+        (
+            "evaluation_scorecard",
+            "generation_handoff_decision",
+            "state_delivery_manifest",
+            "claim_acceptance_decision",
+            "signoff_record",
+            "human_review_evidence",
+            "document_evidence_manifest",
+            "document_claim_resolution",
+            "document_signoff_summary",
+            "knowledge_audit_enforcement_decision",
+            "knowledge_assurance_summary",
+            "knowledge_repair_closure_decision",
+            "knowledge_recompute_result",
+            "knowledge_readiness_impact_report",
+            "repair_result",
+            "repair_history",
+        ),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "manual_followup_gap_report",
+        "manual_followup_gap_report",
+        MANUAL_FOLLOWUP_GAP_REPORT_JSON,
+        "readiness_authorization",
+        (
+            "readiness_authorization_matrix",
+            "blocking_questions",
+            "term_review_queue",
+            "human_review_evidence",
+            "claim_acceptance_decision",
+            "signoff_record",
+            "document_claim_resolution",
+            "document_signoff_summary",
+            "knowledge_audit_enforcement_decision",
+            "knowledge_assurance_summary",
+            "knowledge_repair_closure_decision",
+        ),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "apply_readiness_report",
+        "apply_readiness_report",
+        APPLY_READINESS_REPORT_JSON,
+        "readiness_authorization",
+        ("readiness_authorization_matrix", "manual_followup_gap_report", "signoff_record", "delivery_decision"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
+        "delivery_readiness_report",
+        "delivery_readiness_report",
+        DELIVERY_READINESS_REPORT_JSON,
+        "readiness_authorization",
+        ("readiness_authorization_matrix", "manual_followup_gap_report", "claim_acceptance_decision", "signoff_record", "delivery_decision"),
+        required_for_delivery=True,
+    ),
+    ArtifactSpec(
         "state_delivery_manifest",
         "delivery_manifest",
         "delivery-manifest.json",
@@ -1108,6 +1175,12 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "document_signoff_summary",
     }
     document_consumers = {"signoff_record", "delivery_decision", "evaluation_scorecard"}
+    readiness_dependency_ids = {
+        "readiness_authorization_matrix",
+        "manual_followup_gap_report",
+        "apply_readiness_report",
+        "delivery_readiness_report",
+    }
     knowledge_dependency_ids = {
         "knowledge_pack_selection",
         "knowledge_eligibility_report",
@@ -1133,7 +1206,17 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "knowledge_readiness_impact_report",
         "state_generated_segments",
     }
-    knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard", "signoff_record"}
+    knowledge_consumers = {
+        "generation_strategy",
+        "generation_handoff_decision",
+        "delivery_decision",
+        "evaluation_scorecard",
+        "signoff_record",
+        "readiness_authorization_matrix",
+        "manual_followup_gap_report",
+        "apply_readiness_report",
+        "delivery_readiness_report",
+    }
     stale_dependencies = sorted(
         dependency_id
         for dependency_id in spec.dependencies
@@ -1142,7 +1225,9 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
     relevant_dependencies = sorted(set(stale_dependencies) & document_dependency_ids)
     if spec.artifact_id in knowledge_dependency_ids | knowledge_consumers:
         relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & knowledge_dependency_ids))
-    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers or not relevant_dependencies:
+    if spec.artifact_id in readiness_dependency_ids:
+        relevant_dependencies = sorted(set(relevant_dependencies) | set(stale_dependencies))
+    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids or not relevant_dependencies:
         return
     entry["status"] = "stale"
     entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"

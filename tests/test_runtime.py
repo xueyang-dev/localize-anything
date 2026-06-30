@@ -175,6 +175,17 @@ from runtime.localize_anything.knowledge_repair_closure import (
     read_knowledge_recompute_result,
     read_knowledge_repair_closure_decision,
 )
+from runtime.localize_anything.readiness_authorization import (
+    APPLY_READINESS_REPORT_JSON,
+    DELIVERY_READINESS_REPORT_JSON,
+    MANUAL_FOLLOWUP_GAP_REPORT_JSON,
+    READINESS_AUTHORIZATION_MATRIX_JSON,
+    build_apply_readiness_report,
+    build_delivery_readiness_report,
+    build_manual_followup_gap_report,
+    build_readiness_authorization_matrix,
+    build_readiness_reports,
+)
 from runtime.localize_anything.gettext_adapter import extract_segments as extract_po_segments
 from runtime.localize_anything.gettext_adapter import parse_po, rebuild as rebuild_po, validate_pair as validate_po_pair
 from runtime.localize_anything.io_utils import read_json, read_jsonl, sha256_file, write_json, write_jsonl
@@ -9742,6 +9753,312 @@ class KnowledgeRepairClosureRecomputeTests(unittest.TestCase):
             self.assertEqual(run["summary"]["knowledge_repair_closure_status"], read_knowledge_repair_closure_decision(state)["status"])
 
 
+class ReadinessAuthorizationMatrixTests(unittest.TestCase):
+    def test_matrix_blocks_delivery_for_blocked_scorecard_and_stale_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="blocked", forbidden_claims=["delivery_ready"])
+            matrix = build_readiness_authorization_matrix(state)
+            assert_protocol_schema(self, "readiness-authorization-matrix", matrix)
+
+            self.assertEqual(matrix["delivery_readiness_status"], "blocked")
+            self.assertEqual(matrix["apply_readiness_status"], "blocked")
+            self.assertIn("delivery_ready", matrix["forbidden_claims"])
+            self.assertTrue(any(item["type"] == "scorecard_blocked" for item in matrix["blockers"]))
+
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="delivery_ready")
+            write_json(
+                state / "artifact-state.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-artifact-state-v1",
+                    "status": "stale",
+                    "safe_to_continue": False,
+                    "summary": {"stale_count": 1, "blocked_count": 0},
+                    "stale_artifacts": [{"artifact_id": "generation_handoff_decision", "status": "stale", "affects_delivery_or_apply": True}],
+                    "blocked_artifacts": [],
+                    "artifacts": [],
+                    "decisions": {"delivery_apply_allowed": False, "apply_policy": "blocked"},
+                },
+            )
+
+            matrix = build_readiness_authorization_matrix(state)
+
+            self.assertEqual(matrix["evidence_freshness_status"], "stale")
+            self.assertEqual(matrix["delivery_readiness_status"], "blocked")
+
+    def test_manual_followup_report_collects_cross_pipeline_gaps(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=["delivery_ready", "apply_ready"], claim_status="blocked")
+            write_json(state / "term-review-queue.json", {"items": [{"item_id": "term-1", "status": "needs_review"}]})
+            write_json(state / "blocking-questions.json", {"questions": [{"question_id": "q1", "status": "open"}]})
+            write_json(state / "workbench-document-evidence-queue.json", {"summary": {"item_count": 1, "blocking_count": 1}})
+            write_json(state / "document-signoff-summary.json", {"status": "requires_follow_up"})
+            write_json(state / "knowledge-audit-enforcement-decision.json", {"status": "blocked"})
+            write_json(state / "workbench-knowledge-review-queue.json", {"summary": {"blocking_count": 1}})
+            write_json(state / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, {"status": "requires_recompute"})
+
+            matrix = build_readiness_authorization_matrix(state)
+            report = build_manual_followup_gap_report(state, matrix=matrix)
+            gap_types = {item["gap_type"] for item in report["gaps"]}
+            assert_protocol_schema(self, "manual-followup-gap-report", report)
+
+            self.assertIn("term_decision_required", gap_types)
+            self.assertIn("human_review_required", gap_types)
+            self.assertIn("claim_acceptance_required", gap_types)
+            self.assertIn("signoff_required", gap_types)
+            self.assertIn("document_decision_required", gap_types)
+            self.assertIn("leadership_review_required", gap_types)
+            self.assertIn("knowledge_review_required", gap_types)
+            self.assertIn("knowledge_conflict_resolution_required", gap_types)
+            self.assertIn("repair_closure_recompute_required", gap_types)
+            self.assertIn("forbidden_claim_acknowledgement_required", gap_types)
+
+    def test_apply_and_delivery_reports_keep_readiness_separate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(
+                Path(directory),
+                overall_claim="delivery_ready_with_warnings",
+                forbidden_claims=["apply_ready", "production_ready"],
+                claim_status="accepted_with_limitations",
+                signoff_delivery=True,
+                signoff_apply=False,
+            )
+
+            matrix = build_readiness_authorization_matrix(state)
+            gaps = build_manual_followup_gap_report(state, matrix=matrix)
+            delivery = build_delivery_readiness_report(state, matrix=matrix, gaps=gaps)
+            apply = build_apply_readiness_report(state, matrix=matrix, gaps=gaps)
+            assert_protocol_schema(self, "delivery-readiness-report", delivery)
+            assert_protocol_schema(self, "apply-readiness-report", apply)
+
+            self.assertEqual(matrix["delivery_readiness_status"], "ready_with_warnings")
+            self.assertEqual(apply["apply_status"], "blocked")
+            self.assertIn("apply_ready", apply["forbidden_claims_that_prevent_apply"])
+            self.assertNotEqual(delivery["delivery_status"], apply["apply_status"])
+
+    def test_repair_provider_and_production_blockers_remain_conservative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="apply_ready", forbidden_claims=[])
+            write_json(state / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, {"status": "partially_closed"})
+            write_json(state / "delivery-manifest.json", {"generation": {"provider_status": "failed", "apply_allowed": False}, "qa": {"status": "pass"}})
+
+            matrix = build_readiness_authorization_matrix(state)
+            apply = build_apply_readiness_report(state, matrix=matrix)
+
+            self.assertEqual(matrix["repair_closure_status"]["status"], "partial")
+            self.assertEqual(matrix["provider_policy_status"]["status"], "blocked")
+            self.assertEqual(apply["apply_status"], "blocked")
+            self.assertIn("production_ready", matrix["forbidden_claims"])
+
+    def test_claim_acceptance_and_signoff_cannot_contradict_matrix(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="apply_ready", forbidden_claims=[])
+            build_readiness_authorization_matrix(state)
+
+            claim = build_claim_acceptance_decision(state, requested_claims=["apply_ready", "production_ready"])
+            signoff = create_signoff_record(
+                state,
+                {"signed_by": "owner@example.test", "delivery_authorized": True, "apply_authorized": True, "limitations_accepted": False},
+            )
+
+            self.assertEqual(claim["status"], "blocked")
+            self.assertFalse(signoff["apply_authorized"])
+            self.assertTrue(any("readiness_matrix_apply_status" in item["reason"] for item in signoff["blocked_authorizations"]))
+
+    def test_artifact_state_tracks_readiness_reports_and_stales_on_scorecard_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready")
+            build_readiness_reports(state)
+            initial = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in initial["artifacts"]}
+            self.assertTrue(
+                {
+                    "readiness_authorization_matrix",
+                    "manual_followup_gap_report",
+                    "apply_readiness_report",
+                    "delivery_readiness_report",
+                }.issubset(ids)
+            )
+
+            scorecard = read_json(state / "evaluation-scorecard.json")
+            scorecard["overall_claim"] = "blocked"
+            write_json(state / "evaluation-scorecard.json", scorecard)
+            refreshed = build_artifact_state(state)
+            stale = {item["artifact_id"] for item in refreshed["stale_artifacts"]}
+
+            self.assertIn("readiness_authorization_matrix", stale)
+            self.assertIn("manual_followup_gap_report", stale)
+
+    def test_cli_and_api_expose_readiness_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready")
+            output = Path(directory)
+
+            self.assertEqual(cli_main(["readiness-check", state.as_posix(), "--output", (output / "readiness.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["readiness-authorization-matrix", state.as_posix(), "--output", (output / "matrix.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["manual-followup-gap-report", state.as_posix(), "--output", (output / "gaps.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["apply-readiness-report", state.as_posix(), "--output", (output / "apply.json").as_posix()]), 0)
+            self.assertEqual(cli_main(["delivery-readiness-report", state.as_posix(), "--output", (output / "delivery.json").as_posix()]), 0)
+            self.assertEqual(read_json(output / "matrix.json"), read_json(state / READINESS_AUTHORIZATION_MATRIX_JSON))
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for endpoint in (
+                    "readiness-authorization-matrix",
+                    "manual-followup-gap-report",
+                    "apply-readiness-report",
+                    "delivery-readiness-report",
+                ):
+                    status, body = _http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+                    self.assertIn("status", json.loads(body))
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_delivery_package_and_run_summary_reference_readiness_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            _readiness_state(root, state=state, overall_claim="review_ready")
+            build_readiness_reports(state)
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start": "开始"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "readiness-delivery-001")
+            apply_plan = create_apply_plan(Path(packaged["delivery_directory"]), project)
+            run = run_localize(project, "en-US", ["zh-CN"], output_root=root / "out", run_id="readiness-run-001", handoff_only=True)
+
+            self.assertEqual(packaged["manifest"]["assets"]["readiness_authorization_matrix"], READINESS_AUTHORIZATION_MATRIX_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["apply_readiness_report"], APPLY_READINESS_REPORT_JSON)
+            self.assertTrue(apply_plan["blocked_by_readiness_authorization"])
+            self.assertIn("readiness_authorization_matrix", run["artifacts"])
+            self.assertEqual(run["summary"]["readiness_authorization_delivery_status"], read_json(state / READINESS_AUTHORIZATION_MATRIX_JSON)["delivery_readiness_status"])
+
+
+def _readiness_state(
+    root: Path,
+    *,
+    state: Path | None = None,
+    overall_claim: str = "review_ready",
+    forbidden_claims: list[str] | None = None,
+    claim_status: str = "accepted",
+    signoff_delivery: bool = False,
+    signoff_apply: bool = False,
+) -> Path:
+    state = state or root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    forbidden_claims = forbidden_claims if forbidden_claims is not None else ["delivery_ready", "apply_ready", "production_ready"]
+    write_json(
+        state / "evaluation-scorecard.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-evaluation-scorecard-v1",
+            "run_id": "readiness-test-001",
+            "status": "blocked" if overall_claim == "blocked" else "pass_with_warnings" if forbidden_claims else "pass",
+            "overall_claim": overall_claim,
+            "evidence_level": {"highest_supported": "E1_automated_semantic_or_policy_review", "highest_global_human_supported": "not_provided", "levels": {}},
+            "human_review_evidence": {"status": "not_provided", "global_supported_levels": []},
+            "claim_acceptance": {"status": claim_status},
+            "signoff": {"status": "accepted", "delivery_authorized": signoff_delivery, "apply_authorized": signoff_apply},
+            "structural_qa": {"status": "pass"},
+            "provider_status": {"status": "warning", "warnings": ["provider not run"]},
+            "terminology_assurance": {"status": "warning"},
+            "coverage_assurance": {"status": "warning", "warnings": ["coverage not globally proven"]},
+            "resolution_status": {"status": "pass"},
+            "handoff_readiness": {"status": "pass"},
+            "artifact_freshness": {"status": "pass"},
+            "segment_reuse_readiness": {"status": "pass"},
+            "repair_readiness": {"status": "pass"},
+            "review_readiness": {"status": "warning"},
+            "delivery_readiness": {"status": "warning" if "delivery_ready" in forbidden_claims else "pass"},
+            "apply_readiness": {"status": "blocked" if "apply_ready" in forbidden_claims else "pass"},
+            "forbidden_claims": forbidden_claims,
+            "recommended_next_actions": [],
+            "source_artifacts": {},
+        },
+    )
+    write_json(
+        state / "artifact-state.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-artifact-state-v1",
+            "run_id": "readiness-test-001",
+            "status": "current",
+            "safe_to_continue": True,
+            "summary": {"stale_count": 0, "blocked_count": 0},
+            "artifacts": [
+                {"artifact_id": "claim_acceptance_decision", "status": "current"},
+                {"artifact_id": "signoff_record", "status": "current"},
+            ],
+            "stale_artifacts": [],
+            "blocked_artifacts": [],
+            "decisions": {"delivery_apply_allowed": True, "apply_policy": "allowed"},
+        },
+    )
+    write_json(state / "generation-handoff-decision.json", {"status": "ready", "allow_generation": True})
+    write_json(
+        state / "claim-acceptance-decision.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-claim-acceptance-decision-v1",
+            "run_id": "readiness-test-001",
+            "status": claim_status,
+            "artifact": "claim-acceptance-decision.json",
+            "accepted_claims": [] if claim_status == "blocked" else ["review_ready"],
+            "accepted_with_limitations": ["limited_scope_delivery_ready"] if claim_status == "accepted_with_limitations" else [],
+            "rejected_claims": [],
+            "forbidden_claims_remaining": forbidden_claims,
+            "claim_decisions": [],
+            "summary": {},
+        },
+    )
+    write_json(
+        state / "signoff-record.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-signoff-record-v1",
+            "run_id": "readiness-test-001",
+            "signoff_id": "signoff-readiness-test",
+            "status": "accepted_with_limitations" if signoff_delivery or signoff_apply else "requires_follow_up",
+            "artifact": "signoff-record.json",
+            "signed_by": "owner@example.test",
+            "signed_role": "project_owner",
+            "signoff_scope": {"scope_type": "limited", "locales": ["zh-CN"]},
+            "requested_authorizations": {"delivery": signoff_delivery, "apply": signoff_apply},
+            "delivery_authorized": signoff_delivery,
+            "apply_authorized": signoff_apply,
+            "limitations_accepted": True,
+            "accepted_claims": ["review_ready"],
+            "accepted_with_limitations": ["limited_scope_delivery_ready"] if signoff_delivery else [],
+            "rejected_claims": [],
+            "forbidden_claims_remaining": forbidden_claims,
+            "blocked_authorizations": [],
+        },
+    )
+    write_json(
+        state / "delivery-manifest.json",
+        {
+            "protocol_version": "0.1",
+            "run_id": "readiness-test-001",
+            "generation": {"provider_requested": "none", "provider_actual": "none", "provider_status": "not_applicable", "quality_claim": "not_applicable", "apply_allowed": True},
+            "qa": {"status": "pass", "blocking_count": 0, "warning_count": 0, "evidence_channels": ["runtime"]},
+            "outputs": [],
+            "assets": {},
+        },
+    )
+    return state
+
+
 def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
     state = _knowledge_repair_state(root, [issue or _knowledge_repair_issue("hard_constraint_failed")])
     build_knowledge_repair_plan(state)
@@ -10977,7 +11294,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 81)
+        self.assertEqual(result["schemas_checked"], 85)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
