@@ -1,0 +1,13 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-workflow-stage-status-v1",
+  "artifact": "workflow-stage-status.json",
+  "workflow_id": "workflow-example-001",
+  "workflow_mode": "delivery_readiness_check",
+  "status": "blocked",
+  "stages": [{"stage_id": "workflow-stage-signoff", "stage_type": "signoff", "stage_name": "Signoff", "status": "requires_human_action", "deterministic": false, "may_write_artifacts": true, "may_call_provider": false, "may_mutate_target_files": false, "requires_human_action": true, "requires_provider_action": false, "dependency_stage_ids": [], "input_artifacts": [], "output_artifacts": ["signoff-record.json"], "stale_triggers": [], "blocking_conditions": ["artifact-backed human evidence is absent"], "skip_reason": "", "failure_reason": "", "next_action": "Record scoped signoff evidence."}],
+  "summary": {"requires_human_action": 1},
+  "stale_triggers": [],
+  "artifact_state_sha256": "abc",
+  "source_artifact_references": {}
+}

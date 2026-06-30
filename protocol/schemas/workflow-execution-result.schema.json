@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-execution-result.schema.json",
+  "title": "Localize Anything Workflow Execution Result",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "workflow_id", "workflow_mode", "status", "stages_attempted", "stages_completed", "stages_skipped", "stages_blocked", "stages_failed", "deterministic_builders_called", "remaining_blockers", "remaining_forbidden_claims", "provider_or_model_called", "repair_applied", "target_files_mutated"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-execution-result-v1" },
+    "artifact": { "const": "workflow-execution-result.json" },
+    "workflow_id": { "type": "string" },
+    "workflow_mode": { "type": "string" },
+    "status": { "enum": ["completed", "partial", "blocked", "failed"] },
+    "stages_attempted": { "type": "array" },
+    "stages_completed": { "type": "array" },
+    "stages_skipped": { "type": "array" },
+    "stages_blocked": { "type": "array" },
+    "stages_failed": { "type": "array" },
+    "deterministic_builders_called": { "type": "array", "items": { "type": "string" } },
+    "remaining_blockers": { "type": "array" },
+    "remaining_forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_or_model_called": { "const": false },
+    "repair_applied": { "const": false },
+    "target_files_mutated": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -108,6 +108,14 @@ from .readiness_action import (
     read_workbench_readiness_action_queue,
     read_workbench_readiness_action_result,
 )
+from .workflow import (
+    read_workflow_dependency_graph,
+    read_workflow_execution_result,
+    read_workflow_readiness_summary,
+    read_workflow_run_plan,
+    read_workflow_stage_status,
+    run_workflow,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -329,6 +337,21 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/workbench-readiness-action-result":
                     self._handle_workbench_readiness_action_result_query(parsed.query)
                     return
+                if parsed.path == "/api/workflow-run-plan":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_run_plan", read_workflow_run_plan)
+                    return
+                if parsed.path == "/api/workflow-stage-status":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_stage_status", read_workflow_stage_status)
+                    return
+                if parsed.path == "/api/workflow-execution-result":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_execution_result", read_workflow_execution_result)
+                    return
+                if parsed.path == "/api/workflow-readiness-summary":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_readiness_summary", read_workflow_readiness_summary)
+                    return
+                if parsed.path == "/api/workflow-dependency-graph":
+                    self._handle_workflow_artifact_query(parsed.query, "workflow_dependency_graph", read_workflow_dependency_graph)
+                    return
                 if parsed.path == "/api/workbench-console":
                     self._handle_workbench_console_query(parsed.query)
                     return
@@ -465,6 +488,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-readiness-action":
                     self._handle_workbench_readiness_action(payload)
+                    return
+                if parsed.path == "/api/workflow-run":
+                    self._handle_workflow_run(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -1032,6 +1058,12 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 }
             )
 
+        def _handle_workflow_artifact_query(self, query: str, key: str, reader: Any) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workflow artifact is outside allowed workbench roots: {state_dir}")
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
+
         def _handle_apply_repair_plan(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)
             if not state.is_allowed(state_dir):
@@ -1119,6 +1151,33 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = perform_workbench_readiness_action(state_dir, action, run_id=_optional_string(payload.get("run_id")))
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "workbench_readiness_action_result": result})
+
+        def _handle_workflow_run(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Workflow run is outside allowed workbench roots: {state_dir}")
+            selected = payload.get("selected_stages")
+            if selected is not None and not isinstance(selected, list):
+                raise ValueError("selected_stages must be a list when provided")
+            result = run_workflow(
+                state_dir,
+                workflow_mode=str(payload.get("workflow_mode") or "diagnose_only"),
+                selected_stages=[str(item) for item in selected] if selected is not None else None,
+                scenario=_optional_string(payload.get("scenario")),
+                source_locale=_optional_string(payload.get("source_locale")),
+                target_locale=_optional_string(payload.get("target_locale")),
+                target_delivery_mode=_optional_string(payload.get("target_delivery_mode")),
+                run_id=_optional_string(payload.get("run_id")),
+            )
+            state.add_allowed_root(state_dir)
+            self._send_json(
+                {
+                    "status": "pass",
+                    "state_dir": state_dir.as_posix(),
+                    "workflow_execution_result": result,
+                    "workflow_readiness_summary": read_workflow_readiness_summary(state_dir),
+                }
+            )
 
         def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

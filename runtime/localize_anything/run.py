@@ -118,6 +118,13 @@ from .readiness_action import (
     WORKBENCH_READINESS_ACTION_QUEUE_JSON,
     WORKBENCH_READINESS_ACTION_RESULT_JSON,
 )
+from .workflow import (
+    WORKFLOW_DEPENDENCY_GRAPH_JSON,
+    WORKFLOW_EXECUTION_RESULT_JSON,
+    WORKFLOW_READINESS_SUMMARY_JSON,
+    WORKFLOW_RUN_PLAN_JSON,
+    WORKFLOW_STAGE_STATUS_JSON,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1126,6 +1133,11 @@ def _summary(
         ("workbench_readiness_action_queue", WORKBENCH_READINESS_ACTION_QUEUE_JSON),
         ("workbench_readiness_action_result", WORKBENCH_READINESS_ACTION_RESULT_JSON),
         ("workbench_readiness_action_log", WORKBENCH_READINESS_ACTION_LOG_JSONL),
+        ("workflow_run_plan", WORKFLOW_RUN_PLAN_JSON),
+        ("workflow_stage_status", WORKFLOW_STAGE_STATUS_JSON),
+        ("workflow_execution_result", WORKFLOW_EXECUTION_RESULT_JSON),
+        ("workflow_readiness_summary", WORKFLOW_READINESS_SUMMARY_JSON),
+        ("workflow_dependency_graph", WORKFLOW_DEPENDENCY_GRAPH_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1319,6 +1331,21 @@ def _summary(
             "workbench_readiness_action_queue_present": (state_dir / WORKBENCH_READINESS_ACTION_QUEUE_JSON).is_file(),
             "workbench_readiness_action_result_present": (state_dir / WORKBENCH_READINESS_ACTION_RESULT_JSON).is_file(),
             "workbench_readiness_action_log_present": (state_dir / WORKBENCH_READINESS_ACTION_LOG_JSONL).is_file(),
+            "workflow_execution_status": (
+                read_json(state_dir / WORKFLOW_EXECUTION_RESULT_JSON).get("status", "not_checked")
+                if (state_dir / WORKFLOW_EXECUTION_RESULT_JSON).is_file()
+                else "not_checked"
+            ),
+            "workflow_remaining_blocker_count": (
+                len(read_json(state_dir / WORKFLOW_EXECUTION_RESULT_JSON).get("remaining_blockers", []))
+                if (state_dir / WORKFLOW_EXECUTION_RESULT_JSON).is_file()
+                else 0
+            ),
+            "workflow_readiness_status": (
+                read_json(state_dir / WORKFLOW_READINESS_SUMMARY_JSON).get("overall_workflow_status", "not_checked")
+                if (state_dir / WORKFLOW_READINESS_SUMMARY_JSON).is_file()
+                else "not_checked"
+            ),
             "workbench_knowledge_review_queue_present": (state_dir / WORKBENCH_KNOWLEDGE_REVIEW_QUEUE_JSON).is_file(),
             "workbench_action_log_present": (state_dir / WORKBENCH_ACTION_LOG_JSONL).is_file(),
             "workbench_action_result_present": (state_dir / WORKBENCH_ACTION_RESULT_JSON).is_file(),

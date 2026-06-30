@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-dependency-graph.schema.json",
+  "title": "Localize Anything Workflow Dependency Graph",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "stages", "artifacts", "edges", "readiness_dependencies", "safety_policy"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-dependency-graph-v1" },
+    "artifact": { "const": "workflow-dependency-graph.json" },
+    "stages": { "type": "array", "items": { "type": "object" } },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "edges": { "type": "array", "items": { "type": "object", "required": ["source", "target", "dependency_type", "staleness_propagation_behavior", "blocking_behavior", "recompute_requirement"] } },
+    "readiness_dependencies": { "type": "object" },
+    "safety_policy": { "type": "object" }
+  },
+  "additionalProperties": true
+}

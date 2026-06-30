@@ -216,6 +216,18 @@ from runtime.localize_anything.workbench_queue import (
     build_workbench_review_queue,
     build_workbench_signoff_summary,
 )
+from runtime.localize_anything.workflow import (
+    WORKFLOW_DEPENDENCY_GRAPH_JSON,
+    WORKFLOW_EXECUTION_RESULT_JSON,
+    WORKFLOW_READINESS_SUMMARY_JSON,
+    WORKFLOW_RUN_PLAN_JSON,
+    WORKFLOW_STAGE_STATUS_JSON,
+    build_workflow_dependency_graph,
+    build_workflow_readiness_summary,
+    build_workflow_run_plan,
+    build_workflow_stage_status,
+    run_workflow,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -11507,7 +11519,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 88)
+        self.assertEqual(result["schemas_checked"], 93)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12189,6 +12201,161 @@ class TestV022AndroidRiskClassification(unittest.TestCase):
             if cls["risk_level"] != "low":
                 self.assertTrue(len(cls["classification_evidence"]) > 0,
                                 f"{seg['context']['resource_key']} risk={cls['risk_level']} missing classification_evidence")
+
+
+class WorkflowOrchestrationTests(unittest.TestCase):
+    def test_plan_models_deterministic_human_provider_and_blocked_stages(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plan = build_workflow_run_plan(Path(directory), workflow_mode="full_evidence_refresh")
+            stages = {item["stage_type"]: item for item in plan["selected_stages"]}
+
+            self.assertEqual(stages["artifact_state"]["status"], "current")
+            self.assertEqual(stages["term_governance"]["status"], "requires_human_action")
+            self.assertEqual(stages["generation_handoff"]["status"], "requires_provider_action")
+            self.assertEqual(stages["coverage_diagnostics"]["status"], "blocked")
+            self.assertIn("workflow-stage-evaluation_scorecard", plan["deterministic_stages_that_can_run_now"])
+
+    def test_stage_status_never_completes_provider_or_human_without_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            report = build_workflow_stage_status(Path(directory), workflow_mode="full_evidence_refresh")
+            stages = {item["stage_type"]: item for item in report["stages"]}
+
+            self.assertEqual(stages["generation_handoff"]["status"], "requires_provider_action")
+            self.assertEqual(stages["human_review"]["status"], "requires_human_action")
+            self.assertNotEqual(stages["generation_handoff"]["status"], "completed")
+            self.assertNotEqual(stages["human_review"]["status"], "completed")
+
+    def test_dependency_graph_exposes_all_readiness_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            graph = build_workflow_dependency_graph(Path(directory))
+            expected = {"scorecard", "artifact_state", "signoff", "claim_acceptance", "document_evidence", "knowledge_evidence", "repair_closure", "provider_policy", "coverage", "qa"}
+
+            self.assertTrue(expected.issubset(graph["readiness_dependencies"]))
+            self.assertTrue(any(edge["target"] == "workflow-stage-readiness_authorization" and edge["recompute_requirement"] == "required" for edge in graph["edges"]))
+
+    def test_workflow_run_calls_only_deterministic_builders_and_preserves_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            target = root / "target.json"
+            target.write_text('{"message":"unchanged"}\n', encoding="utf-8")
+            before = sha256_file(target)
+            with (
+                mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider,
+                mock.patch("runtime.localize_anything.segment_repair.apply_repair_plan", side_effect=AssertionError("repair applied")) as repair,
+            ):
+                result = run_workflow(state, workflow_mode="diagnose_only")
+
+            self.assertFalse(provider.called)
+            self.assertFalse(repair.called)
+            self.assertFalse(result["provider_or_model_called"])
+            self.assertFalse(result["repair_applied"])
+            self.assertFalse(result["target_files_mutated"])
+            self.assertEqual(sha256_file(target), before)
+            self.assertIn("evaluation_scorecard", result["deterministic_builders_called"])
+            self.assertTrue(result["stages_completed"])
+            self.assertIn(result["status"], {"completed", "partial"})
+
+    def test_workflow_execution_records_builder_failure_in_stage_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            with mock.patch("runtime.localize_anything.evaluation.build_evaluation_scorecard", side_effect=ValueError("scorecard input invalid")):
+                result = run_workflow(state, workflow_mode="diagnose_only")
+            status = read_json(state / WORKFLOW_STAGE_STATUS_JSON)
+            evaluation = next(item for item in status["stages"] if item["stage_type"] == "evaluation_scorecard")
+
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(result["stages_failed"])
+            self.assertEqual(evaluation["status"], "failed")
+            self.assertIn("scorecard input invalid", evaluation["failure_reason"])
+
+    def test_readiness_summary_preserves_forbidden_claims_and_never_upgrades(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=["delivery_ready", "apply_ready", "production_ready"])
+            build_readiness_reports(state)
+            build_workflow_stage_status(state, workflow_mode="delivery_readiness_check")
+            summary = build_workflow_readiness_summary(state)
+
+            self.assertIn("apply_ready", summary["forbidden_claims_remaining"])
+            self.assertNotEqual(summary["delivery_readiness"], "ready")
+            self.assertNotEqual(summary["apply_readiness"], "ready")
+            self.assertTrue(summary["readiness_not_upgraded"])
+
+    def test_artifact_state_tracks_workflow_artifacts_and_propagates_staleness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            run_workflow(state, workflow_mode="diagnose_only")
+            snapshot = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in snapshot["artifacts"]}
+            expected = {"workflow_run_plan", "workflow_stage_status", "workflow_execution_result", "workflow_readiness_summary", "workflow_dependency_graph"}
+            self.assertTrue(expected.issubset(ids))
+
+            scorecard = read_json(state / "evaluation-scorecard.json")
+            scorecard["recommended_next_actions"] = ["changed upstream evidence"]
+            write_json(state / "evaluation-scorecard.json", scorecard)
+            refreshed = build_artifact_state(state)
+            statuses = {item["artifact_id"]: item["status"] for item in refreshed["artifacts"]}
+            self.assertEqual(statuses["workflow_stage_status"], "stale")
+
+    def test_cli_commands_are_deterministic_and_artifact_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            outputs = {name: root / f"{name}.json" for name in ("plan", "status", "graph", "run", "result", "summary")}
+
+            self.assertEqual(cli_main(["workflow-plan", state.as_posix(), "--output", outputs["plan"].as_posix()]), 0)
+            self.assertEqual(cli_main(["workflow-stage-status", state.as_posix(), "--output", outputs["status"].as_posix()]), 0)
+            self.assertEqual(cli_main(["workflow-dependency-graph", state.as_posix(), "--output", outputs["graph"].as_posix()]), 0)
+            first_graph = outputs["graph"].read_bytes()
+            self.assertEqual(cli_main(["workflow-dependency-graph", state.as_posix(), "--output", outputs["graph"].as_posix()]), 0)
+            self.assertEqual(first_graph, outputs["graph"].read_bytes())
+            self.assertEqual(cli_main(["workflow-run", state.as_posix(), "--output", outputs["run"].as_posix()]), 0)
+            self.assertEqual(cli_main(["workflow-execution-result", state.as_posix(), "--output", outputs["result"].as_posix()]), 0)
+            self.assertEqual(cli_main(["workflow-readiness-summary", state.as_posix(), "--output", outputs["summary"].as_posix()]), 0)
+            self.assertEqual(read_json(outputs["run"])["schema"], "localize-anything-workflow-execution-result-v1")
+
+    def test_api_workflow_run_is_provider_free_and_exposes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                    post_status, post_body = _http_post_json(host, port, "/api/workflow-run", {"state_dir": state.as_posix(), "workflow_mode": "diagnose_only"})
+                get_status, body = _http_get(host, port, f"/api/workflow-readiness-summary?state_dir={state.as_posix()}")
+                self.assertEqual(post_status, 200)
+                self.assertEqual(get_status, 200)
+                self.assertFalse(provider.called)
+                self.assertFalse(post_body["workflow_execution_result"]["provider_or_model_called"])
+                self.assertEqual(json.loads(body)["workflow_readiness_summary"]["schema"], "localize-anything-workflow-readiness-summary-v1")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_delivery_and_run_summary_reference_workflow_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = _make_json_project(root)
+            initialized = initialize_project(project, "en-US", ["locales/en-US.json"], ["zh-CN"])
+            state = Path(initialized["state_directory"])
+            run_workflow(state, workflow_mode="diagnose_only")
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"start":"开始"}\n', encoding="utf-8")
+
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "workflow-delivery-001")
+            summary = run_localize(project, "en-US", ["zh-CN"], ["locales/en-US.json"], root / "runs", "workflow-run-summary-001", handoff_only=True)
+
+            for key in ("workflow_run_plan", "workflow_stage_status", "workflow_execution_result", "workflow_readiness_summary", "workflow_dependency_graph"):
+                self.assertIn(key, packaged["manifest"]["assets"])
+                self.assertIn(key, summary["artifacts"])
+            self.assertIn("workflow_execution_status", summary["summary"])
 
 
 if __name__ == "__main__":

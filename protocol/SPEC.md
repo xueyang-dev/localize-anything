@@ -1339,3 +1339,60 @@ Only an explicit user action can produce `user_accepted`.
 ## Compatibility
 
 All protocol documents carry `protocol_version`. A runtime must reject unsupported major versions and may accept additive minor-version fields when its schema permits them.
+## Workflow Orchestration and Run Lifecycle
+
+Workflow orchestration is lifecycle evidence, not a success claim. The
+runtime emits:
+
+- `workflow-run-plan.json` for mode, stage order, safe deterministic work, and
+  pending human/provider actions;
+- `workflow-stage-status.json` for current, missing, stale, ready, skipped,
+  blocked, failed, human-required, provider-required, and non-applicable
+  stages;
+- `workflow-dependency-graph.json` for `requires`, `refreshes`, `invalidates`,
+  `blocks`, `downgrades`, `references`, and `optional_context` relationships;
+- `workflow-execution-result.json` for attempted/completed/skipped/blocked
+  stages, artifact hashes, remaining blockers, and forbidden claims;
+- `workflow-readiness-summary.json` for a conservative view of readiness and
+  the next required action.
+
+Supported workflow modes are `diagnose_only`, `preflight_only`,
+`review_ready_document`, `delivery_readiness_check`,
+`apply_readiness_check`, `knowledge_pack_export`,
+`knowledge_consumption_check`, `knowledge_repair_cycle`,
+`full_evidence_refresh`, and `custom`.
+
+The controller may call only registered deterministic artifact builders. A
+stage needing human review, provider/model execution, semantic rewrite, repair
+application, or target mutation remains pending. Provider or human stages
+cannot be completed without their artifact-backed evidence. Skipped, blocked,
+failed, and stale stages must retain their reasons and source artifacts.
+
+Artifact State tracks all five workflow artifacts. Changes to stage inputs,
+readiness evidence, repair evidence, provider evidence, or human evidence may
+stale the affected plan, status, result, or readiness summary. Stale workflow
+artifacts cannot be used as readiness evidence.
+
+The readiness summary consumes the Readiness Authorization Matrix and reports
+when available. It must not upgrade readiness or hide forbidden claims.
+Delivery packages and run summaries may reference workflow artifacts, but
+apply readiness remains controlled by the readiness matrix, QA, signoff, and
+the apply gate rather than workflow completion.
+
+Artifact-backed APIs are:
+
+- `GET /api/workflow-run-plan`
+- `GET /api/workflow-stage-status`
+- `GET /api/workflow-execution-result`
+- `GET /api/workflow-readiness-summary`
+- `GET /api/workflow-dependency-graph`
+- `POST /api/workflow-run`
+
+`POST /api/workflow-run` validates the mode and custom stage list, runs only
+the deterministic builder whitelist, returns execution/readiness evidence,
+and never calls providers, applies repairs, rewrites content, or mutates
+target files.
+
+CLI commands are `workflow-plan`, `workflow-stage-status`,
+`workflow-dependency-graph`, `workflow-run`,
+`workflow-execution-result`, and `workflow-readiness-summary`.

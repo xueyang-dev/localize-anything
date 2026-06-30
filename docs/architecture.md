@@ -1232,3 +1232,43 @@ Keep three evidence channels distinct:
 - Human review and scoped sign-off determine acceptance.
 
 The agent may produce `review_ready`; only explicit user action produces `user_accepted`.
+## Workflow Orchestration / Run Lifecycle Controller
+
+The workflow controller is a deterministic projection and refresh layer over
+the existing evidence spine. It answers what is current, missing, stale,
+blocked, ready for a safe builder, or waiting for human/provider evidence. It
+does not replace Artifact State, readiness authorization, or the owning
+runtime writers.
+
+The lifecycle artifacts are:
+
+- `workflow-run-plan.json`: selected mode, ordered stages, runnable builders,
+  skipped/blocked work, and pending human/provider actions;
+- `workflow-stage-status.json`: per-stage lifecycle status and exact blockers;
+- `workflow-dependency-graph.json`: stage/artifact edges and staleness rules;
+- `workflow-execution-result.json`: builders attempted, artifacts changed,
+  pending actions, remaining blockers, and forbidden claims;
+- `workflow-readiness-summary.json`: a non-upgrading view of delivery, apply,
+  review, and production readiness.
+
+Only an explicit whitelist of existing deterministic builders may run. Source
+discovery needing project input, provider/model generation, semantic rewrite,
+repair application, human review, claim acceptance, signoff, delivery
+packaging, and apply planning remain pending or use their owning workflows.
+The controller never mutates target project files.
+
+The dependency graph makes readiness depend on Artifact State, Evaluation
+Scorecard, claim acceptance, signoff, document evidence, knowledge evidence,
+repair closure, provider policy, coverage, and QA. Upstream changes make the
+affected workflow projection stale; a workflow run records partial progress
+instead of treating orchestration as success.
+
+The Workbench action surface remains the human follow-up path. The workflow
+controller may refresh its artifact-backed projections, but cannot resolve a
+queue item, remove a forbidden claim, or fabricate review/provider evidence.
+The Readiness Authorization Matrix remains authoritative for delivery/apply:
+workflow completion alone never authorizes either operation.
+
+This layer comes before provider/model repair or full RAG because lifecycle
+ordering, provenance, blocker visibility, and staleness must be deterministic
+before external or probabilistic execution can be safely coordinated.

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-stage-status.schema.json",
+  "title": "Localize Anything Workflow Stage Status",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "workflow_id", "workflow_mode", "status", "stages", "summary", "stale_triggers"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-stage-status-v1" },
+    "artifact": { "const": "workflow-stage-status.json" },
+    "workflow_id": { "type": "string" },
+    "workflow_mode": { "type": "string" },
+    "status": { "enum": ["current", "ready_to_run", "blocked", "failed"] },
+    "stages": { "type": "array", "items": { "type": "object", "required": ["stage_id", "stage_type", "status", "deterministic", "may_call_provider", "may_mutate_target_files"] } },
+    "summary": { "type": "object" },
+    "stale_triggers": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

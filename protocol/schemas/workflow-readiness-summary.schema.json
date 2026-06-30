@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workflow-readiness-summary.schema.json",
+  "title": "Localize Anything Workflow Readiness Summary",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "overall_workflow_status", "delivery_readiness", "apply_readiness", "review_readiness", "production_readiness", "stale_artifacts", "missing_artifacts", "blocked_stages", "forbidden_claims_remaining", "recommended_next_action", "readiness_not_upgraded"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-workflow-readiness-summary-v1" },
+    "artifact": { "const": "workflow-readiness-summary.json" },
+    "overall_workflow_status": { "enum": ["completed", "partial", "blocked", "failed", "stale", "not_run"] },
+    "delivery_readiness": { "type": "string" },
+    "apply_readiness": { "type": "string" },
+    "review_readiness": { "type": "string" },
+    "production_readiness": { "type": "string" },
+    "stale_artifacts": { "type": "array", "items": { "type": "string" } },
+    "missing_artifacts": { "type": "array", "items": { "type": "string" } },
+    "blocked_stages": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims_remaining": { "type": "array", "items": { "type": "string" } },
+    "recommended_next_action": { "type": "string" },
+    "readiness_not_upgraded": { "const": true }
+  },
+  "additionalProperties": true
+}
