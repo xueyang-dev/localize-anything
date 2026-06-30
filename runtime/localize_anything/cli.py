@@ -88,6 +88,11 @@ from .knowledge_review_confirmation import (
     record_knowledge_audit_resolution,
     record_knowledge_constraint_review_evidence,
 )
+from .knowledge_repair import (
+    build_knowledge_repair_impact_report,
+    build_knowledge_repair_plan,
+    build_knowledge_repair_request,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -579,6 +584,27 @@ def build_parser() -> argparse.ArgumentParser:
     repair_history_parser = subparsers.add_parser("repair-history", help="Read repair-history.jsonl as deterministic JSON")
     repair_history_parser.add_argument("state_dir", type=Path)
     repair_history_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_plan_parser = subparsers.add_parser(
+        "knowledge-repair-plan", help="Create deterministic knowledge-repair-plan.json and handoff artifacts"
+    )
+    knowledge_repair_plan_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_plan_parser.add_argument("--run-id")
+    knowledge_repair_plan_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_request_parser = subparsers.add_parser(
+        "knowledge-repair-request", help="Create deterministic knowledge-repair-request.json"
+    )
+    knowledge_repair_request_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_request_parser.add_argument("--run-id")
+    knowledge_repair_request_parser.add_argument("--output", type=Path)
+
+    knowledge_repair_impact_parser = subparsers.add_parser(
+        "knowledge-repair-impact-report", help="Create deterministic knowledge-repair-impact-report.json"
+    )
+    knowledge_repair_impact_parser.add_argument("state_dir", type=Path)
+    knowledge_repair_impact_parser.add_argument("--run-id")
+    knowledge_repair_impact_parser.add_argument("--output", type=Path)
 
     evaluation_parser = subparsers.add_parser("evaluation-scorecard", help="Create evaluation-scorecard.json and evidence-level-report.md")
     evaluation_parser.add_argument("state_dir", type=Path)
@@ -1492,6 +1518,12 @@ def main(argv: list[str] | None = None) -> int:
                 "repair_history": read_repair_history(args.state_dir),
             }
             return _emit_json(result, args.output)
+        if args.command == "knowledge-repair-plan":
+            return _emit_json(build_knowledge_repair_plan(args.state_dir, run_id=args.run_id), args.output)
+        if args.command == "knowledge-repair-request":
+            return _emit_json(build_knowledge_repair_request(args.state_dir, run_id=args.run_id), args.output)
+        if args.command == "knowledge-repair-impact-report":
+            return _emit_json(build_knowledge_repair_impact_report(args.state_dir, run_id=args.run_id), args.output)
         if args.command == "evaluation-scorecard":
             scorecard = build_evaluation_scorecard(
                 args.state_dir,

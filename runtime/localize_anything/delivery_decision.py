@@ -26,6 +26,7 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
     document_claim_summary = document_claim_resolution.get("summary", {}) if isinstance(document_claim_resolution, dict) else {}
     document_signoff_summary = _read_optional_json(delivery_dir / "document-signoff-summary.json")
     knowledge_assurance_summary = _read_optional_json(delivery_dir / "knowledge-assurance-summary.json")
+    knowledge_repair_impact = _read_optional_json(delivery_dir / "knowledge-repair-impact-report.json")
     qa = manifest.get("qa", {})
     unprocessed_assets = manifest.get("unprocessed_non_text_assets", [])
     decisions: list[dict[str, Any]] = []
@@ -178,6 +179,21 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
                 },
             }
         )
+    if int(knowledge_repair_impact.get("summary", {}).get("repair_item_count", 0) or 0):
+        decisions.append(
+            {
+                "id": f"knowledge-repair-{len(decisions) + 1:04d}",
+                "type": "knowledge_repair_impact",
+                "severity": "blocking",
+                "status": "blocked",
+                "recommendation": "Complete knowledge repairs and matching QA-backed repair results before delivery/apply authorization.",
+                "evidence": {
+                    "status": knowledge_repair_impact.get("status"),
+                    "summary": knowledge_repair_impact.get("summary", {}),
+                    "affected_claims": knowledge_repair_impact.get("affected_claims", []),
+                },
+            }
+        )
 
     status = _status(decisions)
     return {
@@ -228,6 +244,8 @@ def create_delivery_decision_report(delivery_dir: Path, project_root: Path) -> d
             "document_signoff_summary": document_signoff_summary.get("summary", {}),
             "document_signoff_status": document_signoff_summary.get("status", "not_checked"),
             "knowledge_assurance_status": knowledge_assurance_summary.get("status", "not_checked"),
+            "knowledge_repair_impact_status": knowledge_repair_impact.get("status", "not_checked"),
+            "pending_knowledge_repair_count": knowledge_repair_impact.get("summary", {}).get("repair_item_count", 0),
         },
         "localization": localization,
         "artifact_state": artifact_state,

@@ -1,0 +1,30 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-knowledge-repair-request-v1",
+  "artifact": "knowledge-repair-request.json",
+  "run_id": "knowledge-repair-example-001",
+  "status": "pending",
+  "knowledge_repair_plan_path": "knowledge-repair-plan.json",
+  "existing_repair_request_path": "repair-request.json",
+  "summary": { "request_count": 1, "deterministic_request_count": 1, "blocked_request_count": 0 },
+  "requests": [{
+    "request_id": "knowledge-repair-request-1111111111111111",
+    "knowledge_repair_item_id": "knowledge-repair-1111111111111111",
+    "request_type": "term_patch",
+    "affected_segment_ids": ["segment-1"],
+    "affected_scope": { "scenario": "product_ui" },
+    "current_target_hashes": { "segment-1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "required_constraint": "constraint-term-1",
+    "forbidden_target_pattern": null,
+    "preferred_replacement": "开放实验室",
+    "source_knowledge_provenance": { "knowledge_item_ids": ["term-1"], "source_artifact_references": ["constraint-application-audit.json"] },
+    "required_reviewer_role": "project_owner",
+    "allowed_repair_modes": ["deterministic_local_patch", "human_review"],
+    "blocked_repair_modes": ["automatic_semantic_rewrite"],
+    "expected_validation_checks": ["target_hash_match", "constraint_application_audit", "deterministic_qa"],
+    "related_existing_repair_ids": ["repair-1"],
+    "status": "pending",
+    "limitations": ["request creation does not execute repair or prove success"]
+  }],
+  "provider_or_model_execution_performed": false
+}

@@ -79,6 +79,11 @@ from .knowledge_review_confirmation import (
     record_knowledge_audit_resolution,
     record_knowledge_constraint_review_evidence,
 )
+from .knowledge_repair import (
+    read_knowledge_repair_impact_report,
+    read_knowledge_repair_plan,
+    read_knowledge_repair_request,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -208,6 +213,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/repair-history":
                     self._handle_repair_history_query(parsed.query)
+                    return
+                if parsed.path == "/api/knowledge-repair-plan":
+                    self._handle_knowledge_repair_query(parsed.query, "plan")
+                    return
+                if parsed.path == "/api/knowledge-repair-request":
+                    self._handle_knowledge_repair_query(parsed.query, "request")
+                    return
+                if parsed.path == "/api/knowledge-repair-impact-report":
+                    self._handle_knowledge_repair_query(parsed.query, "impact")
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)
@@ -786,6 +800,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             if not state.is_allowed(state_dir):
                 raise ValueError(f"Repair history is outside allowed workbench roots: {state_dir}")
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "repair_history": read_repair_history(state_dir)})
+
+        def _handle_knowledge_repair_query(self, query: str, artifact: str) -> None:
+            state_dir = _state_dir_from_query(query)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Knowledge repair artifact is outside allowed workbench roots: {state_dir}")
+            readers = {
+                "plan": ("knowledge_repair_plan", read_knowledge_repair_plan),
+                "request": ("knowledge_repair_request", read_knowledge_repair_request),
+                "impact": ("knowledge_repair_impact_report", read_knowledge_repair_impact_report),
+            }
+            key, reader = readers[artifact]
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), key: reader(state_dir)})
 
         def _handle_evaluation_scorecard_query(self, query: str) -> None:
             state_dir = _state_dir_from_query(query)

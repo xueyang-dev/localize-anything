@@ -50,6 +50,11 @@ from .knowledge_review_confirmation import (
     KNOWLEDGE_CONFLICT_RESOLUTION_JSON,
     KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
 )
+from .knowledge_repair import (
+    KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+    KNOWLEDGE_REPAIR_PLAN_JSON,
+    KNOWLEDGE_REPAIR_REQUEST_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -235,6 +240,8 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_conflict_report",
             "knowledge_audit_enforcement_decision",
             "knowledge_assurance_summary",
+            "knowledge_repair_plan",
+            "knowledge_repair_impact_report",
             "user_resolution_decisions",
         ),
         required_for_handoff=True,
@@ -268,6 +275,8 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "forbidden_translations",
             "localization_brief_json",
             "working_context_packet",
+            "knowledge_repair_plan",
+            "knowledge_repair_impact_report",
         ),
         required_for_handoff=True,
         required_for_delivery=True,
@@ -284,6 +293,42 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("repair_request", "repair_request", REPAIR_REQUEST_JSON, "targeted_repair", ("segment_regeneration_plan",)),
     ArtifactSpec("repair_result", "repair_result", REPAIR_RESULT_JSON, "targeted_repair", ("repair_request",)),
     ArtifactSpec("repair_history", "repair_history", REPAIR_HISTORY_JSONL, "targeted_repair", ("repair_result",)),
+    ArtifactSpec(
+        "knowledge_repair_plan",
+        "knowledge_repair_plan",
+        KNOWLEDGE_REPAIR_PLAN_JSON,
+        "knowledge_assisted_repair_planning",
+        (
+            "knowledge_usage_report",
+            "constraint_application_audit",
+            "knowledge_conflict_report",
+            "knowledge_audit_enforcement_decision",
+            "workbench_knowledge_review_queue",
+            "knowledge_audit_resolution_log",
+            "knowledge_constraint_review_evidence",
+            "knowledge_conflict_resolution",
+            "knowledge_assurance_summary",
+            "generated_segments",
+            "segment_regeneration_plan",
+            "repair_request",
+            "repair_result",
+            "repair_history",
+        ),
+    ),
+    ArtifactSpec(
+        "knowledge_repair_request",
+        "knowledge_repair_request",
+        KNOWLEDGE_REPAIR_REQUEST_JSON,
+        "knowledge_assisted_repair_planning",
+        ("knowledge_repair_plan", "repair_request"),
+    ),
+    ArtifactSpec(
+        "knowledge_repair_impact_report",
+        "knowledge_repair_impact_report",
+        KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+        "knowledge_assisted_repair_planning",
+        ("knowledge_repair_plan", "knowledge_repair_request", "repair_result"),
+    ),
     ArtifactSpec(
         "document_intake_report",
         "document_intake_report",
@@ -410,6 +455,9 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "document_claim_resolution",
             "document_signoff_summary",
             "knowledge_assurance_summary",
+            "knowledge_repair_plan",
+            "knowledge_repair_request",
+            "knowledge_repair_impact_report",
         ),
         required_for_delivery=True,
     ),
@@ -497,6 +545,7 @@ RUN_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "claim_metric_report",
             "publicity_risk_report",
             "open_decisions",
+            "knowledge_repair_impact_report",
         ),
         required_for_delivery=True,
         location="run",
@@ -918,6 +967,9 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "knowledge_constraint_review_evidence",
         "knowledge_conflict_resolution",
         "knowledge_assurance_summary",
+        "knowledge_repair_plan",
+        "knowledge_repair_request",
+        "knowledge_repair_impact_report",
     }
     knowledge_consumers = {"generation_strategy", "generation_handoff_decision", "delivery_decision", "evaluation_scorecard", "signoff_record"}
     stale_dependencies = sorted(

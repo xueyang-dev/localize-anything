@@ -38,6 +38,12 @@ from .knowledge_review_confirmation import (
     KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
     knowledge_review_confirmation_asset_paths,
 )
+from .knowledge_repair import (
+    KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
+    KNOWLEDGE_REPAIR_PLAN_JSON,
+    KNOWLEDGE_REPAIR_REQUEST_JSON,
+    knowledge_repair_asset_paths,
+)
 from .localization_brief import LOCALIZATION_BRIEF_JSON, LOCALIZATION_BRIEF_YAML, localization_brief_asset_paths
 from .resolution_gate import (
     BLOCKING_QUESTIONS_JSON,
@@ -109,6 +115,9 @@ OPTIONAL_CANONICAL_ASSETS = (
     KNOWLEDGE_CONSTRAINT_REVIEW_EVIDENCE_JSONL,
     KNOWLEDGE_CONFLICT_RESOLUTION_JSON,
     KNOWLEDGE_ASSURANCE_SUMMARY_JSON,
+    KNOWLEDGE_REPAIR_PLAN_JSON,
+    KNOWLEDGE_REPAIR_REQUEST_JSON,
+    KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -219,6 +228,7 @@ def package_delivery(
                 **knowledge_usage_asset_paths(state_dir),
                 **knowledge_audit_enforcement_asset_paths(state_dir),
                 **knowledge_review_confirmation_asset_paths(state_dir),
+                **knowledge_repair_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

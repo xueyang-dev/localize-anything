@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add Knowledge-Assisted Targeted Repair Planning with deterministic
+  `knowledge-repair-plan.json`, `knowledge-repair-request.json`, and
+  `knowledge-repair-impact-report.json` artifacts, conservative repair-result
+  matching, scorecard/handoff/delivery gates, artifact state, CLI, and API
+  integration without provider/model execution.
 - Add Knowledge Review Decision / Human Confirmation seed with
   `knowledge-audit-resolution-log.jsonl`,
   `knowledge-constraint-review-evidence.jsonl`,

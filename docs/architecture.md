@@ -876,9 +876,9 @@ active. The constraint review evidence records which constraints, negative
 constraints, usage entries, conflicts, and generated or staged segments were
 actually reviewed.
 
-These artifacts are deliberately conservative. Human confirmation can support a
-narrow `knowledge_constraints_applied` claim when deterministic audit or scoped
-review evidence supports it. It does not automatically prove
+These artifacts are deliberately conservative. Human confirmation can confirm a
+narrow `knowledge_constraints_applied` claim only when deterministic enforcement
+is already clear; it cannot replace missing or failed audit evidence. It does not automatically prove
 `knowledge_backed_quality`, semantic correctness, global review completion, or
 delivery/apply readiness. Reference-only knowledge remains non-binding, stale or
 rejected knowledge remains ineligible, and project-local locked terms remain
@@ -900,6 +900,37 @@ the resolution log or constraint review evidence, but the queue stays a
 projection over artifacts. A blocker is not resolved because it was displayed,
 acknowledged, or hidden in UI state. This seed still performs no vector search,
 RAG, provider/model generation, or provider/model repair.
+
+## Knowledge-Assisted Targeted Repair Planning
+
+Knowledge-assisted repair is planning before execution. The runtime derives
+`knowledge-repair-plan.json` from usage, constraint audit, conflict,
+enforcement, queue, resolution, assurance, and existing segment-repair
+artifacts. Stable items preserve segment/scope, constraint/conflict/queue ids,
+knowledge provenance, severity, action, deterministic eligibility, human/model
+requirements, readiness impact, and every downstream artifact that must be
+refreshed.
+
+`knowledge-repair-request.json` is a handoff into the existing targeted repair
+workflow, not a second executor. An automatic-safe request exists only for a
+single unambiguous replacement. Semantic rewrites stay human/provider/model
+pending; unresolved locked-term conflicts block execution; reference-only
+knowledge never becomes an automatic hard repair; blind-benchmark target
+context must be removed before context-aware repair.
+
+`knowledge-repair-impact-report.json` keeps scorecard and delivery effects
+visible. A candidate is not repaired merely because a plan exists. Only a
+current target hash, matching knowledge provenance, and passing QA in
+`repair-result.json` can clear it. Repair then invalidates constraint audit,
+usage, assurance, scorecard, signoff, delivery decision, and apply readiness.
+
+This layer reuses `segment-regeneration-plan.json`, `repair-request.json`,
+`repair-result.json`, and `repair-history.jsonl`; it does not replace or execute
+them. Artifact-backed GET endpoints and deterministic CLI commands expose the
+three artifacts. There is no provider/model call, semantic retrieval, or full
+RAG in this seed. Establishing auditable failure-to-repair handoff before full
+RAG prevents retrieved context from bypassing scope, provenance, mode, review,
+or readiness controls.
 
 ## Human Review Evidence And Claim Acceptance
 
