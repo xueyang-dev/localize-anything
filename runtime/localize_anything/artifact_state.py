@@ -99,6 +99,13 @@ from .workflow_hardening import (
     WORKFLOW_RECOVERY_RESULT_JSON,
     WORKFLOW_TRANSACTION_MANIFEST_JSON,
 )
+from .provider_evidence import (
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_EXECUTION_LEDGER_JSONL,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+    PROVIDER_RESULT_INTAKE_JSONL,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -143,6 +150,11 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("current_manifest", "source_inventory", "current-manifest.json", "preflight"),
     ArtifactSpec("localization_brief_json", "localization_brief", "localization-brief.json", "preflight", required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("localization_brief_yaml", "localization_brief", "localization-brief.yaml", "preflight"),
+    ArtifactSpec("provider_execution_policy", "provider_execution_policy", PROVIDER_EXECUTION_POLICY_JSON, "provider_evidence", ("localization_brief_json",), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_handoff_request", "provider_handoff_request", PROVIDER_HANDOFF_REQUEST_JSON, "provider_evidence", ("provider_execution_policy", "generation_handoff_decision"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_execution_ledger", "provider_execution_ledger", PROVIDER_EXECUTION_LEDGER_JSONL, "provider_evidence", ("provider_handoff_request",), required_for_delivery=True),
+    ArtifactSpec("provider_result_intake", "provider_result_intake", PROVIDER_RESULT_INTAKE_JSONL, "provider_evidence", ("provider_handoff_request", "provider_execution_ledger"), required_for_delivery=True),
+    ArtifactSpec("provider_evidence_reconciliation", "provider_evidence_reconciliation", PROVIDER_EVIDENCE_RECONCILIATION_JSON, "provider_evidence", ("provider_execution_policy", "provider_handoff_request", "provider_execution_ledger", "provider_result_intake"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),
@@ -624,6 +636,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_repair_closure_decision",
             "knowledge_recompute_result",
             "knowledge_readiness_impact_report",
+            "provider_evidence_reconciliation",
         ),
         required_for_delivery=True,
     ),
@@ -691,6 +704,7 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
             "knowledge_repair_closure_decision",
             "knowledge_recompute_result",
             "knowledge_readiness_impact_report",
+            "provider_evidence_reconciliation",
             "repair_result",
             "repair_history",
         ),
@@ -1379,6 +1393,12 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
         if name == WORKFLOW_RECOVERY_RESULT_JSON and str(content.get("result_status") or "") not in {"recovered", "not_applicable"}:
             entry["status"] = "blocked"
             entry["blocking_reason"] = "workflow_recovery_incomplete"
+        if name == PROVIDER_EVIDENCE_RECONCILIATION_JSON and str(content.get("status") or "") in {"blocked", "failed", "stale"}:
+            entry["status"] = "blocked" if content.get("status") != "stale" else "stale"
+            entry["blocking_reason"] = "provider_evidence_not_reconciled"
+        if name == PROVIDER_HANDOFF_REQUEST_JSON and str(content.get("status") or "") == "blocked":
+            entry["status"] = "blocked"
+            entry["blocking_reason"] = "provider_handoff_request_blocked"
         if status in STATUS_VALUES and status not in {"current", ""}:
             entry["status"] = "requires_human_review" if status in {"review_required", "owner_review_required"} else status
         if status == "draft_package":
@@ -1463,6 +1483,13 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "workflow_recovery_plan",
         "workflow_recovery_result",
     }
+    provider_dependency_ids = {
+        "provider_execution_policy",
+        "provider_handoff_request",
+        "provider_execution_ledger",
+        "provider_result_intake",
+        "provider_evidence_reconciliation",
+    }
     knowledge_dependency_ids = {
         "knowledge_pack_selection",
         "knowledge_eligibility_report",
@@ -1511,7 +1538,9 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         relevant_dependencies = sorted(set(relevant_dependencies) | set(stale_dependencies))
     if spec.artifact_id in workflow_dependency_ids | readiness_dependency_ids:
         relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & workflow_dependency_ids))
-    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids or not relevant_dependencies:
+    if spec.artifact_id in provider_dependency_ids | readiness_dependency_ids:
+        relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & provider_dependency_ids))
+    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids | provider_dependency_ids or not relevant_dependencies:
         return
     entry["status"] = "stale"
     entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"

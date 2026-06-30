@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-execution-ledger.schema.json",
+  "title": "Localize Anything Provider Execution Ledger Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "ledger_id", "outcome", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-execution-ledger-record-v1" },
+    "ledger_id": { "type": "string" },
+    "request_id": { "type": "string" },
+    "execution_mode": { "type": "string" },
+    "outcome": { "enum": ["planned", "dry_run", "skipped", "blocked", "failed", "mock", "synthetic", "external_imported", "completed"] },
+    "provider_or_model_called_by_runtime": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

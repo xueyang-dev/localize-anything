@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-execution-policy.schema.json",
+  "title": "Localize Anything Provider Execution Policy",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "execution_mode", "provider_backed_execution_allowed", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-execution-policy-v1" },
+    "artifact": { "const": "provider-execution-policy.json" },
+    "status": { "enum": ["disabled", "dry_run", "synthetic_test", "allowed", "external_import_only", "blocked"] },
+    "execution_mode": { "enum": ["disabled", "dry_run", "synthetic_test", "mock", "real_provider", "external_import_only"] },
+    "provider_name": { "type": "string" },
+    "model_name": { "type": "string" },
+    "provider_backed_execution_allowed": { "type": "boolean" },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_or_model_called": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

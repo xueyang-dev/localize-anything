@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-handoff-request-v1",
+  "artifact": "provider-handoff-request.json",
+  "request_id": "provider-request-example",
+  "run_id": "run-example",
+  "status": "dry_run",
+  "execution_mode": "dry_run",
+  "provider_name": "",
+  "model_name": "",
+  "generation_handoff_artifact": null,
+  "generation_handoff_decision_artifact": null,
+  "provider_backed_requested": false,
+  "provider_backed_claim_supported": false,
+  "blockers": [],
+  "warnings": [{ "code": "not_provider_backed_execution", "artifact": "provider-execution-policy.json", "message": "dry_run does not prove provider-backed execution." }],
+  "forbidden_claims": ["model_repair_complete", "provider_backed_quality", "provider_execution_complete", "provider_repair_complete"],
+  "request_payload_hash": "example",
+  "source_artifact_hashes": {},
+  "provider_or_model_called": false,
+  "limitations": ["provider handoff request is a contract artifact and does not execute providers"]
+}

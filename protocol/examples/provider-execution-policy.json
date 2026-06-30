@@ -1,0 +1,20 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-execution-policy-v1",
+  "artifact": "provider-execution-policy.json",
+  "run_id": "run-example",
+  "status": "disabled",
+  "execution_mode": "disabled",
+  "provider_name": "",
+  "model_name": "",
+  "safe": false,
+  "allow_real_provider": false,
+  "provider_backed_execution_allowed": false,
+  "synthetic_or_mock_allowed": false,
+  "external_result_intake_allowed": false,
+  "forbidden_claims": ["model_repair_complete", "provider_backed_quality", "provider_execution_complete", "provider_repair_complete"],
+  "policy_reason": "provider execution is disabled",
+  "source_artifact_references": {},
+  "provider_or_model_called": false,
+  "limitations": ["provider policy is evidence only and does not execute providers"]
+}

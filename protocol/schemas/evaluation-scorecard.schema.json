@@ -83,7 +83,10 @@
           "review_complete_status",
           "knowledge_backed_quality",
           "knowledge_constraints_applied",
-          "knowledge_review_complete"
+          "knowledge_review_complete",
+          "provider_execution_complete",
+          "provider_repair_complete",
+          "model_repair_complete"
         ]
       },
       "uniqueItems": true

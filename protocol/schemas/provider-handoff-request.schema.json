@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-handoff-request.schema.json",
+  "title": "Localize Anything Provider Handoff Request",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "request_id", "status", "execution_mode", "provider_backed_claim_supported"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-handoff-request-v1" },
+    "artifact": { "const": "provider-handoff-request.json" },
+    "request_id": { "type": "string" },
+    "status": { "enum": ["blocked", "dry_run", "prepared"] },
+    "execution_mode": { "enum": ["dry_run", "synthetic_test", "mock", "real_provider", "external_import"] },
+    "provider_backed_requested": { "type": "boolean" },
+    "provider_backed_claim_supported": { "type": "boolean" },
+    "blockers": { "type": "array" },
+    "warnings": { "type": "array" },
+    "provider_or_model_called": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

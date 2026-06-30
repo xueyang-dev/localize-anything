@@ -44,6 +44,13 @@ from .knowledge_repair_closure import (
     KNOWLEDGE_RECOMPUTE_RESULT_JSON,
     KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
 )
+from .provider_evidence import (
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_EXECUTION_LEDGER_JSONL,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+    PROVIDER_RESULT_INTAKE_JSONL,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -252,6 +259,11 @@ def _load_artifacts(
         "knowledge_recompute_result": _read_optional_json(state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON),
         "knowledge_repair_closure_decision": _read_optional_json(state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON),
         "knowledge_readiness_impact_report": _read_optional_json(state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON),
+        "provider_execution_policy": _read_optional_json(state_dir / PROVIDER_EXECUTION_POLICY_JSON),
+        "provider_handoff_request": _read_optional_json(state_dir / PROVIDER_HANDOFF_REQUEST_JSON),
+        "provider_execution_ledger": _read_optional_jsonl(state_dir / PROVIDER_EXECUTION_LEDGER_JSONL),
+        "provider_result_intake": _read_optional_jsonl(state_dir / PROVIDER_RESULT_INTAKE_JSONL),
+        "provider_evidence_reconciliation": _read_optional_json(state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON),
         "readiness_authorization_matrix": _read_optional_json(state_dir / "readiness-authorization-matrix.json"),
         "manual_followup_gap_report": _read_optional_json(state_dir / "manual-followup-gap-report.json"),
         "apply_readiness_report": _read_optional_json(state_dir / "apply-readiness-report.json"),
@@ -308,8 +320,13 @@ def _structural_qa_dimension(artifacts: dict[str, Any]) -> dict[str, Any]:
 def _provider_dimension(provider: dict[str, Any]) -> dict[str, Any]:
     status = str(provider.get("provider_status") or "not_run")
     actual = str(provider.get("provider_actual") or provider.get("provider") or "unknown")
+    reconciliation_status = str(provider.get("provider_evidence_reconciliation_status") or "")
+    if reconciliation_status in {"blocked", "stale", "failed"}:
+        return _dimension("blocked", E1, "provider execution evidence is blocked, stale, or failed", blockers=["provider_evidence_not_reconciled"])
+    if status == "passed" and bool(provider.get("provider_execution_complete_supported")):
+        return _dimension("pass", E1, f"provider execution was reconciled as {actual}")
     if status == "passed":
-        return _dimension("pass", E1, f"provider completed as {actual}")
+        return _dimension("warning", E1, f"provider output exists but execution evidence is not reconciled as provider-backed ({actual})", warnings=["provider_evidence_reconciliation_missing"])
     if status == "failed":
         return _dimension("blocked", E1, "provider failed or fallback output was detected", blockers=["provider_failed_or_fallback"])
     if status in {"synthetic_test", "not_applicable"} or actual in {"synthetic", "none", "synthetic_fallback"}:
@@ -640,7 +657,14 @@ def _forbidden_claims(
     if dimensions["coverage_assurance"]["status"] != "pass":
         claims.add("full_coverage")
     if dimensions["provider_status"]["status"] != "pass" or str(provider.get("provider_status") or "") != "passed":
+        claims.update({"provider_backed_quality", "provider_execution_complete", "provider_repair_complete", "model_repair_complete"})
+    if not bool(provider.get("provider_backed_quality_supported")):
         claims.add("provider_backed_quality")
+    reconciliation = artifacts.get("provider_evidence_reconciliation", {})
+    if isinstance(reconciliation, dict) and reconciliation:
+        claims.update(str(claim) for claim in reconciliation.get("forbidden_claims_remaining", []) if claim)
+        if str(reconciliation.get("status") or "") in {"blocked", "stale", "failed"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
     if dimensions["knowledge_assurance"]["status"] != "pass":
@@ -745,7 +769,7 @@ def _recommended_next_actions(
     artifact_state = artifacts.get("artifact_state", {})
     actions.extend(str(item) for item in artifact_state.get("next_actions", []) if item)
     if "provider_backed_quality" in forbidden_claims:
-        actions.append("Run a real provider successfully before claiming provider-backed quality.")
+        actions.append("Record and reconcile provider execution evidence before claiming provider-backed quality.")
     if "review_complete" in forbidden_claims:
         actions.append("Record explicit qualified human review evidence before claiming review completion.")
     if _document_evidence_blockers(artifacts):
@@ -773,6 +797,16 @@ def _recommended_next_actions(
 def _provider_metadata(artifacts: dict[str, Any], generation_metadata: dict[str, Any] | None) -> dict[str, Any]:
     if generation_metadata:
         return generation_metadata
+    reconciliation = artifacts.get("provider_evidence_reconciliation", {})
+    if isinstance(reconciliation, dict) and reconciliation:
+        status = str(reconciliation.get("status") or "")
+        return {
+            "provider_actual": "reconciled_provider" if reconciliation.get("provider_execution_complete_supported") else "unverified_or_non_provider",
+            "provider_status": "passed" if status in {"clear", "clear_with_warnings"} and reconciliation.get("provider_execution_complete_supported") else "failed" if status in {"blocked", "failed"} else "not_run",
+            "provider_evidence_reconciliation_status": status,
+            "provider_execution_complete_supported": bool(reconciliation.get("provider_execution_complete_supported")),
+            "provider_backed_quality_supported": bool(reconciliation.get("provider_backed_quality_supported")),
+        }
     manifest = artifacts.get("delivery_manifest", {})
     if isinstance(manifest.get("generation"), dict):
         return manifest["generation"]
@@ -823,6 +857,9 @@ def _upstream_readiness_blockers(artifacts: dict[str, Any]) -> list[str]:
     generation = manifest.get("generation", {}) if isinstance(manifest, dict) else {}
     if str(generation.get("provider_status") or "") == "failed":
         blockers.append("provider_failed_or_fallback")
+    reconciliation = artifacts.get("provider_evidence_reconciliation", {})
+    if isinstance(reconciliation, dict) and str(reconciliation.get("status") or "") in {"blocked", "stale", "failed"}:
+        blockers.append("provider_evidence_not_reconciled")
     claim_acceptance = artifacts.get("claim_acceptance_decision", {})
     if isinstance(claim_acceptance, dict) and claim_acceptance.get("status") == "blocked":
         blockers.append("claim_acceptance_blocked")
@@ -1059,6 +1096,11 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "knowledge_recompute_result": state_dir / KNOWLEDGE_RECOMPUTE_RESULT_JSON,
         "knowledge_repair_closure_decision": state_dir / KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON,
         "knowledge_readiness_impact_report": state_dir / KNOWLEDGE_READINESS_IMPACT_REPORT_JSON,
+        "provider_execution_policy": state_dir / PROVIDER_EXECUTION_POLICY_JSON,
+        "provider_handoff_request": state_dir / PROVIDER_HANDOFF_REQUEST_JSON,
+        "provider_execution_ledger": state_dir / PROVIDER_EXECUTION_LEDGER_JSONL,
+        "provider_result_intake": state_dir / PROVIDER_RESULT_INTAKE_JSONL,
+        "provider_evidence_reconciliation": state_dir / PROVIDER_EVIDENCE_RECONCILIATION_JSON,
         "readiness_authorization_matrix": state_dir / "readiness-authorization-matrix.json",
         "manual_followup_gap_report": state_dir / "manual-followup-gap-report.json",
         "apply_readiness_report": state_dir / "apply-readiness-report.json",

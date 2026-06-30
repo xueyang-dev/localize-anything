@@ -4,6 +4,14 @@
 
 ### Added
 
+- Add Provider / Model Handoff Contract & Execution Evidence seed with
+  `provider-execution-policy.json`, `provider-handoff-request.json`,
+  `provider-execution-ledger.jsonl`, `provider-result-intake.jsonl`, and
+  `provider-evidence-reconciliation.json`; include provider-free CLI/API
+  policy and result-intake paths, conservative scorecard/handoff/readiness
+  integration, artifact-state tracking, protocol schemas, and delivery/run
+  summary references. Synthetic, mock, dry-run, skipped, failed, or
+  unverified imported results cannot support provider-backed claims.
 - Add Workflow Checkpoint / Concurrency / Idempotency Hardening artifacts:
   `workflow-lock-state.json`, `workflow-checkpoint-log.jsonl`,
   `workflow-transaction-manifest.json`, `workflow-idempotency-report.json`,

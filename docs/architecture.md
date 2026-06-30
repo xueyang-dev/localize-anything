@@ -1345,3 +1345,41 @@ block or stale delivery/apply readiness and appear in manual follow-up gaps.
 Workflow recovery does not imply success; readiness improves only when current
 scorecard, artifact-state, signoff, claim, QA, delivery/apply, and other
 pipeline evidence independently support it.
+
+## Provider / Model Handoff Contract & Execution Evidence
+
+Provider/model handoff evidence separates provider contracts from provider
+execution. The runtime can now describe the allowed provider policy, prepare a
+handoff request, record execution or external-import evidence, intake external
+results, and reconcile that evidence without calling a provider.
+
+The seed emits:
+
+- `provider-execution-policy.json`: execution mode, safety flag, real-provider
+  allowance, and claims that remain forbidden;
+- `provider-handoff-request.json`: request contract, generation handoff
+  references, blockers, warnings, and payload hash;
+- `provider-execution-ledger.jsonl`: planned, dry-run, skipped, blocked,
+  failed, mock, synthetic, external-imported, or completed execution evidence;
+- `provider-result-intake.jsonl`: external or local result evidence with
+  provenance, scope, artifact hashes, QA status, and review evidence;
+- `provider-evidence-reconciliation.json`: conservative reconciliation against
+  policy, request, ledger, provenance, hashes/scope, QA, and review evidence.
+
+Provider-backed means provider-backed. Synthetic, mock, skipped, failed,
+dry-run, fallback, or unverified imported output cannot support
+`provider_backed_quality`, `provider_execution_complete`,
+`provider_repair_complete`, or `model_repair_complete`. External
+provider/model result intake is evidence only; it is not quality acceptance and
+does not prove that this runtime executed a provider.
+
+Generation handoff, Evaluation Scorecard, Claim Acceptance, Signoff,
+Artifact State, Delivery/Apply Readiness, run summaries, and delivery packages
+consume provider evidence. Missing, stale, failed, synthetic, or unreconciled
+provider evidence keeps provider-backed claims forbidden and blocks or
+downgrades downstream readiness when those claims are requested or required.
+
+The Workbench/API surface is deliberately artifact-backed. GET endpoints expose
+the five artifacts. POST endpoints are limited to provider policy and provider
+result intake; they validate and write structured evidence but never call
+providers, run models, apply repairs, rewrite content, or mutate target files.

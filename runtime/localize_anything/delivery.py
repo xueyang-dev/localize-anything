@@ -130,6 +130,14 @@ from .workflow_hardening import (
     WORKFLOW_TRANSACTION_MANIFEST_JSON,
     workflow_hardening_asset_paths,
 )
+from .provider_evidence import (
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+    PROVIDER_EXECUTION_LEDGER_JSONL,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+    PROVIDER_RESULT_INTAKE_JSONL,
+    provider_evidence_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -199,6 +207,11 @@ OPTIONAL_CANONICAL_ASSETS = (
     WORKFLOW_IDEMPOTENCY_REPORT_JSON,
     WORKFLOW_RECOVERY_PLAN_JSON,
     WORKFLOW_RECOVERY_RESULT_JSON,
+    PROVIDER_EXECUTION_POLICY_JSON,
+    PROVIDER_HANDOFF_REQUEST_JSON,
+    PROVIDER_EXECUTION_LEDGER_JSONL,
+    PROVIDER_RESULT_INTAKE_JSONL,
+    PROVIDER_EVIDENCE_RECONCILIATION_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -317,6 +330,7 @@ def package_delivery(
                 **workflow_asset_paths(state_dir),
                 **incremental_workflow_asset_paths(state_dir),
                 **workflow_hardening_asset_paths(state_dir),
+                **provider_evidence_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

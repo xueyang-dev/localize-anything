@@ -1512,3 +1512,60 @@ recovery only. They must not call providers, apply repairs, perform semantic
 rewrite, or mutate target project files. A recovery result does not authorize
 delivery or apply; current readiness artifacts must still support those
 claims.
+
+## Provider / Model Handoff Contract and Execution Evidence
+
+Provider/model handoff evidence records provider policy and execution evidence
+without executing providers. The goal is to prevent synthetic, mock, skipped,
+failed, dry-run, fallback, or unverified imported output from being treated as
+provider-backed.
+
+Artifacts:
+
+- `provider-execution-policy.json` records execution mode, provider/model
+  identity, safety flags, whether real provider-backed execution is allowed,
+  and provider-related forbidden claims.
+- `provider-handoff-request.json` records the provider/model request contract,
+  generation handoff references, blockers, warnings, request payload hash, and
+  source artifact hashes.
+- `provider-execution-ledger.jsonl` records provider execution lifecycle
+  evidence such as planned, dry-run, skipped, blocked, failed, mock,
+  synthetic, external-imported, or completed outcomes. Ledger records must
+  state that this seed did not call providers.
+- `provider-result-intake.jsonl` records imported or local result evidence with
+  source type, provenance, scope, artifact references, hashes, QA status, and
+  review evidence. Intake is evidence only, not acceptance.
+- `provider-evidence-reconciliation.json` reconciles policy, request, ledger,
+  result intake, provenance, hashes/scope, QA, and review evidence before any
+  provider claim can be supported.
+
+`provider_backed_quality`, `provider_execution_complete`,
+`provider_repair_complete`, and `model_repair_complete` remain forbidden when
+provider evidence is missing, stale, blocked, failed, synthetic, mock,
+dry-run, skipped, fallback, or unreconciled. A successful external result
+intake does not prove runtime provider execution and does not by itself prove
+quality.
+
+Generation handoff consumes provider policy and reconciliation artifacts.
+Evaluation Scorecard, Claim Acceptance, Signoff, Artifact State,
+Readiness Authorization, Delivery, Apply, run summaries, and delivery packages
+must preserve provider-related forbidden claims unless reconciled evidence and
+downstream QA/review/signoff evidence support a narrower claim.
+
+Artifact-backed APIs are:
+
+- `GET /api/provider-execution-policy`
+- `GET /api/provider-handoff-request`
+- `GET /api/provider-execution-ledger`
+- `GET /api/provider-result-intake`
+- `GET /api/provider-evidence-reconciliation`
+- `POST /api/provider-execution-policy`
+- `POST /api/provider-result-intake`
+
+CLI commands are `provider-execution-policy`, `provider-handoff-request`,
+`provider-execution-ledger`, `provider-result-intake`, and
+`provider-evidence-reconciliation`.
+
+POST endpoints and CLI writes only create structured evidence. They must not
+call providers, execute models, apply repairs, perform semantic rewrite, or
+mutate target project files.

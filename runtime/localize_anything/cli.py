@@ -147,6 +147,18 @@ from .workflow_hardening import (
     read_workflow_transaction_manifest,
     run_workflow_recovery,
 )
+from .provider_evidence import (
+    append_provider_execution_ledger_entry,
+    build_provider_evidence_reconciliation,
+    build_provider_execution_policy,
+    build_provider_handoff_request,
+    read_provider_evidence_reconciliation,
+    read_provider_execution_ledger,
+    read_provider_execution_policy,
+    read_provider_handoff_request,
+    read_provider_result_intake,
+    record_provider_result_intake,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -762,6 +774,35 @@ def build_parser() -> argparse.ArgumentParser:
     evaluation_parser.add_argument("--delivery-dir", type=Path)
     evaluation_parser.add_argument("--run-id")
     evaluation_parser.add_argument("--output", type=Path)
+
+    provider_policy_parser = subparsers.add_parser("provider-execution-policy", help="Create or read provider-execution-policy.json without calling providers")
+    provider_policy_parser.add_argument("state_dir", type=Path)
+    provider_policy_parser.add_argument("--input", type=Path)
+    provider_policy_parser.add_argument("--run-id")
+    provider_policy_parser.add_argument("--output", type=Path)
+
+    provider_handoff_parser = subparsers.add_parser("provider-handoff-request", help="Create or read provider-handoff-request.json without calling providers")
+    provider_handoff_parser.add_argument("state_dir", type=Path)
+    provider_handoff_parser.add_argument("--input", type=Path)
+    provider_handoff_parser.add_argument("--run-id")
+    provider_handoff_parser.add_argument("--output", type=Path)
+
+    provider_ledger_parser = subparsers.add_parser("provider-execution-ledger", help="Read or append provider-execution-ledger.jsonl without calling providers")
+    provider_ledger_parser.add_argument("state_dir", type=Path)
+    provider_ledger_parser.add_argument("--input", type=Path)
+    provider_ledger_parser.add_argument("--run-id")
+    provider_ledger_parser.add_argument("--output", type=Path)
+
+    provider_result_parser = subparsers.add_parser("provider-result-intake", help="Read or append provider-result-intake.jsonl as evidence only")
+    provider_result_parser.add_argument("state_dir", type=Path)
+    provider_result_parser.add_argument("--input", type=Path)
+    provider_result_parser.add_argument("--run-id")
+    provider_result_parser.add_argument("--output", type=Path)
+
+    provider_reconciliation_parser = subparsers.add_parser("provider-evidence-reconciliation", help="Create or read provider-evidence-reconciliation.json")
+    provider_reconciliation_parser.add_argument("state_dir", type=Path)
+    provider_reconciliation_parser.add_argument("--run-id")
+    provider_reconciliation_parser.add_argument("--output", type=Path)
 
     record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
     record_human_review_parser.add_argument("state_dir", type=Path)
@@ -1848,6 +1889,23 @@ def main(argv: list[str] | None = None) -> int:
                 "overall_claim": scorecard.get("overall_claim"),
             }
             return _emit_json(result, args.output)
+        if args.command == "provider-execution-policy":
+            result = build_provider_execution_policy(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id) if args.input else read_provider_execution_policy(args.state_dir)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-execution-policy-read-v1", "provider_execution_policy": result}, args.output)
+        if args.command == "provider-handoff-request":
+            result = build_provider_handoff_request(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id) if args.input else read_provider_handoff_request(args.state_dir)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-handoff-request-read-v1", "provider_handoff_request": result}, args.output)
+        if args.command == "provider-execution-ledger":
+            if args.input:
+                append_provider_execution_ledger_entry(args.state_dir, read_json(args.input), run_id=args.run_id)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-execution-ledger-read-v1", "records": read_provider_execution_ledger(args.state_dir)}, args.output)
+        if args.command == "provider-result-intake":
+            if args.input:
+                record_provider_result_intake(args.state_dir, read_json(args.input), run_id=args.run_id)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-result-intake-read-v1", "records": read_provider_result_intake(args.state_dir)}, args.output)
+        if args.command == "provider-evidence-reconciliation":
+            result = build_provider_evidence_reconciliation(args.state_dir, run_id=args.run_id)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-evidence-reconciliation-read-v1", "provider_evidence_reconciliation": result}, args.output)
         if args.command == "record-human-review":
             result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)
             return _emit_json(result, args.output)
