@@ -2,70 +2,49 @@
 
 ## English
 
-I'm building Localize Anything — an agent-native localization framework focused
-on safe, review-ready localization workflows rather than blind automatic
-translation.
+Localize Anything is an agent-native localization engineering framework for
+turning source projects, user-approved knowledge, model-generated drafts,
+deterministic QA, and scoped human review into traceable, review-ready delivery
+artifacts.
 
-The project currently focuses on Android string resources and includes:
+It is not a one-click perfect-translation product. The released baseline
+protects source structure, stages output outside the source project, records QA
+and review evidence, and requires an explicit apply plan and confirmation.
+Advanced document, knowledge, workflow, and provider-evidence gates implemented
+through PR #57 are architecture seeds rather than additional stable-release
+claims.
 
-- structure-aware extraction for strings, arrays, and plurals;
-- protection for placeholders, escapes, inline markup, CDATA, and comments;
-- blind benchmark mode to prevent reference leakage;
-- existing-locale maintenance mode for preserving reviewed translations;
-- deterministic QA and CI-backed regression benchmarks;
-- review-risk metadata for high-risk UI strings;
-- a real-project smoke-test guide using AntennaPod.
+The project does not claim production translation quality without qualified
+review, complete Android or full-product localization, zero residual English,
+locale-complete support, DOCX render fidelity, factual truth verification, or
+provider-/knowledge-backed quality from intake alone.
 
-The Android platform adapter remains experimental. Its supported structures and
-known limitations are documented in
-[Android Support in v0.2.3](android-v0.2.3-support.md).
-
-The goal is not to “translate everything automatically.” The goal is to produce
-traceable, reviewable localization delivery artifacts that developers can
-inspect before applying changes.
-
-Repo:
-https://github.com/xueyang-dev/localize-anything
+Repo: https://github.com/xueyang-dev/localize-anything
 
 ## 中文
 
-我在做一个面向 Agent 的软件本地化框架：Localize Anything。
+Localize Anything 是一个面向 Agent 的本地化工程框架，把源项目、用户审核知识、模型生成草稿、确定性 QA 和范围化人工审核组织成可追踪、可审查的交付产物。
 
-它不是“把所有文本丢给模型自动翻译”，而是更关注安全的本地化流程：资源提取、结构保护、翻译生成、人工审查、可复现验证和安全应用。
+它不是“一键完美翻译”产品。当前稳定发布基线负责保护源结构、在源项目之外暂存输出、记录 QA 与审核证据，并要求显式审阅 apply plan 和确认。PR #57 之前实现的高级文档、知识、工作流和 provider evidence 能力属于架构 seed，不自动成为新的稳定发布声明。
 
-目前项目重点支持 Android string resources，包括：
+项目不承诺未经合格审核的生产质量、完整 Android 或完整产品本地化、零残留英文、locale-complete 支持、DOCX 渲染保真、现实事实真实性验证，也不把 provider/knowledge intake 本身视为质量证明。
 
-- `strings`、`string-array`、`plurals`；
-- placeholder、escape、inline markup、CDATA、XML comment 的结构保护；
-- blind benchmark mode，避免参考译文泄漏；
-- existing-locale maintenance mode，用于保留已经审查过的译文；
-- deterministic QA 和 CI 回归基准；
-- 高风险 UI 文本的 review-risk metadata；
-- 基于 AntennaPod 的真实项目 smoke test 指南。
-
-Android 平台适配器目前仍处于 experimental 阶段；已支持的结构和已知限制见
-[v0.2.3 Android 支持边界](android-v0.2.3-support.md)。
-
-这个项目的目标不是取代人工审查，而是让 Agent 参与本地化时更安全、更可追踪、更适合开发者 review。
-
-Repo:
-https://github.com/xueyang-dev/localize-anything
+Repo: https://github.com/xueyang-dev/localize-anything
 
 ## Short one-line versions
 
-English:
+> Localize Anything is an agent-native localization engineering framework for
+> traceable, review-ready delivery—not one-click perfect translation.
 
-> Localize Anything is an agent-native localization framework for safe,
-> review-ready software localization workflows.
-
-Chinese:
-
-> Localize Anything 是一个面向 Agent 的软件本地化框架，用于构建安全、可审查、可复现的本地化工作流。
+> Localize Anything 是一个面向 Agent 的本地化工程框架，目标是可追踪、可审查的交付，而不是“一键完美翻译”。
 
 ## Things not to claim
 
-- fully automatic translation
-- universal localization support
-- production-safe operation without review
-- complete Android app localization
-- full HTML, layout, drawable, or asset support
+- complete or fully automatic localization of any product
+- zero residual source-language text
+- production-ready model/provider quality without qualified review
+- provider-backed quality from result intake or deterministic QA alone
+- knowledge-backed quality without matching scope, review, and signoff
+- locale-complete support
+- DOCX layout/render fidelity or factual truth verification
+- automatic destructive apply

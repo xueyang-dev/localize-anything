@@ -47,6 +47,13 @@ v0.4.1 refines the Workbench WebUI: it removes copied macOS window controls, con
 
 The v0.4.0 Word OpenXML localization and explicit opt-in Android merged dependency resource overlay remain the current feature baseline. Legacy binary `.doc` files, image text, embedded objects, and provider-backed translation quality remain outside the deterministic coverage claim.
 
+Architecture seeds merged through PR #57 connect source projects, user-approved
+knowledge, external model/provider result evidence, deterministic QA, scoped
+human review, and traceable delivery artifacts. These are implemented seeds,
+not additional stable v0.4.1 release claims. Localize Anything does not promise
+one-click perfect translation or production quality without qualified review;
+outputs remain staged and apply requires an explicit reviewed confirmation.
+
 Verified engineering evidence includes:
 
 - v0.4.1 Workbench UI state, mode forwarding, sessions endpoint, and inline validation: pass;
@@ -292,9 +299,20 @@ Localize Anything is not:
 - an Android layout, drawable, or asset localizer;
 - a Gradle editor or APK decompiler;
 - a semantic translation quality scorer;
+- a locale-complete implementation across plural, gender, RTL/bidi, formatting,
+  Unicode, and fallback behavior;
+- a DOCX layout or rendered-page fidelity verifier;
+- a verifier of real-world factual truth in translated claims;
+- a claim of full provider-backed quality from result intake, reconciliation,
+  or deterministic QA alone;
+- a claim of full knowledge-backed quality without matching scope, review, and
+  signoff;
+- a claim of full product localization when non-text, dynamic, server, OS, or
+  other runtime surfaces are outside the selected source scope;
 - an APK or IPA repackaging tool;
 - a replacement for qualified human review;
 - a tool that silently rewrites a source project;
+- an automatic destructive apply tool;
 - a claim that LLM output is production-ready without evidence.
 
 ## Project maturity

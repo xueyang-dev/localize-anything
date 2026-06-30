@@ -4,8 +4,9 @@
 
 Recommended About description:
 
-> Agent-native localization framework for safely extracting, translating,
-> reviewing, and applying software localization resources.
+> Agent-native localization engineering framework for traceable, review-ready
+> delivery artifacts from source projects, user knowledge, model drafts,
+> deterministic QA, and human review.
 
 Recommended topics:
 
@@ -53,6 +54,7 @@ evidence:
 - CI-backed regression benchmarks
 - review-ready delivery artifacts
 - real-project smoke-test guide
+- architecture seeds clearly separated from stable release claims
 
 Avoid claims of:
 
@@ -64,12 +66,18 @@ Avoid claims of:
 - Gradle editing
 - APK decompilation
 - universal support for all localization formats
+- zero residual English or locale-complete support
+- provider-backed quality from intake or QA alone
+- knowledge-backed quality without scoped review/signoff
+- DOCX layout/render fidelity or factual truth verification
+- automatic destructive apply
 
 ## Pre-posting checklist
 
 - [ ] Confirm README links work.
 - [ ] Confirm the CI badge is green.
-- [ ] Confirm the latest public release is v0.2.4.
+- [ ] Confirm the latest public release is v0.4.1.
+- [ ] Confirm PR #25–#57 architecture seeds are not presented as stable release capabilities.
 - [ ] Confirm the v0.2.3 Android support boundary is linked.
 - [ ] Confirm v0.2.2 is not promoted.
 - [ ] Confirm issue templates and `CONTRIBUTING.md` exist.

@@ -1,278 +1,173 @@
 # Architecture Roadmap
 
-This roadmap describes future direction for Localize Anything. It is not a
-release claim. A roadmap item becomes a current architecture claim only after
-the protocol has schemas/examples, the runtime validates or enforces the
-behavior, tests cover it, and release evidence supports it.
+This roadmap separates implemented architecture seeds from stable release
+capabilities. It is not a release promise. Current classifications and public
+claim boundaries live in [Architecture](architecture.md).
 
-For current architecture, implemented seeds, experimental areas, and non-claims,
-see [Architecture](architecture.md).
-
-## Roadmap Principles
-
-Localize Anything should evolve as a localization engineering harness:
+## Promotion Rule
 
 ```text
-Model     -> semantic generation and judgment
-Runtime   -> deterministic verification, state, and delivery boundaries
-Artifacts -> evidence, traceability, and reproducibility
-Human     -> high-risk decisions and final authorization
+proposal -> seed -> reviewed PR -> tests -> release audit -> real-project and
+benchmark evidence -> documentation/public-claim audit -> stable release claim
 ```
 
-The roadmap should not weaken the Evidence Spine. New UI, provider/model repair,
-knowledge packs, collaboration workflows, or community adapters must read and
-write artifact-backed state rather than hiding policy in prompts or browser
-state.
+Merging a seed proves that its contracts and conservative runtime behavior
+exist. It does not prove production translation quality, broad platform or
+locale coverage, or public release readiness.
 
-## Promotion Path
+## Architecture Seed Track
 
-Every future capability follows the same promotion path:
+The following areas are implemented as artifact-backed seeds through PR #57:
+
+- Evidence Spine foundations, including brief, term governance, preflight,
+  generation strategy, resolution, handoff, Artifact State, repair, evaluation,
+  human review, claim acceptance, and signoff;
+- Workbench review/action/console projections;
+- Document Evidence enforcement, decisions, leadership review, claim
+  resolution, and signoff summary;
+- Personal Knowledge Pack building, knowledge consumption, Working Context
+  Packet, usage/constraint/conflict audit, enforcement, resolution, assurance,
+  repair planning, result QA/reconciliation, closure, and recompute;
+- Delivery/Apply Readiness Authorization Matrix and Workbench readiness actions;
+- workflow orchestration, incremental resume/selective recompute, checkpoint,
+  concurrency, transaction, recovery, and idempotency hardening;
+- provider/model handoff contracts and evidence reconciliation;
+- provider result deterministic QA, scoped review evidence, acceptance, claim
+  support, and Workbench review queue.
+
+These seeds remain subject to release audit, real-project regression evidence,
+benchmark evidence, documentation audit, and public claim-boundary review.
+
+## Optimized Target Agent Architecture
+
+The target architecture from the optimized agent proposal remains the design
+direction, not a stable capability claim:
 
 ```text
-proposal -> seed -> reviewed PR -> tests -> release audit -> benchmark or
-real-project evidence -> stable claim
+CLI / Workbench / API
+        |
+Main Orchestrator -- artifact state, intent, next action
+        |
+        +-- Project Subagent -------- source truth, mode, intent coverage
+        +-- Knowledge Curator ------- terms, TM, examples, scoped user knowledge
+        +-- Generation Subagent ----- provider/model request and result evidence
+        +-- Review Subagent --------- deterministic QA, risk and semantic review
+        +-- Delivery Subagent ------- staging, bundles, apply plan and decision
+        +-- Evolution Subagent ------ failure mining and reviewed patch proposals
+        |
+Deterministic Runtime Kernel
+        |
+Format Adapters + Platform Overlays + Scenario Adapters
 ```
 
-Until that path is complete, the capability remains a seed, experimental item,
-or non-claim in `docs/architecture.md`.
-
-## Near-Term Stabilization
-
-The current seeds should be promoted into stable Evidence Spine capabilities
-before larger platform expansion:
-
-- Term Governance
-- Localization Brief
-- Termbase Preflight
-- Generation Strategy Gate
-- Resolution Gate
-- Generation Handoff Enforcement
-- Artifact State Machine
-- Segment-Level Staleness / Reuse Decision
-- Targeted Repair / Segment Regeneration Plan
-- Patch-Based Repair Execution
-- Evaluation Scorecard
-- Human Review Evidence / Claim Acceptance / Signoff
-
-Exit criteria:
-
-- every gate writes validated artifacts;
-- stale, missing, blocked, or downgraded evidence prevents misleading claims;
-- delivery and apply readiness are derived from the weakest required evidence;
-- real-project runs can show the evidence chain from intake to delivery/apply
-  decision.
-
-## Document Evidence Pack
-
-Goal: turn institutional document localization into a review-ready evidence
-bundle, not just a translated `.docx`.
-
-Planned artifacts may include:
-
-- document intake and risk profile;
-- semantic segmentation by information function;
-- bilingual alignment export;
-- claim and metric report;
-- publicity risk report;
-- leadership review brief;
-- revision log and open-decision report;
-- final delivery bundle references.
-
-This comes after the current evidence gates because document-level claims need
-term review, coverage, scorecard, human review evidence, and signoff to be
-trustworthy.
-
-## Personal Knowledge Pack
-
-Goal: let users bring reviewed translation memory, glossaries, style guides,
-examples, alignment records, and revision decisions into repeatable workflows.
-
-The pack should distinguish:
-
-- raw imports;
-- reference material;
-- verified assets;
-- approved decisions;
-- locked constraints;
-- rejected or obsolete entries;
-- scope-specific entries.
-
-Knowledge packs should feed Term Governance, working context packets, review
-rules, and future retrieval. They must not become unreviewed hard constraints.
-
-## Knowledge-Augmented Generation
-
-Goal: use cleaned and classified knowledge assets rather than plain RAG.
-
-Future working context packets should prioritize:
-
-- approved locked terms;
-- official source terms;
-- exact reviewed translation memory;
-- resource-key or segment-function matches;
-- fuzzy reviewed translation memory within compatible scope;
-- style profiles;
-- reviewed examples;
-- scenario rules and negative rules.
-
-Blind benchmark mode must continue hiding target-language references and
-translation memory from generation-facing packets.
-
-## Translation Provenance
-
-Goal: make each important generated segment explain which evidence influenced
-the target text.
-
-Future provenance views may connect a segment to:
-
-- term registry entries;
-- style rules;
-- scenario rules;
-- alignment examples;
-- repair history;
-- review decisions;
-- human review evidence.
-
-This should support review and debugging, not create false certainty about
-semantic quality.
-
-## Locale Engineering
-
-Goal: treat locale behavior as engineering evidence, not merely wording.
-
-Roadmap capabilities:
-
-- plural rules;
-- grammatical gender;
-- RTL and bidirectional text handling;
-- date, time, number, and currency formatting;
-- Unicode normalization;
-- fallback locale chains;
-- layout-aware delivery checks where applicable.
-
-Future `locale-capability-report` style artifacts should connect locale support
-to coverage and forbidden claims. Until implemented, these remain non-claims.
-
-## Non-Text Asset Pipeline
-
-Goal: surface non-text localization gaps instead of letting text completion imply
-full product localization.
-
-Roadmap areas:
-
-- image text detection and localization workflow;
-- audio/video transcript and subtitle routing;
-- binary resource inspection;
-- layout adaptation;
-- non-text coverage diagnostics.
-
-Non-text assets should first appear as coverage and scorecard evidence. Actual
-asset editing belongs to later adapter-specific work.
-
-## Workbench Review Experience
-
-Goal: turn artifact-backed gates into a usable review surface.
-
-Future Workbench areas:
-
-- run timeline;
-- source inventory and coverage diagnostics;
-- term review queue;
-- blocking questions and resolution decisions;
-- stale segments and reuse decisions;
-- repair request/result/history;
-- scorecard, evidence report, and forbidden claims;
-- human review evidence;
-- claim acceptance and signoff.
-
-The UI should display and update runtime artifacts. It should not infer readiness
-or implement policy separately from the runtime.
-
-## CI/CD Integration
-
-Goal: make localization readiness visible in pull requests and release
-automation.
-
-Roadmap areas:
-
-- deterministic CLI checks with stable exit codes;
-- protocol and contract validation in CI;
-- stale artifact checks;
-- scorecard and forbidden-claim checks;
-- build/install/launch evidence where platform adapters support it;
-- scheduled refresh of stale evidence.
-
-CI should block on deterministic safety failures and report advisory warnings
-for evidence gaps that require human review.
-
-## Collaboration And Team Workflow
-
-Goal: support multiple reviewers and translators without losing traceability.
-
-Roadmap areas:
-
-- reviewer assignment and ownership;
-- conflicting term/review decisions;
-- scoped acceptance by locale, file, segment, or risk class;
-- team-shared knowledge packs;
-- permission policy for locked terms and final signoff;
-- auditable promotion of reviewed changes into reusable memory.
-
-Team workflows must preserve artifact provenance. A shared decision should be
-traceable to who made it, what scope it covers, and which downstream artifacts it
-affects.
-
-## Community Adapter Registry
-
-Goal: make new platforms and formats extensible without weakening trust.
-
-Future registry metadata should include:
-
-- adapter id;
-- supported extensions and project types;
-- version and maintainer;
-- capability level;
-- trust tier;
-- permissions and dependencies;
-- contract-test status;
-- known limitations;
-- security notes.
-
-Trust tiers may include official, trusted, community, and experimental. A
-community adapter should never be treated as stable until contract tests and
-evidence support that claim.
-
-## Evolution Subagent
-
-Goal: mine failures and propose controlled improvements without autonomous
-release behavior.
-
-Roadmap responsibilities:
-
-- collect failure patterns from QA, repair, scorecards, and benchmarks;
-- propose adapter or runtime improvements;
-- suggest new regression tests;
-- compare before/after evidence;
-- produce patch proposals for human review.
-
-The Evolution Subagent may propose changes. It must not merge, tag, release, or
-change safety policy without human approval.
-
-## Version Direction
-
-Indicative future tracks:
-
-| Track | Focus |
-| --- | --- |
-| v0.5 | Evidence Spine gates become stable claims. |
-| v0.6 | Incremental localization and targeted repair stabilize. |
-| v0.7 | Human review evidence, claim acceptance, and signoff stabilize. |
-| v0.8 | Document Evidence Pack seed. |
-| v0.9 | Personal Knowledge Pack builder seed. |
-| v0.10 | Knowledge-augmented generation and review. |
-| v0.11 | Agent orchestrator and subagent runtime. |
-| v0.12 | Workbench review experience. |
-| v0.13 | Benchmark lab and evaluation harness. |
-| v0.14 | Evolution Subagent. |
-| v0.14+ | Ecosystem, community adapters, locale engineering, non-text assets, and collaboration. |
-
+Current workflow orchestration seeds coordinate deterministic artifact builders;
+they are not yet this full subagent runtime. Subagents may propose or coordinate,
+but runtime validation, durable artifacts, and scoped human authorization remain
+the trust boundary. The Evolution Subagent stays P2 and must never merge, tag,
+release, or change safety policy autonomously.
+
+## Stable Release Track
+
+The stable track contains only released, documented behavior supported by the
+corresponding release evidence. The current public baseline is v0.4.1:
+
+- protocol and runtime contracts;
+- deterministic structural validation and staged delivery artifacts;
+- explicit apply planning/confirmation rather than automatic source mutation;
+- released Workbench and adapter behavior within documented format boundaries;
+- Word OpenXML and Android source-resource behavior only within their published
+  support boundaries.
+
+Architecture seeds should be promoted in small audited groups. Promotion must
+state the exact supported scenario, locale, format, evidence level, limitations,
+and forbidden claims. A seed must not be promoted because it exists on `main`.
+
+## Near-Term Route
+
+1. Provider Result QA / Review Acceptance Gate — implemented seed in PR #57;
+   retain as seed until release evidence supports promotion.
+2. Architecture & Roadmap Progress Sync — align architecture, roadmap, README
+   wording, and public non-claims with the actual repository.
+3. Locale Capability Report Seed — expose locale-specific implemented checks,
+   missing checks, coverage, and forbidden claims.
+4. Translation Provenance View Seed — show which terms, knowledge, provider
+   evidence, repair, and review decisions influenced each important segment.
+5. Benchmark Lab Minimal Seed — provide a small reproducible harness for
+   fixture and selected real-project evidence without claiming broad quality.
+6. Release Audit / Public Claims Boundary — audit seed promotion candidates,
+   docs, examples, regression evidence, and public wording.
+7. Provider-safe mock execution harness or explicitly authorized real-provider
+   execution only after the evidence and release boundaries above are clear.
+
+Provider Result Staging Admission is intentionally deferred to P1. Acceptance
+artifacts first need a documented release boundary and provenance view so a
+staging gate cannot accidentally turn narrow review evidence into broad
+readiness or mutate target projects without an auditable chain.
+
+## Priorities
+
+### P0 — Evidence Visibility And Release Boundary
+
+- Architecture & Roadmap Progress Sync
+- Locale Capability Report
+- Translation Provenance View
+- Benchmark Lab Minimal Seed
+- Release Audit / Public Claims Boundary
+
+### P1 — Controlled Execution And Product Usability
+
+- Provider-safe mock execution harness
+- Provider result staging admission
+- Real provider adapter hardening
+- Workbench UX simplification
+- Android/iOS real-project benchmark expansion
+
+P1 execution work must remain provider-safe by default, preserve provenance,
+stage output outside target projects, and require explicit apply confirmation.
+
+### P2 — Broader Platform And Ecosystem Depth
+
+- Deep locale engineering: plural/gender rules, RTL/bidi, formatting, Unicode,
+  fallback chains, and locale-specific QA
+- Non-text asset pipeline
+- Visual/layout QA
+- Team knowledge governance
+- Community adapter registry
+- Evolution subagent
+
+P2 items are non-claims until separately implemented, tested, audited, and
+released.
+
+## Seed Status By PR Range
+
+| PR range | Area | Status |
+| --- | --- | --- |
+| #25–#36 | Evidence Spine foundations | Implemented seeds; release status varies by underlying capability. |
+| #37–#39 | Workbench review/action/console | Implemented seeds. |
+| #40–#42 | Document Evidence | Implemented seeds. |
+| #43–#47 | Personal Knowledge, Knowledge Audit, Knowledge Assurance | Implemented seeds. |
+| #48–#50 | Knowledge Repair, Closure, Recompute | Implemented seeds. |
+| #51–#52 | Readiness Matrix, Workbench Readiness Actions | Implemented seeds. |
+| #53–#55 | Workflow Orchestration, Incremental Resume, Hardening | Implemented seeds. |
+| #56–#57 | Provider Evidence, Provider Result QA/Review Acceptance | Implemented seeds; provider-backed quality remains evidence-gated. |
+
+## Required Evidence Before Stable Promotion
+
+Every promoted capability needs:
+
+- a release audit tied to an exact commit;
+- protocol/contract and regression validation;
+- representative fixture evidence and, where applicable, real-project evidence;
+- benchmark results that state scope and limitations;
+- stale/missing/conflicting evidence behavior that fails closed;
+- documentation and README claim review;
+- explicit non-claims for unsupported formats, locales, surfaces, quality
+  levels, and destructive operations.
+
+## Persistent Non-Claims
+
+The roadmap does not promise complete Android or full-product localization,
+zero residual English, locale-complete behavior, DOCX render fidelity,
+real-world factual truth verification, production provider/model quality,
+knowledge-backed quality without scoped review/signoff, or automatic destructive
+apply. Roadmap position and merged code do not override those boundaries.

@@ -11,6 +11,7 @@
   `workbench-provider-review-queue.json`; include deterministic structural and
   constraint QA, scoped review/acceptance writers, conservative claim support,
   artifact-state/readiness/delivery integration, and provider-free CLI/API.
+
 - Add Provider / Model Handoff Contract & Execution Evidence seed with
   `provider-execution-policy.json`, `provider-handoff-request.json`,
   `provider-execution-ledger.jsonl`, `provider-result-intake.jsonl`, and
@@ -175,6 +176,12 @@
   `signoff-record.json`, CLI/API access, scorecard integration, artifact-state
   staleness tracking, and delivery/apply blockers for unsupported claims or
   stale signoff evidence.
+
+### Changed
+
+- Synchronize architecture, Evidence Spine, roadmap priorities, README-facing
+  positioning, and public non-claims with the implemented seed chain through
+  PR #57. Merged seeds remain separate from stable release capabilities.
 
 ## v0.4.1 - Workbench UI Wiring
 

@@ -19,10 +19,27 @@ Artifacts -> evidence, traceability, reproducibility, and review state
 Human     -> high-risk decisions and final authorization
 ```
 
+The optimized target combines:
+
+```text
+source project or document
++ project/file structure
++ task intent and scenario constraints
++ user-approved translation knowledge
++ model generation
++ deterministic QA
++ semantic and human review
+-> review-ready, traceable, safely applicable delivery artifacts
+```
+
 The runtime must not treat processed files, generated text, or structural QA as
 task completion. A localization run needs evidence for task intent, source
 surface coverage, terminology, provider state, review state, repair state, and
 delivery/apply readiness.
+
+The target architecture also defines scoped Project, Knowledge Curator,
+Generation, Review, Delivery, and Evolution subagent responsibilities. Those
+are roadmap boundaries, not a claim that a production subagent runtime exists.
 
 ## Scope Boundaries
 
@@ -57,6 +74,57 @@ Current conservative scope:
 - Experimental: implemented behind opt-in or investigation paths and not a
   default product claim.
 - Non-claim: recognized by the architecture but not implemented.
+
+## Progress Snapshot After PR #57
+
+Repository presence, release stability, and public support claims are separate
+states. A merged architecture seed is implemented and tested, but it is not a
+stable production capability until a release audit, real-project regression
+evidence, benchmark evidence, documentation audit, and public-claim review all
+support promotion.
+
+| Status | Current scope |
+| --- | --- |
+| Stable public baseline | Released v0.4.1 behavior: protocol/runtime contracts, staged delivery, explicit apply confirmation, deterministic structural QA, Workbench UI wiring, and released adapter capabilities within their documented format boundaries. |
+| Implemented architecture seeds | Evidence Spine gates through provider result QA/review acceptance: document evidence, personal knowledge, knowledge consumption/audit/repair, readiness authorization, workflow lifecycle/resume/hardening, provider handoff evidence, and provider result QA/acceptance. |
+| Active draft / under review | Architecture and roadmap progress synchronization. It changes documentation and claim boundaries, not runtime capability. |
+| Experimental | Explicit opt-in Android merged dependency overlays, synthetic/mock provider paths, and other opt-in adapter or benchmark surfaces identified as experimental in their own docs. |
+| Explicit non-claims | Complete product or Android-app localization, locale-complete support, automatic semantic quality, provider- or knowledge-backed quality without scoped evidence, DOCX render fidelity, factual truth verification, and automatic destructive apply. |
+
+Architecture progress by PR range:
+
+| PR range | Architecture area | Current classification |
+| --- | --- | --- |
+| #25–#36 | Evidence Spine foundations | Implemented seeds; selected released foundations are stable only where release evidence says so. |
+| #37–#39 | Workbench review, action, and console | Implemented seeds. |
+| #40–#42 | Document Evidence enforcement and decisions | Implemented seeds. |
+| #43–#47 | Personal Knowledge, Knowledge Audit, and Knowledge Assurance | Implemented seeds. |
+| #48–#50 | Knowledge Repair, closure, and recompute | Implemented seeds. |
+| #51–#52 | Readiness Matrix and Workbench readiness actions | Implemented seeds. |
+| #53–#55 | Workflow orchestration, incremental resume, and hardening | Implemented seeds. |
+| #56–#57 | Provider handoff evidence and provider result QA/review acceptance | Implemented seeds; no provider-backed quality claim follows from intake or QA alone. |
+
+## Public Claim Boundary
+
+Public wording may claim the released engineering baseline and may describe
+merged work explicitly as an architecture seed. It must not convert a seed,
+experimental path, or narrow evidence result into a stable or global claim.
+
+Localize Anything does not currently claim:
+
+- complete Android app localization or zero residual English;
+- production-ready provider translation quality, or provider-backed quality
+  from result intake, reconciliation, or deterministic QA alone;
+- full knowledge-backed quality without matching scope, qualified review, and
+  compatible signoff;
+- locale-complete support across plural, gender, RTL/bidi, formatting, Unicode,
+  and fallback behavior;
+- DOCX layout or rendered-page fidelity;
+- real-world factual truth verification for translated claims;
+- full product localization when image, audio/video, layout, dynamic, server,
+  OS, or other runtime surfaces are outside the selected source scope;
+- automatic destructive apply or an apply operation without a staged plan and
+  explicit confirmation.
 
 ## Layers
 
@@ -145,18 +213,28 @@ Localization Brief
  -> Generation Strategy
  -> Resolution Gate
  -> Generation Handoff Enforcement
- -> Artifact State
- -> Segment Staleness / Reuse Decision
- -> Targeted Repair
- -> Patch-Based Repair Execution
+ -> Working Context / Knowledge Constraints
+ -> Provider Handoff Evidence
+ -> Generation Result Intake
+ -> Deterministic QA
+ -> Knowledge Usage / Conflict / Constraint Audit
+ -> Document Evidence / Decision / Leadership Review
+ -> Knowledge and Provider Repair / Reconciliation / Closure
+ -> Provider Result QA / Scoped Review / Acceptance / Claim Support
  -> Evaluation Scorecard
- -> Document Evidence Pack
  -> Human Review Evidence
  -> Claim Acceptance
  -> Signoff
  -> Readiness Authorization Matrix
+ -> Workbench Readiness Actions
  -> Delivery / Apply Decision
 ```
+
+Artifact State and workflow lifecycle controls surround the chain rather than
+forming a single linear gate. They track staleness, orchestrate deterministic
+builders, resume interrupted work, selectively recompute affected projections,
+and record checkpoint/lock/idempotency evidence. None of those controls can
+fabricate provider execution, human review, repair success, or readiness.
 
 Each link has a specific contract:
 
@@ -174,10 +252,18 @@ Each link has a specific contract:
 | Patch Repair | `repair-result.json`, `repair-history.jsonl` | Only mechanically safe repairs are applied without providers. |
 | Evaluation | `evaluation-scorecard.json`, `evidence-level-report.md` | Unsupported quality/readiness claims are forbidden. |
 | Document Evidence Pack | `document-intake-report.json`, `semantic-alignment.jsonl`, `claim-metric-report.json`, `publicity-risk-report.json`, `leadership-review-brief.md`, `open-decisions.md`, `document-evidence-manifest.json` | High-context document evidence, claim risk, publicity risk, and leadership review needs are explicit. |
+| Document Evidence Decision | Document enforcement, queue, decision, leadership review, claim-resolution, and signoff-summary artifacts | Document review blockers stay visible and scoped; leadership evidence does not become factual truth verification. |
+| Personal Knowledge | Pack manifest, provenance, review queue/decisions, TM, term, style, claim-pattern, and revision-memory artifacts | Only reviewed, scoped, provenance-backed knowledge is eligible for promotion. |
+| Knowledge Consumption | Selection, eligibility, and Working Context Packet artifacts | Hard constraints, soft context, examples, and excluded knowledge remain separate. |
+| Knowledge Audit And Assurance | Usage, constraint audit, conflict, enforcement, resolution, and assurance artifacts | Knowledge use must match status, provenance, scope, freshness, and operating mode. |
+| Knowledge Repair Lifecycle | Plan, request, impact, result intake, QA, reconciliation, closure, and recompute artifacts | Repair planning/intake cannot clear blockers without matching result and QA evidence. |
+| Provider Evidence | Execution policy, handoff request, ledger, result intake, and reconciliation artifacts | External provider/model evidence is recorded without claiming runtime execution or semantic quality. |
+| Provider Result Acceptance | QA report, scoped review evidence, acceptance decision, claim support report, and Workbench provider queue | QA pass is not semantic quality; limited acceptance remains limited and unsupported provider claims stay forbidden. |
 | Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
 | Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
 | Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
 | Readiness Authorization | `readiness-authorization-matrix.json`, `manual-followup-gap-report.json`, `apply-readiness-report.json`, `delivery-readiness-report.json` | Delivery/apply readiness is explicit, scoped, and evidence-backed across the full pipeline. |
+| Workflow Lifecycle Controls | Run plan/status/result/readiness, dependency graph, resume/recompute, invalidation, checkpoint, lock, transaction, recovery, and idempotency artifacts | Deterministic refresh and recovery preserve blockers; workflow completion does not imply success. |
 | Delivery / Apply | `delivery-manifest.json`, `delivery-decision.json`, `apply-plan.json` | Delivery and source writes remain staged, reviewable, and blocked when evidence is insufficient. |
 
 ## Delivery Modes
