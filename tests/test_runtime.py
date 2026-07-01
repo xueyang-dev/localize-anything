@@ -291,6 +291,17 @@ from runtime.localize_anything.locale_capability import (
     build_locale_risk_report,
     read_locale_capability_report,
 )
+from runtime.localize_anything.translation_provenance import (
+    PROVENANCE_COVERAGE_REPORT_JSON,
+    SEGMENT_EVIDENCE_VIEW_JSON,
+    TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+    TRANSLATION_PROVENANCE_JSONL,
+    build_provenance_coverage_report,
+    build_segment_evidence_view,
+    build_translation_claim_provenance_report,
+    build_translation_provenance,
+    build_translation_provenance_views,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -10419,6 +10430,167 @@ def _locale_state(root: Path, target_locale: str, adapter_counts: dict[str, int]
     return state
 
 
+def _translation_provenance_state(root: Path) -> Path:
+    state = root / ".localize-anything"
+    state.mkdir(parents=True, exist_ok=True)
+    write_json(
+        state / "config.json",
+        {
+            "project_root": root.as_posix(),
+            "source_locale": "en-US",
+            "target_locales": ["zh-CN"],
+            "input_paths": ["locales/en-US.json"],
+        },
+    )
+    write_json(
+        state / "localization-brief.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-localization-brief-v1",
+            "run_id": "provenance-test-001",
+            "task_intent": {"source_locale": "en-US", "target_locales": ["zh-CN"]},
+            "scenario": {"scenario_id": "app_ui"},
+            "summary": {},
+        },
+    )
+    write_json(
+        state / "delivery-manifest.json",
+        {
+            "protocol_version": "0.1",
+            "run_id": "provenance-test-001",
+            "project": {"target_locales": ["zh-CN"]},
+            "source_material": [{"path": "locales/en-US.json", "adapter": "core.json-locale"}],
+            "generation": {"provider_status": "not_applicable", "apply_allowed": False},
+            "qa": {"status": "pass", "blocking_count": 0, "warning_count": 0, "evidence_channels": ["runtime"]},
+            "outputs": [],
+            "assets": {},
+        },
+    )
+    write_json(
+        state / "source-inventory.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-source-inventory-v1",
+            "run_id": "provenance-test-001",
+            "supported_files": [{"path": "locales/en-US.json", "adapter": "core.json-locale", "segment_count": 2}],
+        },
+    )
+    write_jsonl(
+        state / "generated-segments.jsonl",
+        [
+            {"segment_id": "s1", "source": "Open Lab", "target": "开放实验室", "source_file": "locales/en-US.json"},
+            {"segment_id": "s2", "source": "Cancel", "target": "取消", "source_file": "locales/en-US.json"},
+        ],
+    )
+    (state / "term-registry.csv").write_text("source_term,target_term,status\nOpen Lab,开放实验室,locked\n", encoding="utf-8")
+    (state / "forbidden-translations.csv").write_text("source_term,forbidden_target,status\nOpen Lab,错误实验室,forbidden\n", encoding="utf-8")
+    write_json(
+        state / "knowledge-usage-report.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-knowledge-usage-report-v1",
+            "status": "clear_with_warnings",
+            "usage_entries": [
+                {"knowledge_id": "term-open-lab", "source_value": "Open Lab", "target_value": "开放实验室", "usage_state": "applied_hard_constraint"},
+                {"knowledge_id": "tm-cancel", "source_value": "Cancel", "target_value": "取消", "usage_state": "shown_reference_only"},
+            ],
+        },
+    )
+    write_json(
+        state / "constraint-application-audit.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-constraint-application-audit-v1",
+            "status": "clear_with_warnings",
+            "audited_constraints": [
+                {"constraint_id": "constraint-open-lab", "source_knowledge_item_id": "term-open-lab", "status": "checked_pass", "affected_segments": ["s1"]}
+            ],
+        },
+    )
+    write_json(state / "repair-request.json", {"protocol_version": "0.1", "schema": "localize-anything-repair-request-v1", "status": "not_applicable", "requests": []})
+    write_json(
+        state / "repair-result.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-repair-result-v1",
+            "status": "clear",
+            "results": [{"repair_id": "repair-s1", "status": "applied", "affected_segment_ids": ["s1"]}],
+        },
+    )
+    write_jsonl(
+        state / "provider-result-intake.jsonl",
+        [
+            {"protocol_version": "0.1", "schema": "localize-anything-provider-result-intake-record-v1", "result_id": "provider-s1", "result_source": "external_provider_result", "status": "received", "segments": [{"segment_id": "s1"}]},
+            {"protocol_version": "0.1", "schema": "localize-anything-provider-result-intake-record-v1", "result_id": "synthetic-s2", "result_source": "synthetic", "status": "received_non_provider_backed", "segments": [{"segment_id": "s2"}]},
+        ],
+    )
+    write_json(
+        state / "provider-result-qa-report.json",
+        {"protocol_version": "0.1", "schema": "localize-anything-provider-result-qa-report-v1", "status": "pass", "results": [{"result_id": "provider-s1", "status": "passed"}]},
+    )
+    write_json(
+        state / "provider-result-acceptance-decision.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-provider-result-acceptance-decision-v1",
+            "status": "accepted_with_limitations",
+            "accepted_with_limitations_result_ids": ["provider-s1"],
+            "forbidden_claims_remaining": ["provider_backed_quality"],
+        },
+    )
+    write_jsonl(
+        state / "human-review-evidence.jsonl",
+        [
+            {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-human-review-evidence-v1",
+                "evidence_id": "review-s1",
+                "status": "accepted",
+                "review_scope": {"scope_type": "segment", "segment_ids": ["s1"]},
+            }
+        ],
+    )
+    write_json(state / "locale-risk-report.json", {"protocol_version": "0.1", "schema": "localize-anything-locale-risk-report-v1", "status": "review_required", "forbidden_claims": ["locale_formatting_complete"]})
+    write_json(state / "locale-readiness-impact.json", {"protocol_version": "0.1", "schema": "localize-anything-locale-readiness-impact-v1", "status": "review_required", "target_locale": "zh-CN", "forbidden_claims": ["locale_formatting_complete"]})
+    write_json(
+        state / "evaluation-scorecard.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-evaluation-scorecard-v1",
+            "run_id": "provenance-test-001",
+            "status": "pass_with_warnings",
+            "overall_claim": "review_required",
+            "forbidden_claims": ["provider_backed_quality", "knowledge_backed_quality", "locale_formatting_complete", "production_ready"],
+        },
+    )
+    write_json(
+        state / "claim-acceptance-decision.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-claim-acceptance-decision-v1",
+            "status": "accepted_with_limitations",
+            "accepted_claims": ["review_ready"],
+            "accepted_with_limitations": ["provider_execution_complete"],
+            "forbidden_claims_remaining": ["provider_backed_quality", "production_ready"],
+        },
+    )
+    write_json(
+        state / "signoff-record.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-signoff-record-v1",
+            "status": "provisional",
+            "delivery_authorized": False,
+            "apply_authorized": False,
+            "forbidden_claims_remaining": ["provider_backed_quality", "production_ready"],
+        },
+    )
+    (state / "localization-context.md").write_text("", encoding="utf-8")
+    (state / "glossary.csv").write_text("source,target,status,notes\n", encoding="utf-8")
+    (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
+    return state
+
+
 def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
     state = _knowledge_repair_state(root, [issue or _knowledge_repair_issue("hard_constraint_failed")])
     build_knowledge_repair_plan(state)
@@ -11654,7 +11826,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 117)
+        self.assertEqual(result["schemas_checked"], 121)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12908,6 +13080,98 @@ class LocaleCapabilityTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=2)
+
+
+class TranslationProvenanceTests(unittest.TestCase):
+    def test_segment_provenance_preserves_approved_term_and_reference_only_knowledge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _translation_provenance_state(Path(directory))
+            records = build_translation_provenance(state)
+            view = build_segment_evidence_view(state, provenance=records)
+            coverage = build_provenance_coverage_report(state, provenance=records)
+
+            assert_protocol_schema(self, "translation-provenance", records[0])
+            assert_protocol_schema(self, "segment-evidence-view", view)
+            assert_protocol_schema(self, "provenance-coverage-report", coverage)
+            first = next(item for item in records if item["segment_id"] == "s1")
+            second = next(item for item in records if item["segment_id"] == "s2")
+            self.assertTrue(any(item["evidence_type"] == "term" and item["evidence_status"] == "locked" for item in first["evidence"]))
+            self.assertTrue(any(item["evidence_type"] == "knowledge" and item["evidence_status"] == "reference_only" for item in second["evidence"]))
+            self.assertIn("knowledge_backed_quality", second["forbidden_claims"])
+            self.assertEqual(coverage["status"], "review_required")
+
+    def test_provider_synthetic_and_locale_warnings_do_not_support_strong_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _translation_provenance_state(Path(directory))
+            reports = build_translation_provenance_views(state)
+            claims = reports["translation_claim_provenance_report"]
+            synthetic = [
+                item
+                for segment in reports["translation_provenance"]
+                for item in segment["evidence"]
+                if item.get("provider_source") == "synthetic"
+            ]
+
+            assert_protocol_schema(self, "translation-claim-provenance-report", claims)
+            self.assertTrue(synthetic)
+            self.assertTrue(all(item["evidence_status"] == "synthetic" for item in synthetic))
+            self.assertIn("provider_backed_quality", claims["forbidden_claims"])
+            self.assertIn("locale_formatting_complete", claims["forbidden_claims"])
+
+    def test_scorecard_readiness_artifact_state_and_delivery_consume_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _translation_provenance_state(root)
+            build_translation_provenance_views(state)
+            scorecard = build_evaluation_scorecard(state)
+            matrix = build_readiness_authorization_matrix(state)
+            artifact_state = build_artifact_state(state)
+
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertEqual(matrix["translation_provenance_status"]["status"], "blocked")
+            statuses = {item["artifact_id"]: item["status"] for item in artifact_state["artifacts"]}
+            self.assertEqual(statuses["provenance_coverage_report"], "requires_human_review")
+
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "provenance-delivery-001")
+            assets = packaged["manifest"]["assets"]
+            self.assertEqual(assets["translation_provenance"], TRANSLATION_PROVENANCE_JSONL)
+            self.assertEqual(assets["segment_evidence_view"], SEGMENT_EVIDENCE_VIEW_JSON)
+            self.assertEqual(assets["provenance_coverage_report"], PROVENANCE_COVERAGE_REPORT_JSON)
+            self.assertEqual(assets["translation_claim_provenance_report"], TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON)
+
+    def test_cli_and_api_are_deterministic_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _translation_provenance_state(Path(directory))
+            first = Path(directory) / "provenance-first.json"
+            second = Path(directory) / "provenance-second.json"
+            segment_output = Path(directory) / "segment-evidence.json"
+            coverage_output = Path(directory) / "coverage.json"
+            claim_output = Path(directory) / "claim-provenance.json"
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                self.assertEqual(cli_main(["translation-provenance", state.as_posix(), "--output", first.as_posix()]), 0)
+                self.assertEqual(cli_main(["translation-provenance", state.as_posix(), "--output", second.as_posix()]), 0)
+                self.assertEqual(read_json(first), read_json(second))
+                self.assertEqual(cli_main(["segment-evidence-view", state.as_posix(), "--output", segment_output.as_posix()]), 0)
+                self.assertEqual(cli_main(["provenance-coverage-report", state.as_posix(), "--output", coverage_output.as_posix()]), 0)
+                self.assertEqual(cli_main(["translation-claim-provenance-report", state.as_posix(), "--output", claim_output.as_posix()]), 0)
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = ["translation-provenance", "segment-evidence-view", "provenance-coverage-report", "translation-claim-provenance-report"]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
 
 
 class ProviderResultGateTests(unittest.TestCase):

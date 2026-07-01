@@ -1,0 +1,23 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-translation-claim-provenance-report-v1",
+  "artifact": "translation-claim-provenance-report.json",
+  "run_id": "run-example",
+  "status": "blocked",
+  "claims": [
+    {
+      "claim": "provider_backed_quality",
+      "status": "forbidden",
+      "supporting_evidence": [],
+      "blocking_evidence": [],
+      "limitations": ["provenance does not prove semantic quality by itself"]
+    }
+  ],
+  "forbidden_claims": ["provider_backed_quality", "production_ready"],
+  "supported_claims": [],
+  "limited_claims": [],
+  "source_artifacts": {
+    "provenance_coverage_report": "provenance-coverage-report.json"
+  },
+  "limitations": ["claim provenance is not a bypass around scorecard, signoff, readiness, or artifact-state gates"]
+}

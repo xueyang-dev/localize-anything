@@ -65,6 +65,12 @@ from .locale_capability import (
     LOCALE_READINESS_IMPACT_JSON,
     LOCALE_RISK_REPORT_JSON,
 )
+from .translation_provenance import (
+    PROVENANCE_COVERAGE_REPORT_JSON,
+    SEGMENT_EVIDENCE_VIEW_JSON,
+    TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+    TRANSLATION_PROVENANCE_JSONL,
+)
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -288,6 +294,10 @@ def _load_artifacts(
         "locale_capability_report": _read_optional_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON),
         "locale_risk_report": _read_optional_json(state_dir / LOCALE_RISK_REPORT_JSON),
         "locale_readiness_impact": _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON),
+        "translation_provenance": _read_optional_jsonl(state_dir / TRANSLATION_PROVENANCE_JSONL),
+        "segment_evidence_view": _read_optional_json(state_dir / SEGMENT_EVIDENCE_VIEW_JSON),
+        "provenance_coverage_report": _read_optional_json(state_dir / PROVENANCE_COVERAGE_REPORT_JSON),
+        "translation_claim_provenance_report": _read_optional_json(state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON),
         "readiness_authorization_matrix": _read_optional_json(state_dir / "readiness-authorization-matrix.json"),
         "manual_followup_gap_report": _read_optional_json(state_dir / "manual-followup-gap-report.json"),
         "apply_readiness_report": _read_optional_json(state_dir / "apply-readiness-report.json"),
@@ -724,6 +734,12 @@ def _forbidden_claims(
     if isinstance(locale_impact, dict) and locale_impact:
         if str(locale_impact.get("status") or "") in {"blocked", "stale", "review_required"}:
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    coverage_report = artifacts.get("provenance_coverage_report", {})
+    claim_provenance = artifacts.get("translation_claim_provenance_report", {})
+    if isinstance(claim_provenance, dict) and claim_provenance:
+        claims.update(str(claim) for claim in claim_provenance.get("forbidden_claims", []) if claim)
+    if isinstance(coverage_report, dict) and str(coverage_report.get("status") or "") in {"blocked", "stale", "review_required"}:
+        claims.update({"provider_backed_quality", "knowledge_backed_quality", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
     if dimensions["knowledge_assurance"]["status"] != "pass":
@@ -831,6 +847,9 @@ def _recommended_next_actions(
         actions.append("Record and reconcile provider execution evidence before claiming provider-backed quality.")
     if any(claim in forbidden_claims for claim in LOCALE_CLAIMS):
         actions.append("Collect locale capability evidence before claiming locale-complete, RTL-safe, plural-complete, formatting-complete, or full-product localization.")
+    provenance_coverage = artifacts.get("provenance_coverage_report", {})
+    if isinstance(provenance_coverage, dict) and provenance_coverage.get("status") in {"blocked", "review_required", "stale"}:
+        actions.append("Refresh translation provenance views and resolve stale, missing, reference-only, or unverified provider evidence before making strong segment or run claims.")
     if "review_complete" in forbidden_claims:
         actions.append("Record explicit qualified human review evidence before claiming review completion.")
     if _document_evidence_blockers(artifacts):
@@ -1176,6 +1195,10 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "locale_capability_report": state_dir / LOCALE_CAPABILITY_REPORT_JSON,
         "locale_risk_report": state_dir / LOCALE_RISK_REPORT_JSON,
         "locale_readiness_impact": state_dir / LOCALE_READINESS_IMPACT_JSON,
+        "translation_provenance": state_dir / TRANSLATION_PROVENANCE_JSONL,
+        "segment_evidence_view": state_dir / SEGMENT_EVIDENCE_VIEW_JSON,
+        "provenance_coverage_report": state_dir / PROVENANCE_COVERAGE_REPORT_JSON,
+        "translation_claim_provenance_report": state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
         "readiness_authorization_matrix": state_dir / "readiness-authorization-matrix.json",
         "manual_followup_gap_report": state_dir / "manual-followup-gap-report.json",
         "apply_readiness_report": state_dir / "apply-readiness-report.json",

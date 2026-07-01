@@ -152,6 +152,13 @@ from .locale_capability import (
     LOCALE_RISK_REPORT_JSON,
     locale_capability_asset_paths,
 )
+from .translation_provenance import (
+    PROVENANCE_COVERAGE_REPORT_JSON,
+    SEGMENT_EVIDENCE_VIEW_JSON,
+    TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+    TRANSLATION_PROVENANCE_JSONL,
+    translation_provenance_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -234,6 +241,10 @@ OPTIONAL_CANONICAL_ASSETS = (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_RISK_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
+    TRANSLATION_PROVENANCE_JSONL,
+    SEGMENT_EVIDENCE_VIEW_JSON,
+    PROVENANCE_COVERAGE_REPORT_JSON,
+    TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -355,6 +366,7 @@ def package_delivery(
                 **provider_evidence_asset_paths(state_dir),
                 **provider_result_gate_asset_paths(state_dir),
                 **locale_capability_asset_paths(state_dir),
+                **translation_provenance_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

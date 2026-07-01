@@ -20,6 +20,12 @@ from .locale_capability import (
     LOCALE_READINESS_IMPACT_JSON,
     LOCALE_RISK_REPORT_JSON,
 )
+from .translation_provenance import (
+    PROVENANCE_COVERAGE_REPORT_JSON,
+    SEGMENT_EVIDENCE_VIEW_JSON,
+    TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+    TRANSLATION_PROVENANCE_JSONL,
+)
 
 
 READINESS_AUTHORIZATION_MATRIX_JSON = "readiness-authorization-matrix.json"
@@ -93,6 +99,7 @@ def build_readiness_authorization_matrix(
     knowledge_status = _knowledge_status(artifacts)
     provider_status = _provider_status(artifacts)
     locale_status = _locale_status(artifacts)
+    provenance_status = _provenance_status(artifacts)
     coverage_status = _coverage_status(scorecard)
     qa_status = _qa_status(artifacts)
     workflow_status = _workflow_hardening_status(artifacts)
@@ -110,12 +117,13 @@ def build_readiness_authorization_matrix(
         knowledge_status,
         provider_status,
         locale_status,
+        provenance_status,
         coverage_status,
         qa_status,
         workflow_status,
         artifacts,
     )
-    forbidden.update(_forbidden_from_statuses(evidence_freshness, handoff_status, repair_status, document_status, knowledge_status, provider_status, locale_status, coverage_status, qa_status, workflow_status))
+    forbidden.update(_forbidden_from_statuses(evidence_freshness, handoff_status, repair_status, document_status, knowledge_status, provider_status, locale_status, provenance_status, coverage_status, qa_status, workflow_status))
 
     delivery_status = _delivery_matrix_status(blockers, warnings, scorecard, signoff_status, claim_status, forbidden)
     apply_status = _apply_matrix_status(blockers, warnings, scorecard, signoff_status, delivery_status, forbidden)
@@ -139,6 +147,7 @@ def build_readiness_authorization_matrix(
         "knowledge_evidence_status": knowledge_status,
         "provider_policy_status": provider_status,
         "locale_capability_status": locale_status,
+        "translation_provenance_status": provenance_status,
         "coverage_status": coverage_status,
         "qa_status": qa_status,
         "workflow_hardening_status": workflow_status,
@@ -246,6 +255,7 @@ def build_apply_readiness_report(
             "knowledge": matrix.get("knowledge_evidence_status", {}),
             "document": matrix.get("document_evidence_status", {}),
             "locale": matrix.get("locale_capability_status", {}),
+            "translation_provenance": matrix.get("translation_provenance_status", {}),
         },
         "forbidden_claims_that_prevent_apply": sorted(set(matrix.get("forbidden_claims", [])) & APPLY_BLOCKING_CLAIMS),
         "safe_apply_limitations": _apply_limitations(matrix),
@@ -361,6 +371,8 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "locale_capability_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_CAPABILITY_REPORT_JSON)),
         "locale_risk_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_RISK_REPORT_JSON)),
         "locale_readiness_impact": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_READINESS_IMPACT_JSON)),
+        "provenance_coverage_report": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVENANCE_COVERAGE_REPORT_JSON)),
+        "translation_claim_provenance_report": _read_optional_json(_first_existing(state_dir, delivery_dir, TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON)),
     }
 
 
@@ -377,6 +389,7 @@ def _collect_blockers_and_warnings(
     knowledge_status: dict[str, Any],
     provider_status: dict[str, Any],
     locale_status: dict[str, Any],
+    provenance_status: dict[str, Any],
     coverage_status: dict[str, Any],
     qa_status: dict[str, Any],
     workflow_status: dict[str, Any],
@@ -395,6 +408,7 @@ def _collect_blockers_and_warnings(
         ("knowledge_evidence_blocked", knowledge_status, "knowledge-audit-enforcement-decision.json"),
         ("provider_policy_blocked", provider_status, "delivery-manifest.json"),
         ("locale_capability_blocked", locale_status, LOCALE_READINESS_IMPACT_JSON),
+        ("translation_provenance_blocked", provenance_status, PROVENANCE_COVERAGE_REPORT_JSON),
         ("coverage_blocked", coverage_status, "evaluation-scorecard.json"),
         ("qa_blocked", qa_status, "delivery-manifest.json"),
         ("workflow_hardening_blocked", workflow_status, "workflow-lock-state.json"),
@@ -571,6 +585,20 @@ def _locale_status(artifacts: dict[str, Any]) -> dict[str, Any]:
     if str(scorecard_dimension.get("status") or "") in {"warning", "unknown", "not_provided"}:
         return {"status": REVIEW_REQUIRED, "domain": "locale", "summary": "scorecard locale assurance is downgraded"}
     return {"status": READY, "domain": "locale", "summary": "locale capability has no active readiness blockers"}
+
+
+def _provenance_status(artifacts: dict[str, Any]) -> dict[str, Any]:
+    coverage = artifacts.get("provenance_coverage_report", {})
+    claims = artifacts.get("translation_claim_provenance_report", {})
+    if not any((coverage, claims)):
+        return {"status": NOT_APPLICABLE, "domain": "translation_provenance", "summary": "translation provenance evidence has not been generated"}
+    coverage_status = str(coverage.get("status") or "")
+    claim_status = str(claims.get("status") or "")
+    if coverage_status in {"blocked", "stale"} or claim_status in {"blocked", "stale"}:
+        return {"status": BLOCKED if "blocked" in {coverage_status, claim_status} else STALE, "domain": "translation_provenance", "summary": "translation provenance evidence blocks strong claims"}
+    if coverage_status in {"review_required"} or claim_status in {"limited", "unsupported"}:
+        return {"status": REVIEW_REQUIRED, "domain": "translation_provenance", "summary": "translation provenance is incomplete, limited, or needs review"}
+    return {"status": READY, "domain": "translation_provenance", "summary": "translation provenance views are current for available evidence"}
 
 
 def _coverage_status(scorecard: dict[str, Any]) -> dict[str, Any]:
@@ -765,6 +793,8 @@ def _forbidden_from_statuses(*statuses: dict[str, Any]) -> set[str]:
             forbidden.update({"knowledge_backed_quality", "knowledge_review_complete"})
         if status.get("domain") == "locale" and status["status"] != READY:
             forbidden.update(LOCALE_CLAIMS)
+        if status.get("domain") == "translation_provenance" and status["status"] not in {READY, NOT_APPLICABLE}:
+            forbidden.update({"provider_backed_quality", "knowledge_backed_quality", "review_complete"})
     return forbidden
 
 
@@ -905,6 +935,10 @@ def _source_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, d
         "knowledge-readiness-impact-report.json",
         "repair-result.json",
         "repair-history.jsonl",
+        TRANSLATION_PROVENANCE_JSONL,
+        SEGMENT_EVIDENCE_VIEW_JSON,
+        PROVENANCE_COVERAGE_REPORT_JSON,
+        TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
     ]
     result: dict[str, dict[str, str]] = {}
     for name in names:

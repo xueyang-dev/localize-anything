@@ -1,0 +1,26 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-translation-provenance-record-v1",
+  "artifact": "translation-provenance.jsonl",
+  "run_id": "run-example",
+  "segment_id": "seg-1",
+  "source": "Open Lab",
+  "target_hash": "example-target-sha256",
+  "source_file": "res/values/strings.xml",
+  "target_locale": "zh-CN",
+  "scope": { "scope_type": "segment", "segment_ids": ["seg-1"] },
+  "evidence": [
+    {
+      "evidence_id": "evidence-term-open-lab",
+      "evidence_type": "term",
+      "evidence_status": "locked",
+      "source_artifact": "term-registry.csv",
+      "source_value": "Open Lab",
+      "target_value": "开放实验室",
+      "claims_affected": ["full_terminology_assurance"]
+    }
+  ],
+  "supported_claims": ["full_terminology_assurance"],
+  "forbidden_claims": ["provider_backed_quality"],
+  "unsupported_claims": ["review_complete"]
+}

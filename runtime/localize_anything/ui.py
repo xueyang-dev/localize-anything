@@ -157,6 +157,12 @@ from .locale_capability import (
     read_locale_readiness_impact,
     read_locale_risk_report,
 )
+from .translation_provenance import (
+    read_provenance_coverage_report,
+    read_segment_evidence_view,
+    read_translation_claim_provenance_report,
+    read_translation_provenance,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -374,6 +380,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/locale-readiness-impact":
                     self._handle_locale_artifact_query(parsed.query, "locale_readiness_impact", read_locale_readiness_impact)
+                    return
+                if parsed.path == "/api/translation-provenance":
+                    self._handle_workflow_artifact_query(parsed.query, "translation_provenance", lambda state_dir: {"records": read_translation_provenance(state_dir)})
+                    return
+                if parsed.path == "/api/segment-evidence-view":
+                    self._handle_workflow_artifact_query(parsed.query, "segment_evidence_view", read_segment_evidence_view)
+                    return
+                if parsed.path == "/api/provenance-coverage-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provenance_coverage_report", read_provenance_coverage_report)
+                    return
+                if parsed.path == "/api/translation-claim-provenance-report":
+                    self._handle_workflow_artifact_query(parsed.query, "translation_claim_provenance_report", read_translation_claim_provenance_report)
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)

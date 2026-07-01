@@ -159,6 +159,12 @@ from .locale_capability import (
     LOCALE_READINESS_IMPACT_JSON,
     LOCALE_RISK_REPORT_JSON,
 )
+from .translation_provenance import (
+    PROVENANCE_COVERAGE_REPORT_JSON,
+    SEGMENT_EVIDENCE_VIEW_JSON,
+    TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+    TRANSLATION_PROVENANCE_JSONL,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1196,6 +1202,10 @@ def _summary(
         ("locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON),
         ("locale_risk_report", LOCALE_RISK_REPORT_JSON),
         ("locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON),
+        ("translation_provenance", TRANSLATION_PROVENANCE_JSONL),
+        ("segment_evidence_view", SEGMENT_EVIDENCE_VIEW_JSON),
+        ("provenance_coverage_report", PROVENANCE_COVERAGE_REPORT_JSON),
+        ("translation_claim_provenance_report", TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1379,6 +1389,16 @@ def _summary(
             "locale_readiness_impact_status": (
                 read_json(state_dir / LOCALE_READINESS_IMPACT_JSON).get("status", "not_checked")
                 if (state_dir / LOCALE_READINESS_IMPACT_JSON).is_file()
+                else "not_checked"
+            ),
+            "provenance_coverage_status": (
+                read_json(state_dir / PROVENANCE_COVERAGE_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / PROVENANCE_COVERAGE_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "translation_claim_provenance_status": (
+                read_json(state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON).is_file()
                 else "not_checked"
             ),
             "knowledge_repair_closure_status": (
