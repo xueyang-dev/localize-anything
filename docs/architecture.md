@@ -264,6 +264,7 @@ Each link has a specific contract:
 | Provider Result Acceptance | QA report, scoped review evidence, acceptance decision, claim support report, and Workbench provider queue | QA pass is not semantic quality; limited acceptance remains limited and unsupported provider claims stay forbidden. |
 | Locale Capability | `locale-capability-report.json`, `locale-risk-report.json`, `locale-readiness-impact.json` | Seed-level locale engineering evidence downgrades unsupported locale, RTL, plural, formatting, and full-product claims. |
 | Translation Provenance | `translation-provenance.jsonl`, `segment-evidence-view.json`, `provenance-coverage-report.json`, `translation-claim-provenance-report.json` | Per-segment and per-run provenance explains evidence and unsupported claims without proving quality by itself. |
+| Release Audit | `release-readiness-audit.json`, `public-claims-report.json`, `public-claims-report.md`, `non-claims.md`, `release-blockers.json`, `release-evidence-manifest.json` | Public claims and release readiness are audited conservatively; seed artifacts do not become stable public claims merely by existing. |
 | Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
 | Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
 | Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
@@ -1627,3 +1628,39 @@ CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
 `benchmark-evidence-matrix`, `benchmark-claim-boundary-report`, and
 `benchmark-compare`. API GET endpoints expose the six artifacts. The seed adds
 no provider/model calls, no write endpoints, and no target-file mutation.
+
+## Release Audit / Public Claims Boundary Seed
+
+Release Audit is a conservative boundary layer for public documentation,
+GitHub promotion, and future release-candidate preparation. It does not create
+releases or tags and does not convert seed capabilities into stable public
+claims.
+
+The seed emits:
+
+- `release-evidence-manifest.json`: aggregated evidence from scorecard,
+  readiness, benchmark, provenance, locale, provider, knowledge, workflow,
+  delivery, run-summary, and inspectable public docs;
+- `public-claims-report.json` and `public-claims-report.md`: claim
+  classifications such as `safe_public_claim`, `limited_claim`,
+  `seed_only_claim`, `unsupported_claim`, and `forbidden_claim`;
+- `non-claims.md`: explicit capabilities that must not be advertised as
+  complete or stable;
+- `release-blockers.json`: stale evidence, unsupported public claims, missing
+  benchmark/provider/human/locale evidence, documentation mismatch, and release
+  policy blockers when evidenced;
+- `release-readiness-audit.json`: release-candidate readiness, safe claims,
+  seed-only claims, forbidden claims, blockers, and next actions.
+
+Rules are deliberately strict: benchmark existence is not quality proof;
+provider-backed quality requires reconciled provider evidence, QA, scoped
+review, acceptance, and compatible signoff; knowledge-backed quality requires
+scoped knowledge evidence, audit, review, and signoff; locale-complete claims
+require locale capability evidence; production-ready claims require qualified
+human review evidence. Full product localization remains a non-claim without
+non-text, dynamic/runtime surface, and locale evidence.
+
+CLI commands are `release-readiness-audit`, `public-claims-report`,
+`non-claims`, `release-blockers`, `release-evidence-manifest`, and
+`release-audit`. API GET endpoints expose the JSON artifacts. The seed adds no
+provider/model calls, no release/tag actions, and no target-file mutation.

@@ -311,6 +311,14 @@ from runtime.localize_anything.benchmark_lab import (
     BENCHMARK_RUN_MANIFEST_JSON,
     build_benchmark_lab_reports,
 )
+from runtime.localize_anything.release_audit import (
+    RELEASE_BLOCKERS_JSON,
+    RELEASE_READINESS_AUDIT_JSON,
+    build_public_claims_report,
+    build_release_audit_artifacts,
+    build_release_blockers,
+    build_release_evidence_manifest,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -323,6 +331,7 @@ from runtime.localize_anything.resolution_gate import (
 from runtime.localize_anything.retrieval import build_work_packet
 from runtime.localize_anything.review import import_review
 from runtime.localize_anything.review_sheet import write_review_sheet
+from runtime.localize_anything.run import _summary as build_run_summary_for_test
 from runtime.localize_anything.run import run_localize
 from runtime.localize_anything.schema_validation import validate_document, validate_protocol_tree
 from runtime.localize_anything.segments import diff_segments
@@ -10679,6 +10688,44 @@ def _write_benchmark_run_artifacts(run_dir: Path, role: str, forbidden_claims: l
     write_json(run_dir / "translation-claim-provenance-report.json", {"protocol_version": "0.1", "schema": "localize-anything-translation-claim-provenance-report-v1", "status": "blocked", "forbidden_claims": forbidden_claims})
 
 
+def _release_audit_state(root: Path) -> Path:
+    state = _benchmark_run_state(root)
+    build_benchmark_lab_reports(state, run_id="release-benchmark-001")
+    write_json(
+        state / "evaluation-scorecard.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-evaluation-scorecard-v1",
+            "run_id": "release-audit-test",
+            "status": "blocked",
+            "overall_claim": "review_required",
+            "forbidden_claims": [
+                "provider_backed_quality",
+                "knowledge_backed_quality",
+                "locale_complete",
+                "production_ready",
+            ],
+        },
+    )
+    write_json(
+        state / "readiness-authorization-matrix.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-readiness-authorization-matrix-v1",
+            "delivery_readiness_status": "review_required",
+            "apply_readiness_status": "blocked",
+            "forbidden_claims": ["provider_backed_quality", "production_ready"],
+        },
+    )
+    write_json(state / "provider-claim-support-report.json", {"protocol_version": "0.1", "schema": "localize-anything-provider-claim-support-report-v1", "status": "blocked", "provider_backed_quality_supported": False})
+    write_json(state / "locale-readiness-impact.json", {"protocol_version": "0.1", "schema": "localize-anything-locale-readiness-impact-v1", "status": "review_required", "forbidden_claims": ["locale_complete", "locale_formatting_complete"]})
+    write_json(state / "knowledge-assurance-summary.json", {"protocol_version": "0.1", "schema": "localize-anything-knowledge-assurance-summary-v1", "status": "review_required", "unsupported_claims": ["knowledge_backed_quality"]})
+    write_json(state / "translation-claim-provenance-report.json", {"protocol_version": "0.1", "schema": "localize-anything-translation-claim-provenance-report-v1", "status": "blocked", "forbidden_claims": ["provider_backed_quality"]})
+    write_json(state / "provenance-coverage-report.json", {"protocol_version": "0.1", "schema": "localize-anything-provenance-coverage-report-v1", "status": "review_required"})
+    write_json(state / "workflow-recovery-result.json", {"protocol_version": "0.1", "schema": "localize-anything-workflow-recovery-result-v1", "result_status": "not_applicable", "status": "not_applicable"})
+    return state
+
+
 def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
     state = _knowledge_repair_state(root, [issue or _knowledge_repair_issue("hard_constraint_failed")])
     build_knowledge_repair_plan(state)
@@ -11914,7 +11961,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 127)
+        self.assertEqual(result["schemas_checked"], 131)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13375,6 +13422,114 @@ class BenchmarkLabTests(unittest.TestCase):
                     server.server_close()
                     thread.join(timeout=2)
             self.assertFalse(provider.called)
+
+
+class ReleaseAuditTests(unittest.TestCase):
+    def test_release_audit_classifies_claims_and_blocks_overclaims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _release_audit_state(Path(directory))
+            result = build_release_audit_artifacts(state, repo_root=Path(directory), run_id="release-test-001")
+
+            audit = result["release_readiness_audit"]
+            claims = result["public_claims_report"]
+            blockers = result["release_blockers"]
+            manifest = result["release_evidence_manifest"]
+
+            assert_protocol_schema(self, "release-readiness-audit", audit)
+            assert_protocol_schema(self, "public-claims-report", claims)
+            assert_protocol_schema(self, "release-blockers", blockers)
+            assert_protocol_schema(self, "release-evidence-manifest", manifest)
+            self.assertIn("artifact_backed_workflow", audit["safe_public_claims"])
+            self.assertIn("benchmark_lab_seed", audit["seed_only_claims"])
+            self.assertIn("provider_backed_quality", audit["forbidden_claims"])
+            self.assertIn("knowledge_backed_quality", audit["forbidden_claims"])
+            self.assertIn("locale_complete", audit["forbidden_claims"])
+            self.assertFalse(audit["release_candidate_ready"])
+
+    def test_release_blockers_include_stale_human_provider_locale_and_docs_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _release_audit_state(root)
+            (root / "README.md").write_text("Production-ready provider-backed quality for every locale.\n", encoding="utf-8")
+            write_json(
+                state / "artifact-state.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-artifact-state-v1",
+                    "status": "stale",
+                    "artifacts": [{"artifact_id": "evaluation_scorecard", "status": "stale"}],
+                    "summary": {"stale_count": 1},
+                },
+            )
+
+            manifest = build_release_evidence_manifest(state, repo_root=root)
+            claims = build_public_claims_report(state, evidence_manifest=manifest)
+            blockers = build_release_blockers(state, evidence_manifest=manifest, public_claims=claims)
+            blocker_types = {item["blocker_type"] for item in blockers["blockers"]}
+
+            self.assertIn("stale_artifacts", blocker_types)
+            self.assertIn("human_review_missing", blocker_types)
+            self.assertIn("provider_evidence_missing", blocker_types)
+            self.assertIn("locale_capability_missing", blocker_types)
+            self.assertIn("release_docs_mismatch", blocker_types)
+
+    def test_release_non_claims_delivery_run_summary_cli_and_api_are_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _release_audit_state(root)
+            first = root / "first.json"
+            second = root / "second.json"
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                self.assertEqual(cli_main(["release-audit", state.as_posix(), "--repo-root", root.as_posix(), "--output", first.as_posix()]), 0)
+                self.assertEqual(cli_main(["release-audit", state.as_posix(), "--repo-root", root.as_posix(), "--output", second.as_posix()]), 0)
+                self.assertEqual(read_json(first), read_json(second))
+                non_claims = root / "non-claims-out.md"
+                self.assertEqual(cli_main(["non-claims", state.as_posix(), "--output", non_claims.as_posix()]), 0)
+                self.assertIn("provider_backed_quality", non_claims.read_text(encoding="utf-8"))
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = ["release-readiness-audit", "public-claims-report", "release-blockers", "release-evidence-manifest"]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
+
+            artifact_state = build_artifact_state(state)
+            artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+            self.assertIn("release_readiness_audit", artifact_ids)
+
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "release-delivery-001")
+            self.assertEqual(packaged["manifest"]["assets"]["release_readiness_audit"], RELEASE_READINESS_AUDIT_JSON)
+            self.assertEqual(packaged["manifest"]["assets"]["release_blockers"], RELEASE_BLOCKERS_JSON)
+
+            summary = build_run_summary_for_test(
+                "release-summary-001",
+                "pass_with_warnings",
+                root,
+                "en-US",
+                "zh-CN",
+                [],
+                state,
+                state / "segments.jsonl",
+                state / "batch-plan.json",
+                state / "generation-handoff.json",
+                0,
+                0,
+                "dry_run",
+            )
+            self.assertEqual(summary["summary"]["release_readiness_audit_status"], "blocked")
+            self.assertGreater(summary["summary"]["release_blocker_count"], 0)
 
 
 class ProviderResultGateTests(unittest.TestCase):

@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-release-readiness-audit-v1",
+  "artifact": "release-readiness-audit.json",
+  "run_id": "release-audit-example",
+  "status": "blocked",
+  "release_candidate_ready": false,
+  "safe_public_claims": ["artifact_backed_workflow"],
+  "limited_claims": ["adapter_protocol_baseline"],
+  "seed_only_claims": ["benchmark_lab_seed"],
+  "forbidden_claims": ["provider_backed_quality", "production_ready"],
+  "release_blockers": [
+    {
+      "blocker_id": "unsupported_public_claim:provider_backed_quality",
+      "blocker_type": "unsupported_public_claim",
+      "severity": "blocking",
+      "message": "provider_backed_quality is not supported for public release",
+      "source_artifact": "public-claims-report.json",
+      "claim": "provider_backed_quality"
+    }
+  ]
+}

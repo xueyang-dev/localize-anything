@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/release-readiness-audit.schema.json",
+  "title": "Localize Anything Release Readiness Audit",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "release_candidate_ready", "forbidden_claims", "release_blockers"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-release-readiness-audit-v1" },
+    "artifact": { "const": "release-readiness-audit.json" },
+    "status": { "type": "string" },
+    "release_candidate_ready": { "type": "boolean" },
+    "safe_public_claims": { "type": "array", "items": { "type": "string" } },
+    "seed_only_claims": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "release_blockers": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": true
+}

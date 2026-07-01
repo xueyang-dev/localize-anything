@@ -1,0 +1,26 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-release-evidence-manifest-v1",
+  "artifact": "release-evidence-manifest.json",
+  "run_id": "release-audit-example",
+  "status": "ready_with_warnings",
+  "evidence": {
+    "scorecard": {
+      "path": "evaluation-scorecard.json",
+      "status": "blocked",
+      "content": {
+        "forbidden_claims": ["provider_backed_quality"]
+      }
+    }
+  },
+  "public_docs": {
+    "checked_paths": ["README.md"],
+    "risky_claims": []
+  },
+  "summary": {
+    "present_count": 1,
+    "missing_count": 0,
+    "stale_count": 0,
+    "risky_public_doc_claim_count": 0
+  }
+}

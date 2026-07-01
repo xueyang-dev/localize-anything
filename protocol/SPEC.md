@@ -1777,3 +1777,51 @@ CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
 `benchmark-evidence-matrix`, `benchmark-claim-boundary-report`, and
 `benchmark-compare`. They generate or read structured artifacts only. They must
 not call providers, run models, apply repairs, or mutate target project files.
+
+## Release Audit / Public Claims Boundary Seed
+
+Release Audit artifacts consolidate public-facing claim evidence without
+creating releases or tags.
+
+Artifacts:
+
+- `release-evidence-manifest.json` aggregates scorecard, readiness, benchmark,
+  provenance, locale, provider, knowledge, workflow, delivery, run-summary, and
+  inspectable public-doc evidence.
+- `public-claims-report.json` classifies claims as `safe_public_claim`,
+  `limited_claim`, `seed_only_claim`, `experimental_claim`,
+  `unsupported_claim`, or `forbidden_claim`.
+- `public-claims-report.md` is the human-readable public claims explanation.
+- `non-claims.md` lists capabilities that must not be advertised as complete or
+  stable.
+- `release-blockers.json` records blockers such as stale artifacts,
+  unsupported public claims, missing benchmark/provider/human/locale evidence,
+  docs mismatch, generated/external file risk, secrets risk, and release/tag
+  policy violation when evidenced.
+- `release-readiness-audit.json` summarizes release-candidate readiness,
+  blockers, forbidden claims, safe claims, seed-only claims, and next actions.
+
+Rules:
+
+- Seed capability does not equal stable public feature.
+- Benchmark artifact existence does not prove translation quality.
+- Provider-backed, knowledge-backed, locale-complete, production-ready,
+  review-complete, layout-verified, full-product-localization, delivery-ready,
+  and apply-ready claims require explicit supporting evidence from existing
+  gates.
+- Release audit is a consolidation layer, not a bypass around scorecard,
+  readiness, artifact-state, claim acceptance, signoff, provider, knowledge,
+  locale, benchmark, or human review evidence.
+- This seed must not create releases, create or move tags, call providers, run
+  models, apply repairs, or mutate target project files.
+
+Artifact-backed APIs are:
+
+- `GET /api/release-readiness-audit`
+- `GET /api/public-claims-report`
+- `GET /api/release-blockers`
+- `GET /api/release-evidence-manifest`
+
+CLI commands are `release-readiness-audit`, `public-claims-report`,
+`non-claims`, `release-blockers`, `release-evidence-manifest`, and
+`release-audit`. They generate or read local artifacts only.
