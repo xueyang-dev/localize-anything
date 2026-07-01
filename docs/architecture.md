@@ -75,7 +75,7 @@ Current conservative scope:
   default product claim.
 - Non-claim: recognized by the architecture but not implemented.
 
-## Progress Snapshot After PR #57
+## Progress Snapshot After PR #62
 
 Repository presence, release stability, and public support claims are separate
 states. A merged architecture seed is implemented and tested, but it is not a
@@ -86,8 +86,8 @@ support promotion.
 | Status | Current scope |
 | --- | --- |
 | Stable public baseline | Released v0.4.1 behavior: protocol/runtime contracts, staged delivery, explicit apply confirmation, deterministic structural QA, Workbench UI wiring, and released adapter capabilities within their documented format boundaries. |
-| Implemented architecture seeds | Evidence Spine gates through provider result QA/review acceptance: document evidence, personal knowledge, knowledge consumption/audit/repair, readiness authorization, workflow lifecycle/resume/hardening, provider handoff evidence, and provider result QA/acceptance. |
-| Active draft / under review | Locale Capability Report seed. It adds conservative locale-engineering evidence and claim downgrades, not full CLDR or full-product localization support. |
+| Implemented architecture seeds | Evidence Spine gates through release audit and public claim boundary: document evidence, personal knowledge, knowledge consumption/audit/repair, readiness authorization, workflow lifecycle/resume/hardening, provider handoff evidence, provider result QA/acceptance, locale capability, translation provenance, benchmark lab, and release audit. |
+| Active draft / under review | Public Docs Claim Reconciliation. It syncs public README/introduction/checklist/roadmap wording with release audit boundaries; it does not add runtime gates or promote seeds to stable claims. |
 | Experimental | Explicit opt-in Android merged dependency overlays, synthetic/mock provider paths, and other opt-in adapter or benchmark surfaces identified as experimental in their own docs. |
 | Explicit non-claims | Complete product or Android-app localization, locale-complete support, automatic semantic quality, provider- or knowledge-backed quality without scoped evidence, DOCX render fidelity, factual truth verification, and automatic destructive apply. |
 
@@ -104,13 +104,19 @@ Architecture progress by PR range:
 | #53–#55 | Workflow orchestration, incremental resume, and hardening | Implemented seeds. |
 | #56–#57 | Provider handoff evidence and provider result QA/review acceptance | Implemented seeds; no provider-backed quality claim follows from intake or QA alone. |
 | #58 | Architecture and roadmap progress synchronization | Documentation and public claim boundaries synced with implemented seed state. |
-| Current | Locale Capability Report | Active seed; locale-complete, RTL-safe, plural-complete, formatting-complete, and full-product claims remain forbidden unless evidence supports them. |
+| #59 | Locale Capability Report | Implemented seed; locale-complete, RTL-safe, plural-complete, formatting-complete, and full-product claims remain forbidden unless evidence supports them. |
+| #60 | Translation Provenance View | Implemented seed; provenance explains evidence and unsupported claims without proving quality by itself. |
+| #61 | Benchmark Lab Minimal Seed | Implemented seed; benchmark artifacts compare evidence boundaries without producing a single quality score or release claim. |
+| #62 | Release Audit / Public Claims Boundary | Implemented seed; release audit artifacts classify public claims and blockers without creating releases or tags. |
+| Current | Public Docs Claim Reconciliation | Docs-only boundary sync against release audit artifacts. |
 
 ## Public Claim Boundary
 
 Public wording may claim the released engineering baseline and may describe
 merged work explicitly as an architecture seed. It must not convert a seed,
 experimental path, or narrow evidence result into a stable or global claim.
+The public docs sync note lives in
+[Public Claim Reconciliation](public-claim-reconciliation.md).
 
 Localize Anything does not currently claim:
 

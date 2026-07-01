@@ -47,12 +47,32 @@ v0.4.1 refines the Workbench WebUI: it removes copied macOS window controls, con
 
 The v0.4.0 Word OpenXML localization and explicit opt-in Android merged dependency resource overlay remain the current feature baseline. Legacy binary `.doc` files, image text, embedded objects, and provider-backed translation quality remain outside the deterministic coverage claim.
 
-Architecture seeds merged through PR #57 connect source projects, user-approved
-knowledge, external model/provider result evidence, deterministic QA, scoped
-human review, and traceable delivery artifacts. These are implemented seeds,
-not additional stable v0.4.1 release claims. Localize Anything does not promise
-one-click perfect translation or production quality without qualified review;
-outputs remain staged and apply requires an explicit reviewed confirmation.
+Architecture seeds merged through PR #62 connect source projects,
+user-approved knowledge, external model/provider result evidence, locale
+capability boundaries, translation provenance, benchmark evidence, release
+audit, deterministic QA, scoped human review, and traceable delivery artifacts.
+These are implemented seeds, not additional stable v0.4.1 release claims.
+Localize Anything does not promise one-click perfect translation or production
+quality without qualified review; outputs remain staged and apply requires an
+explicit reviewed confirmation.
+
+## Public claim boundary
+
+Localize Anything can publicly claim a localization engineering workflow that
+uses deterministic checks, staged delivery, evidence artifacts, human review,
+and explicit apply plans to help teams inspect localization results. It does
+not promote seed capabilities, benchmark artifacts, provider intake, knowledge
+packs, locale reports, or release audits into stable quality claims merely
+because those artifacts exist.
+
+Localize Anything does not currently claim provider-backed quality,
+knowledge-backed quality, locale-complete support, full-product localization,
+production-ready quality, zero residual source-language text, DOCX layout
+fidelity, or automatic apply unless release audit, scorecard, review/signoff,
+and readiness evidence explicitly support that claim for the stated scope.
+
+See [Public Claim Reconciliation](docs/public-claim-reconciliation.md) for the
+public documentation sync note.
 
 Verified engineering evidence includes:
 
@@ -87,15 +107,15 @@ Localize Anything provides the engineering layer between a source repository, an
 
 ## Workflow
 
-**Extract → Generate → QA → Stage → Review → Apply**
+**Inspect → Preflight → Generate/import → Review → Readiness-check → Deliver/apply-plan**
 
-1. Extract translatable content from supported real-project formats.
-2. Decide what to generate and what to preserve based on operating mode.
-3. Generate target-locale drafts through a host agent, provider, or human workflow.
-4. Validate placeholders, markup, escapes, keys, and file structure in code.
+1. Inspect supported resource formats and source scope in the real project.
+2. Preflight terminology, coverage, locale, provider, knowledge, and evidence boundaries.
+3. Generate drafts or import external results; imported results are evidence, not provider-backed quality.
+4. Validate placeholders, markup, escapes, keys, and file structure in code while preserving human-review paths.
 5. Stage output outside the source project for review.
-6. Package manifests, QA evidence, review state, delivery decisions, and an apply plan.
-7. Apply changes only after explicit run-id confirmation, with backups before replacement.
+6. Run readiness-check to inspect blockers, warnings, forbidden claims, signoff, and apply readiness.
+7. Deliver a reviewable package; apply changes only after explicit run-id confirmation, with backups before replacement.
 
 ![Localize Anything workflow: 9 steps from Project Agent to Apply with Backups](docs/assets/workflow-dark.svg)
 
@@ -150,6 +170,11 @@ python benchmarks/v021-mode-system/run.py
 localize-anything inspect /path/to/project
 ```
 
+The safe path is: inspect, preflight, generate or import, review, run
+readiness-check, then deliver a review-ready package or produce an apply plan.
+Do not treat drafts, benchmark output, or external provider intake as directly
+ship-ready results.
+
 ## Example workflow
 
 Create a staged Japanese greenfield delivery from an Android source file using synthetic drafts. This does not call an external model and does not write into the project.
@@ -165,7 +190,10 @@ localize-anything localize-run /path/to/project \
   --synthetic-draft
 ```
 
-The run produces staged files, a QA report, a delivery decision, and an apply plan. Writing into the source project is a separate step: review the dry-run plan first, then explicitly confirm the matching run ID.
+The run produces staged files, a QA report, a delivery decision, readiness
+evidence, and an apply plan. Writing into the source project is a separate
+step: review the dry-run plan first, then explicitly confirm the matching run
+ID.
 
 ## Current support
 

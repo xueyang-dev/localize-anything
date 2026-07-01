@@ -55,6 +55,8 @@ evidence:
 - review-ready delivery artifacts
 - real-project smoke-test guide
 - architecture seeds clearly separated from stable release claims
+- release audit claim boundary artifacts as conservative evidence, not as a
+  release-readiness claim by themselves
 
 Avoid claims of:
 
@@ -71,13 +73,18 @@ Avoid claims of:
 - knowledge-backed quality without scoped review/signoff
 - DOCX layout/render fidelity or factual truth verification
 - automatic destructive apply
+- release readiness from seed artifacts or benchmark artifacts alone
 
 ## Pre-posting checklist
 
 - [ ] Confirm README links work.
 - [ ] Confirm the CI badge is green.
 - [ ] Confirm the latest public release is v0.4.1.
-- [ ] Confirm PR #25–#57 architecture seeds are not presented as stable release capabilities.
+- [ ] Confirm PR #25–#62 architecture seeds are not presented as stable release capabilities.
+- [ ] Confirm release audit artifacts are treated as the public claim boundary,
+      not as automatic release/tag authorization.
+- [ ] Confirm README quickstart follows inspect → preflight → generate/import
+      → review → readiness-check → deliver/apply-plan.
 - [ ] Confirm the v0.2.3 Android support boundary is linked.
 - [ ] Confirm v0.2.2 is not promoted.
 - [ ] Confirm issue templates and `CONTRIBUTING.md` exist.

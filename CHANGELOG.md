@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add public documentation claim reconciliation with README, public
+  introduction, launch checklist, architecture, and roadmap wording aligned to
+  Release Audit / Public Claims Boundary artifacts. The sync preserves seed,
+  experimental, unsupported, and forbidden-claim boundaries without adding
+  runtime gates, release automation, provider calls, or tags.
 - Add Release Audit / Public Claims Boundary seed with
   `release-readiness-audit.json`, `public-claims-report.json`,
   `public-claims-report.md`, `non-claims.md`, `release-blockers.json`, and

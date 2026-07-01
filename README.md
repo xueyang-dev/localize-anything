@@ -47,7 +47,15 @@ v0.4.1 优化 Workbench WebUI：移除仿 macOS 窗口控制装饰，将本地�
 
 v0.4.0 新增的 Word OpenXML 文档本地化和显式 opt-in Android merged dependency resource overlay 仍是当前功能基线。旧二进制 `.doc`、图片文字、嵌入对象内容和 provider-backed translation 语义质量仍不属于确定性覆盖声明。
 
-截至 PR #57，仓库已实现一组架构 seed，把源项目、用户审核知识、外部模型/provider 结果证据、确定性 QA、范围化人工审核和可追踪交付串联起来。这些是已实现的架构 seed，不是新增的 v0.4.1 稳定发布声明。Localize Anything 不承诺“一键完美翻译”或未经合格审核的生产质量；输出保持暂存，真正 apply 仍需要显式审阅和确认。
+截至 PR #62，仓库已实现一组架构 seed，把源项目、用户审核知识、外部模型/provider 结果证据、locale 能力边界、译文 provenance、benchmark 证据、release audit、确定性 QA、范围化人工审核和可追踪交付串联起来。这些是已实现的架构 seed，不是新增的 v0.4.1 稳定发布声明。Localize Anything 不承诺“一键完美翻译”或未经合格审核的生产质量；输出保持暂存，真正 apply 仍需要显式审阅和确认。
+
+## 公开声明边界
+
+Localize Anything 可以公开声明的是：它提供一个本地化工程流程，用确定性检查、暂存交付、证据产物、人工审核和显式 apply plan 帮助团队审查本地化结果。它不会把 seed 能力、benchmark 产物、provider intake、knowledge pack、locale report 或 release audit 的存在自动升级为稳定质量声明。
+
+Localize Anything 目前不声称：provider-backed quality、knowledge-backed quality、locale-complete、full-product localization、production-ready、zero-residual-English、DOCX-layout-fidelity、automatic apply，除非对应范围内的 release audit、scorecard、review/signoff 和 readiness 证据明确支持。
+
+公开文档对账说明见 [Public Claim Reconciliation](docs/public-claim-reconciliation.md)。
 
 已验证的工程结果包括：
 
@@ -82,15 +90,15 @@ Localize Anything 提供的是代码库、智能体或人工译者与最终交�
 
 ## 工作流程
 
-**提取 → 生成 → 校验 → 暂存 → 审核 → 应用**
+**检查 → 预检 → 生成/导入 → 审核 → readiness-check → 交付/apply-plan**
 
-1. 从真实项目支持的资源格式中提取可翻译内容。
-2. 根据运行模式决定哪些内容需要生成、哪些内容必须保留。
-3. 通过宿主智能体、模型服务或人工流程生成目标语言草稿。
-4. 使用程序检查占位符、标记、转义符、资源键和文件结构。
+1. 检查真实项目支持的资源格式和源范围。
+2. 预检术语、coverage、locale、provider、knowledge 和证据边界。
+3. 生成草稿或导入外部结果；导入结果只是证据，不自动代表 provider-backed quality。
+4. 使用程序检查占位符、标记、转义符、资源键和文件结构，并保留人工审核入口。
 5. 在代码库之外暂存输出，供人工检查。
-6. 打包清单、QA 证据、审核状态、交付决策和应用计划。
-7. 只有在明确确认运行 ID 后才应用变更，并在替换文件前创建备份。
+6. 运行 readiness-check，确认 blocker、warning、forbidden claim、signoff 和 apply readiness。
+7. 交付可审查包；只有在明确确认运行 ID 后才应用变更，并在替换文件前创建备份。
 
 ![Localize Anything 工作流：从项目智能体到备份后应用的九个步骤](docs/assets/workflow-dark.svg)
 
@@ -145,6 +153,8 @@ python benchmarks/v021-mode-system/run.py
 localize-anything inspect /path/to/project
 ```
 
+推荐的安全路径是：先 `inspect`，再做 preflight 和生成/导入，随后 review，运行 readiness-check，最后只交付 review-ready 包或生成 apply plan。不要把草稿、benchmark 输出或外部 provider intake 当成可直接上线的结果。
+
 ## 示例工作流
 
 下面的命令使用合成草稿，为 Android 源语言文件创建一份日语全新本地化的暂存交付包。整个过程不会调用外部模型，也不会直接写入项目。
@@ -160,7 +170,7 @@ localize-anything localize-run /path/to/project \
   --synthetic-draft
 ```
 
-这次运行会生成暂存文件、QA 报告、交付决策和应用计划。写入源码项目是独立步骤：必须先检查预演计划，再明确确认对应的运行 ID。
+这次运行会生成暂存文件、QA 报告、交付决策、readiness 证据和应用计划。写入源码项目是独立步骤：必须先检查预演计划，再明确确认对应的运行 ID。
 
 ## 当前支持范围
 
