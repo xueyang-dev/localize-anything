@@ -17,7 +17,7 @@ locale coverage, or public release readiness.
 
 ## Architecture Seed Track
 
-The following areas are implemented as artifact-backed seeds through PR #57:
+The following areas are implemented as artifact-backed seeds through PR #62:
 
 - Evidence Spine foundations, including brief, term governance, preflight,
   generation strategy, resolution, handoff, Artifact State, repair, evaluation,
@@ -33,7 +33,11 @@ The following areas are implemented as artifact-backed seeds through PR #57:
   concurrency, transaction, recovery, and idempotency hardening;
 - provider/model handoff contracts and evidence reconciliation;
 - provider result deterministic QA, scoped review evidence, acceptance, claim
-  support, and Workbench review queue.
+  support, and Workbench review queue;
+- locale capability/risk/readiness projections;
+- translation provenance and claim provenance projections;
+- benchmark lab evidence comparison without a single quality score;
+- release audit and public claim boundary artifacts.
 
 These seeds remain subject to release audit, real-project regression evidence,
 benchmark evidence, documentation audit, and public claim-boundary review.
@@ -84,20 +88,13 @@ and forbidden claims. A seed must not be promoted because it exists on `main`.
 
 ## Near-Term Route
 
-1. Provider Result QA / Review Acceptance Gate — implemented seed in PR #57;
-   retain as seed until release evidence supports promotion.
-2. Architecture & Roadmap Progress Sync — align architecture, roadmap, README
-   wording, and public non-claims with the actual repository.
-3. Locale Capability Report Seed — expose locale-specific implemented checks,
-   missing checks, coverage, and forbidden claims.
-4. Translation Provenance View Seed — show which terms, knowledge, provider
-   evidence, repair, and review decisions influenced each important segment.
-5. Benchmark Lab Minimal Seed — provide a small reproducible harness for
-   fixture and selected real-project evidence without claiming broad quality.
-6. Release Audit / Public Claims Boundary — audit seed promotion candidates,
-   docs, examples, regression evidence, and public wording.
-7. Provider-safe mock execution harness or explicitly authorized real-provider
+1. Public Docs Claim Reconciliation — keep README, public introduction, launch
+   checklist, architecture, and roadmap wording aligned with release audit
+   boundaries.
+2. Provider-safe mock execution harness or explicitly authorized real-provider
    execution only after the evidence and release boundaries above are clear.
+3. Adapter-specific release promotion audits for small, bounded scenarios that
+   already have regression, benchmark, review, and claim-boundary evidence.
 
 Provider Result Staging Admission is intentionally deferred to P1. Acceptance
 artifacts first need a documented release boundary and provenance view so a
@@ -108,11 +105,9 @@ readiness or mutate target projects without an auditable chain.
 
 ### P0 — Evidence Visibility And Release Boundary
 
-- Architecture & Roadmap Progress Sync
-- Locale Capability Report
-- Translation Provenance View
-- Benchmark Lab Minimal Seed
-- Release Audit / Public Claims Boundary
+- Public Docs Claim Reconciliation
+- Release-candidate evidence audit for one narrow scenario, if blockers clear
+- Provider-safe mock execution harness boundary design
 
 ### P1 — Controlled Execution And Product Usability
 
@@ -150,6 +145,11 @@ released.
 | #51–#52 | Readiness Matrix, Workbench Readiness Actions | Implemented seeds. |
 | #53–#55 | Workflow Orchestration, Incremental Resume, Hardening | Implemented seeds. |
 | #56–#57 | Provider Evidence, Provider Result QA/Review Acceptance | Implemented seeds; provider-backed quality remains evidence-gated. |
+| #58 | Architecture and roadmap progress synchronization | Documentation seed; public claim boundaries synced to implemented seed state at that point. |
+| #59 | Locale Capability Report | Implemented seed; not full CLDR or locale-complete support. |
+| #60 | Translation Provenance View | Implemented seed; provenance explains evidence and unsupported claims without proving quality. |
+| #61 | Benchmark Lab Minimal Seed | Implemented seed; no single synthetic quality score and no automatic release claim. |
+| #62 | Release Audit / Public Claims Boundary | Implemented seed; release audit artifacts classify claims and blockers without creating releases or tags. |
 
 ## Required Evidence Before Stable Promotion
 

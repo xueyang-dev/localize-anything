@@ -11,13 +11,16 @@ It is not a one-click perfect-translation product. The released baseline
 protects source structure, stages output outside the source project, records QA
 and review evidence, and requires an explicit apply plan and confirmation.
 Advanced document, knowledge, workflow, and provider-evidence gates implemented
-through PR #57 are architecture seeds rather than additional stable-release
-claims.
+through PR #62 are architecture seeds rather than additional stable-release
+claims. Release audit artifacts define the current public claim boundary; they
+do not create a release or quality claim by themselves.
 
 The project does not claim production translation quality without qualified
 review, complete Android or full-product localization, zero residual English,
 locale-complete support, DOCX render fidelity, factual truth verification, or
-provider-/knowledge-backed quality from intake alone.
+provider-/knowledge-backed quality from intake alone. It also does not claim
+automatic apply readiness without current readiness, signoff, and apply-plan
+evidence.
 
 Repo: https://github.com/xueyang-dev/localize-anything
 
@@ -25,9 +28,9 @@ Repo: https://github.com/xueyang-dev/localize-anything
 
 Localize Anything 是一个面向 Agent 的本地化工程框架，把源项目、用户审核知识、模型生成草稿、确定性 QA 和范围化人工审核组织成可追踪、可审查的交付产物。
 
-它不是“一键完美翻译”产品。当前稳定发布基线负责保护源结构、在源项目之外暂存输出、记录 QA 与审核证据，并要求显式审阅 apply plan 和确认。PR #57 之前实现的高级文档、知识、工作流和 provider evidence 能力属于架构 seed，不自动成为新的稳定发布声明。
+它不是“一键完美翻译”产品。当前稳定发布基线负责保护源结构、在源项目之外暂存输出、记录 QA 与审核证据，并要求显式审阅 apply plan 和确认。PR #62 之前实现的高级文档、知识、工作流、locale、provenance、benchmark、release audit 和 provider evidence 能力属于架构 seed，不自动成为新的稳定发布声明。Release audit 产物定义当前公开声明边界；它们本身不创建 release 或质量声明。
 
-项目不承诺未经合格审核的生产质量、完整 Android 或完整产品本地化、零残留英文、locale-complete 支持、DOCX 渲染保真、现实事实真实性验证，也不把 provider/knowledge intake 本身视为质量证明。
+项目不承诺未经合格审核的生产质量、完整 Android 或完整产品本地化、零残留英文、locale-complete 支持、DOCX 渲染保真、现实事实真实性验证，也不把 provider/knowledge intake 本身视为质量证明。没有当前 readiness、signoff 和 apply-plan 证据时，项目也不声称 automatic apply readiness。
 
 Repo: https://github.com/xueyang-dev/localize-anything
 
@@ -48,3 +51,4 @@ Repo: https://github.com/xueyang-dev/localize-anything
 - locale-complete support
 - DOCX layout/render fidelity or factual truth verification
 - automatic destructive apply
+- public release readiness from seed artifacts alone
