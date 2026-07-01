@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .localize-anything/cache/
 localize-anything-output/
+localize-anything-demo-output/
 benchmarks/private/
 benchmarks/wesnoth-south-guard/work/
 benchmarks/wesnoth-south-guard/runs/

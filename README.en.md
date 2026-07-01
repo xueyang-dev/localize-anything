@@ -164,6 +164,19 @@ python benchmarks/v022-android-resource-reliability/risk_classification.py
 python benchmarks/v021-mode-system/run.py
 ```
 
+### Run the safe demo
+
+```bash
+python -m runtime.localize_anything quickstart-demo
+```
+
+This command copies a tiny public JSON fixture, uses local synthetic drafts,
+and runs inspection, preflight, staging, deterministic QA, readiness, and
+delivery-package summary paths. By default, output is written under the
+git-ignored `localize-anything-demo-output/`. It does not call providers, mutate
+the source fixture, or apply changes to a project. See
+[Quickstart Demo](docs/quickstart-demo.md).
+
 ### Inspect a real project
 
 ```bash

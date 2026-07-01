@@ -2102,6 +2102,40 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("--apply-to-project", run_stdout.getvalue())
         self.assertNotIn("--apply-confirm-run-id", run_stdout.getvalue())
 
+    def test_quickstart_demo_runs_provider_free_without_mutating_fixture(self) -> None:
+        fixture_source = REPOSITORY_ROOT / "examples" / "quickstart-json" / "locales" / "en-US.json"
+        before_hash = sha256_file(fixture_source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            summary_path = root / "summary.json"
+
+            exit_code = cli_main(
+                [
+                    "quickstart-demo",
+                    "--output-root",
+                    (root / "demo").as_posix(),
+                    "--output",
+                    summary_path.as_posix(),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(sha256_file(fixture_source), before_hash)
+            summary = read_json(summary_path)
+            self.assertEqual(summary["status"], "pass")
+            self.assertFalse(summary["safety"]["provider_or_model_called"])
+            self.assertFalse(summary["safety"]["source_fixture_mutated"])
+            for key in (
+                "staged_files",
+                "qa_report_directory",
+                "readiness_authorization_matrix",
+                "delivery_readiness_report",
+                "delivery_package",
+                "apply_plan",
+            ):
+                self.assertTrue(Path(summary["artifacts"][key]).exists(), key)
+            self.assertIn("provider_backed_quality", summary["readiness_status"]["forbidden_claims"])
+
     def test_android_coverage_model_doc_records_runtime_text_boundary(self) -> None:
         doc = (REPOSITORY_ROOT / "docs" / "android-coverage-model.md").read_text(encoding="utf-8")
         self.assertIn("Gradle merged resources", doc)

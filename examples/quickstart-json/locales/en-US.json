@@ -1,0 +1,10 @@
+{
+  "menu": {
+    "start": "Start Game",
+    "welcome": "Welcome, {player}!"
+  },
+  "inventory": {
+    "coins": "You have {{count}} coins.",
+    "weight": "Weight: %s kg"
+  }
+}

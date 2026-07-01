@@ -147,6 +147,14 @@ python benchmarks/v022-android-resource-reliability/risk_classification.py
 python benchmarks/v021-mode-system/run.py
 ```
 
+### 运行安全 demo
+
+```bash
+python -m runtime.localize_anything quickstart-demo
+```
+
+该命令会复制一个很小的公开 JSON fixture，使用本地合成草稿跑完检查、预检、暂存、确定性 QA、readiness 和交付包路径摘要。默认输出写入已被 git 忽略的 `localize-anything-demo-output/`。它不会调用 provider，不会修改原始 fixture，也不会 apply 到项目。详见 [Quickstart Demo](docs/quickstart-demo.md)。
+
 ### 检查真实项目
 
 ```bash

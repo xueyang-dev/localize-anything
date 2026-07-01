@@ -229,6 +229,7 @@ from .mo_compiler import compile_segments_to_mo
 from .planning import create_batch_plan
 from .project import initialize_project, inspect_project, load_session_index
 from .provider import generate_handoff_with_http_provider
+from .quickstart_demo import run_quickstart_demo
 from .reflection import create_llm_review_request, import_llm_review_response, render_llm_review_prompt
 from .resolution_gate import build_resolution_gate, record_user_resolution_decision
 from .retrieval import build_work_packet
@@ -1460,6 +1461,19 @@ def build_parser() -> argparse.ArgumentParser:
     localize_run_parser.add_argument("--status", choices=["draft_package", "review_ready", "blocked"], default="draft_package")
     localize_run_parser.add_argument("--output", type=Path)
 
+    quickstart_demo_parser = subparsers.add_parser(
+        "quickstart-demo",
+        help="Run a provider-free quickstart demo on a copied fixture",
+        description=(
+            "Copy the public quickstart fixture, run inspect/localize-run with synthetic drafts, "
+            "refresh readiness reports, and print a path summary. This does not call providers, "
+            "apply changes, or mutate the source fixture."
+        ),
+    )
+    quickstart_demo_parser.add_argument("--output-root", type=Path, default=Path("localize-anything-demo-output"))
+    quickstart_demo_parser.add_argument("--run-id", default="quickstart-demo")
+    quickstart_demo_parser.add_argument("--output", type=Path)
+
     agent_run_parser = subparsers.add_parser(
         "agent-run",
         help="Run the provider-agnostic routing, parallelization, and reflection localization agent",
@@ -2685,6 +2699,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             _emit_json(result, args.output)
             return 1 if result["status"] in {"generation_failed", "provider_generation_failed"} else 0
+        if args.command == "quickstart-demo":
+            return _emit_json(run_quickstart_demo(args.output_root, args.run_id), args.output)
         if args.command == "agent-run":
             provider_headers = {}
             if args.api_key_env:
