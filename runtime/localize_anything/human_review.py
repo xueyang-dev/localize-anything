@@ -9,6 +9,7 @@ from typing import Any
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
 from .provider_result_gate import PROVIDER_CLAIM_SUPPORT_REPORT_JSON
+from .locale_capability import LOCALE_CLAIMS, LOCALE_READINESS_IMPACT_JSON
 
 
 HUMAN_REVIEW_EVIDENCE_JSONL = "human-review-evidence.jsonl"
@@ -46,6 +47,7 @@ CLAIMS = (
     "provider_execution_complete",
     "provider_repair_complete",
     "model_repair_complete",
+    *LOCALE_CLAIMS,
 )
 
 
@@ -165,6 +167,11 @@ def build_claim_acceptance_decision(
     if provider_claim_support:
         forbidden.update(str(claim) for claim in provider_claim_support.get("forbidden_claims", []) if claim)
         forbidden.update(str(claim) for claim in provider_claim_support.get("global_forbidden_claims", []) if claim)
+    locale_impact = _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON)
+    if locale_impact:
+        forbidden.update(str(claim) for claim in locale_impact.get("forbidden_claims", []) if claim)
+        if str(locale_impact.get("status") or "") in {"blocked", "stale", "review_required"}:
+            forbidden.update({"delivery_ready", "apply_ready", "production_ready"})
     overall = str(scorecard.get("overall_claim") or "not_ready")
     accepted_risk = accepted_risk or {}
     accepts_limitations = bool(accepted_risk.get("accepts_limitations") or accepted_risk.get("accepts_partial_or_limited_scope"))
@@ -426,7 +433,7 @@ def _claim_decision(
         return {"claim": claim, "status": "accepted", "reason": "scorecard_supports_review_ready"}
     if claim in {"delivery_ready_with_warnings", "limited_scope_delivery_ready"} and overall == "delivery_ready_with_warnings" and accepts_limitations:
         return {"claim": claim, "status": "accepted_with_limitations", "reason": "explicit_limitations_acceptance"}
-    if claim in {"full_coverage", "provider_backed_quality", "full_terminology_assurance", "review_complete", "knowledge_backed_quality", "knowledge_constraints_applied", "knowledge_review_complete"}:
+    if claim in {"full_coverage", "provider_backed_quality", "full_terminology_assurance", "review_complete", "knowledge_backed_quality", "knowledge_constraints_applied", "knowledge_review_complete", *LOCALE_CLAIMS}:
         return {"claim": claim, "status": "accepted", "reason": "scorecard_does_not_forbid_claim"}
     return {"claim": claim, "status": "rejected", "reason": f"scorecard_overall_claim_is_{overall}"}
 

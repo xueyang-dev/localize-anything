@@ -82,6 +82,7 @@ STAGES: tuple[dict[str, Any], ...] = (
     _stage("source_discovery", "Source discovery", outputs=("project-intake-report.json", "source-inventory.json")),
     _stage("coverage_diagnostics", "Coverage diagnostics", inputs=("source-inventory.json",), outputs=("coverage-report.json",), dependencies=("source_discovery",)),
     _stage("localization_brief", "Localization brief", inputs=("source-inventory.json",), outputs=("localization-brief.json",), dependencies=("source_discovery",)),
+    _stage("locale_capability", "Locale capability", inputs=("localization-brief.json", "source-inventory.json"), outputs=("locale-capability-report.json", "locale-risk-report.json", "locale-readiness-impact.json"), dependencies=("localization_brief",), builder="locale_capability"),
     _stage("term_governance", "Term governance", inputs=("localization-brief.json",), outputs=("term-registry.csv", "term-decisions.jsonl", "forbidden-translations.csv"), dependencies=("localization_brief",), human=True),
     _stage("termbase_preflight", "Termbase preflight", inputs=("localization-brief.json",), outputs=("termbase-preflight-report.json",), dependencies=("localization_brief", "term_governance")),
     _stage("generation_strategy", "Generation strategy", inputs=("localization-brief.json", "termbase-preflight-report.json"), outputs=("generation-strategy.json",), dependencies=("termbase_preflight",)),
@@ -112,7 +113,7 @@ STAGES: tuple[dict[str, Any], ...] = (
     _stage(
         "readiness_authorization",
         "Readiness authorization",
-        inputs=("artifact-state.json", "evaluation-scorecard.json", "claim-acceptance-decision.json", "signoff-record.json", "document-evidence-manifest.json", "knowledge-audit-enforcement-decision.json", "knowledge-repair-closure-decision.json", "generation-handoff-decision.json", "provider-evidence-reconciliation.json"),
+        inputs=("artifact-state.json", "evaluation-scorecard.json", "claim-acceptance-decision.json", "signoff-record.json", "document-evidence-manifest.json", "knowledge-audit-enforcement-decision.json", "knowledge-repair-closure-decision.json", "generation-handoff-decision.json", "provider-evidence-reconciliation.json", "locale-readiness-impact.json"),
         outputs=("readiness-authorization-matrix.json", "manual-followup-gap-report.json", "delivery-readiness-report.json", "apply-readiness-report.json"),
         dependencies=("artifact_state", "evaluation_scorecard", "claim_acceptance", "signoff", "document_decision_resolution", "knowledge_audit_enforcement", "knowledge_repair_closure_recompute"),
         builder="readiness_authorization",
@@ -125,11 +126,11 @@ STAGES: tuple[dict[str, Any], ...] = (
 _STAGE_BY_TYPE = {stage["stage_type"]: stage for stage in STAGES}
 
 MODE_STAGES = {
-    "diagnose_only": {"artifact_state", "provider_evidence", "evaluation_scorecard", "readiness_authorization", "workbench_projection"},
-    "preflight_only": {"source_discovery", "coverage_diagnostics", "localization_brief", "term_governance", "termbase_preflight", "generation_strategy", "resolution_gate", "artifact_state"},
+    "diagnose_only": {"artifact_state", "locale_capability", "provider_evidence", "evaluation_scorecard", "readiness_authorization", "workbench_projection"},
+    "preflight_only": {"source_discovery", "coverage_diagnostics", "localization_brief", "locale_capability", "term_governance", "termbase_preflight", "generation_strategy", "resolution_gate", "artifact_state"},
     "review_ready_document": {"artifact_state", "evaluation_scorecard", "human_review", "claim_acceptance", "signoff", "document_evidence_pack", "document_decision_resolution", "readiness_authorization", "workbench_projection"},
-    "delivery_readiness_check": {"artifact_state", "evaluation_scorecard", "claim_acceptance", "signoff", "document_decision_resolution", "knowledge_audit_enforcement", "knowledge_repair_closure_recompute", "readiness_authorization", "workbench_projection", "delivery_package"},
-    "apply_readiness_check": {"artifact_state", "evaluation_scorecard", "claim_acceptance", "signoff", "knowledge_repair_closure_recompute", "readiness_authorization", "workbench_projection", "delivery_package", "apply_plan"},
+    "delivery_readiness_check": {"artifact_state", "locale_capability", "evaluation_scorecard", "claim_acceptance", "signoff", "document_decision_resolution", "knowledge_audit_enforcement", "knowledge_repair_closure_recompute", "readiness_authorization", "workbench_projection", "delivery_package"},
+    "apply_readiness_check": {"artifact_state", "locale_capability", "evaluation_scorecard", "claim_acceptance", "signoff", "knowledge_repair_closure_recompute", "readiness_authorization", "workbench_projection", "delivery_package", "apply_plan"},
     "knowledge_pack_export": {"artifact_state", "human_review", "claim_acceptance", "signoff", "knowledge_pack_export"},
     "knowledge_consumption_check": {"artifact_state", "knowledge_pack_selection", "working_context_packet", "knowledge_usage_audit", "knowledge_audit_enforcement", "knowledge_review_confirmation", "evaluation_scorecard", "readiness_authorization"},
     "knowledge_repair_cycle": {"artifact_state", "knowledge_usage_audit", "knowledge_audit_enforcement", "knowledge_review_confirmation", "knowledge_repair_planning", "knowledge_repair_result_reconciliation", "knowledge_repair_closure_recompute", "evaluation_scorecard", "readiness_authorization", "workbench_projection"},
@@ -248,6 +249,7 @@ def build_workflow_dependency_graph(state_dir: Path, *, write: bool = True) -> d
             "knowledge_evidence": "knowledge-audit-enforcement-decision.json",
             "repair_closure": "knowledge-repair-closure-decision.json",
             "provider_policy": "generation-handoff-decision.json",
+            "locale_capability": "locale-readiness-impact.json",
             "coverage": "coverage-report.json",
             "qa": "review-result.json",
         },
@@ -613,6 +615,7 @@ def _builders(state_dir: Path, run_id: str | None) -> dict[str, Callable[[], Any
     from .knowledge_repair_closure import build_knowledge_readiness_impact_report, build_knowledge_recompute_plan, build_knowledge_recompute_result, build_knowledge_repair_closure_decision
     from .knowledge_repair_result import build_knowledge_repair_qa_report, build_knowledge_repair_reconciliation
     from .knowledge_usage import build_constraint_application_audit, build_knowledge_conflict_report, build_knowledge_usage_report
+    from .locale_capability import build_locale_capability_reports
     from .provider_evidence import build_provider_evidence_reconciliation, build_provider_execution_policy, build_provider_handoff_request
     from .readiness_action import build_workbench_readiness_action_queue
     from .readiness_authorization import build_readiness_reports
@@ -671,6 +674,7 @@ def _builders(state_dir: Path, run_id: str | None) -> dict[str, Callable[[], Any
         "knowledge_repair_planning": repair_planning,
         "knowledge_repair_result_reconciliation": repair_reconciliation,
         "knowledge_repair_closure_recompute": repair_closure,
+        "locale_capability": lambda: build_locale_capability_reports(state_dir, run_id=run_id),
         "provider_evidence": provider_evidence,
         "readiness_authorization": lambda: build_readiness_reports(state_dir, run_id=run_id),
         "workbench_projection": workbench_projection,

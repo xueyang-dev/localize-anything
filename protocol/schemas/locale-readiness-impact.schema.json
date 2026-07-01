@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/locale-readiness-impact.schema.json",
+  "title": "Localize Anything Locale Readiness Impact",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "forbidden_claims", "delivery_readiness_impact", "apply_readiness_impact"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-locale-readiness-impact-v1" },
+    "artifact": { "const": "locale-readiness-impact.json" },
+    "status": { "enum": ["clear", "clear_with_warnings", "review_required", "blocked", "stale"] },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "delivery_readiness_impact": { "type": "string" },
+    "apply_readiness_impact": { "type": "string" }
+  },
+  "additionalProperties": true
+}

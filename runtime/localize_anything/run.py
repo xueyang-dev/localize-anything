@@ -154,6 +154,11 @@ from .provider_result_gate import (
     PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .locale_capability import (
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_READINESS_IMPACT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+)
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1188,6 +1193,9 @@ def _summary(
         ("provider_result_acceptance_decision", PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON),
         ("provider_claim_support_report", PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
         ("workbench_provider_review_queue", WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
+        ("locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON),
+        ("locale_risk_report", LOCALE_RISK_REPORT_JSON),
+        ("locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1356,6 +1364,21 @@ def _summary(
             "provider_claim_support_status": (
                 read_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON).get("status", "not_checked")
                 if (state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "locale_capability_status": (
+                read_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / LOCALE_CAPABILITY_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "locale_risk_status": (
+                read_json(state_dir / LOCALE_RISK_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / LOCALE_RISK_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "locale_readiness_impact_status": (
+                read_json(state_dir / LOCALE_READINESS_IMPACT_JSON).get("status", "not_checked")
+                if (state_dir / LOCALE_READINESS_IMPACT_JSON).is_file()
                 else "not_checked"
             ),
             "knowledge_repair_closure_status": (

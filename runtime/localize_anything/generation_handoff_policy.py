@@ -11,6 +11,12 @@ from .knowledge_repair import KNOWLEDGE_REPAIR_IMPACT_REPORT_JSON, knowledge_rep
 from .knowledge_repair_result import KNOWLEDGE_REPAIR_RECONCILIATION_JSON, knowledge_repair_reconciliation_summary
 from .knowledge_repair_closure import KNOWLEDGE_REPAIR_CLOSURE_DECISION_JSON, knowledge_repair_closure_summary
 from .localization_brief import LOCALIZATION_BRIEF_JSON
+from .locale_capability import (
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_CLAIMS,
+    LOCALE_READINESS_IMPACT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+)
 from .provider_evidence import (
     PROVIDER_EVIDENCE_RECONCILIATION_JSON,
     PROVIDER_EXECUTION_POLICY_JSON,
@@ -75,6 +81,7 @@ def build_generation_handoff_decision(
     _check_segment_repair_plan(state_dir, blockers, warnings, forbidden_claims)
     _check_knowledge_repair_plan(state_dir, blockers, forbidden_claims)
     _check_provider_evidence(state_dir, blockers, warnings, forbidden_claims)
+    _check_locale_capability(state_dir, blockers, warnings, forbidden_claims)
     provider_backed_allowed = _check_provider_policy(provider_policy, blockers, warnings, forbidden_claims)
 
     hard_blocked = bool(blockers)
@@ -197,6 +204,9 @@ def generation_handoff_decision_source_artifacts(state_dir: Path) -> dict[str, s
         "provider_execution_policy": PROVIDER_EXECUTION_POLICY_JSON,
         "provider_handoff_request": PROVIDER_HANDOFF_REQUEST_JSON,
         "provider_evidence_reconciliation": PROVIDER_EVIDENCE_RECONCILIATION_JSON,
+        "locale_capability_report": LOCALE_CAPABILITY_REPORT_JSON,
+        "locale_risk_report": LOCALE_RISK_REPORT_JSON,
+        "locale_readiness_impact": LOCALE_READINESS_IMPACT_JSON,
     }
     return {key: value for key, value in names.items() if (state_dir / value).exists()}
 
@@ -609,6 +619,25 @@ def _check_provider_evidence(
             blockers.append(_issue("provider_evidence_reconciliation_blocked", "Provider evidence is missing, stale, failed, synthetic, or unreconciled.", PROVIDER_EVIDENCE_RECONCILIATION_JSON))
         elif status in {"clear_with_warnings", "not_applicable"}:
             warnings.append(_issue("provider_evidence_limited", "Provider evidence is limited and cannot support broad provider-backed claims.", PROVIDER_EVIDENCE_RECONCILIATION_JSON))
+
+
+def _check_locale_capability(
+    state_dir: Path,
+    blockers: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    forbidden_claims: set[str],
+) -> None:
+    impact = _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON)
+    if not impact:
+        warnings.append(_issue("locale_capability_missing", "Locale capability evidence is missing.", LOCALE_READINESS_IMPACT_JSON))
+        forbidden_claims.update(LOCALE_CLAIMS)
+        return
+    forbidden_claims.update(str(claim) for claim in impact.get("forbidden_claims", []) if claim)
+    status = str(impact.get("status") or "")
+    if status in {"blocked", "stale"}:
+        blockers.append(_issue("locale_capability_blocked", "Locale capability evidence blocks strong handoff claims.", LOCALE_READINESS_IMPACT_JSON))
+    elif status in {"review_required", "clear_with_warnings"}:
+        warnings.append(_issue("locale_capability_downgraded", "Locale capability evidence is partial or requires review.", LOCALE_READINESS_IMPACT_JSON))
 
 
 def _handoff_mode(

@@ -146,6 +146,12 @@ from .provider_result_gate import (
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
     provider_result_gate_asset_paths,
 )
+from .locale_capability import (
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_READINESS_IMPACT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+    locale_capability_asset_paths,
+)
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -225,6 +231,9 @@ OPTIONAL_CANONICAL_ASSETS = (
     PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
     PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+    LOCALE_CAPABILITY_REPORT_JSON,
+    LOCALE_RISK_REPORT_JSON,
+    LOCALE_READINESS_IMPACT_JSON,
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -345,6 +354,7 @@ def package_delivery(
                 **workflow_hardening_asset_paths(state_dir),
                 **provider_evidence_asset_paths(state_dir),
                 **provider_result_gate_asset_paths(state_dir),
+                **locale_capability_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

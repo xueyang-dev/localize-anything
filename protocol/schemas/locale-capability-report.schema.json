@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/locale-capability-report.schema.json",
+  "title": "Localize Anything Locale Capability Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "target_locale", "locale_profile", "unsupported_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-locale-capability-report-v1" },
+    "artifact": { "const": "locale-capability-report.json" },
+    "status": { "enum": ["supported", "partial", "unknown", "blocked", "stale"] },
+    "target_locale": { "type": "string" },
+    "locale_profile": { "type": "object" },
+    "adapter_capability_matches": { "type": "array" },
+    "plural_support": { "type": "object" },
+    "formatting_support": { "type": "object" },
+    "unsupported_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

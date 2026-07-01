@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add Locale Capability Report seed with `locale-capability-report.json`,
+  `locale-risk-report.json`, and `locale-readiness-impact.json`; include
+  conservative built-in locale profiles, adapter plural-capability matching,
+  scorecard/readiness/delivery/signoff/artifact-state integration, protocol
+  schemas, and provider-free CLI/API access. Locale capability evidence remains
+  seed-level engineering evidence and cannot prove full CLDR, RTL-safe,
+  locale-formatting-complete, or full-product localization claims.
 - Add Provider Result QA / Review Acceptance Gate artifacts:
   `provider-result-qa-report.json`, `provider-result-review-evidence.jsonl`,
   `provider-result-acceptance-decision.json`,
