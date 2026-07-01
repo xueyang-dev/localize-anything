@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/translation-claim-provenance-report.schema.json",
+  "title": "Localize Anything Translation Claim Provenance Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "claims", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-translation-claim-provenance-report-v1" },
+    "artifact": { "const": "translation-claim-provenance-report.json" },
+    "status": { "enum": ["supported", "limited", "blocked"] },
+    "claims": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "supported_claims": { "type": "array", "items": { "type": "string" } },
+    "limited_claims": { "type": "array", "items": { "type": "string" } },
+    "source_artifacts": { "type": "object" }
+  },
+  "additionalProperties": true
+}

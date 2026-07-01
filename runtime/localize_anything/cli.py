@@ -177,6 +177,16 @@ from .locale_capability import (
     read_locale_readiness_impact,
     read_locale_risk_report,
 )
+from .translation_provenance import (
+    build_provenance_coverage_report,
+    build_segment_evidence_view,
+    build_translation_claim_provenance_report,
+    build_translation_provenance,
+    read_provenance_coverage_report,
+    read_segment_evidence_view,
+    read_translation_claim_provenance_report,
+    read_translation_provenance,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -866,6 +876,30 @@ def build_parser() -> argparse.ArgumentParser:
     locale_check_parser.add_argument("--target-locale")
     locale_check_parser.add_argument("--adapter", action="append", default=[], dest="adapters")
     locale_check_parser.add_argument("--output", type=Path)
+
+    translation_provenance_parser = subparsers.add_parser("translation-provenance", help="Create or read translation-provenance.jsonl")
+    translation_provenance_parser.add_argument("state_dir", type=Path)
+    translation_provenance_parser.add_argument("--read", action="store_true")
+    translation_provenance_parser.add_argument("--run-id")
+    translation_provenance_parser.add_argument("--output", type=Path)
+
+    segment_evidence_parser = subparsers.add_parser("segment-evidence-view", help="Create or read segment-evidence-view.json")
+    segment_evidence_parser.add_argument("state_dir", type=Path)
+    segment_evidence_parser.add_argument("--read", action="store_true")
+    segment_evidence_parser.add_argument("--run-id")
+    segment_evidence_parser.add_argument("--output", type=Path)
+
+    provenance_coverage_parser = subparsers.add_parser("provenance-coverage-report", help="Create or read provenance-coverage-report.json")
+    provenance_coverage_parser.add_argument("state_dir", type=Path)
+    provenance_coverage_parser.add_argument("--read", action="store_true")
+    provenance_coverage_parser.add_argument("--run-id")
+    provenance_coverage_parser.add_argument("--output", type=Path)
+
+    claim_provenance_parser = subparsers.add_parser("translation-claim-provenance-report", help="Create or read translation-claim-provenance-report.json")
+    claim_provenance_parser.add_argument("state_dir", type=Path)
+    claim_provenance_parser.add_argument("--read", action="store_true")
+    claim_provenance_parser.add_argument("--run-id")
+    claim_provenance_parser.add_argument("--output", type=Path)
 
     record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
     record_human_review_parser.add_argument("state_dir", type=Path)
@@ -2000,6 +2034,22 @@ def main(argv: list[str] | None = None) -> int:
                 "provider_or_model_called": False,
                 "target_files_mutated": False,
             }
+            return _emit_json(result, args.output)
+        if args.command == "translation-provenance":
+            records = read_translation_provenance(args.state_dir) if args.read else build_translation_provenance(args.state_dir, run_id=args.run_id)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-translation-provenance-list-v1", "records": records}, args.output)
+        if args.command == "segment-evidence-view":
+            result = read_segment_evidence_view(args.state_dir) if args.read else build_segment_evidence_view(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provenance-coverage-report":
+            result = read_provenance_coverage_report(args.state_dir) if args.read else build_provenance_coverage_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "translation-claim-provenance-report":
+            result = (
+                read_translation_claim_provenance_report(args.state_dir)
+                if args.read
+                else build_translation_claim_provenance_report(args.state_dir, run_id=args.run_id)
+            )
             return _emit_json(result, args.output)
         if args.command == "record-human-review":
             result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)

@@ -263,6 +263,7 @@ Each link has a specific contract:
 | Provider Evidence | Execution policy, handoff request, ledger, result intake, and reconciliation artifacts | External provider/model evidence is recorded without claiming runtime execution or semantic quality. |
 | Provider Result Acceptance | QA report, scoped review evidence, acceptance decision, claim support report, and Workbench provider queue | QA pass is not semantic quality; limited acceptance remains limited and unsupported provider claims stay forbidden. |
 | Locale Capability | `locale-capability-report.json`, `locale-risk-report.json`, `locale-readiness-impact.json` | Seed-level locale engineering evidence downgrades unsupported locale, RTL, plural, formatting, and full-product claims. |
+| Translation Provenance | `translation-provenance.jsonl`, `segment-evidence-view.json`, `provenance-coverage-report.json`, `translation-claim-provenance-report.json` | Per-segment and per-run provenance explains evidence and unsupported claims without proving quality by itself. |
 | Human Review | `human-review-evidence.jsonl` | E2/E3/E4 evidence requires explicit qualified review. |
 | Claim Acceptance | `claim-acceptance-decision.json` | User decisions cannot accept scorecard-forbidden claims. |
 | Signoff | `signoff-record.json` | Owner authorization is separate from review evidence and claim truth. |
@@ -1542,3 +1543,46 @@ CLI commands are `locale-capability-report`, `locale-risk-report`,
 `locale-readiness-impact`, and `locale-check`. API GET endpoints expose the
 same artifacts. They are deterministic and provider-free; there are no locale
 write endpoints in this seed beyond generating the report artifacts.
+
+## Translation Provenance View
+
+Translation Provenance View is an evidence/projection layer over existing run
+artifacts. It answers why a segment appears the way it does, which evidence
+influenced it, and which claims remain unsupported. It does not prove semantic
+quality, accept provider output, or upgrade delivery/apply readiness.
+
+The seed emits:
+
+- `translation-provenance.jsonl`: one record per generated segment with source
+  text, target hash, locale, scope, evidence records, supported claims,
+  unsupported claims, and forbidden claims;
+- `segment-evidence-view.json`: grouped segment view and evidence status/type
+  summary for Workbench/API consumers;
+- `provenance-coverage-report.json`: missing, stale, reference-only, synthetic,
+  failed, dry-run, local-draft, or unverified evidence visibility;
+- `translation-claim-provenance-report.json`: claim-level mapping for provider,
+  knowledge, terminology, review, locale, delivery, apply, and production
+  claims.
+
+Evidence is aggregated from generated segments, term governance, Working Context
+Packet and knowledge audit artifacts, repair artifacts, provider result intake
+and acceptance artifacts, human review evidence, claim acceptance, signoff,
+locale capability/risk/readiness impact, scorecard, and readiness matrix.
+
+Rules are conservative:
+
+- reference-only knowledge remains reference-only and cannot become an approved
+  hard constraint;
+- provider intake remains evidence only unless reconciliation, QA, review,
+  acceptance, and signoff support the scoped claim;
+- stale, rejected, superseded, synthetic, mock, dry-run, local draft, skipped,
+  failed, or missing evidence cannot support strong claims;
+- locale capability warnings stay visible in segment and claim provenance;
+- segment-level provenance never implies full-run delivery/apply readiness.
+
+Evaluation Scorecard, Artifact State, Readiness Authorization, run summaries,
+and delivery packages reference the provenance artifacts. CLI commands are
+`translation-provenance`, `segment-evidence-view`,
+`provenance-coverage-report`, and `translation-claim-provenance-report`. API GET
+endpoints expose the same artifacts. The seed adds no provider/model calls, no
+write endpoints, and no target-file mutation.

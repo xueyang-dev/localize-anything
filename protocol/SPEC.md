@@ -1675,3 +1675,55 @@ CLI commands are `locale-capability-report`, `locale-risk-report`,
 `locale-readiness-impact`, and `locale-check`. They generate or read structured
 artifacts only. They must not call providers, run models, apply repairs, or
 mutate target project files.
+
+## Translation Provenance View
+
+Translation provenance artifacts explain which evidence influenced each
+segment and which run-level claims remain unsupported. They are projection
+artifacts, not quality acceptance and not semantic review evidence.
+
+Artifacts:
+
+- `translation-provenance.jsonl` records one per-segment provenance record per
+  generated segment. Each record links visible evidence from term governance,
+  knowledge usage and constraint audit, repairs, provider result intake and
+  acceptance, human review, locale readiness, scorecard, and readiness matrix.
+- `segment-evidence-view.json` groups those records by segment and summarizes
+  evidence types and statuses.
+- `provenance-coverage-report.json` reports missing, stale, reference-only,
+  synthetic, failed, dry-run, or otherwise unverified evidence.
+- `translation-claim-provenance-report.json` maps claims such as
+  `provider_backed_quality`, `knowledge_backed_quality`,
+  `full_terminology_assurance`, `review_complete`, locale claims,
+  `delivery_ready`, `apply_ready`, and `production_ready` to supported,
+  limited, unsupported, or forbidden status.
+
+Rules:
+
+- Reference-only knowledge may be shown as context, but it cannot become
+  approved evidence or a hard constraint.
+- Provider result intake cannot support provider-backed quality unless
+  reconciliation, QA, review, acceptance, and signoff artifacts also support the
+  scoped claim.
+- Synthetic, mock, dry-run, local draft, skipped, failed, stale, rejected, or
+  superseded evidence must be labeled and must not support strong claims.
+- Locale capability warnings must appear in provenance when they affect segment
+  or run claims.
+- Segment-level provenance does not imply full-run delivery or apply readiness.
+
+Evaluation Scorecard, Artifact State, Readiness Authorization, run summaries,
+and delivery packages consume these artifacts conservatively. Missing or
+downgraded provenance may preserve forbidden claims, but provenance existence
+does not upgrade readiness.
+
+Artifact-backed APIs are:
+
+- `GET /api/translation-provenance`
+- `GET /api/segment-evidence-view`
+- `GET /api/provenance-coverage-report`
+- `GET /api/translation-claim-provenance-report`
+
+CLI commands are `translation-provenance`, `segment-evidence-view`,
+`provenance-coverage-report`, and `translation-claim-provenance-report`.
+They generate or read structured artifacts only. They must not call providers,
+run models, apply repairs, or mutate target project files.

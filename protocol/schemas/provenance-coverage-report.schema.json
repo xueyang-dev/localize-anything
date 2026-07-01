@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provenance-coverage-report.schema.json",
+  "title": "Localize Anything Provenance Coverage Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provenance-coverage-report-v1" },
+    "artifact": { "const": "provenance-coverage-report.json" },
+    "status": { "enum": ["covered", "review_required", "blocked"] },
+    "summary": { "type": "object" },
+    "missing_or_limited_evidence": { "type": "array", "items": { "type": "object" } },
+    "stale_evidence": { "type": "array", "items": { "type": "object" } },
+    "reference_only_evidence": { "type": "array", "items": { "type": "object" } },
+    "synthetic_or_unverified_provider_evidence": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": true
+}

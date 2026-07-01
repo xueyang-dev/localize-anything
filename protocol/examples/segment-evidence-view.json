@@ -1,0 +1,24 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-segment-evidence-view-v1",
+  "artifact": "segment-evidence-view.json",
+  "run_id": "run-example",
+  "status": "ready",
+  "segments": [
+    {
+      "segment_id": "seg-1",
+      "target_locale": "zh-CN",
+      "evidence": [],
+      "supported_claims": [],
+      "forbidden_claims": ["provider_backed_quality"]
+    }
+  ],
+  "grouped_by_segment_id": {},
+  "summary": {
+    "segment_count": 1,
+    "evidence_count": 0,
+    "by_evidence_status": {},
+    "by_evidence_type": {}
+  },
+  "limitations": ["segment-level provenance does not imply full-run readiness"]
+}

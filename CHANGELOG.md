@@ -4,6 +4,14 @@
 
 ### Added
 
+- Add Translation Provenance View seed with `translation-provenance.jsonl`,
+  `segment-evidence-view.json`, `provenance-coverage-report.json`, and
+  `translation-claim-provenance-report.json`; include per-segment evidence
+  aggregation, claim provenance, scorecard/readiness/artifact-state/delivery
+  integration, protocol schemas, and provider-free CLI/API access. Provenance
+  explains evidence and unsupported claims; it does not prove semantic quality
+  or convert reference-only, stale, synthetic, failed, or unverified evidence
+  into readiness.
 - Add Locale Capability Report seed with `locale-capability-report.json`,
   `locale-risk-report.json`, and `locale-readiness-impact.json`; include
   conservative built-in locale profiles, adapter plural-capability matching,

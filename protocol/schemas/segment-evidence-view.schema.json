@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/segment-evidence-view.schema.json",
+  "title": "Localize Anything Segment Evidence View",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "segments", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-segment-evidence-view-v1" },
+    "artifact": { "const": "segment-evidence-view.json" },
+    "status": { "enum": ["ready", "missing_segments"] },
+    "segments": { "type": "array", "items": { "type": "object" } },
+    "grouped_by_segment_id": { "type": "object" },
+    "summary": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

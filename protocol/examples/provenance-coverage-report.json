@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provenance-coverage-report-v1",
+  "artifact": "provenance-coverage-report.json",
+  "run_id": "run-example",
+  "status": "review_required",
+  "summary": {
+    "segment_count": 1,
+    "missing_evidence_count": 1,
+    "stale_evidence_count": 0,
+    "reference_only_evidence_count": 1,
+    "synthetic_or_unverified_provider_evidence_count": 0
+  },
+  "missing_or_limited_evidence": [{ "segment_id": "seg-1", "evidence_type": "human_review", "status": "missing" }],
+  "stale_evidence": [],
+  "reference_only_evidence": [],
+  "synthetic_or_unverified_provider_evidence": [],
+  "limitations": ["provenance coverage means evidence visibility, not quality acceptance"]
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/translation-provenance.schema.json",
+  "title": "Localize Anything Translation Provenance Record",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "segment_id", "evidence", "supported_claims", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-translation-provenance-record-v1" },
+    "artifact": { "const": "translation-provenance.jsonl" },
+    "run_id": { "type": ["string", "null"] },
+    "segment_id": { "type": "string" },
+    "source": { "type": "string" },
+    "target_hash": { "type": "string" },
+    "target_locale": { "type": "string" },
+    "scope": { "type": "object" },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "supported_claims": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "unsupported_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
