@@ -124,6 +124,14 @@ from .translation_provenance import (
     TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
     TRANSLATION_PROVENANCE_JSONL,
 )
+from .benchmark_lab import (
+    BENCHMARK_BASELINE_REPORT_JSON,
+    BENCHMARK_CANDIDATE_REPORT_JSON,
+    BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
+    BENCHMARK_COMPARISON_REPORT_JSON,
+    BENCHMARK_EVIDENCE_MATRIX_JSON,
+    BENCHMARK_RUN_MANIFEST_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -212,6 +220,12 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         ("translation_provenance", "provenance_coverage_report", "evaluation_scorecard", "claim_acceptance_decision", "signoff_record"),
         required_for_delivery=True,
     ),
+    ArtifactSpec("benchmark_run_manifest", "benchmark_run_manifest", BENCHMARK_RUN_MANIFEST_JSON, "benchmark_lab", ("evaluation_scorecard", "readiness_authorization_matrix", "translation_claim_provenance_report")),
+    ArtifactSpec("benchmark_baseline_report", "benchmark_baseline_report", BENCHMARK_BASELINE_REPORT_JSON, "benchmark_lab", ("benchmark_run_manifest",)),
+    ArtifactSpec("benchmark_candidate_report", "benchmark_candidate_report", BENCHMARK_CANDIDATE_REPORT_JSON, "benchmark_lab", ("benchmark_run_manifest",)),
+    ArtifactSpec("benchmark_comparison_report", "benchmark_comparison_report", BENCHMARK_COMPARISON_REPORT_JSON, "benchmark_lab", ("benchmark_baseline_report", "benchmark_candidate_report")),
+    ArtifactSpec("benchmark_evidence_matrix", "benchmark_evidence_matrix", BENCHMARK_EVIDENCE_MATRIX_JSON, "benchmark_lab", ("benchmark_comparison_report",)),
+    ArtifactSpec("benchmark_claim_boundary_report", "benchmark_claim_boundary_report", BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, "benchmark_lab", ("benchmark_comparison_report", "benchmark_evidence_matrix", "evaluation_scorecard", "readiness_authorization_matrix")),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),
@@ -1482,6 +1496,21 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
             elif provenance_status in {"review_required", "limited", "unsupported"}:
                 entry["status"] = "requires_human_review"
                 entry["blocking_reason"] = "translation_provenance_downgraded"
+        if name in {
+            BENCHMARK_RUN_MANIFEST_JSON,
+            BENCHMARK_BASELINE_REPORT_JSON,
+            BENCHMARK_CANDIDATE_REPORT_JSON,
+            BENCHMARK_COMPARISON_REPORT_JSON,
+            BENCHMARK_EVIDENCE_MATRIX_JSON,
+            BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
+        }:
+            benchmark_status = str(content.get("status") or "")
+            if benchmark_status in {"blocked", "stale", "missing_evidence"}:
+                entry["status"] = "blocked" if benchmark_status == "missing_evidence" else benchmark_status
+                entry["blocking_reason"] = "benchmark_evidence_not_ready"
+            elif benchmark_status in {"candidate_only", "baseline_only"}:
+                entry["status"] = "requires_human_review"
+                entry["blocking_reason"] = "benchmark_comparison_incomplete"
         if status in STATUS_VALUES and status not in {"current", ""}:
             entry["status"] = "requires_human_review" if status in {"review_required", "owner_review_required"} else status
         if status == "draft_package":
@@ -1648,6 +1677,14 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "delivery_readiness_report",
         "delivery_decision",
     }
+    benchmark_dependency_ids = {
+        "benchmark_run_manifest",
+        "benchmark_baseline_report",
+        "benchmark_candidate_report",
+        "benchmark_comparison_report",
+        "benchmark_evidence_matrix",
+        "benchmark_claim_boundary_report",
+    }
     stale_dependencies = sorted(
         dependency_id
         for dependency_id in spec.dependencies
@@ -1668,7 +1705,9 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         relevant_dependencies = sorted(set(relevant_dependencies) | set(stale_dependencies))
     elif spec.artifact_id in provenance_consumers | readiness_dependency_ids:
         relevant_dependencies = sorted(set(relevant_dependencies) | (set(stale_dependencies) & provenance_dependency_ids))
-    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids | provider_dependency_ids | locale_dependency_ids | locale_consumers | provenance_dependency_ids | provenance_consumers or not relevant_dependencies:
+    if spec.artifact_id in benchmark_dependency_ids:
+        relevant_dependencies = sorted(set(relevant_dependencies) | set(stale_dependencies))
+    if spec.artifact_id not in document_dependency_ids | document_consumers | knowledge_dependency_ids | knowledge_consumers | readiness_dependency_ids | workflow_dependency_ids | provider_dependency_ids | locale_dependency_ids | locale_consumers | provenance_dependency_ids | provenance_consumers | benchmark_dependency_ids or not relevant_dependencies:
         return
     entry["status"] = "stale"
     entry["blocking_reason"] = entry.get("blocking_reason") or "upstream_dependency_status_changed"

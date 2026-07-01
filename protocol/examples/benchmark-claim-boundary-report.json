@@ -1,0 +1,14 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-benchmark-claim-boundary-report-v1",
+  "artifact": "benchmark-claim-boundary-report.json",
+  "run_id": "benchmark-example",
+  "status": "blocked",
+  "supported_benchmark_claims": ["benchmark_evidence_compared"],
+  "unsupported_claims": ["delivery_ready"],
+  "forbidden_claims": ["benchmark_quality_score", "provider_backed_quality", "production_ready"],
+  "release_claim_policy": {
+    "benchmark_comparison_upgrades_delivery_or_apply_readiness": false,
+    "single_quality_score_forbidden": true
+  }
+}

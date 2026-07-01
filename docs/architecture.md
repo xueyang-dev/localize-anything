@@ -1586,3 +1586,44 @@ and delivery packages reference the provenance artifacts. CLI commands are
 `provenance-coverage-report`, and `translation-claim-provenance-report`. API GET
 endpoints expose the same artifacts. The seed adds no provider/model calls, no
 write endpoints, and no target-file mutation.
+
+## Benchmark Lab Minimal Seed
+
+Benchmark Lab is a deterministic evidence-comparison layer for baseline and
+candidate localization runs. It is intentionally not a leaderboard and does not
+produce a single synthetic quality score.
+
+The seed emits:
+
+- `benchmark-run-manifest.json`: benchmark track, reference policy, baseline
+  and candidate references, provider/knowledge/human-review status, target
+  locale, workflow depth, and the no-single-score evidence contract;
+- `benchmark-baseline-report.json` and `benchmark-candidate-report.json`:
+  per-run summaries for structural QA, coverage, forbidden claims,
+  scorecard/readiness, provider evidence, knowledge/provenance evidence, locale
+  capability, repair/recompute, human review/signoff, and delivery/apply
+  status;
+- `benchmark-comparison-report.json`: dimension-by-dimension deltas and
+  forbidden-claim regressions without upgrading release claims;
+- `benchmark-evidence-matrix.json`: compact baseline/candidate evidence rows
+  for Workbench/API consumers;
+- `benchmark-claim-boundary-report.json`: claims supported by benchmark
+  evidence, claims still unsupported, and claims that must remain forbidden.
+
+Controlled benchmarks and agent-system benchmarks are separated by
+`benchmark_track`. Existing reference translations may be evaluation
+references, but they are not treated as hidden source truth. Synthetic, mock,
+dry-run, local-draft, skipped, failed, or unverified provider output cannot
+support provider-backed quality.
+
+Benchmark evidence can show whether a candidate preserved structure, changed
+coverage, reduced or introduced forbidden claims, or changed provider,
+knowledge, locale, provenance, repair, review, readiness, delivery, and apply
+evidence. It cannot prove semantic quality, production readiness, provider
+backing, review completion, or apply readiness by itself.
+
+CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
+`benchmark-candidate-report`, `benchmark-comparison-report`,
+`benchmark-evidence-matrix`, `benchmark-claim-boundary-report`, and
+`benchmark-compare`. API GET endpoints expose the six artifacts. The seed adds
+no provider/model calls, no write endpoints, and no target-file mutation.

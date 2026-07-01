@@ -187,6 +187,21 @@ from .translation_provenance import (
     read_translation_claim_provenance_report,
     read_translation_provenance,
 )
+from .benchmark_lab import (
+    build_benchmark_baseline_report,
+    build_benchmark_candidate_report,
+    build_benchmark_claim_boundary_report,
+    build_benchmark_comparison_report,
+    build_benchmark_evidence_matrix,
+    build_benchmark_lab_reports,
+    build_benchmark_run_manifest,
+    read_benchmark_baseline_report,
+    read_benchmark_candidate_report,
+    read_benchmark_claim_boundary_report,
+    read_benchmark_comparison_report,
+    read_benchmark_evidence_matrix,
+    read_benchmark_run_manifest,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -900,6 +915,57 @@ def build_parser() -> argparse.ArgumentParser:
     claim_provenance_parser.add_argument("--read", action="store_true")
     claim_provenance_parser.add_argument("--run-id")
     claim_provenance_parser.add_argument("--output", type=Path)
+
+    benchmark_manifest_parser = subparsers.add_parser("benchmark-run-manifest", help="Create or read benchmark-run-manifest.json")
+    benchmark_manifest_parser.add_argument("state_dir", type=Path)
+    benchmark_manifest_parser.add_argument("--baseline-dir", type=Path)
+    benchmark_manifest_parser.add_argument("--candidate-dir", type=Path)
+    benchmark_manifest_parser.add_argument("--track", choices=["controlled", "agent_system"], default="controlled")
+    benchmark_manifest_parser.add_argument("--reference-policy", default="not_provided")
+    benchmark_manifest_parser.add_argument("--read", action="store_true")
+    benchmark_manifest_parser.add_argument("--run-id")
+    benchmark_manifest_parser.add_argument("--output", type=Path)
+
+    benchmark_baseline_parser = subparsers.add_parser("benchmark-baseline-report", help="Create or read benchmark-baseline-report.json")
+    benchmark_baseline_parser.add_argument("state_dir", type=Path)
+    benchmark_baseline_parser.add_argument("--baseline-dir", type=Path)
+    benchmark_baseline_parser.add_argument("--read", action="store_true")
+    benchmark_baseline_parser.add_argument("--run-id")
+    benchmark_baseline_parser.add_argument("--output", type=Path)
+
+    benchmark_candidate_parser = subparsers.add_parser("benchmark-candidate-report", help="Create or read benchmark-candidate-report.json")
+    benchmark_candidate_parser.add_argument("state_dir", type=Path)
+    benchmark_candidate_parser.add_argument("--candidate-dir", type=Path)
+    benchmark_candidate_parser.add_argument("--read", action="store_true")
+    benchmark_candidate_parser.add_argument("--run-id")
+    benchmark_candidate_parser.add_argument("--output", type=Path)
+
+    benchmark_comparison_parser = subparsers.add_parser("benchmark-comparison-report", help="Create or read benchmark-comparison-report.json")
+    benchmark_comparison_parser.add_argument("state_dir", type=Path)
+    benchmark_comparison_parser.add_argument("--read", action="store_true")
+    benchmark_comparison_parser.add_argument("--run-id")
+    benchmark_comparison_parser.add_argument("--output", type=Path)
+
+    benchmark_matrix_parser = subparsers.add_parser("benchmark-evidence-matrix", help="Create or read benchmark-evidence-matrix.json")
+    benchmark_matrix_parser.add_argument("state_dir", type=Path)
+    benchmark_matrix_parser.add_argument("--read", action="store_true")
+    benchmark_matrix_parser.add_argument("--run-id")
+    benchmark_matrix_parser.add_argument("--output", type=Path)
+
+    benchmark_claim_parser = subparsers.add_parser("benchmark-claim-boundary-report", help="Create or read benchmark-claim-boundary-report.json")
+    benchmark_claim_parser.add_argument("state_dir", type=Path)
+    benchmark_claim_parser.add_argument("--read", action="store_true")
+    benchmark_claim_parser.add_argument("--run-id")
+    benchmark_claim_parser.add_argument("--output", type=Path)
+
+    benchmark_compare_parser = subparsers.add_parser("benchmark-compare", help="Create all benchmark lab artifacts")
+    benchmark_compare_parser.add_argument("state_dir", type=Path)
+    benchmark_compare_parser.add_argument("--baseline-dir", type=Path)
+    benchmark_compare_parser.add_argument("--candidate-dir", type=Path)
+    benchmark_compare_parser.add_argument("--track", choices=["controlled", "agent_system"], default="controlled")
+    benchmark_compare_parser.add_argument("--reference-policy", default="not_provided")
+    benchmark_compare_parser.add_argument("--run-id")
+    benchmark_compare_parser.add_argument("--output", type=Path)
 
     record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
     record_human_review_parser.add_argument("state_dir", type=Path)
@@ -2050,6 +2116,52 @@ def main(argv: list[str] | None = None) -> int:
                 if args.read
                 else build_translation_claim_provenance_report(args.state_dir, run_id=args.run_id)
             )
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-run-manifest":
+            result = (
+                read_benchmark_run_manifest(args.state_dir)
+                if args.read
+                else build_benchmark_run_manifest(
+                    args.state_dir,
+                    baseline_dir=args.baseline_dir,
+                    candidate_dir=args.candidate_dir,
+                    benchmark_track=args.track,
+                    reference_policy=args.reference_policy,
+                    run_id=args.run_id,
+                )
+            )
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-baseline-report":
+            result = read_benchmark_baseline_report(args.state_dir) if args.read else build_benchmark_baseline_report(args.state_dir, baseline_dir=args.baseline_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-candidate-report":
+            result = read_benchmark_candidate_report(args.state_dir) if args.read else build_benchmark_candidate_report(args.state_dir, candidate_dir=args.candidate_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-comparison-report":
+            result = read_benchmark_comparison_report(args.state_dir) if args.read else build_benchmark_comparison_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-evidence-matrix":
+            result = read_benchmark_evidence_matrix(args.state_dir) if args.read else build_benchmark_evidence_matrix(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-claim-boundary-report":
+            result = read_benchmark_claim_boundary_report(args.state_dir) if args.read else build_benchmark_claim_boundary_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-compare":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-benchmark-compare-command-v1",
+                **build_benchmark_lab_reports(
+                    args.state_dir,
+                    baseline_dir=args.baseline_dir,
+                    candidate_dir=args.candidate_dir,
+                    benchmark_track=args.track,
+                    reference_policy=args.reference_policy,
+                    run_id=args.run_id,
+                ),
+                "single_quality_score_produced": False,
+                "provider_or_model_called": False,
+                "target_files_mutated": False,
+            }
             return _emit_json(result, args.output)
         if args.command == "record-human-review":
             result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)

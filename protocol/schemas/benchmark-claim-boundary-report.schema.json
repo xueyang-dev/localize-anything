@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-claim-boundary-report.schema.json",
+  "title": "Localize Anything Benchmark Claim Boundary Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "forbidden_claims", "release_claim_policy"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-claim-boundary-report-v1" },
+    "artifact": { "const": "benchmark-claim-boundary-report.json" },
+    "status": { "type": "string" },
+    "supported_benchmark_claims": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "release_claim_policy": { "type": "object" }
+  },
+  "additionalProperties": true
+}

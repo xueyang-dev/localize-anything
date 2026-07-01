@@ -159,6 +159,7 @@ from .translation_provenance import (
     TRANSLATION_PROVENANCE_JSONL,
     translation_provenance_asset_paths,
 )
+from .benchmark_lab import BENCHMARK_ASSETS, benchmark_lab_asset_paths
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -245,6 +246,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     SEGMENT_EVIDENCE_VIEW_JSON,
     PROVENANCE_COVERAGE_REPORT_JSON,
     TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+    *BENCHMARK_ASSETS.values(),
     BLOCKING_QUESTIONS_JSON,
     RESOLUTION_OPTIONS_JSON,
     USER_RESOLUTION_DECISIONS_JSONL,
@@ -367,6 +369,7 @@ def package_delivery(
                 **provider_result_gate_asset_paths(state_dir),
                 **locale_capability_asset_paths(state_dir),
                 **translation_provenance_asset_paths(state_dir),
+                **benchmark_lab_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

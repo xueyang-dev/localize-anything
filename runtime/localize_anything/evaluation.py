@@ -71,6 +71,7 @@ from .translation_provenance import (
     TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
     TRANSLATION_PROVENANCE_JSONL,
 )
+from .benchmark_lab import BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, BENCHMARK_COMPARISON_REPORT_JSON
 
 
 EVALUATION_SCORECARD_JSON = "evaluation-scorecard.json"
@@ -298,6 +299,8 @@ def _load_artifacts(
         "segment_evidence_view": _read_optional_json(state_dir / SEGMENT_EVIDENCE_VIEW_JSON),
         "provenance_coverage_report": _read_optional_json(state_dir / PROVENANCE_COVERAGE_REPORT_JSON),
         "translation_claim_provenance_report": _read_optional_json(state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON),
+        "benchmark_comparison_report": _read_optional_json(state_dir / BENCHMARK_COMPARISON_REPORT_JSON),
+        "benchmark_claim_boundary_report": _read_optional_json(state_dir / BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON),
         "readiness_authorization_matrix": _read_optional_json(state_dir / "readiness-authorization-matrix.json"),
         "manual_followup_gap_report": _read_optional_json(state_dir / "manual-followup-gap-report.json"),
         "apply_readiness_report": _read_optional_json(state_dir / "apply-readiness-report.json"),
@@ -740,6 +743,9 @@ def _forbidden_claims(
         claims.update(str(claim) for claim in claim_provenance.get("forbidden_claims", []) if claim)
     if isinstance(coverage_report, dict) and str(coverage_report.get("status") or "") in {"blocked", "stale", "review_required"}:
         claims.update({"provider_backed_quality", "knowledge_backed_quality", "review_complete", "delivery_ready", "apply_ready", "production_ready"})
+    benchmark_boundary = artifacts.get("benchmark_claim_boundary_report", {})
+    if isinstance(benchmark_boundary, dict) and benchmark_boundary:
+        claims.update(str(claim) for claim in benchmark_boundary.get("forbidden_claims", []) if claim)
     if dimensions["terminology_assurance"]["status"] != "pass":
         claims.add("full_terminology_assurance")
     if dimensions["knowledge_assurance"]["status"] != "pass":
@@ -850,6 +856,9 @@ def _recommended_next_actions(
     provenance_coverage = artifacts.get("provenance_coverage_report", {})
     if isinstance(provenance_coverage, dict) and provenance_coverage.get("status") in {"blocked", "review_required", "stale"}:
         actions.append("Refresh translation provenance views and resolve stale, missing, reference-only, or unverified provider evidence before making strong segment or run claims.")
+    benchmark_boundary = artifacts.get("benchmark_claim_boundary_report", {})
+    if isinstance(benchmark_boundary, dict) and benchmark_boundary.get("status") in {"blocked", "stale"}:
+        actions.append("Use benchmark evidence only within its claim boundaries; do not convert benchmark comparison into release readiness or a single quality score.")
     if "review_complete" in forbidden_claims:
         actions.append("Record explicit qualified human review evidence before claiming review completion.")
     if _document_evidence_blockers(artifacts):
@@ -1199,6 +1208,8 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "segment_evidence_view": state_dir / SEGMENT_EVIDENCE_VIEW_JSON,
         "provenance_coverage_report": state_dir / PROVENANCE_COVERAGE_REPORT_JSON,
         "translation_claim_provenance_report": state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
+        "benchmark_comparison_report": state_dir / BENCHMARK_COMPARISON_REPORT_JSON,
+        "benchmark_claim_boundary_report": state_dir / BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
         "readiness_authorization_matrix": state_dir / "readiness-authorization-matrix.json",
         "manual_followup_gap_report": state_dir / "manual-followup-gap-report.json",
         "apply_readiness_report": state_dir / "apply-readiness-report.json",

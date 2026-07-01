@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-evidence-matrix.schema.json",
+  "title": "Localize Anything Benchmark Evidence Matrix",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "rows"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-evidence-matrix-v1" },
+    "artifact": { "const": "benchmark-evidence-matrix.json" },
+    "status": { "type": "string" },
+    "rows": { "type": "array" },
+    "summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}
