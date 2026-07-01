@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/public-claims-report.schema.json",
+  "title": "Localize Anything Public Claims Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "claim_classifications", "capability_statuses", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-public-claims-report-v1" },
+    "artifact": { "const": "public-claims-report.json" },
+    "status": { "type": "string" },
+    "claim_classifications": { "type": "array", "items": { "type": "object" } },
+    "capability_statuses": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "seed_only_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

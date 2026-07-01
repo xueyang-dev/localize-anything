@@ -132,6 +132,14 @@ from .benchmark_lab import (
     BENCHMARK_EVIDENCE_MATRIX_JSON,
     BENCHMARK_RUN_MANIFEST_JSON,
 )
+from .release_audit import (
+    NON_CLAIMS_MD,
+    PUBLIC_CLAIMS_REPORT_JSON,
+    PUBLIC_CLAIMS_REPORT_MD,
+    RELEASE_BLOCKERS_JSON,
+    RELEASE_EVIDENCE_MANIFEST_JSON,
+    RELEASE_READINESS_AUDIT_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -226,6 +234,29 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("benchmark_comparison_report", "benchmark_comparison_report", BENCHMARK_COMPARISON_REPORT_JSON, "benchmark_lab", ("benchmark_baseline_report", "benchmark_candidate_report")),
     ArtifactSpec("benchmark_evidence_matrix", "benchmark_evidence_matrix", BENCHMARK_EVIDENCE_MATRIX_JSON, "benchmark_lab", ("benchmark_comparison_report",)),
     ArtifactSpec("benchmark_claim_boundary_report", "benchmark_claim_boundary_report", BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, "benchmark_lab", ("benchmark_comparison_report", "benchmark_evidence_matrix", "evaluation_scorecard", "readiness_authorization_matrix")),
+    ArtifactSpec(
+        "release_evidence_manifest",
+        "release_evidence_manifest",
+        RELEASE_EVIDENCE_MANIFEST_JSON,
+        "release_audit",
+        (
+            "evaluation_scorecard",
+            "readiness_authorization_matrix",
+            "benchmark_claim_boundary_report",
+            "benchmark_comparison_report",
+            "translation_claim_provenance_report",
+            "locale_readiness_impact",
+            "provider_claim_support_report",
+            "knowledge_assurance_summary",
+            "workflow_recovery_result",
+            "artifact_state",
+        ),
+    ),
+    ArtifactSpec("public_claims_report", "public_claims_report", PUBLIC_CLAIMS_REPORT_JSON, "release_audit", ("release_evidence_manifest",)),
+    ArtifactSpec("public_claims_report_md", "public_claims_report", PUBLIC_CLAIMS_REPORT_MD, "release_audit", ("public_claims_report",)),
+    ArtifactSpec("non_claims", "non_claims", NON_CLAIMS_MD, "release_audit", ("public_claims_report",)),
+    ArtifactSpec("release_blockers", "release_blockers", RELEASE_BLOCKERS_JSON, "release_audit", ("release_evidence_manifest", "public_claims_report", "artifact_state")),
+    ArtifactSpec("release_readiness_audit", "release_readiness_audit", RELEASE_READINESS_AUDIT_JSON, "release_audit", ("release_evidence_manifest", "public_claims_report", "release_blockers")),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),

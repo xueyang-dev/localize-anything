@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add Release Audit / Public Claims Boundary seed with
+  `release-readiness-audit.json`, `public-claims-report.json`,
+  `public-claims-report.md`, `non-claims.md`, `release-blockers.json`, and
+  `release-evidence-manifest.json`; include conservative claim classification,
+  release blocker aggregation, protocol schemas, artifact-state/delivery/run
+  summary references, and provider-free CLI/API access without creating tags or
+  releases.
 - Add Benchmark Lab Minimal Seed with `benchmark-run-manifest.json`,
   `benchmark-baseline-report.json`, `benchmark-candidate-report.json`,
   `benchmark-comparison-report.json`, `benchmark-evidence-matrix.json`, and

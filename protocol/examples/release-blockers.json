@@ -1,0 +1,23 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-release-blockers-v1",
+  "artifact": "release-blockers.json",
+  "run_id": "release-audit-example",
+  "status": "blocked",
+  "blockers": [
+    {
+      "blocker_id": "provider_evidence_missing:provider-claim-support-report.json",
+      "blocker_type": "provider_evidence_missing",
+      "severity": "blocking",
+      "message": "provider evidence missing",
+      "source_artifact": "provider-claim-support-report.json",
+      "claim": null
+    }
+  ],
+  "summary": { "blocker_count": 1, "blocking_count": 1, "warning_count": 0 },
+  "release_policy": {
+    "release_tag_created": false,
+    "release_tag_allowed_by_this_loop": false,
+    "real_provider_calls_run": false
+  }
+}

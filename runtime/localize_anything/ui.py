@@ -171,6 +171,12 @@ from .benchmark_lab import (
     read_benchmark_evidence_matrix,
     read_benchmark_run_manifest,
 )
+from .release_audit import (
+    read_public_claims_report,
+    read_release_blockers,
+    read_release_evidence_manifest,
+    read_release_readiness_audit,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -418,6 +424,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/benchmark-claim-boundary-report":
                     self._handle_workflow_artifact_query(parsed.query, "benchmark_claim_boundary_report", read_benchmark_claim_boundary_report)
+                    return
+                if parsed.path == "/api/release-readiness-audit":
+                    self._handle_workflow_artifact_query(parsed.query, "release_readiness_audit", read_release_readiness_audit)
+                    return
+                if parsed.path == "/api/public-claims-report":
+                    self._handle_workflow_artifact_query(parsed.query, "public_claims_report", read_public_claims_report)
+                    return
+                if parsed.path == "/api/release-blockers":
+                    self._handle_workflow_artifact_query(parsed.query, "release_blockers", read_release_blockers)
+                    return
+                if parsed.path == "/api/release-evidence-manifest":
+                    self._handle_workflow_artifact_query(parsed.query, "release_evidence_manifest", read_release_evidence_manifest)
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)

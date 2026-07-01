@@ -202,6 +202,19 @@ from .benchmark_lab import (
     read_benchmark_evidence_matrix,
     read_benchmark_run_manifest,
 )
+from .release_audit import (
+    build_non_claims_report,
+    build_public_claims_markdown,
+    build_public_claims_report,
+    build_release_audit_artifacts,
+    build_release_blockers,
+    build_release_evidence_manifest,
+    build_release_readiness_audit,
+    read_public_claims_report,
+    read_release_blockers,
+    read_release_evidence_manifest,
+    read_release_readiness_audit,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -966,6 +979,46 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_compare_parser.add_argument("--reference-policy", default="not_provided")
     benchmark_compare_parser.add_argument("--run-id")
     benchmark_compare_parser.add_argument("--output", type=Path)
+
+    release_audit_parser = subparsers.add_parser("release-audit", help="Create release audit and public claim boundary artifacts")
+    release_audit_parser.add_argument("state_dir", type=Path)
+    release_audit_parser.add_argument("--repo-root", type=Path)
+    release_audit_parser.add_argument("--run-id")
+    release_audit_parser.add_argument("--output", type=Path)
+
+    release_readiness_parser = subparsers.add_parser("release-readiness-audit", help="Create or read release-readiness-audit.json")
+    release_readiness_parser.add_argument("state_dir", type=Path)
+    release_readiness_parser.add_argument("--repo-root", type=Path)
+    release_readiness_parser.add_argument("--read", action="store_true")
+    release_readiness_parser.add_argument("--run-id")
+    release_readiness_parser.add_argument("--output", type=Path)
+
+    public_claims_parser = subparsers.add_parser("public-claims-report", help="Create or read public-claims-report.json and markdown")
+    public_claims_parser.add_argument("state_dir", type=Path)
+    public_claims_parser.add_argument("--repo-root", type=Path)
+    public_claims_parser.add_argument("--read", action="store_true")
+    public_claims_parser.add_argument("--markdown", action="store_true")
+    public_claims_parser.add_argument("--run-id")
+    public_claims_parser.add_argument("--output", type=Path)
+
+    non_claims_parser = subparsers.add_parser("non-claims", help="Create non-claims.md")
+    non_claims_parser.add_argument("state_dir", type=Path)
+    non_claims_parser.add_argument("--run-id")
+    non_claims_parser.add_argument("--output", type=Path)
+
+    release_blockers_parser = subparsers.add_parser("release-blockers", help="Create or read release-blockers.json")
+    release_blockers_parser.add_argument("state_dir", type=Path)
+    release_blockers_parser.add_argument("--repo-root", type=Path)
+    release_blockers_parser.add_argument("--read", action="store_true")
+    release_blockers_parser.add_argument("--run-id")
+    release_blockers_parser.add_argument("--output", type=Path)
+
+    release_evidence_parser = subparsers.add_parser("release-evidence-manifest", help="Create or read release-evidence-manifest.json")
+    release_evidence_parser.add_argument("state_dir", type=Path)
+    release_evidence_parser.add_argument("--repo-root", type=Path)
+    release_evidence_parser.add_argument("--read", action="store_true")
+    release_evidence_parser.add_argument("--run-id")
+    release_evidence_parser.add_argument("--output", type=Path)
 
     record_human_review_parser = subparsers.add_parser("record-human-review", help="Append structured human review evidence")
     record_human_review_parser.add_argument("state_dir", type=Path)
@@ -2162,6 +2215,70 @@ def main(argv: list[str] | None = None) -> int:
                 "provider_or_model_called": False,
                 "target_files_mutated": False,
             }
+            return _emit_json(result, args.output)
+        if args.command == "release-audit":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-release-audit-command-v1",
+                **build_release_audit_artifacts(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
+                "provider_or_model_called": False,
+                "release_or_tag_created": False,
+                "target_files_mutated": False,
+            }
+            return _emit_json(result, args.output)
+        if args.command == "release-readiness-audit":
+            result = (
+                read_release_readiness_audit(args.state_dir)
+                if args.read
+                else build_release_readiness_audit(
+                    args.state_dir,
+                    evidence_manifest=build_release_evidence_manifest(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
+                    run_id=args.run_id,
+                )
+            )
+            return _emit_json(result, args.output)
+        if args.command == "public-claims-report":
+            if args.markdown:
+                text = (
+                    (args.state_dir / "public-claims-report.md").read_text(encoding="utf-8")
+                    if args.read
+                    else build_public_claims_markdown(
+                        args.state_dir,
+                        public_claims=build_public_claims_report(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
+                        run_id=args.run_id,
+                    )
+                )
+                return _emit_text(text, args.output)
+            result = (
+                read_public_claims_report(args.state_dir)
+                if args.read
+                else build_public_claims_report(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            )
+            return _emit_json(result, args.output)
+        if args.command == "non-claims":
+            claims = (
+                read_public_claims_report(args.state_dir)
+                if (args.state_dir / "public-claims-report.json").is_file()
+                else build_public_claims_report(args.state_dir, run_id=args.run_id)
+            )
+            return _emit_text(build_non_claims_report(args.state_dir, public_claims=claims, run_id=args.run_id), args.output)
+        if args.command == "release-blockers":
+            result = (
+                read_release_blockers(args.state_dir)
+                if args.read
+                else build_release_blockers(
+                    args.state_dir,
+                    evidence_manifest=build_release_evidence_manifest(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
+                    run_id=args.run_id,
+                )
+            )
+            return _emit_json(result, args.output)
+        if args.command == "release-evidence-manifest":
+            result = (
+                read_release_evidence_manifest(args.state_dir)
+                if args.read
+                else build_release_evidence_manifest(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            )
             return _emit_json(result, args.output)
         if args.command == "record-human-review":
             result = record_human_review_evidence(args.state_dir, read_json(args.input), run_id=args.run_id)
