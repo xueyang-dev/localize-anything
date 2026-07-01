@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-baseline-report.schema.json",
+  "title": "Localize Anything Benchmark Baseline Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "run_role", "status", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-baseline-report-v1" },
+    "artifact": { "const": "benchmark-baseline-report.json" },
+    "run_role": { "const": "baseline" },
+    "status": { "type": "string" },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_evidence": { "type": "object" }
+  },
+  "additionalProperties": true
+}

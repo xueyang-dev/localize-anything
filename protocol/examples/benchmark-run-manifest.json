@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-benchmark-run-manifest-v1",
+  "artifact": "benchmark-run-manifest.json",
+  "run_id": "benchmark-example",
+  "status": "ready",
+  "benchmark_track": "controlled",
+  "reference_policy": "reference_as_evaluation_only",
+  "baseline": { "role": "baseline", "status": "available", "target_locale": "zh-CN" },
+  "candidate": { "role": "candidate", "status": "available", "target_locale": "zh-CN" },
+  "evidence_contract": {
+    "single_quality_score_produced": false,
+    "reference_translations_are_evaluation_references": true,
+    "benchmark_comparison_does_not_upgrade_release_claims": true,
+    "synthetic_or_failed_provider_output_is_not_provider_backed": true
+  }
+}

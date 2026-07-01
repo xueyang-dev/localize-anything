@@ -163,6 +163,14 @@ from .translation_provenance import (
     read_translation_claim_provenance_report,
     read_translation_provenance,
 )
+from .benchmark_lab import (
+    read_benchmark_baseline_report,
+    read_benchmark_candidate_report,
+    read_benchmark_claim_boundary_report,
+    read_benchmark_comparison_report,
+    read_benchmark_evidence_matrix,
+    read_benchmark_run_manifest,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -392,6 +400,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/translation-claim-provenance-report":
                     self._handle_workflow_artifact_query(parsed.query, "translation_claim_provenance_report", read_translation_claim_provenance_report)
+                    return
+                if parsed.path == "/api/benchmark-run-manifest":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_run_manifest", read_benchmark_run_manifest)
+                    return
+                if parsed.path == "/api/benchmark-baseline-report":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_baseline_report", read_benchmark_baseline_report)
+                    return
+                if parsed.path == "/api/benchmark-candidate-report":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_candidate_report", read_benchmark_candidate_report)
+                    return
+                if parsed.path == "/api/benchmark-comparison-report":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_comparison_report", read_benchmark_comparison_report)
+                    return
+                if parsed.path == "/api/benchmark-evidence-matrix":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_evidence_matrix", read_benchmark_evidence_matrix)
+                    return
+                if parsed.path == "/api/benchmark-claim-boundary-report":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_claim_boundary_report", read_benchmark_claim_boundary_report)
                     return
                 if parsed.path == "/api/evaluation-scorecard":
                     self._handle_evaluation_scorecard_query(parsed.query)

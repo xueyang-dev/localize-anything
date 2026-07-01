@@ -165,6 +165,7 @@ from .translation_provenance import (
     TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
     TRANSLATION_PROVENANCE_JSONL,
 )
+from .benchmark_lab import BENCHMARK_ASSETS, BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, BENCHMARK_COMPARISON_REPORT_JSON
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1206,6 +1207,7 @@ def _summary(
         ("segment_evidence_view", SEGMENT_EVIDENCE_VIEW_JSON),
         ("provenance_coverage_report", PROVENANCE_COVERAGE_REPORT_JSON),
         ("translation_claim_provenance_report", TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON),
+        *tuple(BENCHMARK_ASSETS.items()),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1399,6 +1401,16 @@ def _summary(
             "translation_claim_provenance_status": (
                 read_json(state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON).get("status", "not_checked")
                 if (state_dir / TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "benchmark_comparison_status": (
+                read_json(state_dir / BENCHMARK_COMPARISON_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / BENCHMARK_COMPARISON_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "benchmark_claim_boundary_status": (
+                read_json(state_dir / BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON).is_file()
                 else "not_checked"
             ),
             "knowledge_repair_closure_status": (

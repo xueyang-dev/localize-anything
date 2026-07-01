@@ -1727,3 +1727,53 @@ CLI commands are `translation-provenance`, `segment-evidence-view`,
 `provenance-coverage-report`, and `translation-claim-provenance-report`.
 They generate or read structured artifacts only. They must not call providers,
 run models, apply repairs, or mutate target project files.
+
+## Benchmark Lab Minimal Seed
+
+Benchmark Lab artifacts compare baseline and candidate runs as evidence, not as
+a leaderboard or release gate bypass.
+
+Artifacts:
+
+- `benchmark-run-manifest.json` records benchmark track (`controlled` or
+  `agent_system`), reference policy, baseline/candidate references, target
+  locale, provider evidence status, knowledge pack status, human review level,
+  workflow depth, and no-single-score policy.
+- `benchmark-baseline-report.json` and `benchmark-candidate-report.json`
+  summarize each run across structural QA, coverage, forbidden claims,
+  scorecard/readiness, provider evidence, knowledge usage/audit/provenance,
+  locale capability, repair/recompute, human review/signoff, delivery, and
+  apply status.
+- `benchmark-comparison-report.json` compares the two reports by dimension and
+  records forbidden-claim additions/removals without producing a synthetic
+  quality score.
+- `benchmark-evidence-matrix.json` exposes the same comparison as deterministic
+  rows for Workbench/API consumers.
+- `benchmark-claim-boundary-report.json` records benchmark-supported,
+  unsupported, and forbidden claims.
+
+Rules:
+
+- No artifact may contain a single aggregate quality score.
+- Controlled benchmarks and agent-system benchmarks must remain separately
+  labeled.
+- Reference translations are evaluation references, not hidden source truth.
+- Synthetic, mock, dry-run, local-draft, skipped, failed, or unverified provider
+  output cannot support provider-backed quality.
+- Benchmark comparison does not upgrade scorecard, delivery, apply, production,
+  review-complete, provider-backed, or knowledge-backed claims.
+
+Artifact-backed APIs are:
+
+- `GET /api/benchmark-run-manifest`
+- `GET /api/benchmark-baseline-report`
+- `GET /api/benchmark-candidate-report`
+- `GET /api/benchmark-comparison-report`
+- `GET /api/benchmark-evidence-matrix`
+- `GET /api/benchmark-claim-boundary-report`
+
+CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
+`benchmark-candidate-report`, `benchmark-comparison-report`,
+`benchmark-evidence-matrix`, `benchmark-claim-boundary-report`, and
+`benchmark-compare`. They generate or read structured artifacts only. They must
+not call providers, run models, apply repairs, or mutate target project files.

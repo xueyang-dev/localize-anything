@@ -302,6 +302,15 @@ from runtime.localize_anything.translation_provenance import (
     build_translation_provenance,
     build_translation_provenance_views,
 )
+from runtime.localize_anything.benchmark_lab import (
+    BENCHMARK_BASELINE_REPORT_JSON,
+    BENCHMARK_CANDIDATE_REPORT_JSON,
+    BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
+    BENCHMARK_COMPARISON_REPORT_JSON,
+    BENCHMARK_EVIDENCE_MATRIX_JSON,
+    BENCHMARK_RUN_MANIFEST_JSON,
+    build_benchmark_lab_reports,
+)
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
@@ -10442,6 +10451,7 @@ def _translation_provenance_state(root: Path) -> Path:
             "input_paths": ["locales/en-US.json"],
         },
     )
+    write_json(state / "current-manifest.json", {"protocol_version": "0.1", "schema": "localize-anything-current-manifest-v1", "files": []})
     write_json(
         state / "localization-brief.json",
         {
@@ -10589,6 +10599,84 @@ def _translation_provenance_state(root: Path) -> Path:
     (state / "glossary.csv").write_text("source,target,status,notes\n", encoding="utf-8")
     (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
     return state
+
+
+def _benchmark_run_state(root: Path) -> Path:
+    state = root / ".localize-anything"
+    baseline = state / "baseline"
+    candidate = state / "candidate"
+    baseline.mkdir(parents=True, exist_ok=True)
+    candidate.mkdir(parents=True, exist_ok=True)
+    write_json(
+        state / "config.json",
+        {
+            "project_root": root.as_posix(),
+            "source_locale": "en-US",
+            "target_locales": ["zh-CN"],
+            "input_paths": ["locales/en-US.json"],
+        },
+    )
+    write_json(state / "current-manifest.json", {"protocol_version": "0.1", "schema": "localize-anything-current-manifest-v1", "files": []})
+    (state / "localization-context.md").write_text("", encoding="utf-8")
+    (state / "glossary.csv").write_text("source,target,status,notes\n", encoding="utf-8")
+    (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
+    _write_benchmark_run_artifacts(baseline, "baseline", ["provider_backed_quality"], "pass")
+    _write_benchmark_run_artifacts(candidate, "candidate", ["provider_backed_quality", "production_ready"], "pass")
+    return state
+
+
+def _write_benchmark_run_artifacts(run_dir: Path, role: str, forbidden_claims: list[str], qa_status: str) -> None:
+    write_json(
+        run_dir / "delivery-manifest.json",
+        {
+            "protocol_version": "0.1",
+            "run_id": f"benchmark-{role}",
+            "source_commit": "abc123",
+            "source_path": f"fixtures/{role}",
+            "adapters": {"core.json-locale": "seed"},
+            "reference_policy": "reference_as_evaluation_only",
+            "project": {"target_locales": ["zh-CN"]},
+            "generation": {"provider_status": "synthetic", "mode": "dry_run"},
+            "qa": {"status": qa_status},
+            "outputs": [],
+            "assets": {},
+        },
+    )
+    write_json(
+        run_dir / "evaluation-scorecard.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-evaluation-scorecard-v1",
+            "run_id": f"benchmark-{role}",
+            "status": "pass_with_warnings",
+            "overall_claim": "review_required",
+            "coverage_assurance": {"status": "partial"},
+            "evidence_level": {"highest_supported": "E0_deterministic_structural_qa"},
+            "forbidden_claims": forbidden_claims,
+        },
+    )
+    write_json(
+        run_dir / "readiness-authorization-matrix.json",
+        {
+            "protocol_version": "0.1",
+            "schema": "localize-anything-readiness-authorization-matrix-v1",
+            "delivery_readiness_status": "review_required",
+            "apply_readiness_status": "blocked",
+            "forbidden_claims": forbidden_claims,
+        },
+    )
+    write_json(run_dir / "delivery-readiness-report.json", {"protocol_version": "0.1", "schema": "localize-anything-delivery-readiness-report-v1", "status": "review_required", "forbidden_claims": forbidden_claims})
+    write_json(run_dir / "apply-readiness-report.json", {"protocol_version": "0.1", "schema": "localize-anything-apply-readiness-report-v1", "status": "blocked", "forbidden_claims_that_prevent_apply": forbidden_claims})
+    write_json(run_dir / "provider-evidence-reconciliation.json", {"protocol_version": "0.1", "schema": "localize-anything-provider-evidence-reconciliation-v1", "status": "blocked"})
+    write_json(run_dir / "provider-claim-support-report.json", {"protocol_version": "0.1", "schema": "localize-anything-provider-claim-support-report-v1", "status": "blocked", "provider_backed_quality_supported": False})
+    write_jsonl(run_dir / "provider-result-intake.jsonl", [{"protocol_version": "0.1", "schema": "localize-anything-provider-result-intake-record-v1", "result_id": f"{role}-synthetic", "result_source": "synthetic", "status": "received_non_provider_backed"}])
+    write_json(run_dir / "knowledge-usage-report.json", {"protocol_version": "0.1", "schema": "localize-anything-knowledge-usage-report-v1", "status": "clear_with_warnings"})
+    write_json(run_dir / "constraint-application-audit.json", {"protocol_version": "0.1", "schema": "localize-anything-constraint-application-audit-v1", "status": "clear_with_warnings"})
+    write_json(run_dir / "knowledge-assurance-summary.json", {"protocol_version": "0.1", "schema": "localize-anything-knowledge-assurance-summary-v1", "status": "review_required"})
+    write_json(run_dir / "locale-capability-report.json", {"protocol_version": "0.1", "schema": "localize-anything-locale-capability-report-v1", "status": "partial", "target_locale": "zh-CN"})
+    write_json(run_dir / "locale-readiness-impact.json", {"protocol_version": "0.1", "schema": "localize-anything-locale-readiness-impact-v1", "status": "review_required", "forbidden_claims": ["locale_formatting_complete"]})
+    write_json(run_dir / "provenance-coverage-report.json", {"protocol_version": "0.1", "schema": "localize-anything-provenance-coverage-report-v1", "status": "review_required"})
+    write_json(run_dir / "translation-claim-provenance-report.json", {"protocol_version": "0.1", "schema": "localize-anything-translation-claim-provenance-report-v1", "status": "blocked", "forbidden_claims": forbidden_claims})
 
 
 def _knowledge_repair_result_state(root: Path, issue: dict[str, Any] | None = None) -> tuple[Path, dict[str, Any]]:
@@ -11826,7 +11914,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 121)
+        self.assertEqual(result["schemas_checked"], 127)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13167,6 +13255,121 @@ class TranslationProvenanceTests(unittest.TestCase):
                     paths = ["translation-provenance", "segment-evidence-view", "provenance-coverage-report", "translation-claim-provenance-report"]
                     statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
                     self.assertEqual(statuses, [200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
+
+
+class BenchmarkLabTests(unittest.TestCase):
+    def test_benchmark_lab_builds_reports_without_quality_score(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            reports = build_benchmark_lab_reports(
+                state,
+                benchmark_track="agent_system",
+                reference_policy="reference_as_evaluation_only",
+                run_id="benchmark-test-001",
+            )
+
+            assert_protocol_schema(self, "benchmark-run-manifest", reports["benchmark_run_manifest"])
+            assert_protocol_schema(self, "benchmark-baseline-report", reports["benchmark_baseline_report"])
+            assert_protocol_schema(self, "benchmark-candidate-report", reports["benchmark_candidate_report"])
+            assert_protocol_schema(self, "benchmark-comparison-report", reports["benchmark_comparison_report"])
+            assert_protocol_schema(self, "benchmark-evidence-matrix", reports["benchmark_evidence_matrix"])
+            assert_protocol_schema(self, "benchmark-claim-boundary-report", reports["benchmark_claim_boundary_report"])
+            self.assertEqual(reports["benchmark_run_manifest"]["benchmark_track"], "agent_system")
+            self.assertFalse(reports["benchmark_comparison_report"]["single_quality_score_produced"])
+            self.assertIsNone(reports["benchmark_comparison_report"]["single_quality_score"])
+            self.assertIn("production_ready", reports["benchmark_comparison_report"]["forbidden_claim_regression"]["added"])
+            self.assertIn("benchmark_quality_score", reports["benchmark_claim_boundary_report"]["forbidden_claims"])
+
+    def test_benchmark_handles_baseline_only_and_candidate_only_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            shutil.rmtree(state / "baseline")
+            reports = build_benchmark_lab_reports(state)
+            self.assertEqual(reports["benchmark_comparison_report"]["status"], "candidate_only")
+
+            state = _benchmark_run_state(Path(directory) / "second")
+            shutil.rmtree(state / "candidate")
+            reports = build_benchmark_lab_reports(state)
+            self.assertEqual(reports["benchmark_comparison_report"]["status"], "baseline_only")
+
+    def test_benchmark_excludes_synthetic_provider_and_preserves_claim_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            reports = build_benchmark_lab_reports(state)
+            candidate = reports["benchmark_candidate_report"]
+            boundary = reports["benchmark_claim_boundary_report"]
+
+            self.assertFalse(candidate["provider_evidence"]["provider_backed_supported"])
+            self.assertTrue(candidate["provider_evidence"]["synthetic_or_failed_output_present"])
+            self.assertIn("provider_backed_quality", boundary["forbidden_claims"])
+            self.assertFalse(boundary["release_claim_policy"]["benchmark_comparison_upgrades_delivery_or_apply_readiness"])
+
+    def test_benchmark_scorecard_readiness_artifact_state_and_delivery_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _benchmark_run_state(root)
+            build_benchmark_lab_reports(state)
+            scorecard = build_evaluation_scorecard(state)
+            matrix = build_readiness_authorization_matrix(state)
+            artifact_state = build_artifact_state(state)
+
+            self.assertIn("benchmark_quality_score", scorecard["forbidden_claims"])
+            self.assertIn("benchmark_quality_score", matrix["forbidden_claims"])
+            artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+            self.assertIn("benchmark_comparison_report", artifact_ids)
+            self.assertIn("benchmark_claim_boundary_report", artifact_ids)
+
+            staging = root / "staging"
+            staged = staging / "locales" / "zh-CN.json"
+            staged.parent.mkdir(parents=True)
+            staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "benchmark-delivery-001")
+            assets = packaged["manifest"]["assets"]
+            self.assertEqual(assets["benchmark_run_manifest"], BENCHMARK_RUN_MANIFEST_JSON)
+            self.assertEqual(assets["benchmark_comparison_report"], BENCHMARK_COMPARISON_REPORT_JSON)
+            self.assertEqual(assets["benchmark_claim_boundary_report"], BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON)
+
+    def test_benchmark_artifact_state_marks_stale_after_upstream_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            build_benchmark_lab_reports(state)
+            build_artifact_state(state)
+            write_json(state / "evaluation-scorecard.json", {"protocol_version": "0.1", "schema": "localize-anything-evaluation-scorecard-v1", "status": "blocked", "forbidden_claims": ["production_ready"]})
+            artifact_state = build_artifact_state(state)
+            statuses = {item["artifact_id"]: item["status"] for item in artifact_state["artifacts"]}
+
+            self.assertEqual(statuses["benchmark_claim_boundary_report"], "stale")
+
+    def test_benchmark_cli_and_api_are_deterministic_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            first = Path(directory) / "first.json"
+            second = Path(directory) / "second.json"
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                self.assertEqual(cli_main(["benchmark-compare", state.as_posix(), "--output", first.as_posix()]), 0)
+                self.assertEqual(cli_main(["benchmark-compare", state.as_posix(), "--output", second.as_posix()]), 0)
+                self.assertEqual(read_json(first), read_json(second))
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = [
+                        "benchmark-run-manifest",
+                        "benchmark-baseline-report",
+                        "benchmark-candidate-report",
+                        "benchmark-comparison-report",
+                        "benchmark-evidence-matrix",
+                        "benchmark-claim-boundary-report",
+                    ]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200, 200, 200])
                 finally:
                     server.shutdown()
                     server.server_close()

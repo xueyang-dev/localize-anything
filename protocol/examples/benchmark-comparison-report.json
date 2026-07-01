@@ -1,0 +1,15 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-benchmark-comparison-report-v1",
+  "artifact": "benchmark-comparison-report.json",
+  "run_id": "benchmark-example",
+  "status": "compared",
+  "benchmark_track": "controlled",
+  "reference_policy": "reference_as_evaluation_only",
+  "single_quality_score": null,
+  "single_quality_score_produced": false,
+  "dimension_comparisons": [
+    { "dimension": "structural_qa", "baseline_status": "pass", "candidate_status": "pass", "comparison": "unchanged" }
+  ],
+  "forbidden_claim_regression": { "added": ["production_ready"], "removed": [], "unchanged": ["provider_backed_quality"] }
+}

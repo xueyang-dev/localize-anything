@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-run-manifest.schema.json",
+  "title": "Localize Anything Benchmark Run Manifest",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "benchmark_track", "reference_policy", "evidence_contract"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-run-manifest-v1" },
+    "artifact": { "const": "benchmark-run-manifest.json" },
+    "status": { "type": "string" },
+    "benchmark_track": { "enum": ["controlled", "agent_system"] },
+    "reference_policy": { "type": "string" },
+    "baseline": { "type": "object" },
+    "candidate": { "type": "object" },
+    "evidence_contract": { "type": "object" }
+  },
+  "additionalProperties": true
+}

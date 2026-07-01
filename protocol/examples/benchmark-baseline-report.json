@@ -1,0 +1,13 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-benchmark-baseline-report-v1",
+  "artifact": "benchmark-baseline-report.json",
+  "run_id": "benchmark-example",
+  "run_role": "baseline",
+  "status": "ready",
+  "mode": "controlled",
+  "reference_policy": "reference_as_evaluation_only",
+  "provider_evidence": { "status": "blocked", "provider_backed_supported": false },
+  "forbidden_claims": ["provider_backed_quality"],
+  "limitations": ["run report summarizes evidence only and does not produce a single quality score"]
+}

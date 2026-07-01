@@ -1,0 +1,13 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-benchmark-candidate-report-v1",
+  "artifact": "benchmark-candidate-report.json",
+  "run_id": "benchmark-example",
+  "run_role": "candidate",
+  "status": "ready",
+  "mode": "controlled",
+  "reference_policy": "reference_as_evaluation_only",
+  "provider_evidence": { "status": "blocked", "provider_backed_supported": false },
+  "forbidden_claims": ["provider_backed_quality", "production_ready"],
+  "limitations": ["run report summarizes evidence only and does not produce a single quality score"]
+}

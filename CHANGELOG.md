@@ -4,6 +4,15 @@
 
 ### Added
 
+- Add Benchmark Lab Minimal Seed with `benchmark-run-manifest.json`,
+  `benchmark-baseline-report.json`, `benchmark-candidate-report.json`,
+  `benchmark-comparison-report.json`, `benchmark-evidence-matrix.json`, and
+  `benchmark-claim-boundary-report.json`; include provider-free CLI/API access,
+  artifact-state/scorecard/readiness/delivery/run-summary references, protocol
+  schemas, and conservative claim boundaries. Benchmark evidence compares
+  baseline and candidate runs without producing a single quality score or
+  upgrading release, provider-backed, review-complete, delivery, or apply
+  claims.
 - Add Translation Provenance View seed with `translation-provenance.jsonl`,
   `segment-evidence-view.json`, `provenance-coverage-report.json`, and
   `translation-claim-provenance-report.json`; include per-segment evidence

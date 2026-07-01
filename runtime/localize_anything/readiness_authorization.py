@@ -26,6 +26,7 @@ from .translation_provenance import (
     TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON,
     TRANSLATION_PROVENANCE_JSONL,
 )
+from .benchmark_lab import BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, BENCHMARK_COMPARISON_REPORT_JSON
 
 
 READINESS_AUTHORIZATION_MATRIX_JSON = "readiness-authorization-matrix.json"
@@ -87,6 +88,7 @@ def build_readiness_authorization_matrix(
     artifacts = _load_artifacts(state_dir, delivery_dir)
     scorecard = artifacts["evaluation_scorecard"]
     forbidden = set(_strings(scorecard.get("forbidden_claims")))
+    forbidden.update(_strings(artifacts.get("benchmark_claim_boundary_report", {}).get("forbidden_claims", [])))
     blockers: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
 
@@ -373,6 +375,8 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "locale_readiness_impact": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_READINESS_IMPACT_JSON)),
         "provenance_coverage_report": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVENANCE_COVERAGE_REPORT_JSON)),
         "translation_claim_provenance_report": _read_optional_json(_first_existing(state_dir, delivery_dir, TRANSLATION_CLAIM_PROVENANCE_REPORT_JSON)),
+        "benchmark_comparison_report": _read_optional_json(_first_existing(state_dir, delivery_dir, BENCHMARK_COMPARISON_REPORT_JSON)),
+        "benchmark_claim_boundary_report": _read_optional_json(_first_existing(state_dir, delivery_dir, BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON)),
     }
 
 

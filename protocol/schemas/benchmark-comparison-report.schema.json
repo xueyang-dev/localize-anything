@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-comparison-report.schema.json",
+  "title": "Localize Anything Benchmark Comparison Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "single_quality_score_produced", "dimension_comparisons"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-comparison-report-v1" },
+    "artifact": { "const": "benchmark-comparison-report.json" },
+    "status": { "type": "string" },
+    "single_quality_score_produced": { "const": false },
+    "dimension_comparisons": { "type": "array" },
+    "forbidden_claim_regression": { "type": "object" }
+  },
+  "additionalProperties": true
+}
