@@ -1,0 +1,12 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-network-boundary-report-v1",
+  "artifact": "provider-network-boundary-report.json",
+  "status": "blocked",
+  "network_disabled_by_default": true,
+  "explicit_opt_in_required": true,
+  "loopback_test_mode": false,
+  "real_network_explicitly_enabled": false,
+  "blockers": ["non_loopback_provider_network_requires_explicit_opt_in"],
+  "provider_or_model_called": false
+}

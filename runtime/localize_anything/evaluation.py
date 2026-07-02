@@ -59,6 +59,7 @@ from .provider_result_gate import (
     PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .provider_safety import PROVIDER_EXECUTION_SAFETY_DECISION_JSON
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_CLAIMS,
@@ -292,6 +293,7 @@ def _load_artifacts(
         "provider_result_acceptance_decision": _read_optional_json(state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON),
         "provider_claim_support_report": _read_optional_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
         "workbench_provider_review_queue": _read_optional_json(state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
+        "provider_execution_safety_decision": _read_optional_json(state_dir / PROVIDER_EXECUTION_SAFETY_DECISION_JSON),
         "locale_capability_report": _read_optional_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON),
         "locale_risk_report": _read_optional_json(state_dir / LOCALE_RISK_REPORT_JSON),
         "locale_readiness_impact": _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON),
@@ -725,6 +727,11 @@ def _forbidden_claims(
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
     elif reconciliation:
         claims.update(PROVIDER_CLAIMS)
+    safety = artifacts.get("provider_execution_safety_decision", {})
+    if isinstance(safety, dict) and safety:
+        claims.update(str(claim) for claim in safety.get("forbidden_claims", []) if claim)
+        if str(safety.get("status") or "") in {"blocked", "stale", "failed"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
     locale_impact = artifacts.get("locale_readiness_impact", {})
     locale_risk = artifacts.get("locale_risk_report", {})
     locale_capability = artifacts.get("locale_capability_report", {})
@@ -1201,6 +1208,7 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "provider_result_acceptance_decision": state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON,
         "provider_claim_support_report": state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
         "workbench_provider_review_queue": state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
+        "provider_execution_safety_decision": state_dir / PROVIDER_EXECUTION_SAFETY_DECISION_JSON,
         "locale_capability_report": state_dir / LOCALE_CAPABILITY_REPORT_JSON,
         "locale_risk_report": state_dir / LOCALE_RISK_REPORT_JSON,
         "locale_readiness_impact": state_dir / LOCALE_READINESS_IMPACT_JSON,

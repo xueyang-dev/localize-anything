@@ -1,0 +1,12 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-execution-safety-decision-v1",
+  "artifact": "provider-execution-safety-decision.json",
+  "status": "blocked",
+  "ready_for_future_real_provider_execution": false,
+  "provider_backed_quality_supported": false,
+  "provider_execution_complete_supported": false,
+  "forbidden_claims": ["provider_backed_quality", "provider_execution_complete"],
+  "blockers": ["real_provider_execution_not_explicitly_enabled"],
+  "provider_or_model_called": false
+}

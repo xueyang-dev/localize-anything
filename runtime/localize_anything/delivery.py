@@ -147,6 +147,7 @@ from .provider_result_gate import (
     provider_result_gate_asset_paths,
 )
 from .provider_mock import PROVIDER_MOCK_ASSETS, provider_mock_asset_paths
+from .provider_safety import PROVIDER_SAFETY_ASSETS, provider_safety_asset_paths
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -244,6 +245,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
     *PROVIDER_MOCK_ASSETS.values(),
+    *PROVIDER_SAFETY_ASSETS.values(),
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_RISK_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -375,6 +377,7 @@ def package_delivery(
                 **provider_evidence_asset_paths(state_dir),
                 **provider_result_gate_asset_paths(state_dir),
                 **provider_mock_asset_paths(state_dir),
+                **provider_safety_asset_paths(state_dir),
                 **locale_capability_asset_paths(state_dir),
                 **translation_provenance_asset_paths(state_dir),
                 **benchmark_lab_asset_paths(state_dir),

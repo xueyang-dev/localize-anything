@@ -1727,6 +1727,45 @@ CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
 benchmark artifacts. The seed adds no provider/model calls, no write endpoints,
 and no target-file mutation.
 
+## Provider Execution Hardening / Real Provider Boundary Seed
+
+Provider Execution Hardening is a conservative safety layer for future direct
+provider runs. It does not call providers and does not make provider-backed
+quality claims. It answers whether the provider path is explicitly enabled,
+credential-safe, network-bounded, failure-classified, and ready to send future
+real output through the existing intake, reconciliation, QA, review,
+acceptance, scorecard, readiness, signoff, delivery, and release-audit gates.
+
+The seed emits:
+
+- `provider-execution-readiness-report.json`: explicit opt-in status, provider
+  profile validation, credential status, network boundary, redaction status,
+  blockers, and downstream required evidence path;
+- `provider-credential-policy-report.json`: credential source type and
+  environment variable names with presence/absence only, never secret values;
+- `provider-failure-taxonomy.json`: deterministic timeout, auth, SSL/TLS,
+  network, rate-limit, malformed-response, partial-response, schema-drift, and
+  unknown failure classes with retryability and fail-closed behavior;
+- `provider-network-boundary-report.json`: disabled-by-default provider network
+  policy, loopback test mode, endpoint shape, and explicit real-network opt-in;
+- `provider-redaction-audit.json`: provider artifact redaction check without
+  recording secret values;
+- `provider-execution-safety-decision.json`: consolidated safety decision and
+  forbidden provider claims.
+
+Direct HTTP provider execution is fail-closed for non-loopback URLs unless the
+caller explicitly opts in. Loopback remains available for deterministic tests
+and mock/local fixtures. Provider readiness remains execution-safety evidence:
+it does not prove provider execution completed, provider-backed quality,
+semantic quality, repair completion, delivery readiness, or apply readiness.
+
+CLI commands are `provider-execution-readiness`,
+`provider-credential-policy-report`, `provider-failure-taxonomy`,
+`provider-network-boundary-report`, `provider-redaction-audit`,
+`provider-execution-safety-decision`, and `provider-safety-check`. API GET
+endpoints expose the six JSON artifacts. The seed adds no provider/model calls,
+no credential logging, no release/tag actions, and no target-file mutation.
+
 ## Release Audit / Public Claims Boundary Seed
 
 Release Audit is a conservative boundary layer for public documentation,

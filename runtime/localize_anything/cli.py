@@ -177,6 +177,21 @@ from .provider_mock import (
     read_provider_mock_response,
     read_provider_mock_run_manifest,
 )
+from .provider_safety import (
+    build_provider_credential_policy_report,
+    build_provider_execution_readiness_report,
+    build_provider_execution_safety_decision,
+    build_provider_failure_taxonomy,
+    build_provider_network_boundary_report,
+    build_provider_redaction_audit,
+    build_provider_safety_artifacts,
+    read_provider_credential_policy_report,
+    read_provider_execution_readiness_report,
+    read_provider_execution_safety_decision,
+    read_provider_failure_taxonomy,
+    read_provider_network_boundary_report,
+    read_provider_redaction_audit,
+)
 from .locale_capability import (
     build_locale_capability_report,
     build_locale_capability_reports,
@@ -329,7 +344,7 @@ from .deepseek_provider import translate_batch_deepseek
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="localize-anything", description="Reference runtime for the Localize Anything protocol")
+    parser = argparse.ArgumentParser(prog="localize-anything", description="Reference runtime for the Localize Anything protocol", allow_abbrev=False)
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -956,6 +971,27 @@ def build_parser() -> argparse.ArgumentParser:
     provider_mock_scenarios_parser = subparsers.add_parser("provider-mock-scenarios", help="List deterministic provider-safe mock scenarios")
     provider_mock_scenarios_parser.add_argument("--output", type=Path)
 
+    for command, help_text in (
+        ("provider-execution-readiness", "Create/read provider-execution-readiness-report.json"),
+        ("provider-credential-policy-report", "Create/read provider-credential-policy-report.json without exposing values"),
+        ("provider-failure-taxonomy", "Create/read provider-failure-taxonomy.json"),
+        ("provider-network-boundary-report", "Create/read provider-network-boundary-report.json"),
+        ("provider-redaction-audit", "Create/read provider-redaction-audit.json"),
+        ("provider-execution-safety-decision", "Create/read provider-execution-safety-decision.json"),
+    ):
+        command_parser = subparsers.add_parser(command, help=help_text)
+        command_parser.add_argument("state_dir", type=Path)
+        command_parser.add_argument("--input", type=Path, help="Optional provider profile JSON")
+        command_parser.add_argument("--read", action="store_true")
+        command_parser.add_argument("--run-id")
+        command_parser.add_argument("--output", type=Path)
+
+    provider_safety_parser = subparsers.add_parser("provider-safety-check", help="Create all provider execution safety artifacts")
+    provider_safety_parser.add_argument("state_dir", type=Path)
+    provider_safety_parser.add_argument("--input", type=Path, help="Optional provider profile JSON")
+    provider_safety_parser.add_argument("--run-id")
+    provider_safety_parser.add_argument("--output", type=Path)
+
     locale_capability_parser = subparsers.add_parser("locale-capability-report", help="Create or read locale-capability-report.json")
     locale_capability_parser.add_argument("state_dir", type=Path)
     locale_capability_parser.add_argument("--target-locale")
@@ -1581,6 +1617,7 @@ def build_parser() -> argparse.ArgumentParser:
     provider_generate_parser.add_argument("--state-dir", type=Path)
     provider_generate_parser.add_argument("--generated-output", type=Path)
     provider_generate_parser.add_argument("--timeout-seconds", type=int, default=60)
+    provider_generate_parser.add_argument("--allow-real-provider-network", action="store_true")
     provider_generate_parser.add_argument("--output", type=Path)
 
     chinese_draft_parser = subparsers.add_parser(
@@ -1694,6 +1731,7 @@ def build_parser() -> argparse.ArgumentParser:
     agent_run_parser.add_argument("--synthetic-draft", action="store_true")
     agent_run_parser.add_argument("--provider-url")
     agent_run_parser.add_argument("--api-key-env")
+    agent_run_parser.add_argument("--allow-real-provider-network", action="store_true")
     agent_run_parser.add_argument("--provider-timeout-seconds", type=int, default=60)
     agent_run_parser.add_argument("--delivery-run-id")
     agent_run_parser.add_argument("--workflow-depth", default="ask", choices=["ask", "fast", "standard", "high_assurance"])
@@ -2365,6 +2403,26 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(read_provider_mock_claim_boundary(args.state_dir), args.output)
         if args.command == "provider-mock-scenarios":
             return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-mock-scenarios-v1", "scenarios": sorted(MOCK_SCENARIOS), "provider_or_model_called": False}, args.output)
+        if args.command == "provider-safety-check":
+            return _emit_json(build_provider_safety_artifacts(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id), args.output)
+        if args.command == "provider-execution-readiness":
+            result = read_provider_execution_readiness_report(args.state_dir) if args.read else build_provider_execution_readiness_report(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-credential-policy-report":
+            result = read_provider_credential_policy_report(args.state_dir) if args.read else build_provider_credential_policy_report(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-failure-taxonomy":
+            result = read_provider_failure_taxonomy(args.state_dir) if args.read else build_provider_failure_taxonomy(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-network-boundary-report":
+            result = read_provider_network_boundary_report(args.state_dir) if args.read else build_provider_network_boundary_report(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-redaction-audit":
+            result = read_provider_redaction_audit(args.state_dir) if args.read else build_provider_redaction_audit(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-execution-safety-decision":
+            result = read_provider_execution_safety_decision(args.state_dir) if args.read else build_provider_execution_safety_decision(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
             return _emit_json(result, args.output)
@@ -2965,6 +3023,7 @@ def main(argv: list[str] | None = None) -> int:
                 headers,
                 args.timeout_seconds,
                 handoff_decision,
+                args.allow_real_provider_network,
             )
             _emit_json(result, args.output)
             return 0 if result["status"] in {"pass", "pass_with_warnings"} else 1
@@ -3063,6 +3122,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.status,
                 args.operating_mode,
                 args.reference_policy,
+                args.allow_real_provider_network,
             )
             _emit_json(result, args.output)
             return 1 if result["status"] in {"response_import_failed", "generation_failed"} else 0

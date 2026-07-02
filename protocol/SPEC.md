@@ -1909,6 +1909,60 @@ structured artifacts only. They must not call providers, run models, apply
 repairs, mutate target project files, or turn dataset metadata into quality or
 release readiness.
 
+## Provider Execution Hardening / Real Provider Boundary Seed
+
+Provider execution hardening records whether a future real-provider path is
+safe enough to execute later. It never executes a provider and never supports
+provider-backed quality by itself.
+
+Artifacts:
+
+- `provider-execution-readiness-report.json` validates real-provider opt-in,
+  provider profile shape, credential status, network boundary, redaction audit,
+  and downstream evidence requirements.
+- `provider-credential-policy-report.json` reports credential presence or
+  absence by source type and environment variable name only. It must never
+  write credential values.
+- `provider-failure-taxonomy.json` classifies timeout, auth failure, SSL/TLS
+  or network failure, rate limit, malformed response, partial response, schema
+  drift, and unknown failures with retryability and fail-closed behavior.
+- `provider-network-boundary-report.json` records disabled-by-default network
+  policy, loopback test mode, endpoint shape, and explicit opt-in status.
+- `provider-redaction-audit.json` scans provider safety artifacts for secret
+  patterns and known environment secret values without recording those values.
+- `provider-execution-safety-decision.json` consolidates readiness, credential,
+  network, and redaction evidence into a conservative execution safety
+  decision.
+
+Rules:
+
+- Credential presence does not equal provider readiness.
+- Provider readiness does not equal provider-backed quality.
+- Real provider execution requires explicit opt-in; non-loopback provider
+  network access is blocked unless explicitly enabled.
+- Test mode uses loopback/mock surfaces and must not require real credentials.
+- Synthetic, mock, local, dry-run, fallback, failed, or unverified provider
+  output cannot support provider-backed claims.
+- Future real provider output must still flow through result intake,
+  reconciliation, deterministic QA, review evidence, acceptance, claim support,
+  scorecard, readiness, signoff, delivery, and release audit.
+
+Artifact-backed APIs are:
+
+- `GET /api/provider-execution-readiness`
+- `GET /api/provider-credential-policy-report`
+- `GET /api/provider-failure-taxonomy`
+- `GET /api/provider-network-boundary-report`
+- `GET /api/provider-redaction-audit`
+- `GET /api/provider-execution-safety-decision`
+
+CLI commands are `provider-execution-readiness`,
+`provider-credential-policy-report`, `provider-failure-taxonomy`,
+`provider-network-boundary-report`, `provider-redaction-audit`,
+`provider-execution-safety-decision`, and `provider-safety-check`. They generate
+or read structured artifacts only and must not call providers, run models, apply
+repairs, mutate target files, or expose secrets.
+
 ## Release Audit / Public Claims Boundary Seed
 
 Release Audit artifacts consolidate public-facing claim evidence without

@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
+import urllib.error
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -307,6 +308,16 @@ from runtime.localize_anything.provider_mock import (
     PROVIDER_MOCK_RESPONSE_JSONL,
     PROVIDER_MOCK_RUN_MANIFEST_JSON,
     build_provider_mock_run,
+)
+from runtime.localize_anything.provider_safety import (
+    PROVIDER_CREDENTIAL_POLICY_REPORT_JSON,
+    PROVIDER_EXECUTION_READINESS_REPORT_JSON,
+    PROVIDER_EXECUTION_SAFETY_DECISION_JSON,
+    PROVIDER_FAILURE_TAXONOMY_JSON,
+    PROVIDER_NETWORK_BOUNDARY_REPORT_JSON,
+    PROVIDER_REDACTION_AUDIT_JSON,
+    build_provider_safety_artifacts,
+    classify_provider_failure,
 )
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
@@ -12029,7 +12040,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 149)
+        self.assertEqual(result["schemas_checked"], 155)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13178,6 +13189,188 @@ class ProviderEvidenceTests(unittest.TestCase):
             self.assertTrue((state / PROVIDER_RESULT_INTAKE_JSONL).is_file())
             self.assertTrue((state / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file())
             self.assertEqual(read_provider_result_intake(state)[0]["status"], "rejected_provenance")
+
+
+class ProviderExecutionHardeningTests(unittest.TestCase):
+    def test_provider_safety_default_blocks_real_execution_and_forbids_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_execution_policy(state, {"execution_mode": "disabled"})
+            build_provider_handoff_request(state, {"execution_mode": "dry_run"})
+            result = build_provider_safety_artifacts(
+                state,
+                {
+                    "provider_id": "example",
+                    "model_name": "example-model",
+                    "provider_url": "https://provider.example/generate",
+                    "api_key_env": "LOCALIZE_PROVIDER_TEST_KEY",
+                },
+                run_id="provider-safety-default",
+            )
+            readiness = result["provider_execution_readiness_report"]
+            credential = result["provider_credential_policy_report"]
+            taxonomy = result["provider_failure_taxonomy"]
+            network = result["provider_network_boundary_report"]
+            redaction = result["provider_redaction_audit"]
+            decision = result["provider_execution_safety_decision"]
+
+            for schema_name, artifact in (
+                ("provider-execution-readiness-report", readiness),
+                ("provider-credential-policy-report", credential),
+                ("provider-failure-taxonomy", taxonomy),
+                ("provider-network-boundary-report", network),
+                ("provider-redaction-audit", redaction),
+                ("provider-execution-safety-decision", decision),
+            ):
+                assert_protocol_schema(self, schema_name, artifact)
+            self.assertEqual(readiness["status"], "blocked")
+            self.assertIn("real_provider_execution_not_explicitly_enabled", readiness["blockers"])
+            self.assertEqual(credential["status"], "missing")
+            self.assertEqual(network["status"], "blocked")
+            self.assertEqual(redaction["status"], "pass")
+            self.assertEqual(decision["status"], "blocked")
+            self.assertIn("provider_backed_quality", decision["forbidden_claims"])
+            self.assertFalse(result["provider_or_model_called"])
+
+    def test_credential_presence_reports_env_name_only_and_redaction_detects_value_leak(self) -> None:
+        secret = "REDACTION_SENTINEL_VALUE_123456"
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {"LOCALIZE_PROVIDER_TEST_KEY": secret}):
+            state = Path(directory)
+            build_provider_execution_policy(
+                state,
+                {
+                    "execution_mode": "real_provider",
+                    "safe": True,
+                    "allow_real_provider": True,
+                    "provider_name": "example",
+                    "model_name": "example-model",
+                },
+            )
+            write_json(state / PROVIDER_HANDOFF_REQUEST_JSON, {"schema": "test", "leaked": secret})
+            result = build_provider_safety_artifacts(
+                state,
+                {
+                    "provider_id": "example",
+                    "model_name": "example-model",
+                    "provider_url": "https://provider.example/generate",
+                    "api_key_env": "LOCALIZE_PROVIDER_TEST_KEY",
+                    "allow_real_provider_network": True,
+                },
+            )
+            credential_text = json.dumps(result["provider_credential_policy_report"])
+
+            self.assertEqual(result["provider_credential_policy_report"]["status"], "present")
+            self.assertIn("LOCALIZE_PROVIDER_TEST_KEY", credential_text)
+            self.assertNotIn(secret, credential_text)
+            self.assertEqual(result["provider_redaction_audit"]["status"], "failed")
+            self.assertGreater(result["provider_redaction_audit"]["secret_value_leak_count"], 0)
+            self.assertEqual(result["provider_execution_safety_decision"]["status"], "blocked")
+
+    def test_failure_taxonomy_and_network_boundary_fail_closed_without_provider_call(self) -> None:
+        timeout = classify_provider_failure(TimeoutError("timed out"))
+        auth = classify_provider_failure(urllib.error.HTTPError("https://provider.example", 401, "auth", {}, None))
+        ssl_error = classify_provider_failure(ssl.SSLError("certificate verify failed"))
+        network = classify_provider_failure(OSError("network unreachable"))
+
+        self.assertEqual(timeout["failure_type"], "timeout")
+        self.assertEqual(auth["failure_type"], "auth_failure")
+        self.assertEqual(ssl_error["failure_type"], "ssl_error")
+        self.assertEqual(network["failure_type"], "network_error")
+        self.assertEqual(auth["retryability"], "non_retryable")
+        self.assertTrue(all(item["fail_closed"] for item in (timeout, auth, ssl_error, network)))
+
+        with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("network called")) as post:
+            result = generate_handoff_with_http_provider({"batches": []}, "https://provider.example/generate")
+            self.assertEqual(result["status"], "fail")
+            self.assertEqual(result["items"][0]["category"], "provider_network_boundary")
+            post.assert_not_called()
+
+    def test_provider_safety_integrates_with_scorecard_readiness_release_cli_api_and_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _readiness_state(Path(directory), overall_claim="review_ready", forbidden_claims=[])
+            build_provider_execution_policy(state, {"execution_mode": "disabled"})
+            build_provider_handoff_request(state, {"execution_mode": "dry_run"})
+            profile = state / "provider-profile.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "provider_id": "example",
+                        "model_name": "example-model",
+                        "provider_url": "https://provider.example/generate",
+                        "api_key_env": "LOCALIZE_PROVIDER_TEST_KEY",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                self.assertEqual(cli_main(["provider-safety-check", state.as_posix(), "--input", profile.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-execution-safety-decision", state.as_posix(), "--read"]), 0)
+                provider.assert_not_called()
+
+            scorecard = build_evaluation_scorecard(state)
+            readiness = build_readiness_reports(state)["readiness_authorization_matrix"]
+            artifact_state = build_artifact_state(state)
+            release = build_release_audit_artifacts(state)
+            (state / "localization-context.md").write_text("# Context\n", encoding="utf-8")
+            (state / "glossary.csv").write_text("source,target\n", encoding="utf-8")
+            (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
+            write_json(
+                state / "config.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-config-v1",
+                    "project": str(Path(directory)),
+                    "source_locale": "en-US",
+                    "target_locales": ["zh-CN"],
+                    "source_files": ["source.txt"],
+                },
+            )
+            write_json(state / "delivery-manifest.json", {"protocol_version": "0.1", "schema": "localize-anything-delivery-manifest-v1", "generation": {"provider_status": "not_applicable", "apply_allowed": False}})
+            staging = Path(directory) / "staging"
+            staging.mkdir()
+            (staging / "out.txt").write_text("draft\n", encoding="utf-8")
+            packaged = package_delivery(state, staging, Path(directory) / "deliveries", [], "draft_package", "provider-safety-delivery")
+
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertEqual(readiness["provider_policy_status"]["status"], "blocked")
+            self.assertNotEqual(release["release_evidence_manifest"]["evidence"]["provider_execution_safety"]["status"], "missing")
+            self.assertIn("provider_execution_safety_decision", packaged["manifest"]["assets"])
+            self.assertTrue(any(item["artifact_id"] == "provider_execution_safety_decision" for item in artifact_state["artifacts"]))
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for endpoint, key in (
+                    ("/api/provider-execution-readiness", "provider_execution_readiness_report"),
+                    ("/api/provider-credential-policy-report", "provider_credential_policy_report"),
+                    ("/api/provider-failure-taxonomy", "provider_failure_taxonomy"),
+                    ("/api/provider-network-boundary-report", "provider_network_boundary_report"),
+                    ("/api/provider-redaction-audit", "provider_redaction_audit"),
+                    ("/api/provider-execution-safety-decision", "provider_execution_safety_decision"),
+                ):
+                    status, body = _http_get(host, port, f"{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+                    self.assertFalse(json.loads(body)[key].get("provider_or_model_called", True))
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_mock_output_remains_non_provider_backed_with_safety_artifacts_present(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            mock_result = build_provider_mock_run(state, scenario="success")
+            safety = build_provider_safety_artifacts(
+                state,
+                {"provider_id": "mock", "model_name": "provider-safe-mock", "provider_url": "http://127.0.0.1/mock", "requires_credentials": False},
+            )
+            scorecard = build_evaluation_scorecard(state)
+
+            self.assertFalse(mock_result["provider_mock_evidence_report"]["provider_backed"])
+            self.assertFalse(safety["provider_execution_safety_decision"]["provider_backed_quality_supported"])
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):
