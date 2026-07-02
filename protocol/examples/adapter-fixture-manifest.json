@@ -1,0 +1,24 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-adapter-fixture-manifest-v1",
+  "artifact": "adapter-fixture-manifest.json",
+  "run_id": "adapter-evidence-example",
+  "status": "ready_with_warnings",
+  "fixtures": [
+    {
+      "fixture_id": "adapter-fixture-example-json",
+      "adapter_id": "core.json-locale",
+      "evidence_class": "fixture_round_trip",
+      "input_files": ["tests/fixtures/json-project/locales/en-US.json"],
+      "expected_outputs": ["tests/fixtures/json-project/locales/zh-CN.json"],
+      "lifecycle_stages_tested": ["extract", "rebuild", "validate_output"],
+      "source_hashes": { "tests/fixtures/json-project/locales/en-US.json": "sha256:example" },
+      "target_hashes": { "tests/fixtures/json-project/locales/zh-CN.json": "sha256:example" },
+      "qa_result": "pass",
+      "freshness": "current",
+      "known_limitations": []
+    }
+  ],
+  "summary": { "fixture_count": 1, "current_count": 1, "stale_count": 0, "missing_count": 0 },
+  "source_artifact_references": ["adapter-evidence-provenance.json"]
+}

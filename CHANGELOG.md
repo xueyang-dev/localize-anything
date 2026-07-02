@@ -4,6 +4,14 @@
 
 ### Added
 
+- Add Adapter Fixture / Regression Evidence Provenance hardening with
+  `adapter-evidence-provenance.json`, `adapter-fixture-manifest.json`,
+  `adapter-regression-check-report.json`, `adapter-evidence-gap-report.json`,
+  and `adapter-promotion-readiness-report.json`; include fixture hashes,
+  lifecycle coverage, stale/missing evidence downgrades, release-audit/delivery
+  references, protocol schemas, and provider-free CLI/API access. Unit tests,
+  benchmark-only evidence, synthetic/local demos, and adapter existence remain
+  insufficient for stable adapter promotion or production-quality claims.
 - Add Adapter Release-Promotion Audit / Support Matrix Boundary seed with
   `adapter-support-matrix.json`, `adapter-release-audit.json`,
   `adapter-promotion-decision.json`,

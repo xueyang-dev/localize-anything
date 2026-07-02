@@ -1,0 +1,22 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-adapter-regression-check-report-v1",
+  "artifact": "adapter-regression-check-report.json",
+  "run_id": "adapter-evidence-example",
+  "status": "ready",
+  "checks": [
+    {
+      "adapter_id": "core.json-locale",
+      "status": "pass",
+      "evidence_classes": ["contract_test", "fixture_round_trip", "unit_test"],
+      "lifecycle_stages_checked": ["detect", "extract", "rebuild", "validate_output"],
+      "missing_lifecycle_stages": [],
+      "stale_evidence_count": 0,
+      "missing_evidence_count": 0,
+      "benchmark_evidence_separated": false,
+      "unit_tests_alone": false
+    }
+  ],
+  "summary": { "adapter_count": 1, "passed_count": 1, "warning_count": 0, "failed_count": 0 },
+  "source_artifact_references": ["adapter-evidence-provenance.json", "adapter-fixture-manifest.json"]
+}

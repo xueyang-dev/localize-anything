@@ -179,11 +179,32 @@ Artifacts:
   status and claim boundaries.
 - `adapter-public-claims-report.md` is a human-readable summary of those
   boundaries.
+- `adapter-evidence-provenance.json` records per-adapter evidence classes:
+  unit/contract tests, fixture extract or round-trip evidence, benchmark
+  evidence, real-project smoke evidence, apply-to-copy evidence, manual review,
+  unknown evidence, and known limitations.
+- `adapter-fixture-manifest.json` records fixture input files, expected outputs
+  when present, lifecycle stages tested, source/target hashes, QA result, and
+  freshness.
+- `adapter-regression-check-report.json` checks lifecycle coverage without
+  treating declared capabilities as tested evidence.
+- `adapter-evidence-gap-report.json` records stale, missing, unit-only,
+  benchmark-only, or lifecycle-gap evidence that must limit promotion claims.
+- `adapter-promotion-readiness-report.json` consolidates promotion readiness
+  against adapter promotion decisions and evidence gaps.
 
 Rules:
 
 - Adapter existence does not imply stable support.
 - Passing unit tests does not imply release promotion.
+- Unit and contract tests are evidence classes, but they do not prove
+  full-round-trip support by themselves.
+- Fixture evidence must keep source/target hashes and lifecycle coverage
+  separate from benchmark, synthetic, or real-project smoke evidence.
+- Benchmark-only evidence is evaluation evidence, not fixture evidence and not
+  production-quality proof.
+- Missing or stale fixture/regression evidence must downgrade adapter promotion
+  readiness and keep known limitations visible in public claims.
 - `full_round_trip` requires extraction, rebuild, deterministic output QA,
   fixture coverage, and regression evidence.
 - Experimental Android, iOS, String Catalog, Word document, and scenario
@@ -199,12 +220,21 @@ Artifact-backed APIs are:
 - `GET /api/adapter-release-audit`
 - `GET /api/adapter-promotion-decision`
 - `GET /api/adapter-regression-evidence-report`
+- `GET /api/adapter-evidence-provenance`
+- `GET /api/adapter-fixture-manifest`
+- `GET /api/adapter-regression-check-report`
+- `GET /api/adapter-evidence-gap-report`
+- `GET /api/adapter-promotion-readiness-report`
 
 CLI commands are `adapter-support-matrix`, `adapter-release-audit`,
 `adapter-promotion-decision`, `adapter-regression-evidence-report`,
-`adapter-public-claims-report`, and `adapter-release-check`. They generate or
-read structured artifacts only. They must not call providers, run models, apply
-repairs, mutate target project files, create releases, or move tags.
+`adapter-public-claims-report`, `adapter-release-check`,
+`adapter-evidence-provenance`, `adapter-fixture-manifest`,
+`adapter-regression-check-report`, `adapter-evidence-gap-report`,
+`adapter-promotion-readiness-report`, and `adapter-evidence-check`. They
+generate or read structured artifacts only. They must not call providers, run
+models, apply repairs, mutate target project files, create releases, or move
+tags.
 
 ## Evidence Spine And Claims
 

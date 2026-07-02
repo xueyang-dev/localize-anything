@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter-regression-check-report.schema.json",
+  "title": "Localize Anything Adapter Regression Check Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "checks", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-adapter-regression-check-report-v1" },
+    "artifact": { "const": "adapter-regression-check-report.json" },
+    "status": { "type": "string" },
+    "checks": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

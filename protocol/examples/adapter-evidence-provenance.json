@@ -1,0 +1,37 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-adapter-evidence-provenance-v1",
+  "artifact": "adapter-evidence-provenance.json",
+  "run_id": "adapter-evidence-example",
+  "status": "ready_with_warnings",
+  "evidence_classes": ["contract_test", "fixture_round_trip", "unit_test"],
+  "adapter_count": 1,
+  "evidence_items": [
+    {
+      "evidence_id": "adapter-evidence-example-json-fixture",
+      "adapter_id": "core.json-locale",
+      "evidence_class": "fixture_round_trip",
+      "freshness": "current",
+      "declared_round_trip_level": "full_round_trip",
+      "capability_classification": "stable_baseline",
+      "lifecycle_stages_tested": ["extract", "rebuild", "validate_output"],
+      "input_files": ["tests/fixtures/json-project/locales/en-US.json"],
+      "expected_outputs": ["tests/fixtures/json-project/locales/zh-CN.json"],
+      "source_hashes": { "tests/fixtures/json-project/locales/en-US.json": "sha256:example" },
+      "target_hashes": { "tests/fixtures/json-project/locales/zh-CN.json": "sha256:example" },
+      "qa_result": "pass",
+      "source_artifact_references": ["adapter-support-matrix.json"],
+      "known_limitations": []
+    }
+  ],
+  "summary": {
+    "item_count": 1,
+    "current_count": 1,
+    "stale_count": 0,
+    "missing_count": 0,
+    "benchmark_item_count": 0,
+    "real_project_smoke_count": 0
+  },
+  "source_artifact_references": ["adapter-support-matrix.json"],
+  "limitations": ["adapter evidence provenance explains release support evidence and does not prove translation quality"]
+}

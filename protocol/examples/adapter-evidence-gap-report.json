@@ -1,0 +1,10 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-adapter-evidence-gap-report-v1",
+  "artifact": "adapter-evidence-gap-report.json",
+  "run_id": "adapter-evidence-example",
+  "status": "ready",
+  "gaps": [],
+  "summary": { "gap_count": 0, "blocking_count": 0, "warning_count": 0 },
+  "source_artifact_references": ["adapter-evidence-provenance.json", "adapter-regression-check-report.json"]
+}

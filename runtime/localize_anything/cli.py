@@ -237,6 +237,19 @@ from .adapter_release import (
     read_adapter_promotion_decision,
     read_adapter_support_matrix,
 )
+from .adapter_evidence import (
+    build_adapter_evidence_artifacts,
+    build_adapter_evidence_gap_report,
+    build_adapter_evidence_provenance,
+    build_adapter_fixture_manifest,
+    build_adapter_promotion_readiness_report,
+    build_adapter_regression_check_report,
+    read_adapter_evidence_gap_report,
+    read_adapter_evidence_provenance,
+    read_adapter_fixture_manifest,
+    read_adapter_promotion_readiness_report,
+    read_adapter_regression_check_report,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -1090,6 +1103,47 @@ def build_parser() -> argparse.ArgumentParser:
     adapter_check_parser.add_argument("--repo-root", type=Path)
     adapter_check_parser.add_argument("--run-id")
     adapter_check_parser.add_argument("--output", type=Path)
+
+    adapter_evidence_parser = subparsers.add_parser("adapter-evidence-provenance", help="Create or read adapter-evidence-provenance.json")
+    adapter_evidence_parser.add_argument("state_dir", type=Path)
+    adapter_evidence_parser.add_argument("--repo-root", type=Path)
+    adapter_evidence_parser.add_argument("--read", action="store_true")
+    adapter_evidence_parser.add_argument("--run-id")
+    adapter_evidence_parser.add_argument("--output", type=Path)
+
+    adapter_fixture_parser = subparsers.add_parser("adapter-fixture-manifest", help="Create or read adapter-fixture-manifest.json")
+    adapter_fixture_parser.add_argument("state_dir", type=Path)
+    adapter_fixture_parser.add_argument("--repo-root", type=Path)
+    adapter_fixture_parser.add_argument("--read", action="store_true")
+    adapter_fixture_parser.add_argument("--run-id")
+    adapter_fixture_parser.add_argument("--output", type=Path)
+
+    adapter_regression_check_parser = subparsers.add_parser("adapter-regression-check-report", help="Create or read adapter-regression-check-report.json")
+    adapter_regression_check_parser.add_argument("state_dir", type=Path)
+    adapter_regression_check_parser.add_argument("--repo-root", type=Path)
+    adapter_regression_check_parser.add_argument("--read", action="store_true")
+    adapter_regression_check_parser.add_argument("--run-id")
+    adapter_regression_check_parser.add_argument("--output", type=Path)
+
+    adapter_gap_parser = subparsers.add_parser("adapter-evidence-gap-report", help="Create or read adapter-evidence-gap-report.json")
+    adapter_gap_parser.add_argument("state_dir", type=Path)
+    adapter_gap_parser.add_argument("--repo-root", type=Path)
+    adapter_gap_parser.add_argument("--read", action="store_true")
+    adapter_gap_parser.add_argument("--run-id")
+    adapter_gap_parser.add_argument("--output", type=Path)
+
+    adapter_readiness_parser = subparsers.add_parser("adapter-promotion-readiness-report", help="Create or read adapter-promotion-readiness-report.json")
+    adapter_readiness_parser.add_argument("state_dir", type=Path)
+    adapter_readiness_parser.add_argument("--repo-root", type=Path)
+    adapter_readiness_parser.add_argument("--read", action="store_true")
+    adapter_readiness_parser.add_argument("--run-id")
+    adapter_readiness_parser.add_argument("--output", type=Path)
+
+    adapter_evidence_check_parser = subparsers.add_parser("adapter-evidence-check", help="Create adapter fixture/regression evidence provenance artifacts")
+    adapter_evidence_check_parser.add_argument("state_dir", type=Path)
+    adapter_evidence_check_parser.add_argument("--repo-root", type=Path)
+    adapter_evidence_check_parser.add_argument("--run-id")
+    adapter_evidence_check_parser.add_argument("--output", type=Path)
 
     release_audit_parser = subparsers.add_parser("release-audit", help="Create release audit and public claim boundary artifacts")
     release_audit_parser.add_argument("state_dir", type=Path)
@@ -2427,6 +2481,30 @@ def main(argv: list[str] | None = None) -> int:
                 "protocol_version": "0.1",
                 "schema": "localize-anything-adapter-release-check-command-v1",
                 **build_adapter_release_artifacts(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
+                "provider_or_model_called": False,
+                "target_files_mutated": False,
+            }
+            return _emit_json(result, args.output)
+        if args.command == "adapter-evidence-provenance":
+            result = read_adapter_evidence_provenance(args.state_dir) if args.read else build_adapter_evidence_provenance(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-fixture-manifest":
+            result = read_adapter_fixture_manifest(args.state_dir) if args.read else build_adapter_fixture_manifest(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-regression-check-report":
+            result = read_adapter_regression_check_report(args.state_dir) if args.read else build_adapter_regression_check_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-evidence-gap-report":
+            result = read_adapter_evidence_gap_report(args.state_dir) if args.read else build_adapter_evidence_gap_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-promotion-readiness-report":
+            result = read_adapter_promotion_readiness_report(args.state_dir) if args.read else build_adapter_promotion_readiness_report(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-evidence-check":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-adapter-evidence-check-command-v1",
+                **build_adapter_evidence_artifacts(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
                 "provider_or_model_called": False,
                 "target_files_mutated": False,
             }

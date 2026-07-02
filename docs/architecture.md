@@ -108,7 +108,11 @@ Architecture progress by PR range:
 | #60 | Translation Provenance View | Implemented seed; provenance explains evidence and unsupported claims without proving quality by itself. |
 | #61 | Benchmark Lab Minimal Seed | Implemented seed; benchmark artifacts compare evidence boundaries without producing a single quality score or release claim. |
 | #62 | Release Audit / Public Claims Boundary | Implemented seed; release audit artifacts classify public claims and blockers without creating releases or tags. |
-| Current | Public Docs Claim Reconciliation | Docs-only boundary sync against release audit artifacts. |
+| #63 | Public Docs Claim Reconciliation | Docs-only boundary sync against release audit artifacts. |
+| #64 | Quickstart / Demo Golden Path | Implemented seed; provider-free demo output is engineering proof, not translation quality proof. |
+| #65 | Benchmark Dataset Manifest Hardening | Implemented seed; reference boundaries and fixture policies separate safe committed fixtures from local/private outputs. |
+| #66 | Adapter Release-Promotion Audit / Support Matrix Boundary | Implemented seed; adapter existence and unit tests do not imply stable support. |
+| Current | Adapter Fixture / Regression Evidence Provenance Hardening | Implemented seed in progress; adapter promotion must cite fixture/regression provenance, freshness, and known limitations. |
 
 ## Public Claim Boundary
 
@@ -376,6 +380,14 @@ produces:
   `full_round_trip` or missing contract evidence.
 - `adapter-promotion-decision.json` for public promotion boundaries.
 - `adapter-public-claims-report.md` for human-readable adapter claim limits.
+- `adapter-evidence-provenance.json` for per-adapter evidence classes, source
+  artifact references, fixture hashes, lifecycle coverage, freshness, and known
+  limitations.
+- `adapter-fixture-manifest.json` for fixture input/output hashes and QA result
+  provenance.
+- `adapter-regression-check-report.json`, `adapter-evidence-gap-report.json`,
+  and `adapter-promotion-readiness-report.json` for lifecycle gaps, stale or
+  missing evidence, and promotion-readiness impact.
 
 `full_round_trip` is treated conservatively: it requires extraction, rebuild,
 deterministic output validation, fixture coverage, and regression evidence.
@@ -384,6 +396,14 @@ experimental unless future release evidence promotes them. Adapter audit
 artifacts feed Release Audit, Artifact State, run summaries, and delivery
 packages, but they do not prove translation quality, provider-backed quality,
 production readiness, or full-product localization.
+
+Adapter evidence provenance hardens that boundary by separating unit tests,
+contract tests, fixture round trips, benchmark evidence, real-project smoke
+evidence, apply-to-copy evidence, and known limitations. Declared adapter
+capabilities are not treated as lifecycle evidence. Unit-only, benchmark-only,
+missing, or stale evidence downgrades promotion readiness, while synthetic or
+local demo evidence remains engineering proof rather than production-quality
+or provider-backed evidence.
 
 ## Term Governance
 
