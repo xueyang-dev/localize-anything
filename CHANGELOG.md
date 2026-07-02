@@ -4,6 +4,17 @@
 
 ### Added
 
+- Add Provider Result Acceptance / Real Execution Dry-Run Policy UX seed with
+  `provider-dry-run-plan.json`, `provider-execution-consent-request.md`,
+  `provider-execution-consent-state.json`,
+  `provider-data-disclosure-report.json`,
+  `provider-result-acceptance-policy.json`, and
+  `provider-real-execution-blockers.json`; include provider-free dry-run
+  planning, scoped consent state, data disclosure counts/categories, acceptance
+  path boundaries, CLI/API access, artifact-state, scorecard, readiness,
+  release-audit, delivery/run-summary, and protocol integration. Dry-run and
+  consent artifacts do not execute providers, do not grant reusable global
+  consent, and do not support provider-backed quality claims.
 - Add Provider Execution Hardening / Real Provider Boundary seed with
   `provider-execution-readiness-report.json`,
   `provider-credential-policy-report.json`, `provider-failure-taxonomy.json`,

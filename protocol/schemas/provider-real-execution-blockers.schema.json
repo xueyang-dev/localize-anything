@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-real-execution-blockers.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "blockers", "real_provider_execution_allowed_now", "provider_backed_quality_supported", "provider_or_model_called"],
+  "properties": {
+    "protocol_version": { "type": "string" },
+    "schema": { "const": "localize-anything-provider-real-execution-blockers-v1" },
+    "artifact": { "const": "provider-real-execution-blockers.json" },
+    "status": { "type": "string" },
+    "blockers": { "type": "array", "items": { "type": "string" } },
+    "real_provider_execution_allowed_now": { "const": false },
+    "provider_backed_quality_supported": { "const": false },
+    "provider_or_model_called": { "const": false }
+  },
+  "additionalProperties": true
+}

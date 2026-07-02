@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-execution-consent-state-v1",
+  "artifact": "provider-execution-consent-state.json",
+  "status": "pending",
+  "consent_granted": false,
+  "consent_scope": {
+    "run_id": "run-001",
+    "provider_id": "example",
+    "model_name": "example-model",
+    "target_locale": "zh-CN",
+    "source_hashes": {},
+    "batch_count": 1,
+    "segment_count": 12
+  },
+  "requested_scope_hash": "scope-hash",
+  "provided_scope_hash": "",
+  "stale": false,
+  "blockers": ["provider_execution_consent_not_granted"],
+  "provider_or_model_called": false
+}

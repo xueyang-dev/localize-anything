@@ -1,0 +1,30 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-dry-run-plan-v1",
+  "artifact": "provider-dry-run-plan.json",
+  "status": "blocked",
+  "execution_mode": "disabled",
+  "dry_run_only": true,
+  "real_provider_execution_enabled": false,
+  "provider_profile": {
+    "provider_id": "example",
+    "provider_name": "example",
+    "model_name": "example-model",
+    "endpoint_configured": true
+  },
+  "target_locale": "zh-CN",
+  "source_files": ["app/src/main/res/values/strings.xml"],
+  "batch_count": 1,
+  "segment_count": 12,
+  "approximate_character_count": 280,
+  "credential_status": "missing",
+  "network_boundary_status": "blocked",
+  "redaction_status": "pass",
+  "claim_boundary_after_execution": {
+    "forbidden_claims": ["provider_backed_quality", "provider_execution_complete"],
+    "provider_backed_quality_supported": false,
+    "provider_execution_complete_supported": false
+  },
+  "blockers": ["real_provider_execution_not_enabled"],
+  "provider_or_model_called": false
+}

@@ -319,6 +319,16 @@ from runtime.localize_anything.provider_safety import (
     build_provider_safety_artifacts,
     classify_provider_failure,
 )
+from runtime.localize_anything.provider_dry_run import (
+    PROVIDER_DATA_DISCLOSURE_REPORT_JSON,
+    PROVIDER_DRY_RUN_PLAN_JSON,
+    PROVIDER_EXECUTION_CONSENT_STATE_JSON,
+    PROVIDER_REAL_EXECUTION_BLOCKERS_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_POLICY_JSON,
+    build_provider_dry_run_artifacts,
+    build_provider_execution_consent_state,
+    build_provider_real_execution_blockers,
+)
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -12040,7 +12050,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 155)
+        self.assertEqual(result["schemas_checked"], 160)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13371,6 +13381,181 @@ class ProviderExecutionHardeningTests(unittest.TestCase):
             self.assertFalse(mock_result["provider_mock_evidence_report"]["provider_backed"])
             self.assertFalse(safety["provider_execution_safety_decision"]["provider_backed_quality_supported"])
             self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+
+
+class ProviderDryRunPolicyTests(unittest.TestCase):
+    def _state_with_provider_policy(self, root: Path, *, privacy: str = "", policy: dict[str, Any] | None = None, allow_network: bool = True) -> Path:
+        state = _readiness_state(root, overall_claim="review_ready", forbidden_claims=[])
+        build_provider_execution_policy(
+            state,
+            policy
+            or {
+                "execution_mode": "real_provider",
+                "safe": True,
+                "allow_real_provider": True,
+                "provider_name": "example",
+                "model_name": "example-model",
+            },
+            run_id="provider-dry-run-001",
+        )
+        build_provider_handoff_request(
+            state,
+            {
+                "execution_mode": "real_provider",
+                "provider_name": "example",
+                "model_name": "example-model",
+                "target_locale": "zh-CN",
+                "source_files": ["app/src/main/res/values/strings.xml"],
+                "segments": [{"segment_id": "s1", "source_text": "Hello {name}"}],
+                "batches": [{"batch_id": "batch-1"}],
+                "privacy_mode": privacy,
+                "scope": {
+                    "source_files": ["app/src/main/res/values/strings.xml"],
+                    "segment_ids": ["s1"],
+                    "batch_ids": ["batch-1"],
+                    "target_locale": "zh-CN",
+                },
+            },
+            run_id="provider-dry-run-001",
+        )
+        if privacy:
+            handoff = read_json(state / PROVIDER_HANDOFF_REQUEST_JSON)
+            handoff["privacy_mode"] = privacy
+            write_json(state / PROVIDER_HANDOFF_REQUEST_JSON, handoff)
+        build_provider_safety_artifacts(
+            state,
+            {
+                "provider_id": "example",
+                "model_name": "example-model",
+                "provider_url": "https://provider.example/generate",
+                "api_key_env": "LOCALIZE_PROVIDER_TEST_KEY",
+                "allow_real_provider_network": allow_network,
+            },
+            run_id="provider-dry-run-001",
+        )
+        return state
+
+    def test_dry_run_plan_and_consent_missing_block_without_provider_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+            state = self._state_with_provider_policy(Path(directory), allow_network=False)
+            result = build_provider_dry_run_artifacts(
+                state,
+                {
+                    "provider_id": "example",
+                    "model_name": "example-model",
+                    "provider_url": "https://provider.example/generate",
+                    "api_key_env": "LOCALIZE_PROVIDER_TEST_KEY",
+                    "allow_real_provider_network": True,
+                },
+                run_id="provider-dry-run-001",
+            )
+
+            for schema_name, artifact in (
+                ("provider-dry-run-plan", result["provider_dry_run_plan"]),
+                ("provider-execution-consent-state", result["provider_execution_consent_state"]),
+                ("provider-data-disclosure-report", result["provider_data_disclosure_report"]),
+                ("provider-result-acceptance-policy", result["provider_result_acceptance_policy"]),
+                ("provider-real-execution-blockers", result["provider_real_execution_blockers"]),
+            ):
+                assert_protocol_schema(self, schema_name, artifact)
+            self.assertEqual(result["provider_execution_consent_state"]["status"], "pending")
+            self.assertNotIn("Hello {name}", json.dumps(result))
+            self.assertIn("provider_execution_consent_not_granted", result["provider_real_execution_blockers"]["blockers"])
+            self.assertIn("provider_network_not_explicitly_enabled", result["provider_real_execution_blockers"]["blockers"])
+            self.assertIn("provider_backed_quality", result["provider_real_execution_blockers"]["forbidden_claims"])
+            self.assertFalse(result["provider_or_model_called"])
+            post.assert_not_called()
+
+    def test_consent_present_but_stale_and_privacy_restricted_block_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = self._state_with_provider_policy(Path(directory), privacy="restricted")
+            initial = build_provider_dry_run_artifacts(state, run_id="provider-dry-run-001")
+            stale_scope = dict(initial["provider_execution_consent_state"]["consent_scope"])
+            stale_scope["source_hashes"] = {"provider-handoff-request.json": "old"}
+            consent = build_provider_execution_consent_state(
+                state,
+                {"status": "granted", "actor_role": "project_owner", "actor_reference": "owner@example.test", "consent_scope": stale_scope},
+                run_id="provider-dry-run-001",
+            )
+            blockers = build_provider_real_execution_blockers(state, consent_state=consent, run_id="provider-dry-run-001")
+
+            self.assertEqual(consent["status"], "expired")
+            self.assertIn("provider_execution_consent_stale", blockers["blockers"])
+            self.assertIn("privacy_policy_conflicts_with_external_provider", blockers["blockers"])
+            self.assertFalse(blockers["real_provider_execution_allowed_now"])
+
+    def test_dry_run_cli_api_scorecard_readiness_release_and_delivery_are_conservative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = self._state_with_provider_policy(root)
+            self.assertEqual(cli_main(["provider-dry-run", state.as_posix(), "--run-id", "provider-dry-run-001"]), 0)
+            self.assertEqual(cli_main(["provider-real-execution-blockers", state.as_posix(), "--read"]), 0)
+
+            scorecard = build_evaluation_scorecard(state)
+            readiness = build_readiness_reports(state)["readiness_authorization_matrix"]
+            artifact_state = build_artifact_state(state)
+            release = build_release_audit_artifacts(state)
+            (state / "localization-context.md").write_text("# Context\n", encoding="utf-8")
+            (state / "glossary.csv").write_text("source,target\n", encoding="utf-8")
+            (state / "translation-memory.jsonl").write_text("", encoding="utf-8")
+            write_json(
+                state / "config.json",
+                {
+                    "protocol_version": "0.1",
+                    "schema": "localize-anything-config-v1",
+                    "project": root.as_posix(),
+                    "source_locale": "en-US",
+                    "target_locales": ["zh-CN"],
+                    "source_files": ["source.txt"],
+                },
+            )
+            write_json(state / "delivery-manifest.json", {"protocol_version": "0.1", "schema": "localize-anything-delivery-manifest-v1", "generation": {"provider_status": "not_applicable", "apply_allowed": False}})
+            staging = root / "staging"
+            staging.mkdir()
+            (staging / "out.txt").write_text("draft\n", encoding="utf-8")
+            packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "provider-dry-run-delivery")
+
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertEqual(readiness["provider_policy_status"]["status"], "blocked")
+            self.assertTrue(any(item["artifact_id"] == "provider_real_execution_blockers" for item in artifact_state["artifacts"]))
+            self.assertEqual(release["release_evidence_manifest"]["evidence"]["provider_real_execution_blockers"]["status"], "blocked")
+            self.assertIn("provider_real_execution_blockers", packaged["manifest"]["assets"])
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for endpoint, key in (
+                    ("/api/provider-dry-run-plan", "provider_dry_run_plan"),
+                    ("/api/provider-execution-consent-state", "provider_execution_consent_state"),
+                    ("/api/provider-data-disclosure-report", "provider_data_disclosure_report"),
+                    ("/api/provider-result-acceptance-policy", "provider_result_acceptance_policy"),
+                    ("/api/provider-real-execution-blockers", "provider_real_execution_blockers"),
+                ):
+                    status, body = _http_get(host, port, f"{endpoint}?state_dir={state.as_posix()}")
+                    self.assertEqual(status, 200)
+                    self.assertFalse(json.loads(body)[key].get("provider_or_model_called", True))
+                status, body = _http_get(host, port, f"/api/provider-execution-consent-request?state_dir={state.as_posix()}")
+                self.assertEqual(status, 200)
+                self.assertIn("Provider Execution Consent Request", json.loads(body)["provider_execution_consent_request"]["markdown"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_mock_and_disabled_policy_remain_non_provider_backed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = self._state_with_provider_policy(
+                Path(directory),
+                policy={"execution_mode": "disabled", "safe": False, "allow_real_provider": False, "provider_name": "example", "model_name": "example-model"},
+            )
+            mock_result = build_provider_mock_run(state, scenario="success")
+            dry_run = build_provider_dry_run_artifacts(state, run_id="provider-dry-run-disabled")
+
+            self.assertFalse(mock_result["provider_mock_evidence_report"]["provider_backed"])
+            self.assertIn("real_provider_execution_not_enabled", dry_run["provider_dry_run_plan"]["blockers"])
+            self.assertFalse(dry_run["provider_real_execution_blockers"]["provider_backed_quality_supported"])
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):

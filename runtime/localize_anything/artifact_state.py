@@ -128,6 +128,14 @@ from .provider_safety import (
     PROVIDER_NETWORK_BOUNDARY_REPORT_JSON,
     PROVIDER_REDACTION_AUDIT_JSON,
 )
+from .provider_dry_run import (
+    PROVIDER_DATA_DISCLOSURE_REPORT_JSON,
+    PROVIDER_DRY_RUN_PLAN_JSON,
+    PROVIDER_EXECUTION_CONSENT_REQUEST_MD,
+    PROVIDER_EXECUTION_CONSENT_STATE_JSON,
+    PROVIDER_REAL_EXECUTION_BLOCKERS_JSON,
+    PROVIDER_RESULT_ACCEPTANCE_POLICY_JSON,
+)
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -238,6 +246,12 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_network_boundary_report", "provider_network_boundary_report", PROVIDER_NETWORK_BOUNDARY_REPORT_JSON, "provider_safety", ("provider_execution_policy", "provider_handoff_request"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("provider_redaction_audit", "provider_redaction_audit", PROVIDER_REDACTION_AUDIT_JSON, "provider_safety", ("provider_execution_policy", "provider_handoff_request"), required_for_delivery=True),
     ArtifactSpec("provider_execution_safety_decision", "provider_execution_safety_decision", PROVIDER_EXECUTION_SAFETY_DECISION_JSON, "provider_safety", ("provider_execution_readiness_report", "provider_credential_policy_report", "provider_network_boundary_report", "provider_redaction_audit"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_dry_run_plan", "provider_dry_run_plan", PROVIDER_DRY_RUN_PLAN_JSON, "provider_dry_run", ("provider_execution_policy", "provider_handoff_request", "provider_execution_safety_decision"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_execution_consent_request", "provider_execution_consent_request", PROVIDER_EXECUTION_CONSENT_REQUEST_MD, "provider_dry_run", ("provider_dry_run_plan",)),
+    ArtifactSpec("provider_execution_consent_state", "provider_execution_consent_state", PROVIDER_EXECUTION_CONSENT_STATE_JSON, "provider_dry_run", ("provider_dry_run_plan",), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_data_disclosure_report", "provider_data_disclosure_report", PROVIDER_DATA_DISCLOSURE_REPORT_JSON, "provider_dry_run", ("provider_dry_run_plan",), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_result_acceptance_policy", "provider_result_acceptance_policy", PROVIDER_RESULT_ACCEPTANCE_POLICY_JSON, "provider_dry_run", ("provider_dry_run_plan",), required_for_delivery=True),
+    ArtifactSpec("provider_real_execution_blockers", "provider_real_execution_blockers", PROVIDER_REAL_EXECUTION_BLOCKERS_JSON, "provider_dry_run", ("provider_dry_run_plan", "provider_execution_consent_state", "provider_data_disclosure_report", "provider_result_acceptance_policy", "provider_execution_safety_decision"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),
@@ -1589,6 +1603,20 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
             elif provider_safety_status in {"review_required", "ready_for_future_execution"}:
                 entry["status"] = "requires_human_review"
                 entry["blocking_reason"] = "provider_execution_safety_is_not_quality_evidence"
+        if name in {
+            PROVIDER_DRY_RUN_PLAN_JSON,
+            PROVIDER_EXECUTION_CONSENT_STATE_JSON,
+            PROVIDER_DATA_DISCLOSURE_REPORT_JSON,
+            PROVIDER_RESULT_ACCEPTANCE_POLICY_JSON,
+            PROVIDER_REAL_EXECUTION_BLOCKERS_JSON,
+        }:
+            provider_dry_run_status = str(content.get("status") or "")
+            if provider_dry_run_status in {"blocked", "denied", "expired", "revoked", "stale"} or content.get("blockers"):
+                entry["status"] = "blocked" if provider_dry_run_status != "stale" else "stale"
+                entry["blocking_reason"] = "provider_real_execution_boundary_not_clear"
+            elif provider_dry_run_status in {"pending", "not_requested", "dry_run_ready", "active", "summary_only"}:
+                entry["status"] = "requires_human_review"
+                entry["blocking_reason"] = "provider_dry_run_is_not_execution_evidence"
         if name in {LOCALE_CAPABILITY_REPORT_JSON, LOCALE_RISK_REPORT_JSON, LOCALE_READINESS_IMPACT_JSON}:
             locale_status = str(content.get("status") or "")
             if locale_status in {"blocked", "stale"}:
