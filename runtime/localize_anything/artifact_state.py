@@ -113,6 +113,13 @@ from .provider_result_gate import (
     PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .provider_mock import (
+    PROVIDER_MOCK_CLAIM_BOUNDARY_JSON,
+    PROVIDER_MOCK_EVIDENCE_REPORT_JSON,
+    PROVIDER_MOCK_FAILURE_REPORT_JSON,
+    PROVIDER_MOCK_RESPONSE_JSONL,
+    PROVIDER_MOCK_RUN_MANIFEST_JSON,
+)
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -212,6 +219,11 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_result_acceptance_decision", "provider_result_acceptance_decision", PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON, "provider_result_acceptance", ("provider_evidence_reconciliation", "provider_result_qa_report", "provider_result_review_evidence"), required_for_delivery=True),
     ArtifactSpec("provider_claim_support_report", "provider_claim_support_report", PROVIDER_CLAIM_SUPPORT_REPORT_JSON, "provider_result_acceptance", ("provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "signoff_record"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("workbench_provider_review_queue", "workbench_provider_review_queue", WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON, "provider_result_review", ("provider_result_qa_report", "provider_result_review_evidence", "provider_result_acceptance_decision", "provider_claim_support_report")),
+    ArtifactSpec("provider_mock_run_manifest", "provider_mock_run_manifest", PROVIDER_MOCK_RUN_MANIFEST_JSON, "provider_mock", ("provider_execution_policy", "provider_handoff_request")),
+    ArtifactSpec("provider_mock_response", "provider_mock_response", PROVIDER_MOCK_RESPONSE_JSONL, "provider_mock", ("provider_mock_run_manifest",)),
+    ArtifactSpec("provider_mock_failure_report", "provider_mock_failure_report", PROVIDER_MOCK_FAILURE_REPORT_JSON, "provider_mock", ("provider_mock_response", "provider_result_qa_report")),
+    ArtifactSpec("provider_mock_evidence_report", "provider_mock_evidence_report", PROVIDER_MOCK_EVIDENCE_REPORT_JSON, "provider_mock", ("provider_mock_response", "provider_evidence_reconciliation", "provider_result_qa_report", "provider_claim_support_report")),
+    ArtifactSpec("provider_mock_claim_boundary", "provider_mock_claim_boundary", PROVIDER_MOCK_CLAIM_BOUNDARY_JSON, "provider_mock", ("provider_mock_evidence_report",)),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),

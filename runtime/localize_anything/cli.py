@@ -168,6 +168,15 @@ from .provider_result_gate import (
     record_provider_result_acceptance_decision,
     record_provider_result_review_evidence,
 )
+from .provider_mock import (
+    MOCK_SCENARIOS,
+    build_provider_mock_run,
+    read_provider_mock_claim_boundary,
+    read_provider_mock_evidence_report,
+    read_provider_mock_failure_report,
+    read_provider_mock_response,
+    read_provider_mock_run_manifest,
+)
 from .locale_capability import (
     build_locale_capability_report,
     build_locale_capability_reports,
@@ -917,6 +926,35 @@ def build_parser() -> argparse.ArgumentParser:
     provider_review_queue_parser = subparsers.add_parser("workbench-provider-review-queue", help="Create workbench-provider-review-queue.json")
     provider_review_queue_parser.add_argument("state_dir", type=Path)
     provider_review_queue_parser.add_argument("--output", type=Path)
+
+    provider_mock_run_parser = subparsers.add_parser("provider-mock-run", help="Run the deterministic provider-safe mock harness")
+    provider_mock_run_parser.add_argument("state_dir", type=Path)
+    provider_mock_run_parser.add_argument("--scenario", choices=sorted(MOCK_SCENARIOS), default="success")
+    provider_mock_run_parser.add_argument("--run-id")
+    provider_mock_run_parser.add_argument("--output", type=Path)
+
+    provider_mock_evidence_parser = subparsers.add_parser("provider-mock-evidence-report", help="Read provider-mock-evidence-report.json")
+    provider_mock_evidence_parser.add_argument("state_dir", type=Path)
+    provider_mock_evidence_parser.add_argument("--output", type=Path)
+
+    provider_mock_failure_parser = subparsers.add_parser("provider-mock-failure-report", help="Read provider-mock-failure-report.json")
+    provider_mock_failure_parser.add_argument("state_dir", type=Path)
+    provider_mock_failure_parser.add_argument("--output", type=Path)
+
+    provider_mock_boundary_parser = subparsers.add_parser("provider-mock-claim-boundary", help="Read provider-mock-claim-boundary.json")
+    provider_mock_boundary_parser.add_argument("state_dir", type=Path)
+    provider_mock_boundary_parser.add_argument("--output", type=Path)
+
+    provider_mock_manifest_parser = subparsers.add_parser("provider-mock-run-manifest", help="Read provider-mock-run-manifest.json")
+    provider_mock_manifest_parser.add_argument("state_dir", type=Path)
+    provider_mock_manifest_parser.add_argument("--output", type=Path)
+
+    provider_mock_response_parser = subparsers.add_parser("provider-mock-response", help="Read provider-mock-response.jsonl")
+    provider_mock_response_parser.add_argument("state_dir", type=Path)
+    provider_mock_response_parser.add_argument("--output", type=Path)
+
+    provider_mock_scenarios_parser = subparsers.add_parser("provider-mock-scenarios", help="List deterministic provider-safe mock scenarios")
+    provider_mock_scenarios_parser.add_argument("--output", type=Path)
 
     locale_capability_parser = subparsers.add_parser("locale-capability-report", help="Create or read locale-capability-report.json")
     locale_capability_parser.add_argument("state_dir", type=Path)
@@ -2313,6 +2351,20 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_provider_claim_support_report(args.state_dir), args.output)
         if args.command == "workbench-provider-review-queue":
             return _emit_json(build_workbench_provider_review_queue(args.state_dir), args.output)
+        if args.command == "provider-mock-run":
+            return _emit_json(build_provider_mock_run(args.state_dir, scenario=args.scenario, run_id=args.run_id), args.output)
+        if args.command == "provider-mock-run-manifest":
+            return _emit_json(read_provider_mock_run_manifest(args.state_dir), args.output)
+        if args.command == "provider-mock-response":
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-mock-response-read-v1", "records": read_provider_mock_response(args.state_dir)}, args.output)
+        if args.command == "provider-mock-evidence-report":
+            return _emit_json(read_provider_mock_evidence_report(args.state_dir), args.output)
+        if args.command == "provider-mock-failure-report":
+            return _emit_json(read_provider_mock_failure_report(args.state_dir), args.output)
+        if args.command == "provider-mock-claim-boundary":
+            return _emit_json(read_provider_mock_claim_boundary(args.state_dir), args.output)
+        if args.command == "provider-mock-scenarios":
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-mock-scenarios-v1", "scenarios": sorted(MOCK_SCENARIOS), "provider_or_model_called": False}, args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
             return _emit_json(result, args.output)

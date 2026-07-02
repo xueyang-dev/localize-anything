@@ -112,7 +112,8 @@ Architecture progress by PR range:
 | #64 | Quickstart / Demo Golden Path | Implemented seed; provider-free demo output is engineering proof, not translation quality proof. |
 | #65 | Benchmark Dataset Manifest Hardening | Implemented seed; reference boundaries and fixture policies separate safe committed fixtures from local/private outputs. |
 | #66 | Adapter Release-Promotion Audit / Support Matrix Boundary | Implemented seed; adapter existence and unit tests do not imply stable support. |
-| Current | Adapter Fixture / Regression Evidence Provenance Hardening | Implemented seed in progress; adapter promotion must cite fixture/regression provenance, freshness, and known limitations. |
+| #67 | Adapter Fixture / Regression Evidence Provenance Hardening | Implemented seed; adapter promotion must cite fixture/regression provenance, freshness, and known limitations. |
+| Current | Provider-safe Mock Execution Harness | Implemented seed in progress; mock provider workflows exercise fail-closed provider evidence gates without supporting provider-backed claims. |
 
 ## Public Claim Boundary
 
@@ -1555,6 +1556,30 @@ delivery packages, and run summaries consume the gate artifacts and preserve
 unsupported claims. The API exposes artifact-backed GET routes for all five
 artifacts and POST routes only for review evidence and acceptance decisions.
 These paths never call providers/models, apply repairs, or mutate target files.
+
+## Provider-safe Mock Execution Harness
+
+The provider-safe mock harness is a deterministic test surface for provider
+workflows. It emits:
+
+- `provider-mock-run-manifest.json`
+- `provider-mock-response.jsonl`
+- `provider-mock-failure-report.json`
+- `provider-mock-evidence-report.json`
+- `provider-mock-claim-boundary.json`
+
+Supported scenarios include success, failure, timeout, malformed response,
+partial success, placeholder drift, markup drift, empty output, extra segments,
+and synthetic fallback attempts. Every mock response is labeled with provider
+`mock`, execution mode `provider_safe_mock`, quality claim `none`, and
+`provider_backed: false`.
+
+Mock output flows through the existing provider ledger, result intake,
+reconciliation, QA, claim-support, scorecard, readiness, release-audit, run
+summary, and delivery artifact paths. Mock success exercises the workflow but
+does not support provider-backed quality, provider execution complete, provider
+repair complete, model repair complete, production-ready, delivery-ready, or
+apply-ready claims.
 
 ## Locale Capability Report
 

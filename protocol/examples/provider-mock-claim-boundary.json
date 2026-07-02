@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-mock-claim-boundary-v1",
+  "artifact": "provider-mock-claim-boundary.json",
+  "run_id": "provider-mock-example",
+  "status": "blocked",
+  "scenario": "success",
+  "forbidden_claims": ["model_repair_complete", "provider_backed_quality", "provider_execution_complete", "provider_repair_complete"],
+  "unsupported_claims": ["model_repair_complete", "provider_backed_quality", "provider_execution_complete", "provider_repair_complete"],
+  "supported_claims": [],
+  "provider_backed_quality_supported": false,
+  "provider_execution_complete_supported": false,
+  "reconciliation_status": "blocked",
+  "qa_status": "blocked",
+  "provider_or_model_called": false,
+  "limitations": ["mock success is workflow evidence only and not provider-backed quality evidence"]
+}

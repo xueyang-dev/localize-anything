@@ -1638,6 +1638,35 @@ Readiness Authorization, Delivery, Apply, run summaries, and delivery packages
 must preserve provider-related forbidden claims unless reconciled evidence and
 downstream QA/review/signoff evidence support a narrower claim.
 
+## Provider-safe Mock Execution Harness
+
+The provider-safe mock harness tests provider workflows without network calls
+or credentials. It is mock/synthetic engineering evidence only.
+
+Artifacts:
+
+- `provider-mock-run-manifest.json` records scenario, request, downstream
+  artifact references, and forbidden provider claims.
+- `provider-mock-response.jsonl` records deterministic mock responses labeled
+  provider `mock`, execution mode `provider_safe_mock`, quality claim `none`,
+  and `provider_backed: false`.
+- `provider-mock-failure-report.json` records timeout, malformed, drift,
+  empty, fallback, retryability, and fail-closed evidence.
+- `provider-mock-evidence-report.json` summarizes the existing provider
+  ledger/intake/reconciliation/QA/claim-support outcomes for the mock run.
+- `provider-mock-claim-boundary.json` preserves unsupported and forbidden
+  provider claims.
+
+Scenarios are `success`, `failure`, `timeout`, `malformed_response`,
+`partial_success`, `placeholder_drift`, `markup_drift`, `empty_output`,
+`extra_segments`, and `fallback_attempt`.
+
+Mock success must not support `provider_backed_quality`,
+`provider_execution_complete`, `provider_repair_complete`, or
+`model_repair_complete`. Mock outputs may exercise deterministic QA and
+readiness plumbing, but they remain non-provider-backed and cannot authorize
+delivery, apply, production-ready, or semantic quality claims.
+
 Artifact-backed APIs are:
 
 - `GET /api/provider-execution-policy`

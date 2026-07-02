@@ -28,6 +28,7 @@ PUBLIC_CLAIMS = {
     "deterministic_structural_qa": "safe_public_claim",
     "adapter_protocol_baseline": "limited_claim",
     "provider_handoff_contract_seed": "seed_only_claim",
+    "provider_safe_mock_harness_seed": "seed_only_claim",
     "benchmark_lab_seed": "seed_only_claim",
     "adapter_support_matrix_seed": "seed_only_claim",
     "adapter_evidence_provenance_seed": "seed_only_claim",
@@ -49,6 +50,7 @@ CAPABILITIES = {
     "deterministic_structural_qa": "stable_baseline",
     "delivery_package_artifacts": "stable_baseline",
     "provider_execution_evidence": "implemented_seed",
+    "provider_safe_mock_harness": "implemented_seed",
     "knowledge_usage_audit": "implemented_seed",
     "locale_capability_analysis": "implemented_seed",
     "translation_provenance_view": "implemented_seed",
@@ -106,6 +108,8 @@ EVIDENCE_FILES = {
     "locale_readiness": "locale-readiness-impact.json",
     "provider_reconciliation": "provider-evidence-reconciliation.json",
     "provider_claim_support": "provider-claim-support-report.json",
+    "provider_mock_evidence": "provider-mock-evidence-report.json",
+    "provider_mock_claim_boundary": "provider-mock-claim-boundary.json",
     "knowledge_assurance": "knowledge-assurance-summary.json",
     "workflow_recovery": "workflow-recovery-result.json",
     "artifact_state": "artifact-state.json",
@@ -464,6 +468,8 @@ def _claim_supporting_evidence(claim: str, manifest: dict[str, Any]) -> list[str
         evidence.append("translation-claim-provenance-report.json")
     if claim == "adapter_evidence_provenance_seed" and files.get("adapter_promotion_readiness", {}).get("status") != "missing":
         evidence.append("adapter-promotion-readiness-report.json")
+    if claim == "provider_safe_mock_harness_seed" and files.get("provider_mock_evidence", {}).get("status") != "missing":
+        evidence.append("provider-mock-evidence-report.json")
     return evidence
 
 

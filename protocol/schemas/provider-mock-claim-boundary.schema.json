@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-mock-claim-boundary.schema.json",
+  "title": "Localize Anything Provider Mock Claim Boundary",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "scenario", "forbidden_claims", "provider_backed_quality_supported"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-mock-claim-boundary-v1" },
+    "artifact": { "const": "provider-mock-claim-boundary.json" },
+    "status": { "type": "string" },
+    "scenario": { "type": "string" },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_backed_quality_supported": { "const": false },
+    "provider_execution_complete_supported": { "const": false },
+    "provider_or_model_called": { "const": false }
+  },
+  "additionalProperties": true
+}
