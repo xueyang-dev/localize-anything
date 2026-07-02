@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add a provider-free `quickstart-demo` golden path with a tiny public JSON
+  fixture, synthetic local drafts, staged output, deterministic QA, readiness
+  reports, delivery package references, README quickstart links, and
+  `docs/quickstart-demo.md`. Demo output is git-ignored and remains engineering
+  evidence only, not provider-backed or production-quality proof.
 - Add public documentation claim reconciliation with README, public
   introduction, launch checklist, architecture, and roadmap wording aligned to
   Release Audit / Public Claims Boundary artifacts. The sync preserves seed,
