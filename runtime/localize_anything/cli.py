@@ -188,18 +188,27 @@ from .translation_provenance import (
     read_translation_provenance,
 )
 from .benchmark_lab import (
+    build_benchmark_dataset_artifacts,
+    build_benchmark_dataset_manifest,
     build_benchmark_baseline_report,
     build_benchmark_candidate_report,
     build_benchmark_claim_boundary_report,
     build_benchmark_comparison_report,
     build_benchmark_evidence_matrix,
+    build_benchmark_fixture_policy,
     build_benchmark_lab_reports,
+    build_benchmark_reference_boundary_report,
+    build_benchmark_reproducibility_report,
     build_benchmark_run_manifest,
     read_benchmark_baseline_report,
     read_benchmark_candidate_report,
     read_benchmark_claim_boundary_report,
     read_benchmark_comparison_report,
+    read_benchmark_dataset_manifest,
     read_benchmark_evidence_matrix,
+    read_benchmark_fixture_policy,
+    read_benchmark_reference_boundary_report,
+    read_benchmark_reproducibility_report,
     read_benchmark_run_manifest,
 )
 from .release_audit import (
@@ -980,6 +989,53 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_compare_parser.add_argument("--reference-policy", default="not_provided")
     benchmark_compare_parser.add_argument("--run-id")
     benchmark_compare_parser.add_argument("--output", type=Path)
+
+    benchmark_dataset_parser = subparsers.add_parser("benchmark-dataset-manifest", help="Create or read benchmark-dataset-manifest.json")
+    benchmark_dataset_parser.add_argument("state_dir", type=Path)
+    benchmark_dataset_parser.add_argument("--dataset-id")
+    benchmark_dataset_parser.add_argument("--source-repo")
+    benchmark_dataset_parser.add_argument("--source-commit")
+    benchmark_dataset_parser.add_argument("--source-path")
+    benchmark_dataset_parser.add_argument("--source-locale")
+    benchmark_dataset_parser.add_argument("--target-locale")
+    benchmark_dataset_parser.add_argument("--track", choices=["controlled", "agent_system"])
+    benchmark_dataset_parser.add_argument("--reference-policy")
+    benchmark_dataset_parser.add_argument("--privacy-risk", default="unknown")
+    benchmark_dataset_parser.add_argument("--read", action="store_true")
+    benchmark_dataset_parser.add_argument("--run-id")
+    benchmark_dataset_parser.add_argument("--output", type=Path)
+
+    benchmark_reference_parser = subparsers.add_parser("benchmark-reference-boundary-report", help="Create or read benchmark-reference-boundary-report.json")
+    benchmark_reference_parser.add_argument("state_dir", type=Path)
+    benchmark_reference_parser.add_argument("--read", action="store_true")
+    benchmark_reference_parser.add_argument("--run-id")
+    benchmark_reference_parser.add_argument("--output", type=Path)
+
+    benchmark_fixture_parser = subparsers.add_parser("benchmark-fixture-policy", help="Create or read benchmark-fixture-policy.json")
+    benchmark_fixture_parser.add_argument("state_dir", type=Path)
+    benchmark_fixture_parser.add_argument("--read", action="store_true")
+    benchmark_fixture_parser.add_argument("--run-id")
+    benchmark_fixture_parser.add_argument("--output", type=Path)
+
+    benchmark_repro_parser = subparsers.add_parser("benchmark-reproducibility-report", help="Create or read benchmark-reproducibility-report.json")
+    benchmark_repro_parser.add_argument("state_dir", type=Path)
+    benchmark_repro_parser.add_argument("--read", action="store_true")
+    benchmark_repro_parser.add_argument("--run-id")
+    benchmark_repro_parser.add_argument("--output", type=Path)
+
+    benchmark_dataset_check_parser = subparsers.add_parser("benchmark-dataset-check", help="Create benchmark dataset boundary artifacts")
+    benchmark_dataset_check_parser.add_argument("state_dir", type=Path)
+    benchmark_dataset_check_parser.add_argument("--dataset-id")
+    benchmark_dataset_check_parser.add_argument("--source-repo")
+    benchmark_dataset_check_parser.add_argument("--source-commit")
+    benchmark_dataset_check_parser.add_argument("--source-path")
+    benchmark_dataset_check_parser.add_argument("--source-locale")
+    benchmark_dataset_check_parser.add_argument("--target-locale")
+    benchmark_dataset_check_parser.add_argument("--track", choices=["controlled", "agent_system"])
+    benchmark_dataset_check_parser.add_argument("--reference-policy")
+    benchmark_dataset_check_parser.add_argument("--privacy-risk", default="unknown")
+    benchmark_dataset_check_parser.add_argument("--run-id")
+    benchmark_dataset_check_parser.add_argument("--output", type=Path)
 
     release_audit_parser = subparsers.add_parser("release-audit", help="Create release audit and public claim boundary artifacts")
     release_audit_parser.add_argument("state_dir", type=Path)
@@ -2226,6 +2282,55 @@ def main(argv: list[str] | None = None) -> int:
                     run_id=args.run_id,
                 ),
                 "single_quality_score_produced": False,
+                "provider_or_model_called": False,
+                "target_files_mutated": False,
+            }
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-dataset-manifest":
+            result = (
+                read_benchmark_dataset_manifest(args.state_dir)
+                if args.read
+                else build_benchmark_dataset_manifest(
+                    args.state_dir,
+                    dataset_id=args.dataset_id,
+                    source_repo=args.source_repo,
+                    source_commit=args.source_commit,
+                    source_path=args.source_path,
+                    source_locale=args.source_locale,
+                    target_locale=args.target_locale,
+                    benchmark_track=args.track,
+                    reference_policy=args.reference_policy,
+                    privacy_risk=args.privacy_risk,
+                    run_id=args.run_id,
+                )
+            )
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-reference-boundary-report":
+            result = read_benchmark_reference_boundary_report(args.state_dir) if args.read else build_benchmark_reference_boundary_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-fixture-policy":
+            result = read_benchmark_fixture_policy(args.state_dir) if args.read else build_benchmark_fixture_policy(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-reproducibility-report":
+            result = read_benchmark_reproducibility_report(args.state_dir) if args.read else build_benchmark_reproducibility_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "benchmark-dataset-check":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-benchmark-dataset-check-command-v1",
+                **build_benchmark_dataset_artifacts(
+                    args.state_dir,
+                    dataset_id=args.dataset_id,
+                    source_repo=args.source_repo,
+                    source_commit=args.source_commit,
+                    source_path=args.source_path,
+                    source_locale=args.source_locale,
+                    target_locale=args.target_locale,
+                    benchmark_track=args.track,
+                    reference_policy=args.reference_policy,
+                    privacy_risk=args.privacy_risk,
+                    run_id=args.run_id,
+                ),
                 "provider_or_model_called": False,
                 "target_files_mutated": False,
             }

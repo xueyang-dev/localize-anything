@@ -1616,6 +1616,18 @@ The seed emits:
   for Workbench/API consumers;
 - `benchmark-claim-boundary-report.json`: claims supported by benchmark
   evidence, claims still unsupported, and claims that must remain forbidden.
+- `benchmark-dataset-manifest.json`: source repo/commit/path, source and target
+  locale, track, reference policy, privacy/commercial risk, allowed outputs,
+  evidence level, and dataset-level claim boundaries.
+- `benchmark-reference-boundary-report.json`: whether target/reference
+  translations are hidden from generation, evaluation-only, not provided, or
+  unknown.
+- `benchmark-fixture-policy.json`: which benchmark outputs may be committed and
+  which must stay local, including generated-output and commercial/private data
+  risks.
+- `benchmark-reproducibility-report.json`: reproducibility metadata, missing
+  fields, supported benchmark metadata claims, and forbidden benchmark/release
+  claims.
 
 Controlled benchmarks and agent-system benchmarks are separated by
 `benchmark_track`. Existing reference translations may be evaluation
@@ -1629,11 +1641,22 @@ knowledge, locale, provenance, repair, review, readiness, delivery, and apply
 evidence. It cannot prove semantic quality, production readiness, provider
 backing, review completion, or apply readiness by itself.
 
+Dataset manifests and reference-boundary reports protect the benchmark inputs.
+Blind benchmark mode must keep target/reference translations out of
+generation-facing context; evaluation-only references may be used for comparison
+but not as source truth. Commercial/private stress-test data and generated
+benchmark outputs remain local-only unless they are tiny fixtures explicitly
+intended for tests. Controlled benchmarks and agent-system benchmarks remain
+separate tracks.
+
 CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
 `benchmark-candidate-report`, `benchmark-comparison-report`,
-`benchmark-evidence-matrix`, `benchmark-claim-boundary-report`, and
-`benchmark-compare`. API GET endpoints expose the six artifacts. The seed adds
-no provider/model calls, no write endpoints, and no target-file mutation.
+`benchmark-evidence-matrix`, `benchmark-claim-boundary-report`,
+`benchmark-dataset-manifest`, `benchmark-reference-boundary-report`,
+`benchmark-fixture-policy`, `benchmark-reproducibility-report`,
+`benchmark-compare`, and `benchmark-dataset-check`. API GET endpoints expose the
+benchmark artifacts. The seed adds no provider/model calls, no write endpoints,
+and no target-file mutation.
 
 ## Release Audit / Public Claims Boundary Seed
 

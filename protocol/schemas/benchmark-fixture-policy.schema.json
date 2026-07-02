@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-fixture-policy.schema.json",
+  "title": "Localize Anything Benchmark Fixture Policy",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "privacy_commercial_risk", "generated_benchmark_outputs_commit_allowed"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-fixture-policy-v1" },
+    "artifact": { "const": "benchmark-fixture-policy.json" },
+    "status": { "type": "string" },
+    "privacy_commercial_risk": { "type": "string" },
+    "commercial_private_data_commit_allowed": { "type": "boolean" },
+    "generated_benchmark_outputs_commit_allowed": { "type": "boolean" },
+    "safe_fixture_outputs_commit_allowed": { "type": "boolean" },
+    "allowed_committed_outputs": { "type": "array", "items": { "type": "string" } },
+    "local_only_outputs": { "type": "array", "items": { "type": "string" } },
+    "blocked_commit_risks": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

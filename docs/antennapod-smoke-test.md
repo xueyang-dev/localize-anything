@@ -170,6 +170,29 @@ The `.localize-anything/` directory created by the manual full pipeline is local
 project state in the disposable clone. Delete the temporary directory when the
 evidence has been reviewed.
 
+## Dataset boundary artifacts
+
+For public or internal benchmark comparisons, record dataset provenance before
+interpreting results:
+
+```bash
+python -m runtime.localize_anything benchmark-dataset-check "$evidence" \
+  --source-repo https://github.com/AntennaPod/AntennaPod \
+  --source-commit "$(git -C "$tmpdir/AntennaPod" rev-parse HEAD)" \
+  --source-path app/src/main/res/values/strings.xml \
+  --source-locale en-US \
+  --target-locale zh-CN \
+  --reference-policy blind_benchmark \
+  --privacy-risk public_open_source
+```
+
+This writes `benchmark-dataset-manifest.json`,
+`benchmark-reference-boundary-report.json`, `benchmark-fixture-policy.json`, and
+`benchmark-reproducibility-report.json`. They document source commit/path,
+reference visibility, and commit-safety boundaries. They do not prove
+translation quality or release readiness, and generated benchmark outputs remain
+local-only.
+
 ## Evidence checklist
 
 - [ ] AntennaPod commit hash recorded

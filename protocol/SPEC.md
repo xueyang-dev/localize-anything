@@ -1751,6 +1751,17 @@ Artifacts:
   rows for Workbench/API consumers.
 - `benchmark-claim-boundary-report.json` records benchmark-supported,
   unsupported, and forbidden claims.
+- `benchmark-dataset-manifest.json` records dataset id, source repo/commit/path,
+  source locale, target locale, reference policy, benchmark track,
+  privacy/commercial risk, allowed outputs, and evidence level.
+- `benchmark-reference-boundary-report.json` records whether target/reference
+  translations are hidden from generation, evaluation-only, not provided, or
+  unknown.
+- `benchmark-fixture-policy.json` records which benchmark artifacts are safe to
+  commit and which generated/private/commercial outputs must stay local.
+- `benchmark-reproducibility-report.json` records reproducibility metadata,
+  missing fields, supported benchmark metadata claims, and forbidden benchmark
+  or release claims.
 
 Rules:
 
@@ -1758,6 +1769,10 @@ Rules:
 - Controlled benchmarks and agent-system benchmarks must remain separately
   labeled.
 - Reference translations are evaluation references, not hidden source truth.
+- Blind benchmark mode must hide target references from generation-facing
+  context.
+- Commercial/private benchmark data and generated benchmark outputs must not be
+  committed unless they are tiny safe fixtures explicitly intended for tests.
 - Synthetic, mock, dry-run, local-draft, skipped, failed, or unverified provider
   output cannot support provider-backed quality.
 - Benchmark comparison does not upgrade scorecard, delivery, apply, production,
@@ -1771,12 +1786,20 @@ Artifact-backed APIs are:
 - `GET /api/benchmark-comparison-report`
 - `GET /api/benchmark-evidence-matrix`
 - `GET /api/benchmark-claim-boundary-report`
+- `GET /api/benchmark-dataset-manifest`
+- `GET /api/benchmark-reference-boundary-report`
+- `GET /api/benchmark-fixture-policy`
+- `GET /api/benchmark-reproducibility-report`
 
 CLI commands are `benchmark-run-manifest`, `benchmark-baseline-report`,
 `benchmark-candidate-report`, `benchmark-comparison-report`,
-`benchmark-evidence-matrix`, `benchmark-claim-boundary-report`, and
-`benchmark-compare`. They generate or read structured artifacts only. They must
-not call providers, run models, apply repairs, or mutate target project files.
+`benchmark-evidence-matrix`, `benchmark-claim-boundary-report`,
+`benchmark-dataset-manifest`, `benchmark-reference-boundary-report`,
+`benchmark-fixture-policy`, `benchmark-reproducibility-report`,
+`benchmark-compare`, and `benchmark-dataset-check`. They generate or read
+structured artifacts only. They must not call providers, run models, apply
+repairs, mutate target project files, or turn dataset metadata into quality or
+release readiness.
 
 ## Release Audit / Public Claims Boundary Seed
 
