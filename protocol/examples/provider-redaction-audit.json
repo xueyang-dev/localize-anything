@@ -1,0 +1,9 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-redaction-audit-v1",
+  "artifact": "provider-redaction-audit.json",
+  "status": "pass",
+  "secret_value_leak_count": 0,
+  "findings": [],
+  "provider_or_model_called": false
+}

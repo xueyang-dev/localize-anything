@@ -120,6 +120,14 @@ from .provider_mock import (
     PROVIDER_MOCK_RESPONSE_JSONL,
     PROVIDER_MOCK_RUN_MANIFEST_JSON,
 )
+from .provider_safety import (
+    PROVIDER_CREDENTIAL_POLICY_REPORT_JSON,
+    PROVIDER_EXECUTION_READINESS_REPORT_JSON,
+    PROVIDER_EXECUTION_SAFETY_DECISION_JSON,
+    PROVIDER_FAILURE_TAXONOMY_JSON,
+    PROVIDER_NETWORK_BOUNDARY_REPORT_JSON,
+    PROVIDER_REDACTION_AUDIT_JSON,
+)
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -224,6 +232,12 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_mock_failure_report", "provider_mock_failure_report", PROVIDER_MOCK_FAILURE_REPORT_JSON, "provider_mock", ("provider_mock_response", "provider_result_qa_report")),
     ArtifactSpec("provider_mock_evidence_report", "provider_mock_evidence_report", PROVIDER_MOCK_EVIDENCE_REPORT_JSON, "provider_mock", ("provider_mock_response", "provider_evidence_reconciliation", "provider_result_qa_report", "provider_claim_support_report")),
     ArtifactSpec("provider_mock_claim_boundary", "provider_mock_claim_boundary", PROVIDER_MOCK_CLAIM_BOUNDARY_JSON, "provider_mock", ("provider_mock_evidence_report",)),
+    ArtifactSpec("provider_execution_readiness_report", "provider_execution_readiness_report", PROVIDER_EXECUTION_READINESS_REPORT_JSON, "provider_safety", ("provider_execution_policy", "provider_handoff_request"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_credential_policy_report", "provider_credential_policy_report", PROVIDER_CREDENTIAL_POLICY_REPORT_JSON, "provider_safety", ("provider_execution_policy",), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_failure_taxonomy", "provider_failure_taxonomy", PROVIDER_FAILURE_TAXONOMY_JSON, "provider_safety", ("provider_execution_policy",)),
+    ArtifactSpec("provider_network_boundary_report", "provider_network_boundary_report", PROVIDER_NETWORK_BOUNDARY_REPORT_JSON, "provider_safety", ("provider_execution_policy", "provider_handoff_request"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_redaction_audit", "provider_redaction_audit", PROVIDER_REDACTION_AUDIT_JSON, "provider_safety", ("provider_execution_policy", "provider_handoff_request"), required_for_delivery=True),
+    ArtifactSpec("provider_execution_safety_decision", "provider_execution_safety_decision", PROVIDER_EXECUTION_SAFETY_DECISION_JSON, "provider_safety", ("provider_execution_readiness_report", "provider_credential_policy_report", "provider_network_boundary_report", "provider_redaction_audit"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),
@@ -1561,6 +1575,20 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
         if name == WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON and str(content.get("status") or "") == "action_required":
             entry["status"] = "requires_human_review"
             entry["blocking_reason"] = "provider_review_action_required"
+        if name in {
+            PROVIDER_EXECUTION_READINESS_REPORT_JSON,
+            PROVIDER_CREDENTIAL_POLICY_REPORT_JSON,
+            PROVIDER_NETWORK_BOUNDARY_REPORT_JSON,
+            PROVIDER_REDACTION_AUDIT_JSON,
+            PROVIDER_EXECUTION_SAFETY_DECISION_JSON,
+        }:
+            provider_safety_status = str(content.get("status") or "")
+            if provider_safety_status in {"blocked", "failed", "missing", "stale"}:
+                entry["status"] = "blocked" if provider_safety_status != "stale" else "stale"
+                entry["blocking_reason"] = "provider_execution_safety_not_clear"
+            elif provider_safety_status in {"review_required", "ready_for_future_execution"}:
+                entry["status"] = "requires_human_review"
+                entry["blocking_reason"] = "provider_execution_safety_is_not_quality_evidence"
         if name in {LOCALE_CAPABILITY_REPORT_JSON, LOCALE_RISK_REPORT_JSON, LOCALE_READINESS_IMPACT_JSON}:
             locale_status = str(content.get("status") or "")
             if locale_status in {"blocked", "stale"}:
@@ -1687,6 +1715,12 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "provider_result_acceptance_decision",
         "provider_claim_support_report",
         "workbench_provider_review_queue",
+        "provider_execution_readiness_report",
+        "provider_credential_policy_report",
+        "provider_failure_taxonomy",
+        "provider_network_boundary_report",
+        "provider_redaction_audit",
+        "provider_execution_safety_decision",
     }
     locale_dependency_ids = {
         "locale_capability_report",

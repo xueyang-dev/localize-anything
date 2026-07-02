@@ -159,6 +159,14 @@ from .provider_mock import (
     read_provider_mock_response,
     read_provider_mock_run_manifest,
 )
+from .provider_safety import (
+    read_provider_credential_policy_report,
+    read_provider_execution_readiness_report,
+    read_provider_execution_safety_decision,
+    read_provider_failure_taxonomy,
+    read_provider_network_boundary_report,
+    read_provider_redaction_audit,
+)
 from .locale_capability import (
     read_locale_capability_report,
     read_locale_readiness_impact,
@@ -424,6 +432,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-mock-claim-boundary":
                     self._handle_workflow_artifact_query(parsed.query, "provider_mock_claim_boundary", read_provider_mock_claim_boundary)
+                    return
+                if parsed.path == "/api/provider-execution-readiness":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_readiness_report", read_provider_execution_readiness_report)
+                    return
+                if parsed.path == "/api/provider-credential-policy-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_credential_policy_report", read_provider_credential_policy_report)
+                    return
+                if parsed.path == "/api/provider-failure-taxonomy":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_failure_taxonomy", read_provider_failure_taxonomy)
+                    return
+                if parsed.path == "/api/provider-network-boundary-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_network_boundary_report", read_provider_network_boundary_report)
+                    return
+                if parsed.path == "/api/provider-redaction-audit":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_redaction_audit", read_provider_redaction_audit)
+                    return
+                if parsed.path == "/api/provider-execution-safety-decision":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_safety_decision", read_provider_execution_safety_decision)
                     return
                 if parsed.path == "/api/locale-capability-report":
                     self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)
@@ -881,6 +907,7 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 str(payload.get("status") or "draft_package"),
                 _optional_string(payload.get("operating_mode")),
                 _optional_string(payload.get("reference_policy")),
+                bool(payload.get("allow_real_provider_network")),
             )
             state.allow_agent_result(result)
             self._send_json({"status": "pass", "agent_result": result})

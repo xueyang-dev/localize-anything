@@ -14,6 +14,7 @@ from .provider_result_gate import (
     PROVIDER_RESULT_QA_REPORT_JSON,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .provider_safety import PROVIDER_EXECUTION_SAFETY_DECISION_JSON
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_CLAIMS,
@@ -370,6 +371,7 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "provider_result_acceptance_decision": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON)),
         "provider_claim_support_report": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_CLAIM_SUPPORT_REPORT_JSON)),
         "workbench_provider_review_queue": _read_optional_json(_first_existing(state_dir, delivery_dir, WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON)),
+        "provider_execution_safety_decision": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_EXECUTION_SAFETY_DECISION_JSON)),
         "locale_capability_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_CAPABILITY_REPORT_JSON)),
         "locale_risk_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_RISK_REPORT_JSON)),
         "locale_readiness_impact": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_READINESS_IMPACT_JSON)),
@@ -544,6 +546,9 @@ def _provider_status(artifacts: dict[str, Any]) -> dict[str, Any]:
     qa = artifacts.get("provider_result_qa_report", {})
     acceptance = artifacts.get("provider_result_acceptance_decision", {})
     claim_support = artifacts.get("provider_claim_support_report", {})
+    safety = artifacts.get("provider_execution_safety_decision", {})
+    if safety and str(safety.get("status") or "") in {"blocked", "stale", "failed"}:
+        return {"status": BLOCKED if safety.get("status") != "stale" else STALE, "domain": "provider", "summary": "provider execution safety decision is not clear"}
     if qa and str(qa.get("status") or "") == "blocked":
         return {"status": BLOCKED, "domain": "provider", "summary": "provider result deterministic QA is blocked"}
     if qa and str(qa.get("status") or "") == "requires_human_review":

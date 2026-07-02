@@ -29,6 +29,7 @@ PUBLIC_CLAIMS = {
     "adapter_protocol_baseline": "limited_claim",
     "provider_handoff_contract_seed": "seed_only_claim",
     "provider_safe_mock_harness_seed": "seed_only_claim",
+    "provider_execution_hardening_seed": "seed_only_claim",
     "benchmark_lab_seed": "seed_only_claim",
     "adapter_support_matrix_seed": "seed_only_claim",
     "adapter_evidence_provenance_seed": "seed_only_claim",
@@ -51,6 +52,7 @@ CAPABILITIES = {
     "delivery_package_artifacts": "stable_baseline",
     "provider_execution_evidence": "implemented_seed",
     "provider_safe_mock_harness": "implemented_seed",
+    "provider_execution_hardening": "implemented_seed",
     "knowledge_usage_audit": "implemented_seed",
     "locale_capability_analysis": "implemented_seed",
     "translation_provenance_view": "implemented_seed",
@@ -110,6 +112,8 @@ EVIDENCE_FILES = {
     "provider_claim_support": "provider-claim-support-report.json",
     "provider_mock_evidence": "provider-mock-evidence-report.json",
     "provider_mock_claim_boundary": "provider-mock-claim-boundary.json",
+    "provider_execution_safety": "provider-execution-safety-decision.json",
+    "provider_redaction_audit": "provider-redaction-audit.json",
     "knowledge_assurance": "knowledge-assurance-summary.json",
     "workflow_recovery": "workflow-recovery-result.json",
     "artifact_state": "artifact-state.json",
@@ -470,6 +474,8 @@ def _claim_supporting_evidence(claim: str, manifest: dict[str, Any]) -> list[str
         evidence.append("adapter-promotion-readiness-report.json")
     if claim == "provider_safe_mock_harness_seed" and files.get("provider_mock_evidence", {}).get("status") != "missing":
         evidence.append("provider-mock-evidence-report.json")
+    if claim == "provider_execution_hardening_seed" and files.get("provider_execution_safety", {}).get("status") != "missing":
+        evidence.append("provider-execution-safety-decision.json")
     return evidence
 
 
@@ -525,6 +531,10 @@ def _release_blockers(manifest: dict[str, Any], public_claims: dict[str, Any]) -
     if evidence.get("provider_claim_support", {}).get("status") in {"missing", "blocked", "failed", "stale"}:
         blockers.append(
             _blocker("provider_evidence_missing", "provider evidence missing", "blocking", "provider-claim-support-report.json")
+        )
+    if evidence.get("provider_execution_safety", {}).get("status") in {"blocked", "failed", "stale"}:
+        blockers.append(
+            _blocker("provider_evidence_missing", "provider execution safety is not clear", "blocking", "provider-execution-safety-decision.json")
         )
     if evidence.get("locale_readiness", {}).get("status") in {"missing", "blocked", "review_required", "stale"}:
         blockers.append(

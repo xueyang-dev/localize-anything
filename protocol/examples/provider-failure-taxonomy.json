@@ -1,0 +1,11 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-failure-taxonomy-v1",
+  "artifact": "provider-failure-taxonomy.json",
+  "status": "current",
+  "failures": [
+    { "failure_type": "timeout", "retryability": "retryable", "ledger_error_kind": "provider_timeout", "fail_closed": true },
+    { "failure_type": "auth_failure", "retryability": "non_retryable", "ledger_error_kind": "provider_auth_failure", "fail_closed": true }
+  ],
+  "provider_or_model_called": false
+}

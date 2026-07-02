@@ -37,6 +37,7 @@ def run_agent(
     delivery_status: str = "draft_package",
     operating_mode: str | None = None,
     reference_policy: str | None = None,
+    allow_real_provider_network: bool = False,
 ) -> dict[str, Any]:
     """Run the first provider-agnostic localization agent workflow.
 
@@ -176,6 +177,7 @@ def run_agent(
             provider_headers or {},
             provider_timeout_seconds,
             handoff_decision,
+            allow_real_provider_network,
         )
         write_json(provider_path, provider_result)
 

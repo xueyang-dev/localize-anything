@@ -9,6 +9,7 @@ from . import PROTOCOL_VERSION
 from .generation import collect_generated_handoff, import_generated_response
 from .generation_handoff_policy import provider_generation_blocker
 from .io_utils import read_json
+from .provider_safety import classify_provider_failure, provider_network_blocker
 
 
 def generate_handoff_with_http_provider(
@@ -18,10 +19,14 @@ def generate_handoff_with_http_provider(
     headers: dict[str, str] | None = None,
     timeout_seconds: int = 60,
     handoff_decision: dict[str, Any] | None = None,
+    allow_real_provider_network: bool = False,
 ) -> dict[str, Any]:
     blocker = provider_generation_blocker(handoff_decision)
     if blocker:
         return _provider_failure(blocker["category"], blocker["message"])
+    network_blocker = provider_network_blocker(provider_url, allow_real_provider_network=allow_real_provider_network)
+    if network_blocker:
+        return _provider_failure("provider_network_boundary", network_blocker)
     batch_results: list[dict[str, Any]] = []
     items: list[dict[str, Any]] = []
     imported_batches = 0
@@ -50,7 +55,8 @@ def generate_handoff_with_http_provider(
                 )
                 result = import_generated_response(read_json(work_packet_path), response_text, generated_path)
             except (OSError, ValueError, json.JSONDecodeError) as exc:
-                result = _provider_failure("provider_generation", f"Provider generation failed for {batch_id}: {exc}")
+                failure = classify_provider_failure(exc)
+                result = _provider_failure(failure["ledger_error_kind"], f"Provider generation failed for {batch_id}: {failure['failure_type']}")
         if result["status"] != "fail":
             imported_batches += 1
         for item in result.get("items", []):

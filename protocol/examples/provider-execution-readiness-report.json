@@ -1,0 +1,20 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-execution-readiness-report-v1",
+  "artifact": "provider-execution-readiness-report.json",
+  "status": "blocked",
+  "provider_profile": {
+    "provider_id": "example-provider",
+    "endpoint_shape": { "configured": true, "scheme": "https" },
+    "model_name_present": true,
+    "timeout_seconds": 60,
+    "retry_limit": 1,
+    "response_contract": "generated_segment_json",
+    "allowed_environment_variable_names": ["LOCALIZE_EXAMPLE_PROVIDER_KEY"],
+    "redaction_policy": "env_names_only_no_values"
+  },
+  "real_provider_execution_enabled": false,
+  "provider_backed_quality_supported": false,
+  "forbidden_claims": ["provider_backed_quality", "provider_execution_complete"],
+  "provider_or_model_called": false
+}
