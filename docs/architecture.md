@@ -361,6 +361,30 @@ platform support additive. A future adapter registry should require manifest
 metadata, capability declarations, trust tier, and adapter contract tests before
 an adapter can be treated as stable.
 
+### Adapter Release-Promotion Audit
+
+Adapter support is now represented as release-boundary evidence, not as an
+implicit claim from code presence. The Adapter Release-Promotion Audit seed
+produces:
+
+- `adapter-support-matrix.json` for capability classification:
+  `stable_baseline`, `implemented_seed`, `experimental`, `partial`,
+  `inspect_only`, or `unsupported`.
+- `adapter-regression-evidence-report.json` for contract, fixture, benchmark,
+  smoke, apply-to-copy, release-audit, and known-limitation evidence.
+- `adapter-release-audit.json` for overclaim blockers such as unsupported
+  `full_round_trip` or missing contract evidence.
+- `adapter-promotion-decision.json` for public promotion boundaries.
+- `adapter-public-claims-report.md` for human-readable adapter claim limits.
+
+`full_round_trip` is treated conservatively: it requires extraction, rebuild,
+deterministic output validation, fixture coverage, and regression evidence.
+Experimental Android, iOS, String Catalog, and Word document slices remain
+experimental unless future release evidence promotes them. Adapter audit
+artifacts feed Release Audit, Artifact State, run summaries, and delivery
+packages, but they do not prove translation quality, provider-backed quality,
+production readiness, or full-product localization.
+
 ## Term Governance
 
 Glossaries are advisory memory. The term governance files represent reviewable

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter-release-audit.schema.json",
+  "title": "Localize Anything Adapter Release Audit",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "stable_baseline_adapters", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-adapter-release-audit-v1" },
+    "artifact": { "const": "adapter-release-audit.json" },
+    "status": { "type": "string" },
+    "stable_baseline_adapters": { "type": "array", "items": { "type": "string" } },
+    "seed_adapters": { "type": "array", "items": { "type": "string" } },
+    "experimental_adapters": { "type": "array", "items": { "type": "string" } },
+    "partial_adapters": { "type": "array", "items": { "type": "string" } },
+    "unsupported_adapters": { "type": "array", "items": { "type": "string" } },
+    "blockers": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

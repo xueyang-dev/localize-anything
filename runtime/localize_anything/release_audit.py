@@ -29,6 +29,7 @@ PUBLIC_CLAIMS = {
     "adapter_protocol_baseline": "limited_claim",
     "provider_handoff_contract_seed": "seed_only_claim",
     "benchmark_lab_seed": "seed_only_claim",
+    "adapter_support_matrix_seed": "seed_only_claim",
     "translation_provenance_seed": "seed_only_claim",
     "locale_capability_seed": "seed_only_claim",
     "knowledge_audit_seed": "seed_only_claim",
@@ -51,6 +52,7 @@ CAPABILITIES = {
     "locale_capability_analysis": "implemented_seed",
     "translation_provenance_view": "implemented_seed",
     "benchmark_lab": "implemented_seed",
+    "adapter_release_audit": "implemented_seed",
     "release_claim_boundary": "implemented_seed",
     "full_rag_generation": "not_started",
     "full_cldr_locale_support": "explicit_non_claim",
@@ -88,6 +90,10 @@ EVIDENCE_FILES = {
     "benchmark_reference_boundary": "benchmark-reference-boundary-report.json",
     "benchmark_fixture_policy": "benchmark-fixture-policy.json",
     "benchmark_reproducibility": "benchmark-reproducibility-report.json",
+    "adapter_support_matrix": "adapter-support-matrix.json",
+    "adapter_release_audit": "adapter-release-audit.json",
+    "adapter_promotion_decision": "adapter-promotion-decision.json",
+    "adapter_regression_evidence": "adapter-regression-evidence-report.json",
     "translation_claim_provenance": "translation-claim-provenance-report.json",
     "provenance_coverage": "provenance-coverage-report.json",
     "locale_readiness": "locale-readiness-impact.json",
@@ -486,6 +492,10 @@ def _release_blockers(manifest: dict[str, Any], public_claims: dict[str, Any]) -
     if evidence.get("benchmark_fixture_policy", {}).get("content", {}).get("status") == "blocked":
         blockers.append(
             _blocker("generated_external_file_risk", "benchmark fixture policy blocks committing generated or private benchmark outputs", "blocking", "benchmark-fixture-policy.json")
+        )
+    if evidence.get("adapter_release_audit", {}).get("content", {}).get("status") == "blocked":
+        blockers.append(
+            _blocker("unsupported_public_claim", "adapter release audit blocks adapter promotion claims", "blocking", "adapter-release-audit.json", claim="adapter_release_promotion_ready")
         )
     if evidence.get("provider_claim_support", {}).get("status") in {"missing", "blocked", "failed", "stale"}:
         blockers.append(

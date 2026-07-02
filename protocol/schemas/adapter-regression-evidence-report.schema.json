@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter-regression-evidence-report.schema.json",
+  "title": "Localize Anything Adapter Regression Evidence Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "evidence", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-adapter-regression-evidence-report-v1" },
+    "artifact": { "const": "adapter-regression-evidence-report.json" },
+    "status": { "type": "string" },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

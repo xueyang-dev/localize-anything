@@ -4,6 +4,16 @@
 
 ### Added
 
+- Add Adapter Release-Promotion Audit / Support Matrix Boundary seed with
+  `adapter-support-matrix.json`, `adapter-release-audit.json`,
+  `adapter-promotion-decision.json`,
+  `adapter-regression-evidence-report.json`, and
+  `adapter-public-claims-report.md`; include conservative capability and
+  evidence classification, release-audit/delivery/run-summary references,
+  protocol schemas, and provider-free CLI/API access. Adapter existence and
+  passing unit tests do not imply stable support, and overbroad
+  `full_round_trip`, platform, document, production-ready, or
+  full-product-localization claims remain forbidden without release evidence.
 - Add a provider-free `quickstart-demo` golden path with a tiny public JSON
   fixture, synthetic local drafts, staged output, deterministic QA, readiness
   reports, delivery package references, README quickstart links, and

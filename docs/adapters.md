@@ -23,7 +23,7 @@ Declarative adapters contain path, extraction, preservation, and QA rules. Scrip
 
 Core adapters follow the same contract as third-party adapters. They receive no hidden privileges.
 
-## v0.1 Support Matrix
+## Declared Adapter Capabilities
 
 | Adapter | Formats | Capability | Preserved constraints |
 | --- | --- | --- | --- |
@@ -39,6 +39,20 @@ Core adapters follow the same contract as third-party adapters. They receive no 
 | `core.ios-strings` | iOS `.strings` / `.stringsdict` | `extract_and_rebuild` | keys, comments/order for `.strings`, plural forms for `.stringsdict`, placeholders, target `.lproj` path |
 | `core.xcstrings` | Xcode `.xcstrings` | `extract_and_rebuild` | sourceLanguage, stringUnit values, variation leaves, comments/metadata, placeholders, target language entries |
 | `scenario.wesnoth` | WML + gettext | `extract_only` overlay | campaign, scenario, speaker, occurrence context |
+
+Declared capabilities are not release-promotion claims. The artifact-backed
+adapter support boundary classifies adapters as `stable_baseline`,
+`implemented_seed`, `experimental`, `partial`, `inspect_only`, or
+`unsupported` in `adapter-support-matrix.json`, then records release blockers
+and public claim limits in `adapter-release-audit.json`,
+`adapter-promotion-decision.json`, and `adapter-public-claims-report.md`.
+
+`full_round_trip` public claims require extraction, rebuild, deterministic
+output validation, fixture coverage, and regression evidence. Passing unit
+tests or having an `adapter.json` manifest is not enough to promote an adapter.
+Android, iOS, String Catalog, Word document, and scenario slices must preserve
+their documented limitations unless future release-audit evidence promotes
+them.
 
 YAML/TOML v0.1 targets localization-resource scalars. Complex YAML block
 scalars, anchors, flow collections, and TOML multiline or array strings remain

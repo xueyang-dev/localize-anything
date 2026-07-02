@@ -224,6 +224,19 @@ from .release_audit import (
     read_release_evidence_manifest,
     read_release_readiness_audit,
 )
+from .adapter_release import (
+    build_adapter_public_claims_report,
+    build_adapter_regression_evidence_report,
+    build_adapter_release_artifacts,
+    build_adapter_release_audit,
+    build_adapter_promotion_decision,
+    build_adapter_support_matrix,
+    read_adapter_public_claims_report,
+    read_adapter_regression_evidence_report,
+    read_adapter_release_audit,
+    read_adapter_promotion_decision,
+    read_adapter_support_matrix,
+)
 from .inspect_summary import build_inspect_summary, validate_inspect_output_directory, write_inspect_summary
 from .ios_strings_adapter import extract_segments as extract_ios_strings
 from .ios_strings_adapter import rebuild as rebuild_ios_strings
@@ -1036,6 +1049,47 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_dataset_check_parser.add_argument("--privacy-risk", default="unknown")
     benchmark_dataset_check_parser.add_argument("--run-id")
     benchmark_dataset_check_parser.add_argument("--output", type=Path)
+
+    adapter_support_parser = subparsers.add_parser("adapter-support-matrix", help="Create or read adapter-support-matrix.json")
+    adapter_support_parser.add_argument("state_dir", type=Path)
+    adapter_support_parser.add_argument("--repo-root", type=Path)
+    adapter_support_parser.add_argument("--read", action="store_true")
+    adapter_support_parser.add_argument("--run-id")
+    adapter_support_parser.add_argument("--output", type=Path)
+
+    adapter_audit_parser = subparsers.add_parser("adapter-release-audit", help="Create or read adapter-release-audit.json")
+    adapter_audit_parser.add_argument("state_dir", type=Path)
+    adapter_audit_parser.add_argument("--repo-root", type=Path)
+    adapter_audit_parser.add_argument("--read", action="store_true")
+    adapter_audit_parser.add_argument("--run-id")
+    adapter_audit_parser.add_argument("--output", type=Path)
+
+    adapter_decision_parser = subparsers.add_parser("adapter-promotion-decision", help="Create or read adapter-promotion-decision.json")
+    adapter_decision_parser.add_argument("state_dir", type=Path)
+    adapter_decision_parser.add_argument("--repo-root", type=Path)
+    adapter_decision_parser.add_argument("--read", action="store_true")
+    adapter_decision_parser.add_argument("--run-id")
+    adapter_decision_parser.add_argument("--output", type=Path)
+
+    adapter_regression_parser = subparsers.add_parser("adapter-regression-evidence-report", help="Create or read adapter-regression-evidence-report.json")
+    adapter_regression_parser.add_argument("state_dir", type=Path)
+    adapter_regression_parser.add_argument("--repo-root", type=Path)
+    adapter_regression_parser.add_argument("--read", action="store_true")
+    adapter_regression_parser.add_argument("--run-id")
+    adapter_regression_parser.add_argument("--output", type=Path)
+
+    adapter_claims_parser = subparsers.add_parser("adapter-public-claims-report", help="Create or read adapter-public-claims-report.md")
+    adapter_claims_parser.add_argument("state_dir", type=Path)
+    adapter_claims_parser.add_argument("--repo-root", type=Path)
+    adapter_claims_parser.add_argument("--read", action="store_true")
+    adapter_claims_parser.add_argument("--run-id")
+    adapter_claims_parser.add_argument("--output", type=Path)
+
+    adapter_check_parser = subparsers.add_parser("adapter-release-check", help="Create adapter release support boundary artifacts")
+    adapter_check_parser.add_argument("state_dir", type=Path)
+    adapter_check_parser.add_argument("--repo-root", type=Path)
+    adapter_check_parser.add_argument("--run-id")
+    adapter_check_parser.add_argument("--output", type=Path)
 
     release_audit_parser = subparsers.add_parser("release-audit", help="Create release audit and public claim boundary artifacts")
     release_audit_parser.add_argument("state_dir", type=Path)
@@ -2331,6 +2385,48 @@ def main(argv: list[str] | None = None) -> int:
                     privacy_risk=args.privacy_risk,
                     run_id=args.run_id,
                 ),
+                "provider_or_model_called": False,
+                "target_files_mutated": False,
+            }
+            return _emit_json(result, args.output)
+        if args.command == "adapter-support-matrix":
+            result = read_adapter_support_matrix(args.state_dir) if args.read else build_adapter_support_matrix(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-release-audit":
+            if args.read:
+                result = read_adapter_release_audit(args.state_dir)
+            else:
+                matrix = build_adapter_support_matrix(args.state_dir, repo_root=args.repo_root, run_id=args.run_id, write=False)
+                regression = build_adapter_regression_evidence_report(args.state_dir, support_matrix=matrix, repo_root=args.repo_root, run_id=args.run_id, write=False)
+                result = build_adapter_release_audit(args.state_dir, support_matrix=matrix, regression_report=regression, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-promotion-decision":
+            if args.read:
+                result = read_adapter_promotion_decision(args.state_dir)
+            else:
+                matrix = build_adapter_support_matrix(args.state_dir, repo_root=args.repo_root, run_id=args.run_id, write=False)
+                regression = build_adapter_regression_evidence_report(args.state_dir, support_matrix=matrix, repo_root=args.repo_root, run_id=args.run_id, write=False)
+                audit = build_adapter_release_audit(args.state_dir, support_matrix=matrix, regression_report=regression, run_id=args.run_id, write=False)
+                result = build_adapter_promotion_decision(args.state_dir, support_matrix=matrix, release_audit=audit, regression_report=regression, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-regression-evidence-report":
+            result = read_adapter_regression_evidence_report(args.state_dir) if args.read else build_adapter_regression_evidence_report(args.state_dir, repo_root=args.repo_root, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "adapter-public-claims-report":
+            if args.read:
+                result = read_adapter_public_claims_report(args.state_dir)
+            else:
+                matrix = build_adapter_support_matrix(args.state_dir, repo_root=args.repo_root, run_id=args.run_id, write=False)
+                regression = build_adapter_regression_evidence_report(args.state_dir, support_matrix=matrix, repo_root=args.repo_root, run_id=args.run_id, write=False)
+                audit = build_adapter_release_audit(args.state_dir, support_matrix=matrix, regression_report=regression, run_id=args.run_id, write=False)
+                decision = build_adapter_promotion_decision(args.state_dir, support_matrix=matrix, release_audit=audit, regression_report=regression, run_id=args.run_id, write=False)
+                result = build_adapter_public_claims_report(args.state_dir, promotion_decision=decision, support_matrix=matrix, run_id=args.run_id)
+            return _emit_text(result, args.output)
+        if args.command == "adapter-release-check":
+            result = {
+                "protocol_version": "0.1",
+                "schema": "localize-anything-adapter-release-check-command-v1",
+                **build_adapter_release_artifacts(args.state_dir, repo_root=args.repo_root, run_id=args.run_id),
                 "provider_or_model_called": False,
                 "target_files_mutated": False,
             }

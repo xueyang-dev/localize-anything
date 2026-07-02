@@ -157,6 +157,55 @@ does not overwrite source project files.
 
 Adapters implement the narrower lifecycle documented in `docs/adapters.md`.
 
+## Adapter Release-Promotion Boundary
+
+Adapter release artifacts describe public support boundaries. They are release
+audit evidence, not adapter feature implementation and not translation quality
+proof.
+
+Artifacts:
+
+- `adapter-support-matrix.json` classifies each adapter as
+  `stable_baseline`, `implemented_seed`, `experimental`, `partial`,
+  `inspect_only`, or `unsupported` and records declared capabilities,
+  full-round-trip support evidence, known limitations, and forbidden adapter
+  claims.
+- `adapter-regression-evidence-report.json` records contract, fixture,
+  benchmark, real-project smoke, apply-to-copy, release-audit, and known
+  limitation evidence.
+- `adapter-release-audit.json` records blockers such as missing contract
+  evidence or overbroad `full_round_trip` claims.
+- `adapter-promotion-decision.json` records conservative public promotion
+  status and claim boundaries.
+- `adapter-public-claims-report.md` is a human-readable summary of those
+  boundaries.
+
+Rules:
+
+- Adapter existence does not imply stable support.
+- Passing unit tests does not imply release promotion.
+- `full_round_trip` requires extraction, rebuild, deterministic output QA,
+  fixture coverage, and regression evidence.
+- Experimental Android, iOS, String Catalog, Word document, and scenario
+  slices remain limited to their documented non-goals unless release evidence
+  promotes them.
+- Adapter release artifacts may inform Release Audit, Artifact State, run
+  summaries, and delivery packages, but they must not upgrade provider-backed,
+  production-ready, full-product-localization, or translation quality claims.
+
+Artifact-backed APIs are:
+
+- `GET /api/adapter-support-matrix`
+- `GET /api/adapter-release-audit`
+- `GET /api/adapter-promotion-decision`
+- `GET /api/adapter-regression-evidence-report`
+
+CLI commands are `adapter-support-matrix`, `adapter-release-audit`,
+`adapter-promotion-decision`, `adapter-regression-evidence-report`,
+`adapter-public-claims-report`, and `adapter-release-check`. They generate or
+read structured artifacts only. They must not call providers, run models, apply
+repairs, mutate target project files, create releases, or move tags.
+
 ## Evidence Spine And Claims
 
 Every lifecycle gate that affects generation, delivery, or apply readiness

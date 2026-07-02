@@ -1,0 +1,41 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-adapter-support-matrix-v1",
+  "artifact": "adapter-support-matrix.json",
+  "run_id": "adapter-example",
+  "status": "ready_with_warnings",
+  "adapter_count": 2,
+  "adapters": [
+    {
+      "adapter_id": "core.json-locale",
+      "name": "Core JSON Locale Adapter",
+      "formats": ["json-locale"],
+      "implementation_status": "implemented",
+      "declared_round_trip_level": "full_round_trip",
+      "capability_classification": "stable_baseline",
+      "full_round_trip_supported": true,
+      "evidence": { "contract_tests": "present", "fixture_tests": "present", "regression_evidence": "present" },
+      "known_limitations": [],
+      "forbidden_claims": ["adapter_production_ready", "full_product_localization"]
+    },
+    {
+      "adapter_id": "core.android-strings",
+      "name": "Core Android Strings Adapter",
+      "formats": ["android-strings"],
+      "implementation_status": "experimental",
+      "declared_round_trip_level": "extract_and_rebuild",
+      "capability_classification": "experimental",
+      "full_round_trip_supported": false,
+      "evidence": { "contract_tests": "present", "fixture_tests": "present", "benchmark_evidence": "present" },
+      "known_limitations": ["experimental platform slice"],
+      "forbidden_claims": ["full_platform_localization", "full_product_localization", "full_round_trip"]
+    }
+  ],
+  "summary": { "stable_baseline": 1, "experimental": 1 },
+  "contract_validation": { "status": "pass", "manifests_checked": 2, "errors": [] },
+  "claim_boundaries": {
+    "adapter_existence_implies_stable_support": false,
+    "unit_tests_alone_promote_adapter": false,
+    "full_round_trip_requires_fixture_qa_and_regression_evidence": true
+  }
+}
