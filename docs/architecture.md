@@ -1766,6 +1766,32 @@ CLI commands are `provider-execution-readiness`,
 endpoints expose the six JSON artifacts. The seed adds no provider/model calls,
 no credential logging, no release/tag actions, and no target-file mutation.
 
+## Provider Result Acceptance / Real Execution Dry-Run Policy UX
+
+Provider dry-run policy artifacts make future real-provider execution
+inspectable before any network call is allowed. The seed produces
+`provider-dry-run-plan.json`, `provider-execution-consent-request.md`,
+`provider-execution-consent-state.json`,
+`provider-data-disclosure-report.json`,
+`provider-result-acceptance-policy.json`, and
+`provider-real-execution-blockers.json`.
+
+The dry-run plan summarizes the provider profile, target locale, files,
+batches, segment counts, credential presence by source name only, network
+boundary status, redaction status, retry/timeout policy, failure policy, and
+claim boundary. The consent request is a Markdown review artifact. The consent
+state is scoped to the run id, provider/model profile, locale, source hashes,
+and batch set; artifact existence is not consent, and stale or mismatched
+scope keeps execution blocked. The data disclosure report lists categories and
+counts rather than private content.
+
+This layer remains provider-free. It does not authorize network calls, does
+not make provider-backed claims, and does not bypass provider result intake,
+reconciliation, deterministic QA, scoped review, acceptance, signoff,
+scorecard, readiness, delivery, or release-audit gates. Mock, synthetic,
+local, dry-run, failed, or unverified imported output remains excluded from
+provider-backed quality claims.
+
 ## Release Audit / Public Claims Boundary Seed
 
 Release Audit is a conservative boundary layer for public documentation,

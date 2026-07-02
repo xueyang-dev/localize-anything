@@ -60,6 +60,7 @@ from .provider_result_gate import (
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
 from .provider_safety import PROVIDER_EXECUTION_SAFETY_DECISION_JSON
+from .provider_dry_run import PROVIDER_REAL_EXECUTION_BLOCKERS_JSON
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_CLAIMS,
@@ -294,6 +295,7 @@ def _load_artifacts(
         "provider_claim_support_report": _read_optional_json(state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
         "workbench_provider_review_queue": _read_optional_json(state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
         "provider_execution_safety_decision": _read_optional_json(state_dir / PROVIDER_EXECUTION_SAFETY_DECISION_JSON),
+        "provider_real_execution_blockers": _read_optional_json(state_dir / PROVIDER_REAL_EXECUTION_BLOCKERS_JSON),
         "locale_capability_report": _read_optional_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON),
         "locale_risk_report": _read_optional_json(state_dir / LOCALE_RISK_REPORT_JSON),
         "locale_readiness_impact": _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON),
@@ -731,6 +733,11 @@ def _forbidden_claims(
     if isinstance(safety, dict) and safety:
         claims.update(str(claim) for claim in safety.get("forbidden_claims", []) if claim)
         if str(safety.get("status") or "") in {"blocked", "stale", "failed"}:
+            claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    real_execution_blockers = artifacts.get("provider_real_execution_blockers", {})
+    if isinstance(real_execution_blockers, dict) and real_execution_blockers:
+        claims.update(str(claim) for claim in real_execution_blockers.get("forbidden_claims", []) if claim)
+        if str(real_execution_blockers.get("status") or "") in {"blocked", "stale", "failed"}:
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
     locale_impact = artifacts.get("locale_readiness_impact", {})
     locale_risk = artifacts.get("locale_risk_report", {})
@@ -1209,6 +1216,7 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "provider_claim_support_report": state_dir / PROVIDER_CLAIM_SUPPORT_REPORT_JSON,
         "workbench_provider_review_queue": state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
         "provider_execution_safety_decision": state_dir / PROVIDER_EXECUTION_SAFETY_DECISION_JSON,
+        "provider_real_execution_blockers": state_dir / PROVIDER_REAL_EXECUTION_BLOCKERS_JSON,
         "locale_capability_report": state_dir / LOCALE_CAPABILITY_REPORT_JSON,
         "locale_risk_report": state_dir / LOCALE_RISK_REPORT_JSON,
         "locale_readiness_impact": state_dir / LOCALE_READINESS_IMPACT_JSON,

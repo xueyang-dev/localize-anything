@@ -192,6 +192,21 @@ from .provider_safety import (
     read_provider_network_boundary_report,
     read_provider_redaction_audit,
 )
+from .provider_dry_run import (
+    build_provider_data_disclosure_report,
+    build_provider_dry_run_artifacts,
+    build_provider_dry_run_plan,
+    build_provider_execution_consent_request,
+    build_provider_execution_consent_state,
+    build_provider_real_execution_blockers,
+    build_provider_result_acceptance_policy,
+    read_provider_data_disclosure_report,
+    read_provider_dry_run_plan,
+    read_provider_execution_consent_request,
+    read_provider_execution_consent_state,
+    read_provider_real_execution_blockers,
+    read_provider_result_acceptance_policy,
+)
 from .locale_capability import (
     build_locale_capability_report,
     build_locale_capability_reports,
@@ -991,6 +1006,39 @@ def build_parser() -> argparse.ArgumentParser:
     provider_safety_parser.add_argument("--input", type=Path, help="Optional provider profile JSON")
     provider_safety_parser.add_argument("--run-id")
     provider_safety_parser.add_argument("--output", type=Path)
+
+    for command, help_text in (
+        ("provider-dry-run-plan", "Create/read provider-dry-run-plan.json"),
+        ("provider-data-disclosure-report", "Create/read provider-data-disclosure-report.json"),
+        ("provider-result-acceptance-policy", "Create/read provider-result-acceptance-policy.json"),
+        ("provider-real-execution-blockers", "Create/read provider-real-execution-blockers.json"),
+    ):
+        command_parser = subparsers.add_parser(command, help=help_text)
+        command_parser.add_argument("state_dir", type=Path)
+        command_parser.add_argument("--input", type=Path, help="Optional provider profile JSON")
+        command_parser.add_argument("--read", action="store_true")
+        command_parser.add_argument("--run-id")
+        command_parser.add_argument("--output", type=Path)
+
+    provider_consent_request_parser = subparsers.add_parser("provider-execution-consent-request", help="Create/read provider-execution-consent-request.md")
+    provider_consent_request_parser.add_argument("state_dir", type=Path)
+    provider_consent_request_parser.add_argument("--read", action="store_true")
+    provider_consent_request_parser.add_argument("--run-id")
+    provider_consent_request_parser.add_argument("--output", type=Path)
+
+    provider_consent_state_parser = subparsers.add_parser("provider-execution-consent-state", help="Create/read provider-execution-consent-state.json")
+    provider_consent_state_parser.add_argument("state_dir", type=Path)
+    provider_consent_state_parser.add_argument("--input", type=Path, help="Optional consent JSON")
+    provider_consent_state_parser.add_argument("--read", action="store_true")
+    provider_consent_state_parser.add_argument("--run-id")
+    provider_consent_state_parser.add_argument("--output", type=Path)
+
+    provider_dry_run_parser = subparsers.add_parser("provider-dry-run", help="Create all real-provider dry-run boundary artifacts")
+    provider_dry_run_parser.add_argument("state_dir", type=Path)
+    provider_dry_run_parser.add_argument("--input", type=Path, help="Optional provider profile JSON")
+    provider_dry_run_parser.add_argument("--consent-input", type=Path, help="Optional consent JSON")
+    provider_dry_run_parser.add_argument("--run-id")
+    provider_dry_run_parser.add_argument("--output", type=Path)
 
     locale_capability_parser = subparsers.add_parser("locale-capability-report", help="Create or read locale-capability-report.json")
     locale_capability_parser.add_argument("state_dir", type=Path)
@@ -2422,6 +2470,34 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(result, args.output)
         if args.command == "provider-execution-safety-decision":
             result = read_provider_execution_safety_decision(args.state_dir) if args.read else build_provider_execution_safety_decision(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-dry-run":
+            return _emit_json(
+                build_provider_dry_run_artifacts(
+                    args.state_dir,
+                    read_json(args.input) if args.input else None,
+                    consent=read_json(args.consent_input) if args.consent_input else None,
+                    run_id=args.run_id,
+                ),
+                args.output,
+            )
+        if args.command == "provider-dry-run-plan":
+            result = read_provider_dry_run_plan(args.state_dir) if args.read else build_provider_dry_run_plan(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-execution-consent-request":
+            result = read_provider_execution_consent_request(args.state_dir) if args.read else build_provider_execution_consent_request(args.state_dir, run_id=args.run_id)
+            return _emit_text(result, args.output)
+        if args.command == "provider-execution-consent-state":
+            result = read_provider_execution_consent_state(args.state_dir) if args.read else build_provider_execution_consent_state(args.state_dir, read_json(args.input) if args.input else None, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-data-disclosure-report":
+            result = read_provider_data_disclosure_report(args.state_dir) if args.read else build_provider_data_disclosure_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-result-acceptance-policy":
+            result = read_provider_result_acceptance_policy(args.state_dir) if args.read else build_provider_result_acceptance_policy(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-real-execution-blockers":
+            result = read_provider_real_execution_blockers(args.state_dir) if args.read else build_provider_real_execution_blockers(args.state_dir, run_id=args.run_id)
             return _emit_json(result, args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)

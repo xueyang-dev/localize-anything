@@ -1963,6 +1963,63 @@ CLI commands are `provider-execution-readiness`,
 or read structured artifacts only and must not call providers, run models, apply
 repairs, mutate target files, or expose secrets.
 
+## Provider Result Acceptance / Real Execution Dry-Run Policy UX
+
+Provider dry-run policy UX records what would happen before any future real
+provider call is allowed. It never executes providers and never supports
+provider-backed quality by itself.
+
+Artifacts:
+
+- `provider-dry-run-plan.json` summarizes provider profile, locale, source
+  files, batch and segment counts, approximate character count, credential
+  presence by source name only, network boundary, redaction status,
+  retry/timeout policy, failure policy, and claims that remain forbidden.
+- `provider-execution-consent-request.md` is a human-readable review artifact
+  that names the exact scope and warns about privacy, cost, provider terms, and
+  quality boundaries.
+- `provider-execution-consent-state.json` records scoped consent status. Consent
+  may be `pending`, `granted`, `denied`, `expired`, or `revoked`; it is bound to
+  run id, provider/model profile, locale, source hashes, and batch set.
+- `provider-data-disclosure-report.json` lists data categories and counts that
+  would be sent. It must not include full private content unless that content
+  is already part of an approved artifact.
+- `provider-result-acceptance-policy.json` records the required result intake,
+  reconciliation, QA, review, acceptance, claim support, scorecard, readiness,
+  and signoff path.
+- `provider-real-execution-blockers.json` consolidates missing consent,
+  disabled network, missing credentials, unsupported profile, stale handoff,
+  privacy conflict, redaction failure, unresolved safety decision, and claim
+  boundary blockers.
+
+Rules:
+
+- Dry-run is not execution.
+- Consent artifact existence does not equal consent granted.
+- Credential presence does not equal execution permission.
+- Consent is explicit, scoped, and not globally reusable by default.
+- Mock, synthetic, local, dry-run, failed, or unverified imported output keeps
+  provider-backed claims forbidden.
+- Future real provider output must still pass through provider result intake,
+  reconciliation, QA, scoped review, acceptance, signoff, scorecard, readiness,
+  delivery, and release-audit gates.
+
+Artifact-backed APIs are:
+
+- `GET /api/provider-dry-run-plan`
+- `GET /api/provider-execution-consent-request`
+- `GET /api/provider-execution-consent-state`
+- `GET /api/provider-data-disclosure-report`
+- `GET /api/provider-result-acceptance-policy`
+- `GET /api/provider-real-execution-blockers`
+
+CLI commands are `provider-dry-run-plan`,
+`provider-execution-consent-request`, `provider-execution-consent-state`,
+`provider-data-disclosure-report`, `provider-result-acceptance-policy`,
+`provider-real-execution-blockers`, and `provider-dry-run`. They generate or
+read artifact-backed dry-run/consent projections only and must not call
+providers.
+
 ## Release Audit / Public Claims Boundary Seed
 
 Release Audit artifacts consolidate public-facing claim evidence without

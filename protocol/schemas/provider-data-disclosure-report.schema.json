@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-data-disclosure-report.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "data_categories", "counts", "full_private_content_included", "provider_or_model_called"],
+  "properties": {
+    "protocol_version": { "type": "string" },
+    "schema": { "const": "localize-anything-provider-data-disclosure-report-v1" },
+    "artifact": { "const": "provider-data-disclosure-report.json" },
+    "status": { "type": "string" },
+    "data_categories": { "type": "array", "items": { "type": "string" } },
+    "counts": { "type": "object" },
+    "full_private_content_included": { "const": false },
+    "provider_or_model_called": { "const": false }
+  },
+  "additionalProperties": true
+}

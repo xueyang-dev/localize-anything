@@ -167,6 +167,14 @@ from .provider_safety import (
     read_provider_network_boundary_report,
     read_provider_redaction_audit,
 )
+from .provider_dry_run import (
+    read_provider_data_disclosure_report,
+    read_provider_dry_run_plan,
+    read_provider_execution_consent_request,
+    read_provider_execution_consent_state,
+    read_provider_real_execution_blockers,
+    read_provider_result_acceptance_policy,
+)
 from .locale_capability import (
     read_locale_capability_report,
     read_locale_readiness_impact,
@@ -450,6 +458,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-execution-safety-decision":
                     self._handle_workflow_artifact_query(parsed.query, "provider_execution_safety_decision", read_provider_execution_safety_decision)
+                    return
+                if parsed.path == "/api/provider-dry-run-plan":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_dry_run_plan", read_provider_dry_run_plan)
+                    return
+                if parsed.path == "/api/provider-execution-consent-request":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_consent_request", lambda state_dir: {"markdown": read_provider_execution_consent_request(state_dir)})
+                    return
+                if parsed.path == "/api/provider-execution-consent-state":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_consent_state", read_provider_execution_consent_state)
+                    return
+                if parsed.path == "/api/provider-data-disclosure-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_data_disclosure_report", read_provider_data_disclosure_report)
+                    return
+                if parsed.path == "/api/provider-result-acceptance-policy":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_acceptance_policy", read_provider_result_acceptance_policy)
+                    return
+                if parsed.path == "/api/provider-real-execution-blockers":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_real_execution_blockers", read_provider_real_execution_blockers)
                     return
                 if parsed.path == "/api/locale-capability-report":
                     self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)
