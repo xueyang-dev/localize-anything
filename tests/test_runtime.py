@@ -28,6 +28,16 @@ from runtime.localize_anything.acceptance import create_acceptance
 from runtime.localize_anything.agent import run_agent
 from runtime.localize_anything.android_app_test import run_android_app_test
 from runtime.localize_anything.artifact_state import build_artifact_state, read_artifact_state
+from runtime.localize_anything.adapter_release import (
+    ADAPTER_PROMOTION_DECISION_JSON,
+    ADAPTER_REGRESSION_EVIDENCE_REPORT_JSON,
+    ADAPTER_RELEASE_AUDIT_JSON,
+    ADAPTER_SUPPORT_MATRIX_JSON,
+    build_adapter_release_artifacts,
+    build_adapter_release_audit,
+    build_adapter_regression_evidence_report,
+    build_adapter_support_matrix,
+)
 from runtime.localize_anything.android_strings_adapter import android_resource_routing
 from runtime.localize_anything.android_strings_adapter import extract_segments as extract_android_segments
 from runtime.localize_anything.android_strings_adapter import rebuild as rebuild_android_strings
@@ -12002,7 +12012,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 135)
+        self.assertEqual(result["schemas_checked"], 139)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -12747,8 +12757,7 @@ class IncrementalWorkflowTests(unittest.TestCase):
     def test_selective_recompute_is_provider_free_and_does_not_mutate_target(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            state = root / "state"
-            state.mkdir()
+            state = _benchmark_run_state(root)
             target = root / "target.txt"
             target.write_text("unchanged", encoding="utf-8")
             before = sha256_file(target)
@@ -13569,6 +13578,139 @@ class BenchmarkLabTests(unittest.TestCase):
                         "benchmark-reference-boundary-report",
                         "benchmark-fixture-policy",
                         "benchmark-reproducibility-report",
+                    ]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
+
+
+class AdapterReleaseAuditTests(unittest.TestCase):
+    def test_adapter_support_matrix_classifies_stable_seed_and_experimental_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            matrix = build_adapter_support_matrix(state, repo_root=REPOSITORY_ROOT)
+            assert_protocol_schema(self, "adapter-support-matrix", matrix)
+            by_id = {item["adapter_id"]: item for item in matrix["adapters"]}
+
+            self.assertEqual(by_id["core.json-locale"]["capability_classification"], "stable_baseline")
+            self.assertTrue(by_id["core.json-locale"]["full_round_trip_supported"])
+            self.assertEqual(by_id["core.yaml-toml"]["capability_classification"], "implemented_seed")
+            self.assertFalse(by_id["core.yaml-toml"]["full_round_trip_supported"])
+            self.assertEqual(by_id["core.android-strings"]["capability_classification"], "experimental")
+            self.assertIn("full_platform_localization", by_id["core.android-strings"]["forbidden_claims"])
+            self.assertIn("docx_layout_verified", by_id["core.word-document"]["forbidden_claims"])
+
+    def test_overbroad_full_round_trip_claim_is_blocked_without_fixture_regression_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            adapter_dir = root / "adapters" / "core" / "optimistic"
+            adapter_dir.mkdir(parents=True)
+            write_json(
+                adapter_dir / "adapter.json",
+                {
+                    "protocol_version": "0.1",
+                    "id": "core.optimistic",
+                    "name": "Optimistic Adapter",
+                    "version": "0.1.0",
+                    "implementation_status": "implemented",
+                    "formats": ["optimistic"],
+                    "extensions": [".opt"],
+                    "capabilities": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply"],
+                    "round_trip_level": "full_round_trip",
+                    "permissions": ["read_project", "write_staging"],
+                    "runtime": {"type": "python", "dependencies": []},
+                },
+            )
+
+            matrix = build_adapter_support_matrix(state, repo_root=root)
+            regression = build_adapter_regression_evidence_report(state, support_matrix=matrix)
+            audit = build_adapter_release_audit(state, support_matrix=matrix, regression_report=regression)
+            assert_protocol_schema(self, "adapter-release-audit", audit)
+
+            row = matrix["adapters"][0]
+            self.assertEqual(row["capability_classification"], "implemented_seed")
+            self.assertFalse(row["full_round_trip_supported"])
+            self.assertIn("full_round_trip", row["forbidden_claims"])
+            blocker_types = {item["blocker_type"] for item in audit["blockers"]}
+            self.assertIn("overbroad_full_round_trip_claim", blocker_types)
+
+    def test_adapter_release_artifacts_feed_release_audit_artifact_state_delivery_cli_and_api(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _benchmark_run_state(root)
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                result = build_adapter_release_artifacts(state, repo_root=REPOSITORY_ROOT, run_id="adapter-release-test")
+                assert_protocol_schema(self, "adapter-promotion-decision", result["adapter_promotion_decision"])
+                assert_protocol_schema(self, "adapter-regression-evidence-report", result["adapter_regression_evidence_report"])
+                self.assertIn("full_product_localization", result["adapter_promotion_decision"]["forbidden_claims"])
+
+                first = root / "adapter-check-1.json"
+                second = root / "adapter-check-2.json"
+                command = ["adapter-release-check", state.as_posix(), "--repo-root", REPOSITORY_ROOT.as_posix(), "--run-id", "adapter-cli-test"]
+                self.assertEqual(cli_main([*command, "--output", first.as_posix()]), 0)
+                self.assertEqual(cli_main([*command, "--output", second.as_posix()]), 0)
+                self.assertEqual(read_json(first), read_json(second))
+
+                claims_path = root / "adapter-claims.md"
+                self.assertEqual(cli_main(["adapter-public-claims-report", state.as_posix(), "--read", "--output", claims_path.as_posix()]), 0)
+                self.assertIn("Adapter existence does not imply stable support", claims_path.read_text(encoding="utf-8"))
+
+                artifact_state = build_artifact_state(state)
+                artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+                self.assertIn("adapter_support_matrix", artifact_ids)
+                self.assertIn("adapter_release_audit", artifact_ids)
+                self.assertIn("adapter_promotion_decision", artifact_ids)
+                self.assertIn("adapter_regression_evidence_report", artifact_ids)
+
+                release_manifest = build_release_evidence_manifest(state, repo_root=REPOSITORY_ROOT)
+                self.assertIn("adapter_support_matrix", release_manifest["evidence"])
+                public_claims = build_public_claims_report(state, evidence_manifest=release_manifest)
+                self.assertIn("adapter_support_matrix_seed", public_claims["seed_only_claims"])
+
+                staging = root / "staging"
+                staged = staging / "locales" / "zh-CN.json"
+                staged.parent.mkdir(parents=True)
+                staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+                packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "adapter-release-delivery-001")
+                assets = packaged["manifest"]["assets"]
+                self.assertEqual(assets["adapter_support_matrix"], ADAPTER_SUPPORT_MATRIX_JSON)
+                self.assertEqual(assets["adapter_release_audit"], ADAPTER_RELEASE_AUDIT_JSON)
+                self.assertEqual(assets["adapter_promotion_decision"], ADAPTER_PROMOTION_DECISION_JSON)
+                self.assertEqual(assets["adapter_regression_evidence_report"], ADAPTER_REGRESSION_EVIDENCE_REPORT_JSON)
+
+                summary = build_run_summary_for_test(
+                    "adapter-release-summary-001",
+                    "pass_with_warnings",
+                    root,
+                    "en-US",
+                    "zh-CN",
+                    [],
+                    state,
+                    state / "segments.jsonl",
+                    state / "batch-plan.json",
+                    state / "generation-handoff.json",
+                    0,
+                    0,
+                    "dry_run",
+                )
+                self.assertEqual(summary["summary"]["adapter_support_matrix_status"], "ready_with_warnings")
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = [
+                        "adapter-support-matrix",
+                        "adapter-release-audit",
+                        "adapter-promotion-decision",
+                        "adapter-regression-evidence-report",
                     ]
                     statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
                     self.assertEqual(statuses, [200, 200, 200, 200])

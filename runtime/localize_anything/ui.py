@@ -181,6 +181,12 @@ from .release_audit import (
     read_release_evidence_manifest,
     read_release_readiness_audit,
 )
+from .adapter_release import (
+    read_adapter_regression_evidence_report,
+    read_adapter_release_audit,
+    read_adapter_promotion_decision,
+    read_adapter_support_matrix,
+)
 from .project import inspect_project, load_session_index
 from .resolution_gate import read_blocking_questions, read_resolution_options, record_user_resolution_decision
 from .segment_repair import (
@@ -449,6 +455,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/release-blockers":
                     self._handle_workflow_artifact_query(parsed.query, "release_blockers", read_release_blockers)
+                    return
+                if parsed.path == "/api/adapter-support-matrix":
+                    self._handle_workflow_artifact_query(parsed.query, "adapter_support_matrix", read_adapter_support_matrix)
+                    return
+                if parsed.path == "/api/adapter-release-audit":
+                    self._handle_workflow_artifact_query(parsed.query, "adapter_release_audit", read_adapter_release_audit)
+                    return
+                if parsed.path == "/api/adapter-promotion-decision":
+                    self._handle_workflow_artifact_query(parsed.query, "adapter_promotion_decision", read_adapter_promotion_decision)
+                    return
+                if parsed.path == "/api/adapter-regression-evidence-report":
+                    self._handle_workflow_artifact_query(parsed.query, "adapter_regression_evidence_report", read_adapter_regression_evidence_report)
                     return
                 if parsed.path == "/api/release-evidence-manifest":
                     self._handle_workflow_artifact_query(parsed.query, "release_evidence_manifest", read_release_evidence_manifest)

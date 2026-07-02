@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter-promotion-decision.schema.json",
+  "title": "Localize Anything Adapter Promotion Decision",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "decisions", "forbidden_claims"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-adapter-promotion-decision-v1" },
+    "artifact": { "const": "adapter-promotion-decision.json" },
+    "status": { "type": "string" },
+    "decisions": { "type": "array", "items": { "type": "object" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

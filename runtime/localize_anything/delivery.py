@@ -161,6 +161,7 @@ from .translation_provenance import (
 )
 from .benchmark_lab import BENCHMARK_ASSETS, benchmark_lab_asset_paths
 from .release_audit import RELEASE_AUDIT_ASSETS, release_audit_asset_paths
+from .adapter_release import adapter_release_asset_paths
 
 
 CANONICAL_ASSETS = ("localization-context.md", "glossary.csv", "translation-memory.jsonl")
@@ -373,6 +374,7 @@ def package_delivery(
                 **translation_provenance_asset_paths(state_dir),
                 **benchmark_lab_asset_paths(state_dir),
                 **release_audit_asset_paths(state_dir),
+                **adapter_release_asset_paths(state_dir),
                 **generation_handoff_decision_asset_paths(state_dir),
                 **artifact_state_asset_paths(state_dir),
                 **segment_staleness_asset_paths(state_dir),

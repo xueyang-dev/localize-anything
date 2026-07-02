@@ -144,6 +144,13 @@ from .release_audit import (
     RELEASE_EVIDENCE_MANIFEST_JSON,
     RELEASE_READINESS_AUDIT_JSON,
 )
+from .adapter_release import (
+    ADAPTER_PUBLIC_CLAIMS_REPORT_MD,
+    ADAPTER_REGRESSION_EVIDENCE_REPORT_JSON,
+    ADAPTER_RELEASE_AUDIT_JSON,
+    ADAPTER_PROMOTION_DECISION_JSON,
+    ADAPTER_SUPPORT_MATRIX_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -265,6 +272,11 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("non_claims", "non_claims", NON_CLAIMS_MD, "release_audit", ("public_claims_report",)),
     ArtifactSpec("release_blockers", "release_blockers", RELEASE_BLOCKERS_JSON, "release_audit", ("release_evidence_manifest", "public_claims_report", "artifact_state")),
     ArtifactSpec("release_readiness_audit", "release_readiness_audit", RELEASE_READINESS_AUDIT_JSON, "release_audit", ("release_evidence_manifest", "public_claims_report", "release_blockers")),
+    ArtifactSpec("adapter_support_matrix", "adapter_support_matrix", ADAPTER_SUPPORT_MATRIX_JSON, "adapter_release_audit", ("release_evidence_manifest",)),
+    ArtifactSpec("adapter_regression_evidence_report", "adapter_regression_evidence_report", ADAPTER_REGRESSION_EVIDENCE_REPORT_JSON, "adapter_release_audit", ("adapter_support_matrix",)),
+    ArtifactSpec("adapter_release_audit", "adapter_release_audit", ADAPTER_RELEASE_AUDIT_JSON, "adapter_release_audit", ("adapter_support_matrix", "adapter_regression_evidence_report", "release_readiness_audit")),
+    ArtifactSpec("adapter_promotion_decision", "adapter_promotion_decision", ADAPTER_PROMOTION_DECISION_JSON, "adapter_release_audit", ("adapter_release_audit",)),
+    ArtifactSpec("adapter_public_claims_report", "adapter_public_claims_report", ADAPTER_PUBLIC_CLAIMS_REPORT_MD, "adapter_release_audit", ("adapter_promotion_decision",)),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),
