@@ -4,6 +4,14 @@
 
 ### Added
 
+- Add Provider-safe Mock Execution Harness seed with
+  `provider-mock-run-manifest.json`, `provider-mock-response.jsonl`,
+  `provider-mock-failure-report.json`, `provider-mock-evidence-report.json`,
+  and `provider-mock-claim-boundary.json`; include deterministic mock success,
+  failure, timeout, malformed, partial, drift, extra, empty, and fallback
+  scenarios that flow through existing provider intake, reconciliation, QA,
+  claim, readiness, release-audit, CLI/API, and artifact-state boundaries
+  without network calls or provider-backed claims.
 - Add Adapter Fixture / Regression Evidence Provenance hardening with
   `adapter-evidence-provenance.json`, `adapter-fixture-manifest.json`,
   `adapter-regression-check-report.json`, `adapter-evidence-gap-report.json`,

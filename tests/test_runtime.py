@@ -300,6 +300,14 @@ from runtime.localize_anything.provider_result_gate import (
     record_provider_result_acceptance_decision,
     record_provider_result_review_evidence,
 )
+from runtime.localize_anything.provider_mock import (
+    PROVIDER_MOCK_CLAIM_BOUNDARY_JSON,
+    PROVIDER_MOCK_EVIDENCE_REPORT_JSON,
+    PROVIDER_MOCK_FAILURE_REPORT_JSON,
+    PROVIDER_MOCK_RESPONSE_JSONL,
+    PROVIDER_MOCK_RUN_MANIFEST_JSON,
+    build_provider_mock_run,
+)
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -12021,7 +12029,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 144)
+        self.assertEqual(result["schemas_checked"], 149)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13170,6 +13178,160 @@ class ProviderEvidenceTests(unittest.TestCase):
             self.assertTrue((state / PROVIDER_RESULT_INTAKE_JSONL).is_file())
             self.assertTrue((state / PROVIDER_EVIDENCE_RECONCILIATION_JSON).is_file())
             self.assertEqual(read_provider_result_intake(state)[0]["status"], "rejected_provenance")
+
+
+class ProviderSafeMockHarnessTests(unittest.TestCase):
+    def test_mock_success_flows_through_provider_gates_without_provider_backed_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            result = build_provider_mock_run(state, scenario="success", run_id="mock-success")
+            manifest = result["provider_mock_run_manifest"]
+            response = result["provider_mock_response"]["records"][0]
+            evidence = result["provider_mock_evidence_report"]
+            boundary = result["provider_mock_claim_boundary"]
+            reconciliation = build_provider_evidence_reconciliation(state)
+            qa = build_provider_result_qa_report(state)
+            scorecard = build_evaluation_scorecard(state)
+
+            assert_protocol_schema(self, "provider-mock-run-manifest", manifest)
+            assert_protocol_schema(self, "provider-mock-response", response)
+            assert_protocol_schema(self, "provider-mock-evidence-report", evidence)
+            assert_protocol_schema(self, "provider-mock-claim-boundary", boundary)
+            self.assertFalse(manifest["provider_backed"])
+            self.assertFalse(response["provider_backed"])
+            self.assertEqual(read_provider_result_intake(state)[0]["result_source"], "mock")
+            self.assertEqual(reconciliation["status"], "blocked")
+            self.assertFalse(reconciliation["provider_execution_complete_supported"])
+            self.assertEqual(qa["results"][0]["status"], "excluded")
+            self.assertIn("provider_backed_quality", evidence["forbidden_claims"])
+            self.assertIn("provider_backed_quality", boundary["forbidden_claims"])
+            self.assertIn("provider_backed_quality", scorecard["forbidden_claims"])
+            self.assertFalse(result["provider_or_model_called"])
+
+    def test_mock_failure_modes_are_fail_closed_and_retryable_when_expected(self) -> None:
+        expected_retryable = {"timeout", "partial_success", "fallback_attempt"}
+        scenarios = [
+            "failure",
+            "timeout",
+            "malformed_response",
+            "partial_success",
+            "placeholder_drift",
+            "markup_drift",
+            "empty_output",
+            "extra_segments",
+            "fallback_attempt",
+        ]
+        for scenario in scenarios:
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as directory:
+                state = Path(directory)
+                result = build_provider_mock_run(state, scenario=scenario, run_id=f"mock-{scenario}")
+                failure = result["provider_mock_failure_report"]
+                evidence = result["provider_mock_evidence_report"]
+                qa = build_provider_result_qa_report(state)
+
+                assert_protocol_schema(self, "provider-mock-failure-report", failure)
+                self.assertFalse(evidence["provider_execution_complete_supported"])
+                self.assertFalse(evidence["provider_backed_quality_supported"])
+                self.assertIn("provider_backed_quality", evidence["forbidden_claims"])
+                if scenario in {"failure", "timeout", "malformed_response", "partial_success", "placeholder_drift", "markup_drift", "empty_output", "fallback_attempt"}:
+                    self.assertEqual(failure["status"], "fail_closed")
+                    self.assertTrue(failure["failures"][0]["fail_closed"])
+                    self.assertEqual(failure["failures"][0]["retryable"], scenario in expected_retryable)
+                if scenario == "placeholder_drift":
+                    self.assertIn("placeholder_preservation", {item["check_type"] for item in qa["qa_items"] if item["status"] == "failed"})
+                if scenario == "markup_drift":
+                    self.assertIn("markup_preservation", {item["check_type"] for item in qa["qa_items"] if item["status"] == "failed"})
+                if scenario == "fallback_attempt":
+                    self.assertEqual(read_provider_result_intake(state)[0]["result_source"], "synthetic")
+                self.assertFalse(result["provider_or_model_called"])
+
+    def test_mock_cli_api_artifact_state_delivery_run_summary_and_release_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _benchmark_run_state(root)
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                first = root / "mock-1.json"
+                second = root / "mock-2.json"
+                command = ["provider-mock-run", state.as_posix(), "--scenario", "success", "--run-id", "provider-mock-cli"]
+                self.assertEqual(cli_main([*command, "--output", first.as_posix()]), 0)
+                self.assertEqual(cli_main([*command, "--output", second.as_posix()]), 0)
+                first_body = read_json(first)
+                second_body = read_json(second)
+                self.assertEqual(first_body["provider_mock_run_manifest"]["scenario"], second_body["provider_mock_run_manifest"]["scenario"])
+                self.assertFalse(first_body["provider_or_model_called"])
+
+                for command_name in ("provider-mock-evidence-report", "provider-mock-failure-report", "provider-mock-claim-boundary", "provider-mock-run-manifest", "provider-mock-response", "provider-mock-scenarios"):
+                    args = [command_name]
+                    if command_name != "provider-mock-scenarios":
+                        args.append(state.as_posix())
+                    self.assertEqual(cli_main(args), 0)
+
+                artifact_state = build_artifact_state(state)
+                artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+                self.assertTrue(
+                    {
+                        "provider_mock_run_manifest",
+                        "provider_mock_response",
+                        "provider_mock_failure_report",
+                        "provider_mock_evidence_report",
+                        "provider_mock_claim_boundary",
+                    }.issubset(artifact_ids)
+                )
+
+                release_manifest = build_release_evidence_manifest(state, repo_root=REPOSITORY_ROOT)
+                self.assertIn("provider_mock_evidence", release_manifest["evidence"])
+                public_claims = build_public_claims_report(state, evidence_manifest=release_manifest)
+                self.assertIn("provider_safe_mock_harness_seed", public_claims["seed_only_claims"])
+
+                staging = root / "staging"
+                staged = staging / "locales" / "zh-CN.json"
+                staged.parent.mkdir(parents=True)
+                staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+                packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "provider-mock-delivery-001")
+                assets = packaged["manifest"]["assets"]
+                self.assertEqual(assets["provider_mock_run_manifest"], PROVIDER_MOCK_RUN_MANIFEST_JSON)
+                self.assertEqual(assets["provider_mock_response"], PROVIDER_MOCK_RESPONSE_JSONL)
+                self.assertEqual(assets["provider_mock_failure_report"], PROVIDER_MOCK_FAILURE_REPORT_JSON)
+                self.assertEqual(assets["provider_mock_evidence_report"], PROVIDER_MOCK_EVIDENCE_REPORT_JSON)
+                self.assertEqual(assets["provider_mock_claim_boundary"], PROVIDER_MOCK_CLAIM_BOUNDARY_JSON)
+
+                summary = build_run_summary_for_test(
+                    "provider-mock-summary-001",
+                    "pass_with_warnings",
+                    root,
+                    "en-US",
+                    "zh-CN",
+                    [],
+                    state,
+                    state / "segments.jsonl",
+                    state / "batch-plan.json",
+                    state / "generation-handoff.json",
+                    0,
+                    0,
+                    "dry_run",
+                )
+                self.assertEqual(summary["summary"]["provider_mock_evidence_status"], "blocked")
+                self.assertEqual(summary["summary"]["provider_mock_claim_boundary_status"], "blocked")
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = [
+                        "provider-mock-run-manifest",
+                        "provider-mock-response",
+                        "provider-mock-failure-report",
+                        "provider-mock-evidence-report",
+                        "provider-mock-claim-boundary",
+                    ]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
 
 
 class LocaleCapabilityTests(unittest.TestCase):

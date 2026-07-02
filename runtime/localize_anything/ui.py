@@ -152,6 +152,13 @@ from .provider_result_gate import (
     record_provider_result_acceptance_decision,
     record_provider_result_review_evidence,
 )
+from .provider_mock import (
+    read_provider_mock_claim_boundary,
+    read_provider_mock_evidence_report,
+    read_provider_mock_failure_report,
+    read_provider_mock_response,
+    read_provider_mock_run_manifest,
+)
 from .locale_capability import (
     read_locale_capability_report,
     read_locale_readiness_impact,
@@ -402,6 +409,21 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/workbench-provider-review-queue":
                     self._handle_workflow_artifact_query(parsed.query, "workbench_provider_review_queue", read_workbench_provider_review_queue)
+                    return
+                if parsed.path == "/api/provider-mock-run-manifest":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_mock_run_manifest", read_provider_mock_run_manifest)
+                    return
+                if parsed.path == "/api/provider-mock-response":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_mock_response", lambda state_dir: {"records": read_provider_mock_response(state_dir)})
+                    return
+                if parsed.path == "/api/provider-mock-failure-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_mock_failure_report", read_provider_mock_failure_report)
+                    return
+                if parsed.path == "/api/provider-mock-evidence-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_mock_evidence_report", read_provider_mock_evidence_report)
+                    return
+                if parsed.path == "/api/provider-mock-claim-boundary":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_mock_claim_boundary", read_provider_mock_claim_boundary)
                     return
                 if parsed.path == "/api/locale-capability-report":
                     self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)

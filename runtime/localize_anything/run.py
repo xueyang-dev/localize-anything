@@ -154,6 +154,7 @@ from .provider_result_gate import (
     PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL,
     WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
 )
+from .provider_mock import PROVIDER_MOCK_ASSETS, PROVIDER_MOCK_CLAIM_BOUNDARY_JSON, PROVIDER_MOCK_EVIDENCE_REPORT_JSON
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -1203,6 +1204,7 @@ def _summary(
         ("provider_result_acceptance_decision", PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON),
         ("provider_claim_support_report", PROVIDER_CLAIM_SUPPORT_REPORT_JSON),
         ("workbench_provider_review_queue", WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
+        *tuple(PROVIDER_MOCK_ASSETS.items()),
         ("locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON),
         ("locale_risk_report", LOCALE_RISK_REPORT_JSON),
         ("locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON),
@@ -1422,6 +1424,16 @@ def _summary(
             "release_readiness_audit_status": (
                 read_json(state_dir / RELEASE_READINESS_AUDIT_JSON).get("status", "not_checked")
                 if (state_dir / RELEASE_READINESS_AUDIT_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_mock_evidence_status": (
+                read_json(state_dir / PROVIDER_MOCK_EVIDENCE_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_MOCK_EVIDENCE_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_mock_claim_boundary_status": (
+                read_json(state_dir / PROVIDER_MOCK_CLAIM_BOUNDARY_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_MOCK_CLAIM_BOUNDARY_JSON).is_file()
                 else "not_checked"
             ),
             "adapter_support_matrix_status": (

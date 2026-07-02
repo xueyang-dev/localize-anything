@@ -1,0 +1,24 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-provider-mock-response-record-v1",
+  "run_id": "provider-mock-example",
+  "request_id": "provider-request-example",
+  "mock_response_id": "provider-mock-response-example",
+  "scenario": "success",
+  "provider": "mock",
+  "execution_mode": "provider_safe_mock",
+  "quality_claim": "none",
+  "provider_backed": false,
+  "scope": { "scope_type": "limited", "segment_ids": ["mock-segment-1"] },
+  "status": "mock_success",
+  "segments": [
+    {
+      "segment_id": "mock-segment-1",
+      "source": "Hello %1$s",
+      "target": "您好 %1$s",
+      "constraints": { "required_terms": ["您好"], "forbidden_translations": ["坏"] }
+    }
+  ],
+  "retryable": false,
+  "provider_or_model_called_by_runtime": false
+}
