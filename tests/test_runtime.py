@@ -307,9 +307,16 @@ from runtime.localize_anything.benchmark_lab import (
     BENCHMARK_CANDIDATE_REPORT_JSON,
     BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
     BENCHMARK_COMPARISON_REPORT_JSON,
+    BENCHMARK_DATASET_MANIFEST_JSON,
     BENCHMARK_EVIDENCE_MATRIX_JSON,
+    BENCHMARK_FIXTURE_POLICY_JSON,
+    BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON,
+    BENCHMARK_REPRODUCIBILITY_REPORT_JSON,
     BENCHMARK_RUN_MANIFEST_JSON,
+    build_benchmark_dataset_artifacts,
+    build_benchmark_dataset_manifest,
     build_benchmark_lab_reports,
+    build_benchmark_reference_boundary_report,
 )
 from runtime.localize_anything.release_audit import (
     RELEASE_BLOCKERS_JSON,
@@ -11995,7 +12002,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 131)
+        self.assertEqual(result["schemas_checked"], 135)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13451,6 +13458,120 @@ class BenchmarkLabTests(unittest.TestCase):
                     ]
                     statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
                     self.assertEqual(statuses, [200, 200, 200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
+
+    def test_benchmark_dataset_boundary_hides_blind_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            build_benchmark_lab_reports(state, benchmark_track="controlled", reference_policy="blind_benchmark")
+            artifacts = build_benchmark_dataset_artifacts(
+                state,
+                dataset_id="public-android-fixture",
+                source_repo="https://github.com/example/app",
+                source_commit="abc123",
+                source_path="app/src/main/res/values/strings.xml",
+                source_locale="en-US",
+                target_locale="zh-CN",
+                privacy_risk="public_fixture",
+            )
+
+            assert_protocol_schema(self, "benchmark-dataset-manifest", artifacts["benchmark_dataset_manifest"])
+            assert_protocol_schema(self, "benchmark-reference-boundary-report", artifacts["benchmark_reference_boundary_report"])
+            assert_protocol_schema(self, "benchmark-fixture-policy", artifacts["benchmark_fixture_policy"])
+            assert_protocol_schema(self, "benchmark-reproducibility-report", artifacts["benchmark_reproducibility_report"])
+            self.assertEqual(artifacts["benchmark_reference_boundary_report"]["target_reference_visibility"], "hidden_from_generation")
+            self.assertTrue(artifacts["benchmark_reference_boundary_report"]["target_references_hidden_from_generation"])
+            self.assertFalse(artifacts["benchmark_reference_boundary_report"]["generation_reference_leakage_allowed"])
+            self.assertFalse(artifacts["benchmark_fixture_policy"]["generated_benchmark_outputs_commit_allowed"])
+
+    def test_benchmark_dataset_evaluation_only_references_and_private_commit_risk(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = _benchmark_run_state(Path(directory))
+            manifest = build_benchmark_dataset_manifest(
+                state,
+                source_repo="internal",
+                source_commit="def456",
+                source_path="private/app",
+                target_locale="ja-JP",
+                reference_policy="reference_as_evaluation_only",
+                privacy_risk="commercial_private",
+            )
+            boundary = build_benchmark_reference_boundary_report(state, dataset_manifest=manifest)
+            artifacts = build_benchmark_dataset_artifacts(state, privacy_risk="commercial_private")
+            release_manifest = build_release_evidence_manifest(state, repo_root=Path(directory))
+            release_blockers = build_release_blockers(state, evidence_manifest=release_manifest, public_claims={"forbidden_claims": []})
+            blocker_types = {item["blocker_type"] for item in release_blockers["blockers"]}
+
+            self.assertEqual(boundary["target_reference_visibility"], "evaluation_only")
+            self.assertTrue(boundary["target_references_evaluation_only"])
+            self.assertEqual(artifacts["benchmark_fixture_policy"]["status"], "blocked")
+            self.assertFalse(artifacts["benchmark_fixture_policy"]["commercial_private_data_commit_allowed"])
+            self.assertIn("generated_external_file_risk", blocker_types)
+
+    def test_benchmark_dataset_artifact_state_cli_api_and_delivery_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _benchmark_run_state(root)
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                output = root / "dataset-check.json"
+                command = [
+                    "benchmark-dataset-check",
+                    state.as_posix(),
+                    "--source-repo",
+                    "https://github.com/example/app",
+                    "--source-commit",
+                    "abc123",
+                    "--source-path",
+                    "app/src/main/res/values/strings.xml",
+                    "--target-locale",
+                    "zh-CN",
+                    "--reference-policy",
+                    "blind_benchmark",
+                    "--privacy-risk",
+                    "public_fixture",
+                ]
+                self.assertEqual(
+                    cli_main([*command, "--output", output.as_posix()]),
+                    0,
+                )
+                self.assertEqual(cli_main([*command, "--output", (root / "dataset-check-2.json").as_posix()]), 0)
+                self.assertEqual(read_json(output), read_json(root / "dataset-check-2.json"))
+
+                artifact_state = build_artifact_state(state)
+                artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+                self.assertIn("benchmark_dataset_manifest", artifact_ids)
+                self.assertIn("benchmark_reference_boundary_report", artifact_ids)
+                self.assertIn("benchmark_fixture_policy", artifact_ids)
+                self.assertIn("benchmark_reproducibility_report", artifact_ids)
+
+                staging = root / "staging"
+                staged = staging / "locales" / "zh-CN.json"
+                staged.parent.mkdir(parents=True)
+                staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+                packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "benchmark-dataset-delivery-001")
+                assets = packaged["manifest"]["assets"]
+                self.assertEqual(assets["benchmark_dataset_manifest"], BENCHMARK_DATASET_MANIFEST_JSON)
+                self.assertEqual(assets["benchmark_reference_boundary_report"], BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON)
+                self.assertEqual(assets["benchmark_fixture_policy"], BENCHMARK_FIXTURE_POLICY_JSON)
+                self.assertEqual(assets["benchmark_reproducibility_report"], BENCHMARK_REPRODUCIBILITY_REPORT_JSON)
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = [
+                        "benchmark-dataset-manifest",
+                        "benchmark-reference-boundary-report",
+                        "benchmark-fixture-policy",
+                        "benchmark-reproducibility-report",
+                    ]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200])
                 finally:
                     server.shutdown()
                     server.server_close()

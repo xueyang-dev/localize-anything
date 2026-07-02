@@ -34,6 +34,13 @@ with a target-locale prefix. That synthetic draft is only evidence for draft
 contract validation, adapter staging, QA, packaging, and dashboard behavior. It
 is not translation-quality evidence.
 
+For benchmark comparisons, record dataset boundaries in the run evidence
+directory with `benchmark-dataset-check`. Use the pinned IceCubesApp repository,
+commit, source file, target locale, and a conservative reference policy. The
+resulting dataset manifest, reference-boundary report, fixture policy, and
+reproducibility report are metadata evidence only; generated benchmark outputs
+remain local-only unless they are tiny fixtures explicitly intended for tests.
+
 The pinned source currently extracts 747 segments into 38 default batches and
 should finish with String Catalog QA status `pass` and zero warnings.
 

@@ -84,6 +84,10 @@ EVIDENCE_FILES = {
     "benchmark_claim_boundary": "benchmark-claim-boundary-report.json",
     "benchmark_comparison": "benchmark-comparison-report.json",
     "benchmark_evidence_matrix": "benchmark-evidence-matrix.json",
+    "benchmark_dataset_manifest": "benchmark-dataset-manifest.json",
+    "benchmark_reference_boundary": "benchmark-reference-boundary-report.json",
+    "benchmark_fixture_policy": "benchmark-fixture-policy.json",
+    "benchmark_reproducibility": "benchmark-reproducibility-report.json",
     "translation_claim_provenance": "translation-claim-provenance-report.json",
     "provenance_coverage": "provenance-coverage-report.json",
     "locale_readiness": "locale-readiness-impact.json",
@@ -478,6 +482,10 @@ def _release_blockers(manifest: dict[str, Any], public_claims: dict[str, Any]) -
     if evidence.get("benchmark_claim_boundary", {}).get("status") == "missing":
         blockers.append(
             _blocker("benchmark_evidence_missing", "benchmark evidence missing", "warning", "benchmark-claim-boundary-report.json")
+        )
+    if evidence.get("benchmark_fixture_policy", {}).get("content", {}).get("status") == "blocked":
+        blockers.append(
+            _blocker("generated_external_file_risk", "benchmark fixture policy blocks committing generated or private benchmark outputs", "blocking", "benchmark-fixture-policy.json")
         )
     if evidence.get("provider_claim_support", {}).get("status") in {"missing", "blocked", "failed", "stale"}:
         blockers.append(

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/benchmark-reference-boundary-report.schema.json",
+  "title": "Localize Anything Benchmark Reference Boundary Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "reference_policy", "target_reference_visibility", "generation_reference_leakage_allowed"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-benchmark-reference-boundary-report-v1" },
+    "artifact": { "const": "benchmark-reference-boundary-report.json" },
+    "status": { "type": "string" },
+    "benchmark_track": { "type": "string" },
+    "reference_policy": { "type": "string" },
+    "source_text_visible_to_generation": { "type": "boolean" },
+    "target_reference_visibility": { "type": "string" },
+    "target_references_hidden_from_generation": { "type": "boolean" },
+    "target_references_evaluation_only": { "type": "boolean" },
+    "generation_reference_leakage_allowed": { "type": "boolean" },
+    "issues": { "type": "array", "items": { "type": "string" } },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

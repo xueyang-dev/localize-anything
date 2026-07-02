@@ -1,0 +1,25 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-benchmark-reproducibility-report-v1",
+  "artifact": "benchmark-reproducibility-report.json",
+  "run_id": "benchmark-example",
+  "status": "ready",
+  "dataset_id": "public-android-fixture",
+  "benchmark_track": "controlled",
+  "source_repo": "https://github.com/example/app",
+  "source_commit": "abc123",
+  "source_paths": ["app/src/main/res/values/strings.xml"],
+  "source_locale": "en-US",
+  "target_locale": "zh-CN",
+  "reference_policy": "blind_benchmark",
+  "reference_boundary_status": "clear",
+  "fixture_policy_status": "ready_with_warnings",
+  "missing_reproducibility_metadata": [],
+  "supported_benchmark_claims": ["benchmark_dataset_reproducible"],
+  "forbidden_claims": ["benchmark_release_readiness", "benchmark_quality_score"],
+  "limitations": [
+    "reproducibility metadata does not prove translation quality",
+    "benchmark tracks remain separate and do not upgrade release readiness"
+  ],
+  "source_artifact_references": ["benchmark-dataset-manifest.json", "benchmark-reference-boundary-report.json", "benchmark-fixture-policy.json"]
+}

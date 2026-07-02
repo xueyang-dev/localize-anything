@@ -9,6 +9,13 @@
   reports, delivery package references, README quickstart links, and
   `docs/quickstart-demo.md`. Demo output is git-ignored and remains engineering
   evidence only, not provider-backed or production-quality proof.
+- Add Benchmark Dataset Manifest hardening with
+  `benchmark-dataset-manifest.json`, `benchmark-reference-boundary-report.json`,
+  `benchmark-fixture-policy.json`, and
+  `benchmark-reproducibility-report.json`; include provider-free CLI/API access,
+  artifact-state/release-audit/delivery references, protocol schemas, and
+  conservative reference-boundary and commit-safety rules for public, internal,
+  controlled, and agent-system benchmarks.
 - Add public documentation claim reconciliation with README, public
   introduction, launch checklist, architecture, and roadmap wording aligned to
   Release Audit / Public Claims Boundary artifacts. The sync preserves seed,

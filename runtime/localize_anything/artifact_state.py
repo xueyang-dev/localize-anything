@@ -129,7 +129,11 @@ from .benchmark_lab import (
     BENCHMARK_CANDIDATE_REPORT_JSON,
     BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
     BENCHMARK_COMPARISON_REPORT_JSON,
+    BENCHMARK_DATASET_MANIFEST_JSON,
     BENCHMARK_EVIDENCE_MATRIX_JSON,
+    BENCHMARK_FIXTURE_POLICY_JSON,
+    BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON,
+    BENCHMARK_REPRODUCIBILITY_REPORT_JSON,
     BENCHMARK_RUN_MANIFEST_JSON,
 )
 from .release_audit import (
@@ -234,6 +238,10 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("benchmark_comparison_report", "benchmark_comparison_report", BENCHMARK_COMPARISON_REPORT_JSON, "benchmark_lab", ("benchmark_baseline_report", "benchmark_candidate_report")),
     ArtifactSpec("benchmark_evidence_matrix", "benchmark_evidence_matrix", BENCHMARK_EVIDENCE_MATRIX_JSON, "benchmark_lab", ("benchmark_comparison_report",)),
     ArtifactSpec("benchmark_claim_boundary_report", "benchmark_claim_boundary_report", BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, "benchmark_lab", ("benchmark_comparison_report", "benchmark_evidence_matrix", "evaluation_scorecard", "readiness_authorization_matrix")),
+    ArtifactSpec("benchmark_dataset_manifest", "benchmark_dataset_manifest", BENCHMARK_DATASET_MANIFEST_JSON, "benchmark_lab", ("benchmark_run_manifest",)),
+    ArtifactSpec("benchmark_reference_boundary_report", "benchmark_reference_boundary_report", BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON, "benchmark_lab", ("benchmark_dataset_manifest",)),
+    ArtifactSpec("benchmark_fixture_policy", "benchmark_fixture_policy", BENCHMARK_FIXTURE_POLICY_JSON, "benchmark_lab", ("benchmark_dataset_manifest", "benchmark_reference_boundary_report")),
+    ArtifactSpec("benchmark_reproducibility_report", "benchmark_reproducibility_report", BENCHMARK_REPRODUCIBILITY_REPORT_JSON, "benchmark_lab", ("benchmark_dataset_manifest", "benchmark_reference_boundary_report", "benchmark_fixture_policy")),
     ArtifactSpec(
         "release_evidence_manifest",
         "release_evidence_manifest",

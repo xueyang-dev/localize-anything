@@ -168,7 +168,11 @@ from .benchmark_lab import (
     read_benchmark_candidate_report,
     read_benchmark_claim_boundary_report,
     read_benchmark_comparison_report,
+    read_benchmark_dataset_manifest,
     read_benchmark_evidence_matrix,
+    read_benchmark_fixture_policy,
+    read_benchmark_reference_boundary_report,
+    read_benchmark_reproducibility_report,
     read_benchmark_run_manifest,
 )
 from .release_audit import (
@@ -424,6 +428,18 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/benchmark-claim-boundary-report":
                     self._handle_workflow_artifact_query(parsed.query, "benchmark_claim_boundary_report", read_benchmark_claim_boundary_report)
+                    return
+                if parsed.path == "/api/benchmark-dataset-manifest":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_dataset_manifest", read_benchmark_dataset_manifest)
+                    return
+                if parsed.path == "/api/benchmark-reference-boundary-report":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_reference_boundary_report", read_benchmark_reference_boundary_report)
+                    return
+                if parsed.path == "/api/benchmark-fixture-policy":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_fixture_policy", read_benchmark_fixture_policy)
+                    return
+                if parsed.path == "/api/benchmark-reproducibility-report":
+                    self._handle_workflow_artifact_query(parsed.query, "benchmark_reproducibility_report", read_benchmark_reproducibility_report)
                     return
                 if parsed.path == "/api/release-readiness-audit":
                     self._handle_workflow_artifact_query(parsed.query, "release_readiness_audit", read_release_readiness_audit)

@@ -13,6 +13,10 @@ BENCHMARK_CANDIDATE_REPORT_JSON = "benchmark-candidate-report.json"
 BENCHMARK_COMPARISON_REPORT_JSON = "benchmark-comparison-report.json"
 BENCHMARK_EVIDENCE_MATRIX_JSON = "benchmark-evidence-matrix.json"
 BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON = "benchmark-claim-boundary-report.json"
+BENCHMARK_DATASET_MANIFEST_JSON = "benchmark-dataset-manifest.json"
+BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON = "benchmark-reference-boundary-report.json"
+BENCHMARK_FIXTURE_POLICY_JSON = "benchmark-fixture-policy.json"
+BENCHMARK_REPRODUCIBILITY_REPORT_JSON = "benchmark-reproducibility-report.json"
 
 BENCHMARK_ASSETS = {
     "benchmark_run_manifest": BENCHMARK_RUN_MANIFEST_JSON,
@@ -21,6 +25,10 @@ BENCHMARK_ASSETS = {
     "benchmark_comparison_report": BENCHMARK_COMPARISON_REPORT_JSON,
     "benchmark_evidence_matrix": BENCHMARK_EVIDENCE_MATRIX_JSON,
     "benchmark_claim_boundary_report": BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON,
+    "benchmark_dataset_manifest": BENCHMARK_DATASET_MANIFEST_JSON,
+    "benchmark_reference_boundary_report": BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON,
+    "benchmark_fixture_policy": BENCHMARK_FIXTURE_POLICY_JSON,
+    "benchmark_reproducibility_report": BENCHMARK_REPRODUCIBILITY_REPORT_JSON,
 }
 
 CLAIMS_TO_COMPARE = {
@@ -297,8 +305,20 @@ def build_benchmark_claim_boundary_report(
     candidate = candidate or _optional_json(state_dir / BENCHMARK_CANDIDATE_REPORT_JSON)
     comparison = comparison or _optional_json(state_dir / BENCHMARK_COMPARISON_REPORT_JSON)
     matrix = matrix or _optional_json(state_dir / BENCHMARK_EVIDENCE_MATRIX_JSON)
+    dataset_manifest = _optional_json(state_dir / BENCHMARK_DATASET_MANIFEST_JSON)
+    reference_boundary = _optional_json(state_dir / BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON)
+    fixture_policy = _optional_json(state_dir / BENCHMARK_FIXTURE_POLICY_JSON)
+    reproducibility = _optional_json(state_dir / BENCHMARK_REPRODUCIBILITY_REPORT_JSON)
     forbidden = set(_get(candidate, "forbidden_claims", default=[]))
     forbidden.update({"benchmark_quality_score", "provider_backed_quality", "production_ready"})
+    for doc in [reference_boundary, reproducibility]:
+        forbidden.update(str(claim) for claim in doc.get("forbidden_claims", []) if claim)
+    if dataset_manifest.get("status") == "blocked":
+        forbidden.add("benchmark_dataset_commit_safe")
+    if reference_boundary.get("status") == "blocked":
+        forbidden.add("reference_leakage_safe")
+    if fixture_policy.get("status") == "blocked":
+        forbidden.add("benchmark_fixture_commit_safe")
     if _get(candidate, "provider_evidence", "provider_backed_supported", default=False):
         forbidden.discard("provider_backed_quality")
     if _status(_get(candidate, "knowledge_evidence", default={})) not in {"pass", "ready", "clear", "supported"}:
@@ -333,6 +353,12 @@ def build_benchmark_claim_boundary_report(
             "benchmark_comparison_upgrades_delivery_or_apply_readiness": False,
             "single_quality_score_forbidden": True,
         },
+        "dataset_boundary_artifacts": {
+            "benchmark_dataset_manifest": BENCHMARK_DATASET_MANIFEST_JSON if dataset_manifest else None,
+            "benchmark_reference_boundary_report": BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON if reference_boundary else None,
+            "benchmark_fixture_policy": BENCHMARK_FIXTURE_POLICY_JSON if fixture_policy else None,
+            "benchmark_reproducibility_report": BENCHMARK_REPRODUCIBILITY_REPORT_JSON if reproducibility else None,
+        },
         "limitations": [
             "benchmark evidence can describe deltas but cannot make release, provider-backed, review-complete, or production-ready claims by itself",
         ],
@@ -344,6 +370,268 @@ def build_benchmark_claim_boundary_report(
 
 def read_benchmark_claim_boundary_report(state_dir: Path) -> dict[str, Any]:
     return _required_json(state_dir / BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON)
+
+
+def build_benchmark_dataset_artifacts(
+    state_dir: Path,
+    *,
+    dataset_id: str | None = None,
+    source_repo: str | None = None,
+    source_commit: str | None = None,
+    source_path: str | None = None,
+    source_locale: str | None = None,
+    target_locale: str | None = None,
+    benchmark_track: str | None = None,
+    reference_policy: str | None = None,
+    privacy_risk: str = "unknown",
+    run_id: str | None = None,
+    write: bool = True,
+) -> dict[str, Any]:
+    manifest = build_benchmark_dataset_manifest(
+        state_dir,
+        dataset_id=dataset_id,
+        source_repo=source_repo,
+        source_commit=source_commit,
+        source_path=source_path,
+        source_locale=source_locale,
+        target_locale=target_locale,
+        benchmark_track=benchmark_track,
+        reference_policy=reference_policy,
+        privacy_risk=privacy_risk,
+        run_id=run_id,
+        write=write,
+    )
+    boundary = build_benchmark_reference_boundary_report(state_dir, dataset_manifest=manifest, run_id=run_id, write=write)
+    fixture_policy = build_benchmark_fixture_policy(state_dir, dataset_manifest=manifest, boundary_report=boundary, run_id=run_id, write=write)
+    reproducibility = build_benchmark_reproducibility_report(
+        state_dir,
+        dataset_manifest=manifest,
+        boundary_report=boundary,
+        fixture_policy=fixture_policy,
+        run_id=run_id,
+        write=write,
+    )
+    return {
+        "benchmark_dataset_manifest": manifest,
+        "benchmark_reference_boundary_report": boundary,
+        "benchmark_fixture_policy": fixture_policy,
+        "benchmark_reproducibility_report": reproducibility,
+    }
+
+
+def build_benchmark_dataset_manifest(
+    state_dir: Path,
+    *,
+    dataset_id: str | None = None,
+    source_repo: str | None = None,
+    source_commit: str | None = None,
+    source_path: str | None = None,
+    source_locale: str | None = None,
+    target_locale: str | None = None,
+    benchmark_track: str | None = None,
+    reference_policy: str | None = None,
+    privacy_risk: str = "unknown",
+    run_id: str | None = None,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    run_manifest = _optional_json(state_dir / BENCHMARK_RUN_MANIFEST_JSON)
+    candidate = _optional_json(state_dir / BENCHMARK_CANDIDATE_REPORT_JSON)
+    baseline = _optional_json(state_dir / BENCHMARK_BASELINE_REPORT_JSON)
+    track = benchmark_track or run_manifest.get("benchmark_track") or "controlled"
+    reference = reference_policy or run_manifest.get("reference_policy") or candidate.get("reference_policy") or baseline.get("reference_policy") or "unknown"
+    source = source_path or _first_text(candidate.get("source_path"), baseline.get("source_path"), _get(run_manifest, "candidate", "source_path"), _get(run_manifest, "baseline", "source_path"))
+    commit = source_commit or _first_text(candidate.get("source_commit"), baseline.get("source_commit"), _get(run_manifest, "candidate", "source_commit"), _get(run_manifest, "baseline", "source_commit"))
+    target = target_locale or _first_text(candidate.get("target_locale"), baseline.get("target_locale"), _get(run_manifest, "candidate", "target_locale"), _get(run_manifest, "baseline", "target_locale"))
+    privacy = privacy_risk if privacy_risk in {"public_fixture", "public_open_source", "commercial_private", "internal_private", "unknown"} else "unknown"
+    blockers = []
+    if privacy in {"commercial_private", "internal_private"}:
+        blockers.append("private_or_commercial_dataset_must_not_be_committed")
+    if not source or source == "unknown":
+        blockers.append("source_path_unknown")
+    if not commit or commit == "unknown":
+        blockers.append("source_commit_unknown")
+    manifest = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-benchmark-dataset-manifest-v1",
+        "artifact": BENCHMARK_DATASET_MANIFEST_JSON,
+        "run_id": run_id or run_manifest.get("run_id") or candidate.get("run_id") or baseline.get("run_id") or "benchmark-dataset",
+        "status": "blocked" if blockers else "ready_with_warnings",
+        "dataset_id": dataset_id or _dataset_id(source_repo, source, target),
+        "benchmark_track": track if track in {"controlled", "agent_system"} else "controlled",
+        "source_repo": source_repo or "unknown",
+        "source_commit": commit or "unknown",
+        "source_paths": [source] if source and source != "unknown" else [],
+        "source_locale": source_locale or "unknown",
+        "target_locale": target or "unknown",
+        "reference_policy": reference,
+        "reference_visibility": _reference_visibility(reference),
+        "privacy_commercial_risk": privacy,
+        "allowed_outputs": {
+            "commit_safe": ["protocol_examples", "tiny_public_fixtures"] if privacy in {"public_fixture", "public_open_source"} else [],
+            "local_only": ["generated_benchmark_outputs", "commercial_or_private_stress_data"],
+        },
+        "evidence_level": "E0_deterministic_metadata",
+        "claim_boundaries": {
+            "dataset_manifest_is_quality_proof": False,
+            "benchmark_comparison_upgrades_release_readiness": False,
+            "references_are_generation_source_truth": False,
+        },
+        "blockers": blockers,
+        "source_artifact_references": _existing_names(
+            (BENCHMARK_RUN_MANIFEST_JSON, run_manifest),
+            (BENCHMARK_CANDIDATE_REPORT_JSON, candidate),
+            (BENCHMARK_BASELINE_REPORT_JSON, baseline),
+        ),
+    }
+    if write:
+        write_json(state_dir / BENCHMARK_DATASET_MANIFEST_JSON, manifest)
+    return manifest
+
+
+def read_benchmark_dataset_manifest(state_dir: Path) -> dict[str, Any]:
+    return _required_json(state_dir / BENCHMARK_DATASET_MANIFEST_JSON)
+
+
+def build_benchmark_reference_boundary_report(
+    state_dir: Path,
+    *,
+    dataset_manifest: dict[str, Any] | None = None,
+    run_id: str | None = None,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    dataset_manifest = dataset_manifest or _optional_json(state_dir / BENCHMARK_DATASET_MANIFEST_JSON)
+    reference = str(dataset_manifest.get("reference_policy") or "unknown")
+    visibility = _reference_visibility(reference)
+    blind = visibility == "hidden_from_generation"
+    issues = []
+    if visibility == "unknown":
+        issues.append("reference_visibility_unknown")
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-benchmark-reference-boundary-report-v1",
+        "artifact": BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON,
+        "run_id": run_id or dataset_manifest.get("run_id") or "benchmark-dataset",
+        "status": "blocked" if issues else "clear",
+        "benchmark_track": dataset_manifest.get("benchmark_track", "controlled"),
+        "reference_policy": reference,
+        "source_text_visible_to_generation": True,
+        "target_reference_visibility": visibility,
+        "target_references_hidden_from_generation": blind,
+        "target_references_evaluation_only": visibility in {"evaluation_only", "hidden_from_generation"},
+        "generation_reference_leakage_allowed": False,
+        "issues": issues,
+        "forbidden_claims": ["reference_leakage_safe"] if issues else [],
+        "source_artifact_references": _existing_names((BENCHMARK_DATASET_MANIFEST_JSON, dataset_manifest)),
+    }
+    if write:
+        write_json(state_dir / BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON, report)
+    return report
+
+
+def read_benchmark_reference_boundary_report(state_dir: Path) -> dict[str, Any]:
+    return _required_json(state_dir / BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON)
+
+
+def build_benchmark_fixture_policy(
+    state_dir: Path,
+    *,
+    dataset_manifest: dict[str, Any] | None = None,
+    boundary_report: dict[str, Any] | None = None,
+    run_id: str | None = None,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    dataset_manifest = dataset_manifest or _optional_json(state_dir / BENCHMARK_DATASET_MANIFEST_JSON)
+    boundary_report = boundary_report or _optional_json(state_dir / BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON)
+    privacy = str(dataset_manifest.get("privacy_commercial_risk") or "unknown")
+    generated_outputs_commit_safe = False
+    private = privacy in {"commercial_private", "internal_private"}
+    policy = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-benchmark-fixture-policy-v1",
+        "artifact": BENCHMARK_FIXTURE_POLICY_JSON,
+        "run_id": run_id or dataset_manifest.get("run_id") or boundary_report.get("run_id") or "benchmark-dataset",
+        "status": "blocked" if private else "ready_with_warnings",
+        "privacy_commercial_risk": privacy,
+        "commercial_private_data_commit_allowed": False,
+        "generated_benchmark_outputs_commit_allowed": generated_outputs_commit_safe,
+        "safe_fixture_outputs_commit_allowed": privacy in {"public_fixture", "public_open_source"},
+        "allowed_committed_outputs": dataset_manifest.get("allowed_outputs", {}).get("commit_safe", []),
+        "local_only_outputs": dataset_manifest.get("allowed_outputs", {}).get("local_only", []),
+        "blocked_commit_risks": ["commercial_private_data", "generated_benchmark_outputs"],
+        "reference_boundary_status": boundary_report.get("status", "missing"),
+        "source_artifact_references": _existing_names(
+            (BENCHMARK_DATASET_MANIFEST_JSON, dataset_manifest),
+            (BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON, boundary_report),
+        ),
+    }
+    if write:
+        write_json(state_dir / BENCHMARK_FIXTURE_POLICY_JSON, policy)
+    return policy
+
+
+def read_benchmark_fixture_policy(state_dir: Path) -> dict[str, Any]:
+    return _required_json(state_dir / BENCHMARK_FIXTURE_POLICY_JSON)
+
+
+def build_benchmark_reproducibility_report(
+    state_dir: Path,
+    *,
+    dataset_manifest: dict[str, Any] | None = None,
+    boundary_report: dict[str, Any] | None = None,
+    fixture_policy: dict[str, Any] | None = None,
+    run_id: str | None = None,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    dataset_manifest = dataset_manifest or _optional_json(state_dir / BENCHMARK_DATASET_MANIFEST_JSON)
+    boundary_report = boundary_report or _optional_json(state_dir / BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON)
+    fixture_policy = fixture_policy or _optional_json(state_dir / BENCHMARK_FIXTURE_POLICY_JSON)
+    missing = []
+    if dataset_manifest.get("source_commit") in {None, "", "unknown"}:
+        missing.append("source_commit")
+    if not dataset_manifest.get("source_paths"):
+        missing.append("source_paths")
+    if dataset_manifest.get("target_locale") in {None, "", "unknown"}:
+        missing.append("target_locale")
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-benchmark-reproducibility-report-v1",
+        "artifact": BENCHMARK_REPRODUCIBILITY_REPORT_JSON,
+        "run_id": run_id or dataset_manifest.get("run_id") or "benchmark-dataset",
+        "status": "ready_with_warnings" if missing else "ready",
+        "dataset_id": dataset_manifest.get("dataset_id", "unknown"),
+        "benchmark_track": dataset_manifest.get("benchmark_track", "controlled"),
+        "source_repo": dataset_manifest.get("source_repo", "unknown"),
+        "source_commit": dataset_manifest.get("source_commit", "unknown"),
+        "source_paths": dataset_manifest.get("source_paths", []),
+        "source_locale": dataset_manifest.get("source_locale", "unknown"),
+        "target_locale": dataset_manifest.get("target_locale", "unknown"),
+        "reference_policy": dataset_manifest.get("reference_policy", "unknown"),
+        "reference_boundary_status": boundary_report.get("status", "missing"),
+        "fixture_policy_status": fixture_policy.get("status", "missing"),
+        "missing_reproducibility_metadata": missing,
+        "supported_benchmark_claims": ["benchmark_dataset_reproducible"] if not missing else [],
+        "forbidden_claims": ["benchmark_release_readiness", "benchmark_quality_score"],
+        "limitations": [
+            "reproducibility metadata does not prove translation quality",
+            "benchmark tracks remain separate and do not upgrade release readiness",
+        ],
+        "source_artifact_references": _existing_names(
+            (BENCHMARK_DATASET_MANIFEST_JSON, dataset_manifest),
+            (BENCHMARK_REFERENCE_BOUNDARY_REPORT_JSON, boundary_report),
+            (BENCHMARK_FIXTURE_POLICY_JSON, fixture_policy),
+        ),
+    }
+    if write:
+        write_json(state_dir / BENCHMARK_REPRODUCIBILITY_REPORT_JSON, report)
+    return report
+
+
+def read_benchmark_reproducibility_report(state_dir: Path) -> dict[str, Any]:
+    return _required_json(state_dir / BENCHMARK_REPRODUCIBILITY_REPORT_JSON)
 
 
 def benchmark_lab_asset_paths(state_dir: Path) -> dict[str, str]:
@@ -696,6 +984,29 @@ def _first_value(*docs: dict[str, Any], key: str) -> Any:
         if doc.get(key):
             return doc[key]
     return None
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        if value and str(value) != "unknown":
+            return str(value)
+    return "unknown"
+
+
+def _dataset_id(source_repo: str | None, source_path: str | None, target_locale: str | None) -> str:
+    parts = [source_repo or "unknown-repo", source_path or "unknown-path", target_locale or "unknown-locale"]
+    return "::".join(part.replace("/", "_") for part in parts)
+
+
+def _reference_visibility(reference_policy: str) -> str:
+    policy = reference_policy.lower()
+    if "blind" in policy:
+        return "hidden_from_generation"
+    if "evaluation" in policy or "reference" in policy:
+        return "evaluation_only"
+    if policy in {"not_provided", "none"}:
+        return "not_provided"
+    return "unknown"
 
 
 def _get(value: Any, *keys: str, default: Any = None) -> Any:
