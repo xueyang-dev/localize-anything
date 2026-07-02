@@ -30,6 +30,7 @@ PUBLIC_CLAIMS = {
     "provider_handoff_contract_seed": "seed_only_claim",
     "benchmark_lab_seed": "seed_only_claim",
     "adapter_support_matrix_seed": "seed_only_claim",
+    "adapter_evidence_provenance_seed": "seed_only_claim",
     "translation_provenance_seed": "seed_only_claim",
     "locale_capability_seed": "seed_only_claim",
     "knowledge_audit_seed": "seed_only_claim",
@@ -53,6 +54,7 @@ CAPABILITIES = {
     "translation_provenance_view": "implemented_seed",
     "benchmark_lab": "implemented_seed",
     "adapter_release_audit": "implemented_seed",
+    "adapter_evidence_provenance": "implemented_seed",
     "release_claim_boundary": "implemented_seed",
     "full_rag_generation": "not_started",
     "full_cldr_locale_support": "explicit_non_claim",
@@ -94,6 +96,11 @@ EVIDENCE_FILES = {
     "adapter_release_audit": "adapter-release-audit.json",
     "adapter_promotion_decision": "adapter-promotion-decision.json",
     "adapter_regression_evidence": "adapter-regression-evidence-report.json",
+    "adapter_evidence_provenance": "adapter-evidence-provenance.json",
+    "adapter_fixture_manifest": "adapter-fixture-manifest.json",
+    "adapter_regression_check": "adapter-regression-check-report.json",
+    "adapter_evidence_gap": "adapter-evidence-gap-report.json",
+    "adapter_promotion_readiness": "adapter-promotion-readiness-report.json",
     "translation_claim_provenance": "translation-claim-provenance-report.json",
     "provenance_coverage": "provenance-coverage-report.json",
     "locale_readiness": "locale-readiness-impact.json",
@@ -455,6 +462,8 @@ def _claim_supporting_evidence(claim: str, manifest: dict[str, Any]) -> list[str
         evidence.append("locale-readiness-impact.json")
     if claim == "translation_provenance_seed" and files.get("translation_claim_provenance", {}).get("status") != "missing":
         evidence.append("translation-claim-provenance-report.json")
+    if claim == "adapter_evidence_provenance_seed" and files.get("adapter_promotion_readiness", {}).get("status") != "missing":
+        evidence.append("adapter-promotion-readiness-report.json")
     return evidence
 
 
@@ -496,6 +505,16 @@ def _release_blockers(manifest: dict[str, Any], public_claims: dict[str, Any]) -
     if evidence.get("adapter_release_audit", {}).get("content", {}).get("status") == "blocked":
         blockers.append(
             _blocker("unsupported_public_claim", "adapter release audit blocks adapter promotion claims", "blocking", "adapter-release-audit.json", claim="adapter_release_promotion_ready")
+        )
+    if evidence.get("adapter_promotion_readiness", {}).get("content", {}).get("status") == "blocked":
+        blockers.append(
+            _blocker(
+                "unsupported_public_claim",
+                "adapter evidence provenance leaves promotion readiness blocked",
+                "blocking",
+                "adapter-promotion-readiness-report.json",
+                claim="adapter_promotion_readiness",
+            )
         )
     if evidence.get("provider_claim_support", {}).get("status") in {"missing", "blocked", "failed", "stale"}:
         blockers.append(

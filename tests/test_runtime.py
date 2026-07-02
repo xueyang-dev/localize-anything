@@ -38,6 +38,15 @@ from runtime.localize_anything.adapter_release import (
     build_adapter_regression_evidence_report,
     build_adapter_support_matrix,
 )
+from runtime.localize_anything.adapter_evidence import (
+    ADAPTER_EVIDENCE_GAP_REPORT_JSON,
+    ADAPTER_EVIDENCE_PROVENANCE_JSON,
+    ADAPTER_FIXTURE_MANIFEST_JSON,
+    ADAPTER_PROMOTION_READINESS_REPORT_JSON,
+    ADAPTER_REGRESSION_CHECK_REPORT_JSON,
+    FIXTURE_REFERENCES,
+    build_adapter_evidence_artifacts,
+)
 from runtime.localize_anything.android_strings_adapter import android_resource_routing
 from runtime.localize_anything.android_strings_adapter import extract_segments as extract_android_segments
 from runtime.localize_anything.android_strings_adapter import rebuild as rebuild_android_strings
@@ -12012,7 +12021,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 139)
+        self.assertEqual(result["schemas_checked"], 144)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13714,6 +13723,190 @@ class AdapterReleaseAuditTests(unittest.TestCase):
                     ]
                     statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
                     self.assertEqual(statuses, [200, 200, 200, 200])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+            self.assertFalse(provider.called)
+
+
+class AdapterEvidenceProvenanceTests(unittest.TestCase):
+    def test_adapter_evidence_records_fixture_hashes_lifecycle_and_separated_evidence_classes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            result = build_adapter_evidence_artifacts(state, repo_root=REPOSITORY_ROOT, run_id="adapter-evidence-test")
+
+            assert_protocol_schema(self, "adapter-evidence-provenance", result["adapter_evidence_provenance"])
+            assert_protocol_schema(self, "adapter-fixture-manifest", result["adapter_fixture_manifest"])
+            assert_protocol_schema(self, "adapter-regression-check-report", result["adapter_regression_check_report"])
+            assert_protocol_schema(self, "adapter-evidence-gap-report", result["adapter_evidence_gap_report"])
+            assert_protocol_schema(self, "adapter-promotion-readiness-report", result["adapter_promotion_readiness_report"])
+
+            items = result["adapter_evidence_provenance"]["evidence_items"]
+            json_fixture = next(
+                item
+                for item in items
+                if item["adapter_id"] == "core.json-locale" and item["evidence_class"] == "fixture_round_trip"
+            )
+            self.assertEqual(json_fixture["freshness"], "current")
+            self.assertIn("extract", json_fixture["lifecycle_stages_tested"])
+            self.assertIn("rebuild", json_fixture["lifecycle_stages_tested"])
+            self.assertIn("validate_output", json_fixture["lifecycle_stages_tested"])
+            self.assertTrue(json_fixture["source_hashes"])
+            self.assertTrue(json_fixture["target_hashes"])
+
+            android_classes = {
+                item["evidence_class"]
+                for item in items
+                if item["adapter_id"] == "core.android-strings"
+            }
+            self.assertIn("benchmark_controlled", android_classes)
+            self.assertIn("real_project_smoke", android_classes)
+            self.assertIn("apply_to_copy", android_classes)
+            self.assertIn(
+                "experimental platform slice",
+                next(item for item in items if item["adapter_id"] == "core.android-strings")["known_limitations"],
+            )
+
+    def test_unit_only_and_missing_rebuild_evidence_downgrade_promotion_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            adapter_dir = root / "adapters" / "core" / "optimistic"
+            adapter_dir.mkdir(parents=True)
+            write_json(
+                adapter_dir / "adapter.json",
+                {
+                    "protocol_version": "0.1",
+                    "id": "core.optimistic",
+                    "name": "Optimistic Adapter",
+                    "version": "0.1.0",
+                    "implementation_status": "implemented",
+                    "formats": ["optimistic"],
+                    "extensions": [".opt"],
+                    "capabilities": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply"],
+                    "round_trip_level": "full_round_trip",
+                    "permissions": ["read_project", "write_staging"],
+                    "runtime": {"type": "python", "dependencies": []},
+                },
+            )
+
+            result = build_adapter_evidence_artifacts(state, repo_root=root)
+            check = result["adapter_regression_check_report"]["checks"][0]
+            self.assertTrue(check["unit_tests_alone"])
+            self.assertIn("rebuild", check["missing_lifecycle_stages"])
+            self.assertIn("validate_output", check["missing_lifecycle_stages"])
+            self.assertEqual(result["adapter_evidence_gap_report"]["status"], "blocked")
+            self.assertEqual(result["adapter_promotion_readiness_report"]["status"], "blocked")
+
+    def test_stale_fixture_evidence_is_detected_from_previous_hashes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            source = root / "fixture.opt"
+            source.write_text("hello\n", encoding="utf-8")
+            adapter_dir = root / "adapters" / "core" / "custom"
+            adapter_dir.mkdir(parents=True)
+            write_json(
+                adapter_dir / "adapter.json",
+                {
+                    "protocol_version": "0.1",
+                    "id": "core.custom",
+                    "name": "Custom Fixture Adapter",
+                    "version": "0.1.0",
+                    "implementation_status": "implemented",
+                    "formats": ["custom"],
+                    "extensions": [".opt"],
+                    "capabilities": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply"],
+                    "round_trip_level": "full_round_trip",
+                    "permissions": ["read_project", "write_staging"],
+                    "runtime": {"type": "python", "dependencies": []},
+                },
+            )
+            evidence = {"core.custom": {"fixture_tests": True, "regression_evidence": True, "release_audit_support": True}}
+            fixture = {"core.custom": {"source": "fixture.opt", "stages": ["extract", "rebuild", "validate_output"]}}
+            with mock.patch.dict("runtime.localize_anything.adapter_release.EVIDENCE_OVERRIDES", evidence), mock.patch.dict(FIXTURE_REFERENCES, fixture):
+                first = build_adapter_evidence_artifacts(state, repo_root=root)
+                self.assertEqual(first["adapter_fixture_manifest"]["fixtures"][0]["freshness"], "current")
+                source.write_text("hello changed\n", encoding="utf-8")
+                second = build_adapter_evidence_artifacts(state, repo_root=root)
+            self.assertEqual(second["adapter_fixture_manifest"]["fixtures"][0]["freshness"], "stale")
+            self.assertEqual(second["adapter_evidence_gap_report"]["status"], "blocked")
+
+    def test_adapter_evidence_feeds_cli_api_artifact_state_delivery_run_summary_and_release_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = _benchmark_run_state(root)
+            with mock.patch("runtime.localize_anything.provider.generate_handoff_with_http_provider", side_effect=AssertionError("provider called")) as provider:
+                result = build_adapter_evidence_artifacts(state, repo_root=REPOSITORY_ROOT, run_id="adapter-evidence-integration")
+                self.assertIn("full_product_localization", result["adapter_promotion_readiness_report"]["forbidden_claims"])
+
+                first = root / "adapter-evidence-1.json"
+                second = root / "adapter-evidence-2.json"
+                command = ["adapter-evidence-check", state.as_posix(), "--repo-root", REPOSITORY_ROOT.as_posix(), "--run-id", "adapter-evidence-cli"]
+                self.assertEqual(cli_main([*command, "--output", first.as_posix()]), 0)
+                self.assertEqual(cli_main([*command, "--output", second.as_posix()]), 0)
+                self.assertEqual(read_json(first), read_json(second))
+
+                artifact_state = build_artifact_state(state)
+                artifact_ids = {item["artifact_id"] for item in artifact_state["artifacts"]}
+                self.assertIn("adapter_evidence_provenance", artifact_ids)
+                self.assertIn("adapter_fixture_manifest", artifact_ids)
+                self.assertIn("adapter_regression_check_report", artifact_ids)
+                self.assertIn("adapter_evidence_gap_report", artifact_ids)
+                self.assertIn("adapter_promotion_readiness_report", artifact_ids)
+
+                release_manifest = build_release_evidence_manifest(state, repo_root=REPOSITORY_ROOT)
+                self.assertIn("adapter_promotion_readiness", release_manifest["evidence"])
+                public_claims = build_public_claims_report(state, evidence_manifest=release_manifest)
+                self.assertIn("adapter_evidence_provenance_seed", public_claims["seed_only_claims"])
+
+                staging = root / "staging"
+                staged = staging / "locales" / "zh-CN.json"
+                staged.parent.mkdir(parents=True)
+                staged.write_text('{"open_lab":"开放实验室"}\n', encoding="utf-8")
+                packaged = package_delivery(state, staging, root / "deliveries", [], "draft_package", "adapter-evidence-delivery-001")
+                assets = packaged["manifest"]["assets"]
+                self.assertEqual(assets["adapter_evidence_provenance"], ADAPTER_EVIDENCE_PROVENANCE_JSON)
+                self.assertEqual(assets["adapter_fixture_manifest"], ADAPTER_FIXTURE_MANIFEST_JSON)
+                self.assertEqual(assets["adapter_regression_check_report"], ADAPTER_REGRESSION_CHECK_REPORT_JSON)
+                self.assertEqual(assets["adapter_evidence_gap_report"], ADAPTER_EVIDENCE_GAP_REPORT_JSON)
+                self.assertEqual(assets["adapter_promotion_readiness_report"], ADAPTER_PROMOTION_READINESS_REPORT_JSON)
+
+                summary = build_run_summary_for_test(
+                    "adapter-evidence-summary-001",
+                    "pass_with_warnings",
+                    root,
+                    "en-US",
+                    "zh-CN",
+                    [],
+                    state,
+                    state / "segments.jsonl",
+                    state / "batch-plan.json",
+                    state / "generation-handoff.json",
+                    0,
+                    0,
+                    "dry_run",
+                )
+                self.assertIn(summary["summary"]["adapter_evidence_gap_status"], {"ready", "ready_with_warnings", "blocked"})
+                self.assertIn(summary["summary"]["adapter_promotion_readiness_status"], {"ready", "ready_with_warnings", "blocked"})
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    paths = [
+                        "adapter-evidence-provenance",
+                        "adapter-fixture-manifest",
+                        "adapter-regression-check-report",
+                        "adapter-evidence-gap-report",
+                        "adapter-promotion-readiness-report",
+                    ]
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(statuses, [200, 200, 200, 200, 200])
                 finally:
                     server.shutdown()
                     server.server_close()

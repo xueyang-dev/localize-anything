@@ -54,6 +54,15 @@ Android, iOS, String Catalog, Word document, and scenario slices must preserve
 their documented limitations unless future release-audit evidence promotes
 them.
 
+Adapter fixture and regression provenance is tracked separately in
+`adapter-evidence-provenance.json`, `adapter-fixture-manifest.json`,
+`adapter-regression-check-report.json`, `adapter-evidence-gap-report.json`, and
+`adapter-promotion-readiness-report.json`. These artifacts record evidence
+class, fixture paths, source/target hashes, lifecycle stages, freshness, QA
+result, benchmark-vs-fixture separation, real-project smoke labels, and known
+limitations. Missing, stale, unit-only, benchmark-only, or synthetic/local demo
+evidence must limit adapter promotion claims.
+
 YAML/TOML v0.1 targets localization-resource scalars. Complex YAML block
 scalars, anchors, flow collections, and TOML multiline or array strings remain
 untouched and therefore are not silently claimed as translated. Install the

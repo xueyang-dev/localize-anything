@@ -168,6 +168,7 @@ from .translation_provenance import (
 from .benchmark_lab import BENCHMARK_ASSETS, BENCHMARK_CLAIM_BOUNDARY_REPORT_JSON, BENCHMARK_COMPARISON_REPORT_JSON
 from .release_audit import RELEASE_AUDIT_ASSETS, RELEASE_BLOCKERS_JSON, RELEASE_READINESS_AUDIT_JSON
 from .adapter_release import ADAPTER_RELEASE_ASSETS, ADAPTER_RELEASE_AUDIT_JSON, ADAPTER_SUPPORT_MATRIX_JSON
+from .adapter_evidence import ADAPTER_EVIDENCE_ASSETS, ADAPTER_EVIDENCE_GAP_REPORT_JSON, ADAPTER_PROMOTION_READINESS_REPORT_JSON
 from .document_evidence_queue import WORKBENCH_DOCUMENT_EVIDENCE_QUEUE_JSON
 from .document_decision import (
     DOCUMENT_CLAIM_RESOLUTION_JSON,
@@ -1212,6 +1213,7 @@ def _summary(
         *tuple(BENCHMARK_ASSETS.items()),
         *tuple(RELEASE_AUDIT_ASSETS.items()),
         *tuple(ADAPTER_RELEASE_ASSETS.items()),
+        *tuple(ADAPTER_EVIDENCE_ASSETS.items()),
     ):
         if (state_dir / name).is_file():
             artifacts[key] = (state_dir / name).as_posix()
@@ -1430,6 +1432,16 @@ def _summary(
             "adapter_release_audit_status": (
                 read_json(state_dir / ADAPTER_RELEASE_AUDIT_JSON).get("status", "not_checked")
                 if (state_dir / ADAPTER_RELEASE_AUDIT_JSON).is_file()
+                else "not_checked"
+            ),
+            "adapter_evidence_gap_status": (
+                read_json(state_dir / ADAPTER_EVIDENCE_GAP_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / ADAPTER_EVIDENCE_GAP_REPORT_JSON).is_file()
+                else "not_checked"
+            ),
+            "adapter_promotion_readiness_status": (
+                read_json(state_dir / ADAPTER_PROMOTION_READINESS_REPORT_JSON).get("status", "not_checked")
+                if (state_dir / ADAPTER_PROMOTION_READINESS_REPORT_JSON).is_file()
                 else "not_checked"
             ),
             "release_blocker_count": (

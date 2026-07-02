@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter-fixture-manifest.schema.json",
+  "title": "Localize Anything Adapter Fixture Manifest",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "fixtures", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-adapter-fixture-manifest-v1" },
+    "artifact": { "const": "adapter-fixture-manifest.json" },
+    "status": { "type": "string" },
+    "fixtures": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

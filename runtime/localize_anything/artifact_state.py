@@ -151,6 +151,13 @@ from .adapter_release import (
     ADAPTER_PROMOTION_DECISION_JSON,
     ADAPTER_SUPPORT_MATRIX_JSON,
 )
+from .adapter_evidence import (
+    ADAPTER_EVIDENCE_GAP_REPORT_JSON,
+    ADAPTER_EVIDENCE_PROVENANCE_JSON,
+    ADAPTER_FIXTURE_MANIFEST_JSON,
+    ADAPTER_PROMOTION_READINESS_REPORT_JSON,
+    ADAPTER_REGRESSION_CHECK_REPORT_JSON,
+)
 from .knowledge_pack import discover_knowledge_pack_artifact_specs
 from .segment_repair import (
     REPAIR_HISTORY_JSONL,
@@ -277,6 +284,17 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("adapter_release_audit", "adapter_release_audit", ADAPTER_RELEASE_AUDIT_JSON, "adapter_release_audit", ("adapter_support_matrix", "adapter_regression_evidence_report", "release_readiness_audit")),
     ArtifactSpec("adapter_promotion_decision", "adapter_promotion_decision", ADAPTER_PROMOTION_DECISION_JSON, "adapter_release_audit", ("adapter_release_audit",)),
     ArtifactSpec("adapter_public_claims_report", "adapter_public_claims_report", ADAPTER_PUBLIC_CLAIMS_REPORT_MD, "adapter_release_audit", ("adapter_promotion_decision",)),
+    ArtifactSpec("adapter_evidence_provenance", "adapter_evidence_provenance", ADAPTER_EVIDENCE_PROVENANCE_JSON, "adapter_evidence", ("adapter_support_matrix",)),
+    ArtifactSpec("adapter_fixture_manifest", "adapter_fixture_manifest", ADAPTER_FIXTURE_MANIFEST_JSON, "adapter_evidence", ("adapter_evidence_provenance",)),
+    ArtifactSpec("adapter_regression_check_report", "adapter_regression_check_report", ADAPTER_REGRESSION_CHECK_REPORT_JSON, "adapter_evidence", ("adapter_evidence_provenance", "adapter_fixture_manifest")),
+    ArtifactSpec("adapter_evidence_gap_report", "adapter_evidence_gap_report", ADAPTER_EVIDENCE_GAP_REPORT_JSON, "adapter_evidence", ("adapter_regression_check_report",)),
+    ArtifactSpec(
+        "adapter_promotion_readiness_report",
+        "adapter_promotion_readiness_report",
+        ADAPTER_PROMOTION_READINESS_REPORT_JSON,
+        "adapter_evidence",
+        ("adapter_promotion_decision", "adapter_regression_check_report", "adapter_evidence_gap_report"),
+    ),
     ArtifactSpec("candidate_terms", "candidate_terms", "candidate-terms.jsonl", "termbase_preflight"),
     ArtifactSpec("term_review_queue", "term_review_queue", "term-review-queue.json", "termbase_preflight", ("candidate_terms",)),
     ArtifactSpec("term_review_decisions", "term_review_decisions", "term-review-decisions.jsonl", "term_review"),

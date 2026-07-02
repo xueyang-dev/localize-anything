@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/adapter-evidence-provenance.schema.json",
+  "title": "Localize Anything Adapter Evidence Provenance",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "evidence_items", "summary"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-adapter-evidence-provenance-v1" },
+    "artifact": { "const": "adapter-evidence-provenance.json" },
+    "status": { "type": "string" },
+    "evidence_classes": { "type": "array", "items": { "type": "string" } },
+    "adapter_count": { "type": "integer" },
+    "evidence_items": { "type": "array", "items": { "type": "object" } },
+    "summary": { "type": "object" },
+    "source_artifact_references": { "type": "array", "items": { "type": "string" } },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
