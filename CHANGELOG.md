@@ -4,6 +4,15 @@
 
 ### Added
 
+- Add Provider Consent Action Intake / Execution Authorization Gate seed with
+  explicit `grant`, `deny`, `revoke`, `expire`, and `confirm_dry_run_only`
+  actions; exact run/provider/profile/model/locale/source/handoff/batch scope
+  comparison; consent resolution, authorization, preflight, and audit
+  artifacts; provider-free CLI/API access; artifact-state, scorecard,
+  readiness, benchmark, release-audit, delivery, and run-summary integration;
+  and hard fail-closed checks on legacy HTTP and DeepSeek execution commands.
+  Credential presence and dry-run readiness do not grant execution permission,
+  and authorization does not support provider-backed quality claims.
 - Add Provider Result Acceptance / Real Execution Dry-Run Policy UX seed with
   `provider-dry-run-plan.json`, `provider-execution-consent-request.md`,
   `provider-execution-consent-state.json`,

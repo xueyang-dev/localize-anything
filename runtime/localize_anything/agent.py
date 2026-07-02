@@ -178,6 +178,7 @@ def run_agent(
             provider_timeout_seconds,
             handoff_decision,
             allow_real_provider_network,
+            project_root / ".localize-anything",
         )
         write_json(provider_path, provider_result)
 

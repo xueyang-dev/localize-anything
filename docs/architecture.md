@@ -273,6 +273,7 @@ Each link has a specific contract:
 | Knowledge Repair Lifecycle | Plan, request, impact, result intake, QA, reconciliation, closure, and recompute artifacts | Repair planning/intake cannot clear blockers without matching result and QA evidence. |
 | Provider Evidence | Execution policy, handoff request, ledger, result intake, and reconciliation artifacts | External provider/model evidence is recorded without claiming runtime execution or semantic quality. |
 | Provider Result Acceptance | QA report, scoped review evidence, acceptance decision, claim support report, and Workbench provider queue | QA pass is not semantic quality; limited acceptance remains limited and unsupported provider claims stay forbidden. |
+| Provider Consent Authorization | Consent action/audit JSONL, scope diff, resolution, authorization decision, and execution preflight artifacts | Real execution is fail-closed unless current explicit consent exactly matches run, provider/profile/model, locale, source/handoff hashes, and batch scope. |
 | Locale Capability | `locale-capability-report.json`, `locale-risk-report.json`, `locale-readiness-impact.json` | Seed-level locale engineering evidence downgrades unsupported locale, RTL, plural, formatting, and full-product claims. |
 | Translation Provenance | `translation-provenance.jsonl`, `segment-evidence-view.json`, `provenance-coverage-report.json`, `translation-claim-provenance-report.json` | Per-segment and per-run provenance explains evidence and unsupported claims without proving quality by itself. |
 | Release Audit | `release-readiness-audit.json`, `public-claims-report.json`, `public-claims-report.md`, `non-claims.md`, `release-blockers.json`, `release-evidence-manifest.json` | Public claims and release readiness are audited conservatively; seed artifacts do not become stable public claims merely by existing. |
@@ -1791,6 +1792,38 @@ reconciliation, deterministic QA, scoped review, acceptance, signoff,
 scorecard, readiness, delivery, or release-audit gates. Mock, synthetic,
 local, dry-run, failed, or unverified imported output remains excluded from
 provider-backed quality claims.
+
+## Provider Consent Action Intake / Execution Authorization Gate
+
+The consent gate turns a reviewed dry-run request into an explicit, revocable,
+run-bound authorization decision without executing a provider. It emits
+`provider-consent-actions.jsonl`, `provider-consent-resolution-report.json`,
+`provider-execution-authorization-decision.json`,
+`provider-consent-scope-diff.json`,
+`provider-execution-preflight-gate.json`, and
+`provider-consent-audit-log.jsonl`.
+
+Consent actions are `grant`, `deny`, `revoke`, `expire`, or
+`confirm_dry_run_only`. Every action must identify its actor and bind the exact
+run, provider id, provider profile, model, source and target locale, source
+hash, provider handoff hash, and batch ids. Changed hashes are stale evidence;
+provider/profile/model/locale/batch differences are scope mismatches. Missing,
+partial, expired, revoked, stale, or dry-run-only consent blocks execution.
+
+Authorization also requires compatible privacy/disclosure policy, current
+credential-presence evidence, explicitly enabled real-provider networking,
+passing redaction evidence, and a clear provider execution safety decision.
+Credentials and dry-run readiness never grant permission by themselves. The
+generic HTTP provider sink, agent provider path, and legacy DeepSeek command
+all consult the same preflight gate before reading credentials or opening a
+network connection. The gate authorizes only the scoped execution attempt; it
+does not support provider-backed quality, semantic quality, delivery, apply,
+or production-readiness claims.
+
+CLI commands record consent actions and build/read each consent artifact. API
+GET endpoints expose all six artifacts, and `POST /api/provider-consent-action`
+records structured actions only. These paths do not call providers, mutate
+target files, apply repairs, or create release/tag state.
 
 ## Release Audit / Public Claims Boundary Seed
 

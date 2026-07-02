@@ -207,6 +207,20 @@ from .provider_dry_run import (
     read_provider_real_execution_blockers,
     read_provider_result_acceptance_policy,
 )
+from .provider_consent import (
+    build_provider_consent_audit_log,
+    build_provider_consent_resolution_report,
+    build_provider_consent_scope_diff,
+    build_provider_execution_authorization_decision,
+    build_provider_execution_preflight_gate,
+    read_provider_consent_audit_log,
+    read_provider_consent_resolution_report,
+    read_provider_consent_scope_diff,
+    read_provider_execution_authorization_decision,
+    read_provider_execution_preflight_gate,
+    record_provider_consent_action,
+    provider_execution_preflight_blocker,
+)
 from .locale_capability import (
     build_locale_capability_report,
     build_locale_capability_reports,
@@ -1040,6 +1054,24 @@ def build_parser() -> argparse.ArgumentParser:
     provider_dry_run_parser.add_argument("--run-id")
     provider_dry_run_parser.add_argument("--output", type=Path)
 
+    provider_consent_action_parser = subparsers.add_parser("provider-consent-action", help="Record an explicit scoped provider consent action")
+    provider_consent_action_parser.add_argument("state_dir", type=Path)
+    provider_consent_action_parser.add_argument("--input", type=Path, required=True)
+    provider_consent_action_parser.add_argument("--output", type=Path)
+
+    for command, help_text in (
+        ("provider-consent-resolution-report", "Create/read provider-consent-resolution-report.json"),
+        ("provider-execution-authorization-decision", "Create/read provider-execution-authorization-decision.json"),
+        ("provider-consent-scope-diff", "Create/read provider-consent-scope-diff.json"),
+        ("provider-execution-preflight-gate", "Create/read provider-execution-preflight-gate.json"),
+        ("provider-consent-audit-log", "Create/read provider-consent-audit-log.jsonl"),
+    ):
+        command_parser = subparsers.add_parser(command, help=help_text)
+        command_parser.add_argument("state_dir", type=Path)
+        command_parser.add_argument("--read", action="store_true")
+        command_parser.add_argument("--run-id")
+        command_parser.add_argument("--output", type=Path)
+
     locale_capability_parser = subparsers.add_parser("locale-capability-report", help="Create or read locale-capability-report.json")
     locale_capability_parser.add_argument("state_dir", type=Path)
     locale_capability_parser.add_argument("--target-locale")
@@ -1662,7 +1694,7 @@ def build_parser() -> argparse.ArgumentParser:
     provider_generate_parser.add_argument("handoff", type=Path)
     provider_generate_parser.add_argument("--provider-url", required=True)
     provider_generate_parser.add_argument("--api-key-env")
-    provider_generate_parser.add_argument("--state-dir", type=Path)
+    provider_generate_parser.add_argument("--state-dir", type=Path, required=True)
     provider_generate_parser.add_argument("--generated-output", type=Path)
     provider_generate_parser.add_argument("--timeout-seconds", type=int, default=60)
     provider_generate_parser.add_argument("--allow-real-provider-network", action="store_true")
@@ -1687,6 +1719,7 @@ def build_parser() -> argparse.ArgumentParser:
     deepseek_parser.add_argument("--target-locale", required=True, help="e.g. ja, ko, zh-CN")
     deepseek_parser.add_argument("--source-locale", default="en-US")
     deepseek_parser.add_argument("--model", default="deepseek-chat")
+    deepseek_parser.add_argument("--state-dir", type=Path, required=True)
     deepseek_parser.add_argument("--generated-output", type=Path, required=True)
     deepseek_parser.add_argument("--output", type=Path)
 
@@ -2499,6 +2532,23 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "provider-real-execution-blockers":
             result = read_provider_real_execution_blockers(args.state_dir) if args.read else build_provider_real_execution_blockers(args.state_dir, run_id=args.run_id)
             return _emit_json(result, args.output)
+        if args.command == "provider-consent-action":
+            return _emit_json(record_provider_consent_action(args.state_dir, read_json(args.input)), args.output)
+        if args.command == "provider-consent-resolution-report":
+            result = read_provider_consent_resolution_report(args.state_dir) if args.read else build_provider_consent_resolution_report(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-execution-authorization-decision":
+            result = read_provider_execution_authorization_decision(args.state_dir) if args.read else build_provider_execution_authorization_decision(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-consent-scope-diff":
+            result = read_provider_consent_scope_diff(args.state_dir) if args.read else build_provider_consent_scope_diff(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-execution-preflight-gate":
+            result = read_provider_execution_preflight_gate(args.state_dir) if args.read else build_provider_execution_preflight_gate(args.state_dir, run_id=args.run_id)
+            return _emit_json(result, args.output)
+        if args.command == "provider-consent-audit-log":
+            records = read_provider_consent_audit_log(args.state_dir) if args.read else build_provider_consent_audit_log(args.state_dir)
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-consent-audit-log-read-v1", "records": records}, args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
             return _emit_json(result, args.output)
@@ -3079,6 +3129,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "retry-handoff":
             return _emit_json(create_retry_handoff(read_json(args.handoff), read_json(args.generation_report), args.generated_dir), args.output)
         if args.command == "provider-generate":
+            blocker = provider_execution_preflight_blocker(args.state_dir)
+            if blocker:
+                _emit_json({"protocol_version": "0.1", "status": "fail", "blockers": [blocker], "provider_or_model_called": False}, args.output)
+                return 1
             headers = {}
             if args.api_key_env:
                 api_key = os.environ.get(args.api_key_env)
@@ -3100,6 +3154,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.timeout_seconds,
                 handoff_decision,
                 args.allow_real_provider_network,
+                args.state_dir,
             )
             _emit_json(result, args.output)
             return 0 if result["status"] in {"pass", "pass_with_warnings"} else 1
@@ -3122,6 +3177,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.target_locale,
                 args.source_locale,
                 args.model,
+                args.state_dir,
             )
             _emit_json(result, args.output)
             return 0 if result["status"] == "pass" else 1
@@ -3168,6 +3224,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "quickstart-demo":
             return _emit_json(run_quickstart_demo(args.output_root, args.run_id), args.output)
         if args.command == "agent-run":
+            if args.provider_url:
+                blocker = provider_execution_preflight_blocker(args.project / ".localize-anything")
+                if blocker:
+                    _emit_json({"protocol_version": "0.1", "status": "provider_generation_failed", "blockers": [blocker], "provider_or_model_called": False}, args.output)
+                    return 1
             provider_headers = {}
             if args.api_key_env:
                 api_key = os.environ.get(args.api_key_env)

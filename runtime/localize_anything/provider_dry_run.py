@@ -92,6 +92,7 @@ def build_provider_dry_run_plan(
         "provider_profile": {
             "provider_id": str(merged.get("provider_id") or merged.get("provider_name") or merged.get("provider") or ""),
             "provider_name": str(merged.get("provider_name") or merged.get("provider") or ""),
+            "profile_id": str(merged.get("provider_profile") or merged.get("provider_profile_id") or merged.get("profile_id") or ""),
             "model_name": str(merged.get("model_name") or merged.get("model") or ""),
             "endpoint_configured": bool(merged.get("endpoint") or merged.get("provider_url")),
         },

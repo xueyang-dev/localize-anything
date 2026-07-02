@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-execution-authorization-decision.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "execution_authorized", "authorization_scope", "blockers", "forbidden_claims", "provider_backed_quality_supported", "provider_or_model_called"],
+  "properties": {
+    "protocol_version": {"type": "string"},
+    "schema": {"const": "localize-anything-provider-execution-authorization-decision-v1"},
+    "artifact": {"const": "provider-execution-authorization-decision.json"},
+    "status": {"enum": ["authorized", "blocked", "dry_run_only", "revoked", "expired", "stale", "scope_mismatch"]},
+    "execution_authorized": {"type": "boolean"},
+    "authorization_scope": {"type": "object"},
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "forbidden_claims": {"type": "array", "items": {"type": "string"}},
+    "provider_backed_quality_supported": {"const": false},
+    "provider_or_model_called": {"const": false}
+  },
+  "additionalProperties": true
+}

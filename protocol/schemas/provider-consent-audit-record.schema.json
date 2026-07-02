@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-consent-audit-record.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "audit_id", "action_id", "action", "consent_scope", "effective_resolution", "execution_authorized", "provider_or_model_called"],
+  "properties": {
+    "protocol_version": {"type": "string"},
+    "schema": {"const": "localize-anything-provider-consent-audit-record-v1"},
+    "artifact": {"const": "provider-consent-audit-log.jsonl"},
+    "audit_id": {"type": "string", "minLength": 1},
+    "action_id": {"type": "string", "minLength": 1},
+    "action": {"enum": ["grant", "deny", "revoke", "expire", "confirm_dry_run_only"]},
+    "consent_scope": {"type": "object"},
+    "effective_resolution": {"type": "string"},
+    "execution_authorized": {"type": "boolean"},
+    "provider_or_model_called": {"const": false}
+  },
+  "additionalProperties": true
+}
