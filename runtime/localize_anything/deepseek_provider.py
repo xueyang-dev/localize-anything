@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import ssl
 import urllib.error
@@ -12,6 +13,7 @@ from typing import Any
 from . import PROTOCOL_VERSION
 from .io_utils import read_jsonl, write_jsonl
 from .json_adapter import extract_placeholders
+from .provider_consent import provider_execution_preflight_blocker
 
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 DEFAULT_MODEL = "deepseek-chat"  # fast model for translation
@@ -69,6 +71,7 @@ def translate_batch_deepseek(
     target_locale: str,
     source_locale: str = "en-US",
     model: str = DEFAULT_MODEL,
+    state_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Translate a batch of segments using DeepSeek API.
 
@@ -81,6 +84,20 @@ def translate_batch_deepseek(
     Returns:
         Generated segments with target translations
     """
+    blocker = provider_execution_preflight_blocker(
+        state_dir,
+        request_context={
+            "provider_id": "deepseek",
+            "provider_profile": "deepseek",
+            "model_name": model,
+            "source_locale": source_locale,
+            "target_locale": target_locale,
+            "source_hash": hashlib.sha256(json.dumps(segments, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest(),
+            "batch_ids": [str(item.get("batch_id") or "") for item in segments if isinstance(item, dict) and item.get("batch_id")],
+        },
+    )
+    if blocker:
+        raise ProviderGenerationError(blocker["category"], blocker["message"])
     try:
         api_key = _get_api_key()
     except RuntimeError as exc:
@@ -282,11 +299,12 @@ def generate_deepseek_batch_file(
     target_locale: str,
     source_locale: str = "en-US",
     model: str = DEFAULT_MODEL,
+    state_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Read segments from JSONL, translate via DeepSeek, write generated JSONL."""
     segments = read_jsonl(segments_path)
     try:
-        generated = translate_batch_deepseek(segments, target_locale, source_locale, model)
+        generated = translate_batch_deepseek(segments, target_locale, source_locale, model, state_dir)
     except ProviderGenerationError as exc:
         if generated_output.exists() and generated_output.is_file():
             generated_output.unlink()

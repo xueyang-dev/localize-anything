@@ -692,6 +692,8 @@ def _evidence(run_dir: Path) -> dict[str, Any]:
         "provider_evidence_reconciliation": _optional_json(run_dir / "provider-evidence-reconciliation.json"),
         "provider_claim_support_report": _optional_json(run_dir / "provider-claim-support-report.json"),
         "provider_result_intake": _optional_jsonl(run_dir / "provider-result-intake.jsonl"),
+        "provider_execution_authorization_decision": _optional_json(run_dir / "provider-execution-authorization-decision.json"),
+        "provider_execution_preflight_gate": _optional_json(run_dir / "provider-execution-preflight-gate.json"),
         "knowledge_usage_report": _optional_json(run_dir / "knowledge-usage-report.json"),
         "constraint_application_audit": _optional_json(run_dir / "constraint-application-audit.json"),
         "knowledge_assurance_summary": _optional_json(run_dir / "knowledge-assurance-summary.json"),
@@ -792,6 +794,8 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     reconciliation = evidence["provider_evidence_reconciliation"]
     claim_support = evidence["provider_claim_support_report"]
     intake = evidence["provider_result_intake"]
+    authorization = evidence["provider_execution_authorization_decision"]
+    preflight = evidence["provider_execution_preflight_gate"]
     synthetic = any(str(item.get("result_source") or item.get("source") or "") in {"synthetic", "mock", "dry_run", "failed", "local_draft"} for item in intake)
     failed = str(reconciliation.get("status") or "") in {"failed", "blocked", "stale"}
     supported = bool(claim_support.get("provider_backed_quality_supported")) and not synthetic and not failed
@@ -800,8 +804,14 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
         "status": status,
         "provider_backed_supported": supported,
         "synthetic_or_failed_output_present": synthetic or failed,
+        "execution_authorization_status": authorization.get("status") or "missing",
+        "execution_preflight_status": preflight.get("status") or "missing",
         "summary": "provider-backed quality is supported" if supported else "provider-backed quality is not supported by benchmark evidence",
-        "artifacts": _artifact_refs("provider-evidence-reconciliation.json", bool(reconciliation)),
+        "artifacts": _existing_names(
+            ("provider-evidence-reconciliation.json", reconciliation),
+            ("provider-execution-authorization-decision.json", authorization),
+            ("provider-execution-preflight-gate.json", preflight),
+        ),
     }
 
 
@@ -881,6 +891,8 @@ def _source_artifacts(run_dir: Path) -> dict[str, str]:
         "delivery-manifest.json",
         "delivery-decision.json",
         "provider-evidence-reconciliation.json",
+        "provider-execution-authorization-decision.json",
+        "provider-execution-preflight-gate.json",
         "knowledge-usage-report.json",
         "constraint-application-audit.json",
         "knowledge-assurance-summary.json",

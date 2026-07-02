@@ -2020,6 +2020,50 @@ CLI commands are `provider-dry-run-plan`,
 read artifact-backed dry-run/consent projections only and must not call
 providers.
 
+## Provider Consent Action Intake / Execution Authorization Gate
+
+Provider execution remains fail-closed until explicit current consent and all
+execution-safety evidence agree. The artifacts are:
+
+- `provider-consent-actions.jsonl`: append-only `grant`, `deny`, `revoke`,
+  `expire`, and `confirm_dry_run_only` actions with actor identity and exact
+  run/provider/profile/model/locale/source/handoff/batch scope;
+- `provider-consent-scope-diff.json`: field-level expected/provided scope
+  differences, including stale source or handoff hashes;
+- `provider-consent-resolution-report.json`: effective consent state after
+  action ordering, expiry, revocation, staleness, and scope validation;
+- `provider-execution-authorization-decision.json`: consolidated authorization
+  status and privacy, credential, network, redaction, safety, and scope
+  blockers;
+- `provider-execution-preflight-gate.json`: the final fail-closed check used by
+  direct/legacy provider commands before credential access or network calls;
+- `provider-consent-audit-log.jsonl`: deterministic audit projection of consent
+  actions and their effective resolution/authorization state.
+
+Rules:
+
+- consent request or credential existence does not grant permission;
+- consent defaults to pending/blocked and must exactly match the current run,
+  provider/profile/model, locale, source hash, handoff hash, and batch ids;
+- stale, expired, revoked, partial, dry-run-only, privacy-incompatible,
+  redaction-failed, or network-disabled evidence blocks execution;
+- authorization permits only the scoped execution attempt and does not support
+  provider-backed quality or readiness claims;
+- all builders, CLI/API actions, tests, and CI remain provider-free.
+
+Artifact-backed APIs are `GET /api/provider-consent-actions`,
+`GET /api/provider-consent-resolution-report`,
+`GET /api/provider-execution-authorization-decision`,
+`GET /api/provider-consent-scope-diff`,
+`GET /api/provider-execution-preflight-gate`,
+`GET /api/provider-consent-audit-log`, and
+`POST /api/provider-consent-action`.
+
+CLI commands are `provider-consent-action`,
+`provider-consent-resolution-report`,
+`provider-execution-authorization-decision`, `provider-consent-scope-diff`,
+`provider-execution-preflight-gate`, and `provider-consent-audit-log`.
+
 ## Release Audit / Public Claims Boundary Seed
 
 Release Audit artifacts consolidate public-facing claim evidence without

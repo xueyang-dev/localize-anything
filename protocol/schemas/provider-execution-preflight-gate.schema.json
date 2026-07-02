@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-execution-preflight-gate.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "execution_allowed", "fail_closed", "legacy_and_direct_commands_must_use_gate", "blockers", "provider_backed_quality_supported", "provider_or_model_called"],
+  "properties": {
+    "protocol_version": {"type": "string"},
+    "schema": {"const": "localize-anything-provider-execution-preflight-gate-v1"},
+    "artifact": {"const": "provider-execution-preflight-gate.json"},
+    "status": {"enum": ["authorized", "blocked", "dry_run_only", "revoked", "expired", "stale", "scope_mismatch"]},
+    "execution_allowed": {"type": "boolean"},
+    "fail_closed": {"const": true},
+    "legacy_and_direct_commands_must_use_gate": {"const": true},
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "provider_backed_quality_supported": {"const": false},
+    "provider_or_model_called": {"const": false}
+  },
+  "additionalProperties": true
+}

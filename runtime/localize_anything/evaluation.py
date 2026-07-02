@@ -61,6 +61,7 @@ from .provider_result_gate import (
 )
 from .provider_safety import PROVIDER_EXECUTION_SAFETY_DECISION_JSON
 from .provider_dry_run import PROVIDER_REAL_EXECUTION_BLOCKERS_JSON
+from .provider_consent import PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON, PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_CLAIMS,
@@ -296,6 +297,8 @@ def _load_artifacts(
         "workbench_provider_review_queue": _read_optional_json(state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON),
         "provider_execution_safety_decision": _read_optional_json(state_dir / PROVIDER_EXECUTION_SAFETY_DECISION_JSON),
         "provider_real_execution_blockers": _read_optional_json(state_dir / PROVIDER_REAL_EXECUTION_BLOCKERS_JSON),
+        "provider_execution_authorization_decision": _read_optional_json(state_dir / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON),
+        "provider_execution_preflight_gate": _read_optional_json(state_dir / PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON),
         "locale_capability_report": _read_optional_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON),
         "locale_risk_report": _read_optional_json(state_dir / LOCALE_RISK_REPORT_JSON),
         "locale_readiness_impact": _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON),
@@ -739,6 +742,11 @@ def _forbidden_claims(
         claims.update(str(claim) for claim in real_execution_blockers.get("forbidden_claims", []) if claim)
         if str(real_execution_blockers.get("status") or "") in {"blocked", "stale", "failed"}:
             claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    authorization = artifacts.get("provider_execution_authorization_decision", {})
+    preflight = artifacts.get("provider_execution_preflight_gate", {})
+    if any(isinstance(item, dict) and item and str(item.get("status") or "") != "authorized" for item in (authorization, preflight)):
+        claims.update(PROVIDER_CLAIMS)
+        claims.update({"delivery_ready", "apply_ready", "production_ready"})
     locale_impact = artifacts.get("locale_readiness_impact", {})
     locale_risk = artifacts.get("locale_risk_report", {})
     locale_capability = artifacts.get("locale_capability_report", {})
@@ -1217,6 +1225,8 @@ def _source_artifacts(state_dir: Path, run_dir: Path | None, delivery_dir: Path 
         "workbench_provider_review_queue": state_dir / WORKBENCH_PROVIDER_REVIEW_QUEUE_JSON,
         "provider_execution_safety_decision": state_dir / PROVIDER_EXECUTION_SAFETY_DECISION_JSON,
         "provider_real_execution_blockers": state_dir / PROVIDER_REAL_EXECUTION_BLOCKERS_JSON,
+        "provider_execution_authorization_decision": state_dir / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON,
+        "provider_execution_preflight_gate": state_dir / PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON,
         "locale_capability_report": state_dir / LOCALE_CAPABILITY_REPORT_JSON,
         "locale_risk_report": state_dir / LOCALE_RISK_REPORT_JSON,
         "locale_readiness_impact": state_dir / LOCALE_READINESS_IMPACT_JSON,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.request
 from pathlib import Path
@@ -9,6 +10,7 @@ from . import PROTOCOL_VERSION
 from .generation import collect_generated_handoff, import_generated_response
 from .generation_handoff_policy import provider_generation_blocker
 from .io_utils import read_json
+from .provider_consent import provider_execution_preflight_blocker
 from .provider_safety import classify_provider_failure, provider_network_blocker
 
 
@@ -20,6 +22,7 @@ def generate_handoff_with_http_provider(
     timeout_seconds: int = 60,
     handoff_decision: dict[str, Any] | None = None,
     allow_real_provider_network: bool = False,
+    state_dir: Path | None = None,
 ) -> dict[str, Any]:
     blocker = provider_generation_blocker(handoff_decision)
     if blocker:
@@ -27,6 +30,18 @@ def generate_handoff_with_http_provider(
     network_blocker = provider_network_blocker(provider_url, allow_real_provider_network=allow_real_provider_network)
     if network_blocker:
         return _provider_failure("provider_network_boundary", network_blocker)
+    consent_blocker = provider_execution_preflight_blocker(
+        state_dir,
+        request_context={
+            "run_id": handoff.get("run_id"),
+            "source_locale": handoff.get("source_locale"),
+            "target_locale": handoff.get("target_locale"),
+            "source_hash": hashlib.sha256(json.dumps(handoff, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest(),
+            "batch_ids": [item.get("batch_id") for item in handoff.get("batches", []) if isinstance(item, dict)],
+        },
+    )
+    if consent_blocker:
+        return _provider_failure(consent_blocker["category"], consent_blocker["message"])
     batch_results: list[dict[str, Any]] = []
     items: list[dict[str, Any]] = []
     imported_batches = 0

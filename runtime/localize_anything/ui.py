@@ -175,6 +175,15 @@ from .provider_dry_run import (
     read_provider_real_execution_blockers,
     read_provider_result_acceptance_policy,
 )
+from .provider_consent import (
+    read_provider_consent_actions,
+    read_provider_consent_audit_log,
+    read_provider_consent_resolution_report,
+    read_provider_consent_scope_diff,
+    read_provider_execution_authorization_decision,
+    read_provider_execution_preflight_gate,
+    record_provider_consent_action,
+)
 from .locale_capability import (
     read_locale_capability_report,
     read_locale_readiness_impact,
@@ -476,6 +485,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-real-execution-blockers":
                     self._handle_workflow_artifact_query(parsed.query, "provider_real_execution_blockers", read_provider_real_execution_blockers)
+                    return
+                if parsed.path == "/api/provider-consent-actions":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_consent_actions", lambda state_dir: {"records": read_provider_consent_actions(state_dir)})
+                    return
+                if parsed.path == "/api/provider-consent-resolution-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_consent_resolution_report", read_provider_consent_resolution_report)
+                    return
+                if parsed.path == "/api/provider-execution-authorization-decision":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_authorization_decision", read_provider_execution_authorization_decision)
+                    return
+                if parsed.path == "/api/provider-consent-scope-diff":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_consent_scope_diff", read_provider_consent_scope_diff)
+                    return
+                if parsed.path == "/api/provider-execution-preflight-gate":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_preflight_gate", read_provider_execution_preflight_gate)
+                    return
+                if parsed.path == "/api/provider-consent-audit-log":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_consent_audit_log", lambda state_dir: {"records": read_provider_consent_audit_log(state_dir)})
                     return
                 if parsed.path == "/api/locale-capability-report":
                     self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)
@@ -817,6 +844,9 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-result-acceptance-decision":
                     self._handle_provider_result_acceptance_decision(payload)
+                    return
+                if parsed.path == "/api/provider-consent-action":
+                    self._handle_provider_consent_action(payload)
                     return
                 if parsed.path == "/api/document-decision-log":
                     self._handle_record_document_decision(payload)
@@ -1608,6 +1638,15 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             result = record_provider_result_acceptance_decision(state_dir, decision)
             state.add_allowed_root(state_dir)
             self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_result_acceptance_decision": result, "provider_or_model_called": False})
+
+        def _handle_provider_consent_action(self, payload: dict[str, Any]) -> None:
+            state_dir = _state_dir_from_payload(payload)
+            if not state.is_allowed(state_dir):
+                raise ValueError(f"Provider consent action is outside allowed workbench roots: {state_dir}")
+            action = payload.get("action") if isinstance(payload.get("action"), dict) else payload
+            result = record_provider_consent_action(state_dir, action)
+            state.add_allowed_root(state_dir)
+            self._send_json({"status": "pass", "state_dir": state_dir.as_posix(), "provider_consent_action": result, "provider_or_model_called": False})
 
         def _handle_record_document_decision(self, payload: dict[str, Any]) -> None:
             state_dir = _state_dir_from_payload(payload)

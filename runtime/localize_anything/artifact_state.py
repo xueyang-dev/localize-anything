@@ -136,6 +136,14 @@ from .provider_dry_run import (
     PROVIDER_REAL_EXECUTION_BLOCKERS_JSON,
     PROVIDER_RESULT_ACCEPTANCE_POLICY_JSON,
 )
+from .provider_consent import (
+    PROVIDER_CONSENT_ACTIONS_JSONL,
+    PROVIDER_CONSENT_AUDIT_LOG_JSONL,
+    PROVIDER_CONSENT_RESOLUTION_REPORT_JSON,
+    PROVIDER_CONSENT_SCOPE_DIFF_JSON,
+    PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON,
+    PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON,
+)
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -252,6 +260,12 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_data_disclosure_report", "provider_data_disclosure_report", PROVIDER_DATA_DISCLOSURE_REPORT_JSON, "provider_dry_run", ("provider_dry_run_plan",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("provider_result_acceptance_policy", "provider_result_acceptance_policy", PROVIDER_RESULT_ACCEPTANCE_POLICY_JSON, "provider_dry_run", ("provider_dry_run_plan",), required_for_delivery=True),
     ArtifactSpec("provider_real_execution_blockers", "provider_real_execution_blockers", PROVIDER_REAL_EXECUTION_BLOCKERS_JSON, "provider_dry_run", ("provider_dry_run_plan", "provider_execution_consent_state", "provider_data_disclosure_report", "provider_result_acceptance_policy", "provider_execution_safety_decision"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_consent_actions", "provider_consent_actions", PROVIDER_CONSENT_ACTIONS_JSONL, "provider_consent", ("provider_dry_run_plan", "provider_handoff_request")),
+    ArtifactSpec("provider_consent_scope_diff", "provider_consent_scope_diff", PROVIDER_CONSENT_SCOPE_DIFF_JSON, "provider_consent", ("provider_consent_actions", "provider_dry_run_plan", "provider_handoff_request")),
+    ArtifactSpec("provider_consent_resolution_report", "provider_consent_resolution_report", PROVIDER_CONSENT_RESOLUTION_REPORT_JSON, "provider_consent", ("provider_consent_actions", "provider_consent_scope_diff")),
+    ArtifactSpec("provider_execution_authorization_decision", "provider_execution_authorization_decision", PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON, "provider_consent", ("provider_consent_resolution_report", "provider_data_disclosure_report", "provider_credential_policy_report", "provider_network_boundary_report", "provider_redaction_audit", "provider_execution_safety_decision")),
+    ArtifactSpec("provider_execution_preflight_gate", "provider_execution_preflight_gate", PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON, "provider_consent", ("provider_execution_authorization_decision", "provider_consent_scope_diff")),
+    ArtifactSpec("provider_consent_audit_log", "provider_consent_audit_log", PROVIDER_CONSENT_AUDIT_LOG_JSONL, "provider_consent", ("provider_consent_actions", "provider_consent_resolution_report", "provider_execution_authorization_decision")),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),
@@ -1617,6 +1631,19 @@ def _apply_content_status(entry: dict[str, Any]) -> None:
             elif provider_dry_run_status in {"pending", "not_requested", "dry_run_ready", "active", "summary_only"}:
                 entry["status"] = "requires_human_review"
                 entry["blocking_reason"] = "provider_dry_run_is_not_execution_evidence"
+        if name in {
+            PROVIDER_CONSENT_SCOPE_DIFF_JSON,
+            PROVIDER_CONSENT_RESOLUTION_REPORT_JSON,
+            PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON,
+            PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON,
+        }:
+            provider_consent_status = str(content.get("status") or "")
+            if provider_consent_status == "stale":
+                entry["status"] = "stale"
+                entry["blocking_reason"] = "provider_consent_evidence_stale"
+            elif provider_consent_status not in {"exact_match", "granted", "authorized"}:
+                entry["status"] = "blocked"
+                entry["blocking_reason"] = "provider_execution_not_authorized"
         if name in {LOCALE_CAPABILITY_REPORT_JSON, LOCALE_RISK_REPORT_JSON, LOCALE_READINESS_IMPACT_JSON}:
             locale_status = str(content.get("status") or "")
             if locale_status in {"blocked", "stale"}:
@@ -1749,6 +1776,12 @@ def _apply_dependency_status(entry: dict[str, Any], spec: ArtifactSpec, entries:
         "provider_network_boundary_report",
         "provider_redaction_audit",
         "provider_execution_safety_decision",
+        "provider_consent_actions",
+        "provider_consent_scope_diff",
+        "provider_consent_resolution_report",
+        "provider_execution_authorization_decision",
+        "provider_execution_preflight_gate",
+        "provider_consent_audit_log",
     }
     locale_dependency_ids = {
         "locale_capability_report",

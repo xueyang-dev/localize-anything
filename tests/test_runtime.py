@@ -329,6 +329,19 @@ from runtime.localize_anything.provider_dry_run import (
     build_provider_execution_consent_state,
     build_provider_real_execution_blockers,
 )
+from runtime.localize_anything.provider_consent import (
+    PROVIDER_CONSENT_ACTIONS_JSONL,
+    PROVIDER_CONSENT_AUDIT_LOG_JSONL,
+    PROVIDER_CONSENT_RESOLUTION_REPORT_JSON,
+    PROVIDER_CONSENT_SCOPE_DIFF_JSON,
+    PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON,
+    PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON,
+    build_provider_consent_artifacts,
+    build_provider_consent_scope_diff,
+    build_provider_execution_authorization_decision,
+    build_provider_execution_preflight_gate,
+    record_provider_consent_action,
+)
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -377,6 +390,7 @@ from runtime.localize_anything.release_audit import (
 from runtime.localize_anything.planning import create_batch_plan, is_generation_eligible
 from runtime.localize_anything.project import initialize_project, inspect_project, load_session_index
 from runtime.localize_anything.provider import generate_handoff_with_http_provider
+from runtime.localize_anything.deepseek_provider import generate_deepseek_batch_file
 from runtime.localize_anything.reflection import create_llm_review_request, import_llm_review_response, render_llm_review_prompt
 from runtime.localize_anything.resolution_gate import (
     build_resolution_gate,
@@ -2984,6 +2998,83 @@ class LocalizeRunTests(unittest.TestCase):
             self.assertEqual(target_payload["inventory"]["weight"], "REVIEWED Weight: %s kg")
 
 
+def _authorize_provider_for_test(
+    state: Path,
+    *,
+    provider_id: str,
+    provider_profile: str,
+    model_name: str,
+    source_locale: str,
+    target_locale: str,
+    batch_ids: list[str],
+    run_id: str,
+    generation_handoff: dict[str, Any] | None = None,
+    source_hash: str | None = None,
+) -> dict[str, Any]:
+    state.mkdir(parents=True, exist_ok=True)
+    if generation_handoff is not None:
+        write_json(state / "generation-handoff.json", generation_handoff)
+        source_hash = hashlib.sha256(json.dumps(generation_handoff, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if not source_hash:
+        raise ValueError("source_hash is required for provider authorization tests")
+    build_provider_execution_policy(
+        state,
+        {
+            "execution_mode": "real_provider",
+            "safe": True,
+            "allow_real_provider": True,
+            "provider_id": provider_id,
+            "provider_profile": provider_profile,
+            "model_name": model_name,
+        },
+        run_id=run_id,
+    )
+    build_provider_handoff_request(
+        state,
+        {
+            "execution_mode": "real_provider",
+            "provider_id": provider_id,
+            "provider_profile": provider_profile,
+            "model_name": model_name,
+            "source_locale": source_locale,
+            "target_locale": target_locale,
+            "privacy_mode": "external_allowed",
+            "source_hash": source_hash,
+            "scope": {
+                "source_locale": source_locale,
+                "target_locale": target_locale,
+                "batch_ids": batch_ids,
+            },
+        },
+        run_id=run_id,
+    )
+    build_provider_safety_artifacts(
+        state,
+        {
+            "provider_id": provider_id,
+            "provider_profile": provider_profile,
+            "model_name": model_name,
+            "provider_url": "https://provider.example/generate",
+            "requires_credentials": False,
+            "allow_real_provider_network": True,
+        },
+        run_id=run_id,
+    )
+    build_provider_dry_run_artifacts(state, run_id=run_id)
+    scope = build_provider_consent_scope_diff(state)["expected_scope"]
+    record_provider_consent_action(
+        state,
+        {
+            "action": "grant",
+            "actor_role": "test_owner",
+            "actor_reference": "provider-gate-test",
+            "consent_scope": scope,
+            "expires_at": "2099-01-01T00:00:00Z",
+        },
+    )
+    return scope
+
+
 class AgentRunTests(unittest.TestCase):
     def test_agent_run_routes_project_and_writes_handoff_summary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -3117,12 +3208,15 @@ class AgentRunTests(unittest.TestCase):
             self.assertTrue(Path(result["artifacts"]["response_import"]).is_file())
             self.assertTrue(Path(result["artifacts"]["delivery_directory"]).is_dir())
 
-    def test_agent_run_direct_http_provider_packages_delivery(self) -> None:
+    def test_agent_run_direct_http_provider_requires_authorization_gate(self) -> None:
         class ProviderHandler(BaseHTTPRequestHandler):
+            calls = 0
+
             def log_message(self, format: str, *args: object) -> None:
                 return
 
             def do_POST(self) -> None:
+                ProviderHandler.calls += 1
                 length = int(self.headers.get("Content-Length", "0"))
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 mapped = {
@@ -3159,15 +3253,12 @@ class AgentRunTests(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=2)
 
-            self.assertEqual(result["status"], "draft_package_created", result.get("reflection"))
+            self.assertEqual(result["status"], "provider_generation_failed", result.get("reflection"))
             self.assertEqual(result["agent"]["provider_mode"], "direct_http_provider")
             self.assertTrue(result["agent"]["direct_model_api"])
-            self.assertEqual(result["reflection"]["provider_generation_status"], "pass")
-            self.assertEqual(result["reflection"]["qa_status"], "pass")
-            self.assertEqual(result["delivery"]["decision_status"], "owner_review_required")
+            self.assertEqual(result["reflection"]["provider_generation_status"], "fail")
+            self.assertEqual(ProviderHandler.calls, 0)
             self.assertTrue(Path(result["artifacts"]["provider_generation"]).is_file())
-            self.assertTrue(Path(result["artifacts"]["delivery_decision"]).is_file())
-            self.assertTrue(Path(result["artifacts"]["delivery_directory"]).is_dir())
 
 
 class ReviewAgentTests(unittest.TestCase):
@@ -3248,6 +3339,17 @@ class ProviderGenerationTests(unittest.TestCase):
                 write_json(packet_dir / f"{batch['batch_id']}.json", packet)
                 write_json(request_dir / f"{batch['batch_id']}.json", create_draft_request(packet))
             handoff = create_generation_handoff(packet_dir, request_dir, generated_dir, "zh-CN")
+            _authorize_provider_for_test(
+                state,
+                provider_id="http-json",
+                provider_profile="loopback-test",
+                model_name="test-model",
+                source_locale="en-US",
+                target_locale="zh-CN",
+                batch_ids=[str(item.get("batch_id")) for item in handoff.get("batches", [])],
+                run_id="provider-contract-test",
+                generation_handoff=handoff,
+            )
             server = ThreadingHTTPServer(("127.0.0.1", 0), ProviderHandler)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -3257,6 +3359,7 @@ class ProviderGenerationTests(unittest.TestCase):
                     handoff,
                     f"http://{host}:{port}/generate",
                     root / "generated.jsonl",
+                    state_dir=state,
                 )
             finally:
                 server.shutdown()
@@ -3323,22 +3426,25 @@ class ProviderPathHygieneTests(unittest.TestCase):
             root = Path(directory)
             segments_path = root / "segments.jsonl"
             generated_path = root / "generated.jsonl"
-            write_jsonl(
-                segments_path,
-                [
-                    {
-                        "segment_id": "s1",
-                        "source": "Search",
-                        "source_locale": "en-US",
-                        "constraints": {},
-                    }
-                ],
-            )
+            segments = [{"segment_id": "s1", "batch_id": "batch-1", "source": "Search", "source_locale": "en-US", "constraints": {}}]
+            write_jsonl(segments_path, segments)
             with mock.patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-key"}, clear=True), mock.patch(
                 "runtime.localize_anything.deepseek_provider.urllib.request.urlopen",
                 side_effect=ssl.SSLCertVerificationError("CERTIFICATE_VERIFY_FAILED"),
             ):
-                result = generate_deepseek_batch_file(segments_path, generated_path, "th")
+                state = root / "state"
+                _authorize_provider_for_test(
+                    state,
+                    provider_id="deepseek",
+                    provider_profile="deepseek",
+                    model_name="deepseek-chat",
+                    source_locale="en-US",
+                    target_locale="th",
+                    batch_ids=["batch-1"],
+                    run_id="deepseek-ssl-test",
+                    source_hash=hashlib.sha256(json.dumps(segments, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest(),
+                )
+                result = generate_deepseek_batch_file(segments_path, generated_path, "th", state_dir=state)
 
             self.assertEqual(result["status"], "fail")
             self.assertEqual(result["provider_status"], "failed")
@@ -12050,7 +12156,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 160)
+        self.assertEqual(result["schemas_checked"], 166)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13556,6 +13662,216 @@ class ProviderDryRunPolicyTests(unittest.TestCase):
             self.assertFalse(mock_result["provider_mock_evidence_report"]["provider_backed"])
             self.assertIn("real_provider_execution_not_enabled", dry_run["provider_dry_run_plan"]["blockers"])
             self.assertFalse(dry_run["provider_real_execution_blockers"]["provider_backed_quality_supported"])
+
+
+class ProviderConsentAuthorizationTests(unittest.TestCase):
+    def _state(self, root: Path, *, privacy: str = "external_allowed") -> tuple[Path, dict[str, Any]]:
+        state = ProviderDryRunPolicyTests()._state_with_provider_policy(root, privacy=privacy)
+        credential = read_json(state / PROVIDER_CREDENTIAL_POLICY_REPORT_JSON)
+        credential["status"] = "present"
+        for item in credential.get("credential_sources", []):
+            item["present"] = True
+        write_json(state / PROVIDER_CREDENTIAL_POLICY_REPORT_JSON, credential)
+        safety = read_json(state / PROVIDER_EXECUTION_SAFETY_DECISION_JSON)
+        safety["status"] = "ready_for_future_execution"
+        safety["ready_for_future_real_provider_execution"] = True
+        safety["blockers"] = []
+        safety["credential_status"] = "present"
+        write_json(state / PROVIDER_EXECUTION_SAFETY_DECISION_JSON, safety)
+        handoff = read_json(state / PROVIDER_HANDOFF_REQUEST_JSON)
+        handoff["provider_profile_id"] = "example-production"
+        handoff.setdefault("scope", {})["source_locale"] = "en-US"
+        write_json(state / PROVIDER_HANDOFF_REQUEST_JSON, handoff)
+        build_provider_dry_run_artifacts(state, run_id="provider-dry-run-001")
+        expected = build_provider_consent_scope_diff(state)["expected_scope"]
+        self.assertTrue(all(expected.get(field) for field in (
+            "run_id", "provider_id", "provider_profile", "model_name", "source_locale",
+            "target_locale", "source_hash", "handoff_hash", "batch_ids",
+        )))
+        return state, expected
+
+    @staticmethod
+    def _action(scope: dict[str, Any], action: str = "grant", **overrides: Any) -> dict[str, Any]:
+        return {
+            "action": action,
+            "actor_role": "project_owner",
+            "actor_reference": "owner@example.test",
+            "consent_scope": scope,
+            "expires_at": "2099-01-01T00:00:00Z" if action == "grant" else "",
+            **overrides,
+        }
+
+    def test_default_is_blocked_and_credentials_do_not_grant_permission(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, _ = self._state(Path(directory))
+            artifacts = build_provider_consent_artifacts(state)
+            resolution = artifacts["provider_consent_resolution_report"]
+            decision = artifacts["provider_execution_authorization_decision"]
+            gate = artifacts["provider_execution_preflight_gate"]
+
+            self.assertEqual(resolution["status"], "pending")
+            self.assertEqual(decision["status"], "blocked")
+            self.assertFalse(gate["execution_allowed"])
+            self.assertFalse(decision["credential_presence_grants_permission"])
+            self.assertIn("provider_consent_action_missing", gate["blockers"])
+            self.assertIn("provider_backed_quality", gate["forbidden_claims"])
+
+    def test_exact_grant_authorizes_execution_but_not_quality_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, scope = self._state(Path(directory))
+            action = record_provider_consent_action(state, self._action(scope))
+            resolution = read_json(state / PROVIDER_CONSENT_RESOLUTION_REPORT_JSON)
+            decision = read_json(state / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON)
+            gate = read_json(state / PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON)
+            audit = read_jsonl(state / PROVIDER_CONSENT_AUDIT_LOG_JSONL)
+
+            assert_protocol_schema(self, "provider-consent-action", action)
+            assert_protocol_schema(self, "provider-consent-resolution-report", resolution)
+            assert_protocol_schema(self, "provider-execution-authorization-decision", decision)
+            assert_protocol_schema(self, "provider-consent-scope-diff", read_json(state / PROVIDER_CONSENT_SCOPE_DIFF_JSON))
+            assert_protocol_schema(self, "provider-execution-preflight-gate", gate)
+            assert_protocol_schema(self, "provider-consent-audit-record", audit[0])
+            self.assertEqual((resolution["status"], decision["status"], gate["status"]), ("granted", "authorized", "authorized"))
+            self.assertTrue(gate["execution_allowed"])
+            self.assertFalse(decision["provider_backed_quality_supported"])
+            self.assertIn("provider_backed_quality", decision["forbidden_claims"])
+
+    def test_deny_revoke_expire_and_dry_run_only_actions_fail_closed(self) -> None:
+        for action_name, expected in (
+            ("deny", "blocked"),
+            ("revoke", "revoked"),
+            ("expire", "expired"),
+            ("confirm_dry_run_only", "dry_run_only"),
+        ):
+            with self.subTest(action=action_name), tempfile.TemporaryDirectory() as directory:
+                state, scope = self._state(Path(directory))
+                record_provider_consent_action(state, self._action(scope, action_name))
+                decision = read_json(state / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON)
+                self.assertEqual(decision["status"], expected)
+                self.assertFalse(read_json(state / PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON)["execution_allowed"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            state, scope = self._state(Path(directory))
+            record_provider_consent_action(state, self._action(scope, expires_at="2000-01-01T00:00:00Z"))
+            self.assertEqual(read_json(state / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON)["status"], "expired")
+
+    def test_stale_hash_and_scope_mismatches_block(self) -> None:
+        cases = {
+            "run_id": ("other-run", "scope_mismatch"),
+            "provider_id": ("other-provider", "scope_mismatch"),
+            "source_hash": ("old-source", "stale"),
+            "handoff_hash": ("old-handoff", "stale"),
+            "provider_profile": ("other-profile", "scope_mismatch"),
+            "model_name": ("other-model", "scope_mismatch"),
+            "target_locale": ("fr-FR", "scope_mismatch"),
+            "batch_ids": (["other-batch"], "scope_mismatch"),
+        }
+        for field, (value, expected) in cases.items():
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                state, scope = self._state(Path(directory))
+                mismatched = {**scope, field: value}
+                record_provider_consent_action(state, self._action(mismatched))
+                diff = read_json(state / PROVIDER_CONSENT_SCOPE_DIFF_JSON)
+                decision = read_json(state / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON)
+                self.assertEqual(diff["status"], expected)
+                self.assertEqual(decision["status"], expected)
+                self.assertFalse(decision["execution_authorized"])
+
+    def test_privacy_redaction_and_network_evidence_block_authorization(self) -> None:
+        mutations = (
+            (PROVIDER_DATA_DISCLOSURE_REPORT_JSON, {"status": "blocked", "privacy_policy": "restricted"}, "provider_privacy_policy_not_compatible"),
+            (PROVIDER_REDACTION_AUDIT_JSON, {"status": "failed"}, "provider_redaction_not_clear"),
+            (PROVIDER_NETWORK_BOUNDARY_REPORT_JSON, {"status": "blocked"}, "provider_network_not_explicitly_enabled"),
+        )
+        for artifact, update, blocker in mutations:
+            with self.subTest(artifact=artifact), tempfile.TemporaryDirectory() as directory:
+                state, scope = self._state(Path(directory))
+                record_provider_consent_action(state, self._action(scope))
+                content = read_json(state / artifact)
+                content.update(update)
+                write_json(state / artifact, content)
+                decision = build_provider_execution_authorization_decision(state)
+                self.assertFalse(decision["execution_authorized"])
+                self.assertIn(blocker, decision["blockers"])
+
+    def test_legacy_provider_paths_cannot_bypass_preflight_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+            state, _ = self._state(Path(directory))
+            result = generate_handoff_with_http_provider(
+                {"run_id": "provider-dry-run-001", "batches": []},
+                "https://provider.example/generate",
+                allow_real_provider_network=True,
+                state_dir=state,
+            )
+            self.assertEqual(result["status"], "fail")
+            self.assertIn("authorization", result["items"][0]["category"])
+            post.assert_not_called()
+
+            legacy_handoff = state / "legacy-handoff.json"
+            write_json(legacy_handoff, {"run_id": "provider-dry-run-001", "batches": []})
+            self.assertEqual(
+                cli_main([
+                    "provider-generate",
+                    legacy_handoff.as_posix(),
+                    "--provider-url",
+                    "https://provider.example/generate",
+                    "--state-dir",
+                    state.as_posix(),
+                ]),
+                1,
+            )
+
+            segments = state / "segments-input.jsonl"
+            generated = state / "generated-output.jsonl"
+            write_jsonl(segments, [{"segment_id": "s1", "source": "Hello", "constraints": {}}])
+            deepseek = generate_deepseek_batch_file(segments, generated, "zh-CN", state_dir=state)
+            self.assertEqual(deepseek["status"], "fail")
+            self.assertFalse(generated.exists())
+
+    def test_cli_api_and_artifact_state_are_provider_free_and_stale_aware(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, scope = self._state(Path(directory))
+            action_input = state / "consent-action-input.json"
+            write_json(action_input, self._action(scope))
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                self.assertEqual(cli_main(["provider-consent-action", state.as_posix(), "--input", action_input.as_posix()]), 0)
+                self.assertEqual(cli_main(["provider-execution-preflight-gate", state.as_posix()]), 0)
+                self.assertEqual(len(read_jsonl(state / PROVIDER_CONSENT_ACTIONS_JSONL)), 1)
+
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    deny = self._action(scope, "deny")
+                    post_status, post_body = _http_post_json(host, port, "/api/provider-consent-action", {"state_dir": state.as_posix(), "action": deny})
+                    paths = (
+                        "provider-consent-actions",
+                        "provider-consent-resolution-report",
+                        "provider-execution-authorization-decision",
+                        "provider-consent-scope-diff",
+                        "provider-execution-preflight-gate",
+                        "provider-consent-audit-log",
+                    )
+                    statuses = [_http_get(host, port, f"/api/{path}?state_dir={state.as_posix()}")[0] for path in paths]
+                    self.assertEqual(post_status, 200)
+                    self.assertEqual(statuses, [200] * len(paths))
+                    self.assertFalse(post_body["provider_or_model_called"])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+                post.assert_not_called()
+
+            first = build_artifact_state(state)
+            self.assertTrue(any(item["artifact_id"] == "provider_execution_preflight_gate" for item in first["artifacts"]))
+            handoff = read_json(state / PROVIDER_HANDOFF_REQUEST_JSON)
+            handoff["scope"]["target_locale"] = "fr-FR"
+            write_json(state / PROVIDER_HANDOFF_REQUEST_JSON, handoff)
+            second = build_artifact_state(state)
+            tracked = {item["artifact_id"]: item for item in second["artifacts"]}
+            self.assertIn("provider_execution_preflight_gate", tracked)
+            self.assertIn(tracked["provider_execution_preflight_gate"]["status"], {"stale", "blocked"})
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):
