@@ -345,8 +345,7 @@ def provider_result_staging_blocker(state_dir: Path | None, generated_segments: 
 def _provider_linked(segment: dict[str, Any]) -> bool:
     generation = segment.get("generation") if isinstance(segment.get("generation"), dict) else {}
     source = str(segment.get("result_source") or segment.get("generation_source") or generation.get("result_source") or "")
-    provider = str(generation.get("provider") or "")
-    return bool(_provider_result_id(segment) or source in {"real_provider", "external_provider_result", "external_model_result", "mock", "dry_run"} or provider not in {"", "host_agent", "synthetic", "local"})
+    return bool(_provider_result_id(segment) or source in {"real_provider", "external_provider_result", "external_model_result", "mock", "dry_run"})
 
 
 def _provider_result_id(segment: dict[str, Any]) -> str:
