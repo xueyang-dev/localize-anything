@@ -353,13 +353,20 @@ from runtime.localize_anything.provider_staging import (
 )
 from runtime.localize_anything.provider_real_smoke import (
     PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
+    PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
+    PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON,
+    PROVIDER_REAL_SMOKE_EVIDENCE_REVIEW_JSON,
     PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON,
+    PROVIDER_REAL_SMOKE_EXPANSION_DECISION_JSON,
     PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON,
+    PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON,
     PROVIDER_REAL_SMOKE_NON_CLAIMS_MD,
     PROVIDER_REAL_SMOKE_PLAN_JSON,
     PROVIDER_REAL_SMOKE_RUNBOOK_MD,
     PROVIDER_REAL_SMOKE_SAFETY_CHECKLIST_JSON,
     build_provider_real_smoke_artifacts,
+    build_provider_real_smoke_claim_review,
+    build_provider_real_smoke_review_artifacts,
 )
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
@@ -12175,7 +12182,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 177)
+        self.assertEqual(result["schemas_checked"], 182)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -14084,6 +14091,96 @@ class ProviderRealSmokeProtocolTests(unittest.TestCase):
             write_json(state / "provider-execution-policy.json", policy)
             tracked = {item["artifact_id"]: item for item in build_artifact_state(state)["artifacts"]}
             self.assertEqual(tracked["provider_real_smoke_plan"]["status"], "stale")
+
+
+class ProviderRealSmokeEvidenceReviewTests(unittest.TestCase):
+    def test_missing_execution_evidence_stays_incomplete_and_does_not_expand(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_real_smoke_artifacts(state)
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                artifacts = build_provider_real_smoke_review_artifacts(state)
+
+            for name, artifact in (
+                ("provider-real-smoke-evidence-review", artifacts["provider_real_smoke_evidence_review"]),
+                ("provider-real-smoke-ledger-audit", artifacts["provider_real_smoke_ledger_audit"]),
+                ("provider-real-smoke-admission-audit", artifacts["provider_real_smoke_admission_audit"]),
+                ("provider-real-smoke-claim-review", artifacts["provider_real_smoke_claim_review"]),
+                ("provider-real-smoke-expansion-decision", artifacts["provider_real_smoke_expansion_decision"]),
+            ):
+                assert_protocol_schema(self, name, artifact)
+            self.assertEqual(artifacts["provider_real_smoke_evidence_review"]["status"], "incomplete")
+            self.assertEqual(artifacts["provider_real_smoke_expansion_decision"]["status"], "do_not_expand")
+            self.assertFalse(artifacts["provider_real_smoke_expansion_decision"]["provider_scope_expansion_authorized"])
+            post.assert_not_called()
+
+    def test_real_provider_intake_mislabeled_as_external_import_is_audited_not_rewritten(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_real_smoke_artifacts(state)
+            write_json(state / "provider-real-smoke-evidence.json", {"status": "completed", "fixture_id": "quickstart-json-provider-smoke-v1"})
+            write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, [{
+                "attempt_id": "attempt-real-1", "result_id": "result-real-1", "attempt_type": "external_result_import",
+                "result_state": "success", "authorization_status": "authorized", "preflight_status": "authorized",
+                "provenance": {"result_source": "real_provider"},
+            }])
+            write_jsonl(state / "provider-result-intake.jsonl", [{"result_id": "result-real-1", "result_source": "real_provider"}])
+            write_json(state / "provider-evidence-reconciliation.json", {"status": "clear"})
+            write_json(state / "provider-result-qa-report.json", {"status": "passed"})
+            write_json(state / "provider-result-acceptance-decision.json", {"status": "accepted_with_limitations"})
+            write_json(state / PROVIDER_RESULT_STAGING_ADMISSION_JSON, {"status": "admitted", "items": [{"result_id": "result-real-1", "decision": "admitted", "admitted": True, "blockers": []}]})
+            write_json(state / "provider-claim-support-report.json", {"supported_claims": [{"claim": "provider_execution_complete"}], "forbidden_claims": ["provider_backed_quality"]})
+            write_json(state / "provider-staging-claim-boundary.json", {"forbidden_claims": ["provider_backed_quality"]})
+
+            artifacts = build_provider_real_smoke_review_artifacts(state)
+            ledger = artifacts["provider_real_smoke_ledger_audit"]
+            admission = artifacts["provider_real_smoke_admission_audit"]
+
+            self.assertEqual(ledger["status"], "semantic_mismatch")
+            self.assertIn("real_provider_execution_mislabeled_as_external_import", ledger["items"][0]["issues"])
+            self.assertEqual(read_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)[0]["attempt_type"], "external_result_import")
+            self.assertEqual(admission["status"], "review_required")
+            self.assertEqual(artifacts["provider_real_smoke_expansion_decision"]["status"], "do_not_expand")
+
+    def test_smoke_claim_review_rejects_quality_claim_support(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            write_json(state / "provider-claim-support-report.json", {"supported_claims": [{"claim": "provider_backed_quality"}], "forbidden_claims": []})
+            report = build_provider_real_smoke_claim_review(state)
+            self.assertEqual(report["status"], "claim_conflict")
+            self.assertIn("provider_backed_quality", report["unsafe_supported_claims"])
+            self.assertIn("provider_backed_quality", report["forbidden_claims"])
+            self.assertFalse(report["smoke_success_supports_provider_backed_quality"])
+
+    def test_cli_api_and_artifact_state_are_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_real_smoke_artifacts(state)
+            build_provider_real_smoke_review_artifacts(state)
+            commands = (
+                "provider-real-smoke-evidence-review", "provider-real-smoke-ledger-audit",
+                "provider-real-smoke-admission-audit", "provider-real-smoke-claim-review",
+                "provider-real-smoke-expansion-decision",
+            )
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                self.assertEqual([cli_main([command, state.as_posix()]) for command in commands], [0] * len(commands))
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    self.assertEqual([_http_get(host, port, f"/api/{command}?state_dir={state.as_posix()}")[0] for command in commands], [200] * len(commands))
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+                post.assert_not_called()
+            ids = {item["artifact_id"] for item in build_artifact_state(state)["artifacts"]}
+            self.assertTrue({
+                "provider_real_smoke_evidence_review", "provider_real_smoke_ledger_audit",
+                "provider_real_smoke_admission_audit", "provider_real_smoke_claim_review",
+                "provider_real_smoke_expansion_decision",
+            }.issubset(ids))
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):

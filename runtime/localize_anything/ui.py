@@ -537,6 +537,11 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     ("/api/provider-real-smoke-acceptance-criteria", "provider_real_smoke_acceptance_criteria"),
                     ("/api/provider-real-smoke-evidence-template", "provider_real_smoke_evidence_template"),
                     ("/api/provider-real-smoke-safety-checklist", "provider_real_smoke_safety_checklist"),
+                    ("/api/provider-real-smoke-evidence-review", "provider_real_smoke_evidence_review"),
+                    ("/api/provider-real-smoke-ledger-audit", "provider_real_smoke_ledger_audit"),
+                    ("/api/provider-real-smoke-admission-audit", "provider_real_smoke_admission_audit"),
+                    ("/api/provider-real-smoke-claim-review", "provider_real_smoke_claim_review"),
+                    ("/api/provider-real-smoke-expansion-decision", "provider_real_smoke_expansion_decision"),
                 ):
                     if parsed.path == endpoint:
                         self._handle_workflow_artifact_query(parsed.query, artifact_name, lambda state_dir, name=artifact_name: read_provider_real_smoke_artifact(state_dir, name))

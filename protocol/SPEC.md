@@ -2170,3 +2170,21 @@ explicit, outside CI, and not implemented by this seed. Raw provider responses
 are local-only by default. A successful smoke proves only path execution and
 does not support provider-backed quality, locale-complete, production-ready,
 or full-product-localization claims.
+
+## Provider smoke evidence review
+
+Post-smoke evidence review uses five deterministic JSON artifacts:
+
+- `provider-real-smoke-evidence-review.json` checks the sanitized evidence
+  chain and reports missing or raw-local-only inputs;
+- `provider-real-smoke-ledger-audit.json` reports attempt-type semantic
+  mismatches without rewriting the ledger;
+- `provider-real-smoke-admission-audit.json` checks admission consistency
+  against the ledger audit;
+- `provider-real-smoke-claim-review.json` preserves smoke non-claims;
+- `provider-real-smoke-expansion-decision.json` blocks expansion until every
+  audit is consistent and a separate human scope decision occurs.
+
+Matching CLI commands and GET APIs use the artifact filenames as command and
+endpoint names. They read sanitized metadata only, call no provider, authorize
+no new execution, and mutate no target project files.

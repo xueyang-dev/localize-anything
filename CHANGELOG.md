@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add Provider Smoke Evidence Review / Attempt Ledger Semantics Audit seed
+  with five provider-free review artifacts for sanitized evidence completeness,
+  real-execution versus external-import ledger semantics, staging-admission
+  consistency, smoke non-claims, and fail-closed scope expansion. The audit
+  reports inconsistencies without rewriting attempt history or authorizing a
+  new provider call.
 - Add Controlled Real Provider Smoke Run Protocol / No-Execution Fixture seed
   with a two-segment public quickstart fixture selection, manual-local runbook,
   acceptance criteria, evidence template, safety checklist, non-claims, and

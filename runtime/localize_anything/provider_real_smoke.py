@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTOCOL_VERSION
-from .io_utils import read_json, sha256_file, write_json
+from .io_utils import read_json, read_jsonl, sha256_file, write_json
 
 
 PROVIDER_REAL_SMOKE_PLAN_JSON = "provider-real-smoke-plan.json"
@@ -14,6 +14,11 @@ PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON = "provider-real-smoke-acceptance-c
 PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON = "provider-real-smoke-evidence-template.json"
 PROVIDER_REAL_SMOKE_SAFETY_CHECKLIST_JSON = "provider-real-smoke-safety-checklist.json"
 PROVIDER_REAL_SMOKE_NON_CLAIMS_MD = "provider-real-smoke-non-claims.md"
+PROVIDER_REAL_SMOKE_EVIDENCE_REVIEW_JSON = "provider-real-smoke-evidence-review.json"
+PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON = "provider-real-smoke-ledger-audit.json"
+PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON = "provider-real-smoke-admission-audit.json"
+PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON = "provider-real-smoke-claim-review.json"
+PROVIDER_REAL_SMOKE_EXPANSION_DECISION_JSON = "provider-real-smoke-expansion-decision.json"
 
 PROVIDER_REAL_SMOKE_ASSETS = {
     "provider_real_smoke_plan": PROVIDER_REAL_SMOKE_PLAN_JSON,
@@ -23,6 +28,11 @@ PROVIDER_REAL_SMOKE_ASSETS = {
     "provider_real_smoke_evidence_template": PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON,
     "provider_real_smoke_safety_checklist": PROVIDER_REAL_SMOKE_SAFETY_CHECKLIST_JSON,
     "provider_real_smoke_non_claims": PROVIDER_REAL_SMOKE_NON_CLAIMS_MD,
+    "provider_real_smoke_evidence_review": PROVIDER_REAL_SMOKE_EVIDENCE_REVIEW_JSON,
+    "provider_real_smoke_ledger_audit": PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON,
+    "provider_real_smoke_admission_audit": PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
+    "provider_real_smoke_claim_review": PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON,
+    "provider_real_smoke_expansion_decision": PROVIDER_REAL_SMOKE_EXPANSION_DECISION_JSON,
 }
 
 FORBIDDEN_CLAIMS = [
@@ -55,6 +65,13 @@ EVIDENCE_CHAIN = [
     "readiness-authorization-matrix.json",
     "release-readiness-audit.json",
 ]
+
+_RAW_LOCAL_ONLY = {
+    ".env",
+    "provider-network-log.txt",
+    "raw-provider-request.json",
+    "raw-provider-response.json",
+}
 
 
 def build_provider_real_smoke_fixture_manifest(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
@@ -261,6 +278,244 @@ def build_provider_real_smoke_artifacts(state_dir: Path, *, run_id: str | None =
     return {"provider_real_smoke_plan": plan, "provider_real_smoke_fixture_manifest": fixture, "provider_real_smoke_acceptance_criteria": criteria, "provider_real_smoke_evidence_template": evidence, "provider_real_smoke_safety_checklist": checklist, "provider_or_model_called": False}
 
 
+def build_provider_real_smoke_evidence_review(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    fixture = _optional_json(state_dir / PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON)
+    evidence = _optional_json(state_dir / "provider-real-smoke-evidence.json")
+    evidence_source = "provider-real-smoke-evidence.json"
+    if not evidence:
+        evidence = _optional_json(state_dir / PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON)
+        evidence_source = PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON
+    chain = {
+        "attempt_count": len(_optional_jsonl(state_dir / "provider-execution-attempt-ledger.jsonl")),
+        "intake_count": len(_optional_jsonl(state_dir / "provider-result-intake.jsonl")),
+        "reconciliation_status": _status(state_dir / "provider-evidence-reconciliation.json"),
+        "qa_status": _status(state_dir / "provider-result-qa-report.json"),
+        "acceptance_status": _status(state_dir / "provider-result-acceptance-decision.json"),
+        "admission_status": _status(state_dir / "provider-result-staging-admission.json"),
+    }
+    raw_paths = sorted(name for name in _RAW_LOCAL_ONLY if (state_dir / name).exists())
+    blockers = []
+    if fixture.get("status") != "public_safe" or fixture.get("safe_to_disclose") is not True:
+        blockers.append("fixture_not_public_safe")
+    if not evidence or evidence.get("status") in {None, "", "unexecuted_template"}:
+        blockers.append("sanitized_smoke_evidence_missing")
+    if raw_paths:
+        blockers.append("raw_local_only_artifact_present_in_review_directory")
+    if chain["attempt_count"] == 0:
+        blockers.append("attempt_ledger_missing")
+    if chain["intake_count"] == 0:
+        blockers.append("result_intake_missing")
+    for field in ("reconciliation_status", "qa_status", "acceptance_status", "admission_status"):
+        if chain[field] in {"missing", "blocked", "failed", "not_run", "not_applicable"}:
+            blockers.append(f"{field}_not_clear")
+    status = "blocked" if raw_paths else "incomplete" if blockers else "complete"
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-provider-real-smoke-evidence-review-v1",
+        "artifact": PROVIDER_REAL_SMOKE_EVIDENCE_REVIEW_JSON,
+        "status": status,
+        "fixture_id": str(fixture.get("fixture_id") or evidence.get("fixture_id") or ""),
+        "evidence_source": evidence_source if evidence else "missing",
+        "evidence_status": str(evidence.get("status") or "missing"),
+        "evidence_chain": chain,
+        "raw_local_only_paths_detected": raw_paths,
+        "sanitized_evidence_only": not raw_paths,
+        "blockers": sorted(set(blockers)),
+        "forbidden_claims": FORBIDDEN_CLAIMS,
+        "provider_or_model_called_by_runtime": False,
+        "target_files_mutated": False,
+        "source_artifact_references": _existing_names(state_dir, evidence_source, PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON, *EVIDENCE_CHAIN),
+    }
+    if write:
+        write_json(state_dir / PROVIDER_REAL_SMOKE_EVIDENCE_REVIEW_JSON, report)
+    return report
+
+
+def build_provider_real_smoke_ledger_audit(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    ledger = _optional_jsonl(state_dir / "provider-execution-attempt-ledger.jsonl")
+    intake = {str(item.get("result_id") or ""): item for item in _optional_jsonl(state_dir / "provider-result-intake.jsonl")}
+    items = []
+    for attempt in ledger:
+        result_id = str(attempt.get("result_id") or "")
+        record = intake.get(result_id, {})
+        provenance = attempt.get("provenance") if isinstance(attempt.get("provenance"), dict) else {}
+        source = str(record.get("result_source") or provenance.get("result_source") or "")
+        attempt_type = str(attempt.get("attempt_type") or "")
+        issues = []
+        expected = _expected_attempt_semantics(source)
+        if expected and attempt_type != expected:
+            issues.append(f"attempt_type_{attempt_type or 'missing'}_does_not_match_{expected}")
+        if source == "real_provider" and attempt_type == "external_result_import":
+            issues.append("real_provider_execution_mislabeled_as_external_import")
+        if attempt.get("result_state") == "success" and not result_id:
+            issues.append("success_attempt_missing_result_id")
+        if source == "real_provider" and (
+            attempt.get("authorization_status") != "authorized" or attempt.get("preflight_status") != "authorized"
+        ):
+            issues.append("real_provider_attempt_not_bound_to_authorized_preflight")
+        items.append({
+            "attempt_id": str(attempt.get("attempt_id") or ""),
+            "result_id": result_id,
+            "result_source": source or "unknown",
+            "recorded_attempt_type": attempt_type or "missing",
+            "expected_semantic_type": expected or "unknown",
+            "status": "semantic_mismatch" if issues else "consistent",
+            "issues": sorted(set(issues)),
+        })
+    mismatches = [item for item in items if item["issues"]]
+    status = "not_run" if not items else "semantic_mismatch" if mismatches else "consistent"
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-provider-real-smoke-ledger-audit-v1",
+        "artifact": PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON,
+        "status": status,
+        "items": items,
+        "summary": {"attempt_count": len(items), "semantic_mismatch_count": len(mismatches)},
+        "ledger_is_execution_evidence_not_quality_evidence": True,
+        "provider_or_model_called_by_runtime": False,
+        "source_artifact_references": _existing_names(state_dir, "provider-execution-attempt-ledger.jsonl", "provider-result-intake.jsonl"),
+    }
+    if write:
+        write_json(state_dir / PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON, report)
+    return report
+
+
+def build_provider_real_smoke_admission_audit(
+    state_dir: Path,
+    ledger_audit: dict[str, Any] | None = None,
+    *,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    ledger_audit = ledger_audit or build_provider_real_smoke_ledger_audit(state_dir, write=write)
+    admission = _optional_json(state_dir / "provider-result-staging-admission.json")
+    mismatched = {str(item.get("result_id") or "") for item in ledger_audit.get("items", []) if item.get("issues")}
+    items = []
+    for item in admission.get("items", []):
+        result_id = str(item.get("result_id") or "")
+        issues = []
+        if item.get("admitted") and result_id in mismatched:
+            issues.append("admitted_result_has_ambiguous_attempt_semantics")
+        if item.get("admitted") and item.get("blockers"):
+            issues.append("admitted_result_retains_blockers")
+        if not item.get("admitted") and item.get("decision") == "admitted":
+            issues.append("admission_flag_and_decision_disagree")
+        items.append({
+            "result_id": result_id,
+            "recorded_decision": str(item.get("decision") or "missing"),
+            "admitted": bool(item.get("admitted")),
+            "status": "review_required" if issues else "consistent",
+            "issues": issues,
+        })
+    issues = [issue for item in items for issue in item["issues"]]
+    status = "not_run" if not admission else "review_required" if issues else "consistent"
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-provider-real-smoke-admission-audit-v1",
+        "artifact": PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
+        "status": status,
+        "items": items,
+        "summary": {"result_count": len(items), "review_required_count": sum(bool(item["issues"]) for item in items)},
+        "staging_admission_does_not_imply_provider_backed_quality": True,
+        "provider_or_model_called_by_runtime": False,
+        "source_artifact_references": _existing_names(state_dir, "provider-result-staging-admission.json", PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON),
+    }
+    if write:
+        write_json(state_dir / PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON, report)
+    return report
+
+
+def build_provider_real_smoke_claim_review(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    claim_support = _optional_json(state_dir / "provider-claim-support-report.json")
+    staging_boundary = _optional_json(state_dir / "provider-staging-claim-boundary.json")
+    supported = {
+        str(item.get("claim") or "")
+        for item in claim_support.get("supported_claims", [])
+        if isinstance(item, dict)
+    }
+    unsafe_supported = sorted(supported.intersection(FORBIDDEN_CLAIMS))
+    forbidden = sorted(set(FORBIDDEN_CLAIMS).union(claim_support.get("forbidden_claims", [])).union(staging_boundary.get("forbidden_claims", [])))
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-provider-real-smoke-claim-review-v1",
+        "artifact": PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON,
+        "status": "claim_conflict" if unsafe_supported else "non_claims_preserved",
+        "supported_claims_reviewed": sorted(supported),
+        "unsafe_supported_claims": unsafe_supported,
+        "forbidden_claims": forbidden,
+        "smoke_success_supports_provider_backed_quality": False,
+        "limited_scope_becomes_global_readiness": False,
+        "provider_or_model_called_by_runtime": False,
+        "source_artifact_references": _existing_names(state_dir, "provider-claim-support-report.json", "provider-staging-claim-boundary.json", PROVIDER_REAL_SMOKE_NON_CLAIMS_MD),
+    }
+    if write:
+        write_json(state_dir / PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON, report)
+    return report
+
+
+def build_provider_real_smoke_expansion_decision(
+    state_dir: Path,
+    evidence_review: dict[str, Any] | None = None,
+    ledger_audit: dict[str, Any] | None = None,
+    admission_audit: dict[str, Any] | None = None,
+    claim_review: dict[str, Any] | None = None,
+    *,
+    write: bool = True,
+) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    evidence_review = evidence_review or build_provider_real_smoke_evidence_review(state_dir, write=write)
+    ledger_audit = ledger_audit or build_provider_real_smoke_ledger_audit(state_dir, write=write)
+    admission_audit = admission_audit or build_provider_real_smoke_admission_audit(state_dir, ledger_audit, write=write)
+    claim_review = claim_review or build_provider_real_smoke_claim_review(state_dir, write=write)
+    blockers = []
+    if evidence_review.get("status") != "complete":
+        blockers.append("smoke_evidence_review_not_complete")
+    if ledger_audit.get("status") != "consistent":
+        blockers.append("attempt_ledger_semantics_not_consistent")
+    if admission_audit.get("status") != "consistent":
+        blockers.append("staging_admission_audit_not_consistent")
+    if claim_review.get("status") != "non_claims_preserved":
+        blockers.append("smoke_claim_boundary_conflict")
+    decision = "review_before_expansion" if not blockers else "do_not_expand"
+    report = {
+        "protocol_version": PROTOCOL_VERSION,
+        "schema": "localize-anything-provider-real-smoke-expansion-decision-v1",
+        "artifact": PROVIDER_REAL_SMOKE_EXPANSION_DECISION_JSON,
+        "status": decision,
+        "provider_scope_expansion_authorized": False,
+        "new_provider_execution_authorized": False,
+        "blockers": blockers,
+        "required_follow_up": ["explicit human scope decision is required before any new provider run"] if not blockers else ["resolve all smoke evidence audit blockers before considering another run"],
+        "forbidden_claims": claim_review.get("forbidden_claims", FORBIDDEN_CLAIMS),
+        "provider_or_model_called_by_runtime": False,
+        "target_files_mutated": False,
+        "source_artifact_references": [PROVIDER_REAL_SMOKE_EVIDENCE_REVIEW_JSON, PROVIDER_REAL_SMOKE_LEDGER_AUDIT_JSON, PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON, PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON],
+    }
+    if write:
+        write_json(state_dir / PROVIDER_REAL_SMOKE_EXPANSION_DECISION_JSON, report)
+    return report
+
+
+def build_provider_real_smoke_review_artifacts(state_dir: Path) -> dict[str, Any]:
+    state_dir = state_dir.resolve()
+    evidence = build_provider_real_smoke_evidence_review(state_dir)
+    ledger = build_provider_real_smoke_ledger_audit(state_dir)
+    admission = build_provider_real_smoke_admission_audit(state_dir, ledger)
+    claims = build_provider_real_smoke_claim_review(state_dir)
+    expansion = build_provider_real_smoke_expansion_decision(state_dir, evidence, ledger, admission, claims)
+    return {
+        "provider_real_smoke_evidence_review": evidence,
+        "provider_real_smoke_ledger_audit": ledger,
+        "provider_real_smoke_admission_audit": admission,
+        "provider_real_smoke_claim_review": claims,
+        "provider_real_smoke_expansion_decision": expansion,
+        "provider_or_model_called_by_runtime": False,
+    }
+
+
 def read_provider_real_smoke_artifact(state_dir: Path, name: str) -> dict[str, Any]:
     filename = PROVIDER_REAL_SMOKE_ASSETS.get(name)
     if not filename or not filename.endswith(".json"):
@@ -274,6 +529,29 @@ def provider_real_smoke_asset_paths(state_dir: Path) -> dict[str, str]:
 
 def _optional_json(path: Path) -> dict[str, Any]:
     return read_json(path) if path.is_file() else {}
+
+
+def _optional_jsonl(path: Path) -> list[dict[str, Any]]:
+    return read_jsonl(path) if path.is_file() else []
+
+
+def _status(path: Path) -> str:
+    return str(_optional_json(path).get("status") or "missing")
+
+
+def _existing_names(state_dir: Path, *names: str) -> list[str]:
+    return [name for name in names if name and (state_dir / name).is_file()]
+
+
+def _expected_attempt_semantics(source: str) -> str:
+    return {
+        "real_provider": "real_provider_execution",
+        "external_provider_result": "external_result_import",
+        "mock": "mock_execution",
+        "synthetic": "mock_execution",
+        "dry_run": "dry_run_only",
+        "skipped": "skipped",
+    }.get(source, "")
 
 
 def _required_json(path: Path) -> dict[str, Any]:

@@ -231,9 +231,14 @@ from .provider_staging import (
     record_provider_execution_attempt,
 )
 from .provider_real_smoke import (
+    build_provider_real_smoke_admission_audit,
     build_provider_real_smoke_acceptance_criteria,
     build_provider_real_smoke_artifacts,
+    build_provider_real_smoke_claim_review,
+    build_provider_real_smoke_evidence_review,
+    build_provider_real_smoke_expansion_decision,
     build_provider_real_smoke_fixture_manifest,
+    build_provider_real_smoke_ledger_audit,
     build_provider_real_smoke_safety_checklist,
 )
 from .locale_capability import (
@@ -1035,6 +1040,11 @@ def build_parser() -> argparse.ArgumentParser:
         ("provider-real-smoke-fixture-manifest", "Create the public-safe real-smoke fixture manifest"),
         ("provider-real-smoke-acceptance-criteria", "Create provider real-smoke acceptance criteria"),
         ("provider-real-smoke-safety-checklist", "Create the manual real-smoke safety checklist"),
+        ("provider-real-smoke-evidence-review", "Review sanitized provider smoke evidence"),
+        ("provider-real-smoke-ledger-audit", "Audit provider smoke attempt-ledger semantics"),
+        ("provider-real-smoke-admission-audit", "Audit provider smoke staging admission"),
+        ("provider-real-smoke-claim-review", "Review provider smoke claim boundaries"),
+        ("provider-real-smoke-expansion-decision", "Create the fail-closed provider smoke expansion decision"),
     ):
         command_parser = subparsers.add_parser(command, help=help_text)
         command_parser.add_argument("state_dir", type=Path)
@@ -2614,6 +2624,16 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_provider_real_smoke_acceptance_criteria(args.state_dir), args.output)
         if args.command == "provider-real-smoke-safety-checklist":
             return _emit_json(build_provider_real_smoke_safety_checklist(args.state_dir), args.output)
+        if args.command == "provider-real-smoke-evidence-review":
+            return _emit_json(build_provider_real_smoke_evidence_review(args.state_dir), args.output)
+        if args.command == "provider-real-smoke-ledger-audit":
+            return _emit_json(build_provider_real_smoke_ledger_audit(args.state_dir), args.output)
+        if args.command == "provider-real-smoke-admission-audit":
+            return _emit_json(build_provider_real_smoke_admission_audit(args.state_dir), args.output)
+        if args.command == "provider-real-smoke-claim-review":
+            return _emit_json(build_provider_real_smoke_claim_review(args.state_dir), args.output)
+        if args.command == "provider-real-smoke-expansion-decision":
+            return _emit_json(build_provider_real_smoke_expansion_decision(args.state_dir), args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
             return _emit_json(result, args.output)
