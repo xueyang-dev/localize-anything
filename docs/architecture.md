@@ -1906,3 +1906,22 @@ incomplete. Fail means safety, authorization, execution, provenance, QA, or
 quarantine policy failed. Even pass proves provider-path execution only;
 provider-backed quality, locale completeness, production readiness, and full
 product localization remain non-claims without separate evidence.
+
+## Provider Smoke Evidence Review / Attempt Ledger Semantics Audit
+
+Five deterministic review artifacts examine sanitized smoke evidence after a
+manual attempt without executing a provider or rewriting attempt history.
+`provider-real-smoke-evidence-review.json` checks evidence-chain completeness
+and rejects raw local-only files in the review directory.
+`provider-real-smoke-ledger-audit.json` distinguishes a real-provider attempt
+from an external result import and reports ambiguous ledger semantics.
+`provider-real-smoke-admission-audit.json` exposes admitted results whose
+attempt semantics still require review. `provider-real-smoke-claim-review.json`
+preserves smoke non-claims, and
+`provider-real-smoke-expansion-decision.json` remains fail closed: even a clean
+review requires an explicit human scope decision and never authorizes a new
+provider execution by itself.
+
+The audit reads fixed sanitized JSON/JSONL evidence paths only. It does not
+read raw provider responses, change provider execution behavior, mutate target
+files, promote staging results, or turn path execution into a quality claim.

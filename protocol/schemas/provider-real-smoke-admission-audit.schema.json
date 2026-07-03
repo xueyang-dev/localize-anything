@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-real-smoke-admission-audit.schema.json",
+  "title": "Provider Real Smoke Admission Audit",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "items", "summary", "staging_admission_does_not_imply_provider_backed_quality", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-real-smoke-admission-audit-v1" },
+    "artifact": { "const": "provider-real-smoke-admission-audit.json" },
+    "status": { "enum": ["consistent", "review_required", "not_run"] },
+    "items": { "type": "array", "items": { "type": "object", "required": ["result_id", "recorded_decision", "admitted", "status", "issues"] } },
+    "summary": { "type": "object" },
+    "staging_admission_does_not_imply_provider_backed_quality": { "const": true },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}
