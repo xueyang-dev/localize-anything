@@ -2111,3 +2111,35 @@ Artifact-backed APIs are:
 CLI commands are `release-readiness-audit`, `public-claims-report`,
 `non-claims`, `release-blockers`, `release-evidence-manifest`, and
 `release-audit`. They generate or read local artifacts only.
+
+## Provider execution attempts and staging admission
+
+The provider staging boundary uses six artifacts:
+
+- `provider-execution-attempt-ledger.jsonl` records attempt type, result state,
+  scope, authorization reference, and provenance;
+- `provider-execution-attempt-summary.json` aggregates attempt and result-state
+  counts without claiming execution success;
+- `provider-result-staging-admission.json` records per-result admission,
+  quarantine, block, dry-run, mock-only, or review-required decisions;
+- `provider-result-quarantine-report.json` keeps non-admitted evidence
+  inspectable but unusable for delivery, apply, readiness, benchmark, release,
+  or provider-backed claims;
+- `provider-result-staging-manifest.json` lists only admitted result and segment
+  IDs and their provenance/evidence references;
+- `provider-staging-claim-boundary.json` preserves claims that remain forbidden
+  after staging admission.
+
+Admission requires current, compatible consent, authorization, preflight,
+safety, attempt, handoff, intake, reconciliation, deterministic QA, scoped
+review acceptance, and claim-support evidence. Authorization is not execution;
+intake is not admission; admission is not provider-backed quality. Mock,
+synthetic, dry-run, provider-failed, timeout, malformed, partial, empty, and
+fallback results are quarantined. Provider-linked `stage-generated` input must
+include `--state-dir` and an admitted result ID before output is written.
+
+CLI commands are `provider-execution-attempt-ledger`,
+`provider-execution-attempt-summary`, `provider-result-staging-admission`,
+`provider-result-quarantine-report`, `provider-result-staging-manifest`, and
+`provider-staging-claim-boundary`. Matching GET APIs expose local artifacts. No
+command in this seed executes providers or applies staged output.

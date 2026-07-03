@@ -694,6 +694,8 @@ def _evidence(run_dir: Path) -> dict[str, Any]:
         "provider_result_intake": _optional_jsonl(run_dir / "provider-result-intake.jsonl"),
         "provider_execution_authorization_decision": _optional_json(run_dir / "provider-execution-authorization-decision.json"),
         "provider_execution_preflight_gate": _optional_json(run_dir / "provider-execution-preflight-gate.json"),
+        "provider_result_staging_admission": _optional_json(run_dir / "provider-result-staging-admission.json"),
+        "provider_staging_claim_boundary": _optional_json(run_dir / "provider-staging-claim-boundary.json"),
         "knowledge_usage_report": _optional_json(run_dir / "knowledge-usage-report.json"),
         "constraint_application_audit": _optional_json(run_dir / "constraint-application-audit.json"),
         "knowledge_assurance_summary": _optional_json(run_dir / "knowledge-assurance-summary.json"),
@@ -796,9 +798,17 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     intake = evidence["provider_result_intake"]
     authorization = evidence["provider_execution_authorization_decision"]
     preflight = evidence["provider_execution_preflight_gate"]
+    staging_admission = evidence["provider_result_staging_admission"]
+    staging_boundary = evidence["provider_staging_claim_boundary"]
     synthetic = any(str(item.get("result_source") or item.get("source") or "") in {"synthetic", "mock", "dry_run", "failed", "local_draft"} for item in intake)
     failed = str(reconciliation.get("status") or "") in {"failed", "blocked", "stale"}
-    supported = bool(claim_support.get("provider_backed_quality_supported")) and not synthetic and not failed
+    supported = (
+        bool(claim_support.get("provider_backed_quality_supported"))
+        and staging_admission.get("status") == "admitted"
+        and staging_boundary.get("provider_backed_quality_supported") is True
+        and not synthetic
+        and not failed
+    )
     status = "supported" if supported else "blocked" if failed or synthetic else reconciliation.get("status") or "unknown"
     return {
         "status": status,
@@ -811,6 +821,8 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             ("provider-evidence-reconciliation.json", reconciliation),
             ("provider-execution-authorization-decision.json", authorization),
             ("provider-execution-preflight-gate.json", preflight),
+            ("provider-result-staging-admission.json", staging_admission),
+            ("provider-staging-claim-boundary.json", staging_boundary),
         ),
     }
 
@@ -893,6 +905,8 @@ def _source_artifacts(run_dir: Path) -> dict[str, str]:
         "provider-evidence-reconciliation.json",
         "provider-execution-authorization-decision.json",
         "provider-execution-preflight-gate.json",
+        "provider-result-staging-admission.json",
+        "provider-staging-claim-boundary.json",
         "knowledge-usage-report.json",
         "constraint-application-audit.json",
         "knowledge-assurance-summary.json",

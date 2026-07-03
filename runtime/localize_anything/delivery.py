@@ -150,6 +150,7 @@ from .provider_mock import PROVIDER_MOCK_ASSETS, provider_mock_asset_paths
 from .provider_safety import PROVIDER_SAFETY_ASSETS, provider_safety_asset_paths
 from .provider_dry_run import PROVIDER_DRY_RUN_ASSETS, provider_dry_run_asset_paths
 from .provider_consent import PROVIDER_CONSENT_ASSETS, provider_consent_asset_paths
+from .provider_staging import PROVIDER_STAGING_ASSETS, provider_staging_asset_paths
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -250,6 +251,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     *PROVIDER_SAFETY_ASSETS.values(),
     *PROVIDER_DRY_RUN_ASSETS.values(),
     *PROVIDER_CONSENT_ASSETS.values(),
+    *PROVIDER_STAGING_ASSETS.values(),
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_RISK_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -384,6 +386,7 @@ def package_delivery(
                 **provider_safety_asset_paths(state_dir),
                 **provider_dry_run_asset_paths(state_dir),
                 **provider_consent_asset_paths(state_dir),
+                **provider_staging_asset_paths(state_dir),
                 **locale_capability_asset_paths(state_dir),
                 **translation_provenance_asset_paths(state_dir),
                 **benchmark_lab_asset_paths(state_dir),

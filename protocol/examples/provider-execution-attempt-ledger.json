@@ -1,0 +1,1 @@
+{"protocol_version":"0.1","schema":"localize-anything-provider-execution-attempt-record-v1","attempt_id":"provider-attempt-example","attempt_type":"mock_execution","result_state":"success","result_id":"mock-result-1","request_id":"provider-request-1","scope":{"segment_ids":["s1"]},"provenance":{"result_source":"mock"},"provider_or_model_called_by_runtime":false}

@@ -203,6 +203,9 @@ def record_provider_result_intake(
     build_provider_result_qa_report(state_dir)
     build_provider_claim_support_report(state_dir)
     build_workbench_provider_review_queue(state_dir)
+    from .provider_staging import build_provider_staging_artifacts
+
+    build_provider_staging_artifacts(state_dir)
     return record
 
 
