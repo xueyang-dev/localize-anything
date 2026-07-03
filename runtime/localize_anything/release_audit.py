@@ -33,6 +33,7 @@ PUBLIC_CLAIMS = {
     "provider_real_execution_dry_run_seed": "seed_only_claim",
     "provider_execution_authorization_gate_seed": "seed_only_claim",
     "provider_result_staging_admission_seed": "seed_only_claim",
+    "provider_real_smoke_protocol_seed": "seed_only_claim",
     "benchmark_lab_seed": "seed_only_claim",
     "adapter_support_matrix_seed": "seed_only_claim",
     "adapter_evidence_provenance_seed": "seed_only_claim",
@@ -59,6 +60,7 @@ CAPABILITIES = {
     "provider_real_execution_dry_run_boundary": "implemented_seed",
     "provider_execution_authorization_gate": "implemented_seed",
     "provider_result_staging_admission_gate": "implemented_seed",
+    "provider_real_smoke_protocol": "implemented_seed",
     "knowledge_usage_audit": "implemented_seed",
     "locale_capability_analysis": "implemented_seed",
     "translation_provenance_view": "implemented_seed",
@@ -124,6 +126,9 @@ EVIDENCE_FILES = {
     "provider_execution_preflight_gate": "provider-execution-preflight-gate.json",
     "provider_result_staging_admission": "provider-result-staging-admission.json",
     "provider_staging_claim_boundary": "provider-staging-claim-boundary.json",
+    "provider_real_smoke_plan": "provider-real-smoke-plan.json",
+    "provider_real_smoke_fixture": "provider-real-smoke-fixture-manifest.json",
+    "provider_real_smoke_safety": "provider-real-smoke-safety-checklist.json",
     "provider_redaction_audit": "provider-redaction-audit.json",
     "knowledge_assurance": "knowledge-assurance-summary.json",
     "workflow_recovery": "workflow-recovery-result.json",
@@ -493,6 +498,8 @@ def _claim_supporting_evidence(claim: str, manifest: dict[str, Any]) -> list[str
         evidence.append("provider-execution-preflight-gate.json")
     if claim == "provider_result_staging_admission_seed" and files.get("provider_result_staging_admission", {}).get("status") != "missing":
         evidence.append("provider-result-staging-admission.json")
+    if claim == "provider_real_smoke_protocol_seed" and files.get("provider_real_smoke_plan", {}).get("status") != "missing":
+        evidence.append("provider-real-smoke-plan.json")
     return evidence
 
 

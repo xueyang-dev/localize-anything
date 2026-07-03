@@ -152,6 +152,15 @@ from .provider_staging import (
     PROVIDER_RESULT_STAGING_MANIFEST_JSON,
     PROVIDER_STAGING_CLAIM_BOUNDARY_JSON,
 )
+from .provider_real_smoke import (
+    PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
+    PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON,
+    PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON,
+    PROVIDER_REAL_SMOKE_NON_CLAIMS_MD,
+    PROVIDER_REAL_SMOKE_PLAN_JSON,
+    PROVIDER_REAL_SMOKE_RUNBOOK_MD,
+    PROVIDER_REAL_SMOKE_SAFETY_CHECKLIST_JSON,
+)
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -280,6 +289,13 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_result_quarantine_report", "provider_result_quarantine_report", PROVIDER_RESULT_QUARANTINE_REPORT_JSON, "provider_staging", ("provider_result_staging_admission",)),
     ArtifactSpec("provider_result_staging_manifest", "provider_result_staging_manifest", PROVIDER_RESULT_STAGING_MANIFEST_JSON, "provider_staging", ("provider_result_staging_admission", "provider_result_intake"), required_for_delivery=True),
     ArtifactSpec("provider_staging_claim_boundary", "provider_staging_claim_boundary", PROVIDER_STAGING_CLAIM_BOUNDARY_JSON, "provider_staging", ("provider_result_staging_admission", "provider_claim_support_report"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_real_smoke_fixture_manifest", "provider_real_smoke_fixture_manifest", PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON, "provider_real_smoke"),
+    ArtifactSpec("provider_real_smoke_plan", "provider_real_smoke_plan", PROVIDER_REAL_SMOKE_PLAN_JSON, "provider_real_smoke", ("provider_real_smoke_fixture_manifest", "provider_execution_policy", "provider_handoff_request", "provider_dry_run_plan", "provider_execution_authorization_decision")),
+    ArtifactSpec("provider_real_smoke_acceptance_criteria", "provider_real_smoke_acceptance_criteria", PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON, "provider_real_smoke", ("provider_real_smoke_plan",)),
+    ArtifactSpec("provider_real_smoke_evidence_template", "provider_real_smoke_evidence_template", PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON, "provider_real_smoke", ("provider_real_smoke_plan", "provider_real_smoke_acceptance_criteria")),
+    ArtifactSpec("provider_real_smoke_safety_checklist", "provider_real_smoke_safety_checklist", PROVIDER_REAL_SMOKE_SAFETY_CHECKLIST_JSON, "provider_real_smoke", ("provider_real_smoke_plan", "provider_redaction_audit", "provider_data_disclosure_report")),
+    ArtifactSpec("provider_real_smoke_runbook", "provider_real_smoke_runbook", PROVIDER_REAL_SMOKE_RUNBOOK_MD, "provider_real_smoke", ("provider_real_smoke_plan", "provider_real_smoke_safety_checklist")),
+    ArtifactSpec("provider_real_smoke_non_claims", "provider_real_smoke_non_claims", PROVIDER_REAL_SMOKE_NON_CLAIMS_MD, "provider_real_smoke", ("provider_real_smoke_plan", "provider_real_smoke_acceptance_criteria")),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),

@@ -159,6 +159,7 @@ from .provider_safety import PROVIDER_EXECUTION_SAFETY_DECISION_JSON, PROVIDER_S
 from .provider_dry_run import PROVIDER_DRY_RUN_ASSETS, PROVIDER_REAL_EXECUTION_BLOCKERS_JSON
 from .provider_consent import PROVIDER_CONSENT_ASSETS, PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON
 from .provider_staging import PROVIDER_STAGING_ASSETS, PROVIDER_RESULT_STAGING_ADMISSION_JSON
+from .provider_real_smoke import PROVIDER_REAL_SMOKE_ASSETS, PROVIDER_REAL_SMOKE_PLAN_JSON
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -1213,6 +1214,7 @@ def _summary(
         *tuple(PROVIDER_DRY_RUN_ASSETS.items()),
         *tuple(PROVIDER_CONSENT_ASSETS.items()),
         *tuple(PROVIDER_STAGING_ASSETS.items()),
+        *tuple(PROVIDER_REAL_SMOKE_ASSETS.items()),
         ("locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON),
         ("locale_risk_report", LOCALE_RISK_REPORT_JSON),
         ("locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON),
@@ -1397,6 +1399,11 @@ def _summary(
             "provider_result_staging_admission_status": (
                 read_json(state_dir / PROVIDER_RESULT_STAGING_ADMISSION_JSON).get("status", "not_checked")
                 if (state_dir / PROVIDER_RESULT_STAGING_ADMISSION_JSON).is_file()
+                else "not_checked"
+            ),
+            "provider_real_smoke_plan_status": (
+                read_json(state_dir / PROVIDER_REAL_SMOKE_PLAN_JSON).get("status", "not_checked")
+                if (state_dir / PROVIDER_REAL_SMOKE_PLAN_JSON).is_file()
                 else "not_checked"
             ),
             "locale_capability_status": (

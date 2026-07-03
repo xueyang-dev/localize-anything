@@ -351,6 +351,16 @@ from runtime.localize_anything.provider_staging import (
     build_provider_result_staging_manifest,
     build_provider_staging_claim_boundary,
 )
+from runtime.localize_anything.provider_real_smoke import (
+    PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
+    PROVIDER_REAL_SMOKE_EVIDENCE_TEMPLATE_JSON,
+    PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON,
+    PROVIDER_REAL_SMOKE_NON_CLAIMS_MD,
+    PROVIDER_REAL_SMOKE_PLAN_JSON,
+    PROVIDER_REAL_SMOKE_RUNBOOK_MD,
+    PROVIDER_REAL_SMOKE_SAFETY_CHECKLIST_JSON,
+    build_provider_real_smoke_artifacts,
+)
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -12165,7 +12175,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 172)
+        self.assertEqual(result["schemas_checked"], 177)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13989,6 +13999,91 @@ class ProviderExecutionAttemptStagingTests(unittest.TestCase):
                 post.assert_not_called()
             ids = {item["artifact_id"] for item in build_artifact_state(state)["artifacts"]}
             self.assertTrue({"provider_execution_attempt_ledger", "provider_result_staging_admission", "provider_staging_claim_boundary"}.issubset(ids))
+
+
+class ProviderRealSmokeProtocolTests(unittest.TestCase):
+    def test_builders_use_tiny_public_fixture_without_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                artifacts = build_provider_real_smoke_artifacts(state, run_id="smoke-plan-test")
+            fixture = artifacts["provider_real_smoke_fixture_manifest"]
+            plan = artifacts["provider_real_smoke_plan"]
+
+            assert_protocol_schema(self, "provider-real-smoke-fixture-manifest", fixture)
+            assert_protocol_schema(self, "provider-real-smoke-plan", plan)
+            self.assertEqual(fixture["segment_count"], 2)
+            self.assertEqual(fixture["selected_keys"], ["menu.start", "menu.welcome"])
+            self.assertTrue(fixture["public"] and fixture["safe_to_disclose"])
+            self.assertFalse(fixture["commercial_or_private_data_included"])
+            self.assertFalse(plan["execution_performed"])
+            self.assertFalse(plan["ci_execution_allowed"])
+            self.assertFalse(plan["provider_or_model_called"])
+            post.assert_not_called()
+
+    def test_safety_acceptance_evidence_and_non_claims_are_conservative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            artifacts = build_provider_real_smoke_artifacts(state)
+            criteria = artifacts["provider_real_smoke_acceptance_criteria"]
+            evidence = artifacts["provider_real_smoke_evidence_template"]
+            checklist = artifacts["provider_real_smoke_safety_checklist"]
+            checks = {item["check_id"] for item in checklist["items"]}
+
+            assert_protocol_schema(self, "provider-real-smoke-acceptance-criteria", criteria)
+            assert_protocol_schema(self, "provider-real-smoke-evidence-template", evidence)
+            assert_protocol_schema(self, "provider-real-smoke-safety-checklist", checklist)
+            self.assertTrue({"no_secrets_in_git", "no_raw_provider_output_committed", "no_commercial_or_private_data", "no_target_project_mutation", "no_automatic_apply", "explicit_network_opt_in", "cost_warning_acknowledged", "provider_terms_and_privacy_warning_acknowledged"}.issubset(checks))
+            self.assertFalse(evidence["raw_output_committed"])
+            self.assertFalse(evidence["credentials_recorded"])
+            self.assertFalse(criteria["successful_smoke_supports_provider_backed_quality"])
+            self.assertIn("provider_backed_quality", criteria["forbidden_claims"])
+            self.assertIn("does not establish provider-backed quality", (state / PROVIDER_REAL_SMOKE_NON_CLAIMS_MD).read_text(encoding="utf-8"))
+            self.assertIn("explicit consent bound", (state / PROVIDER_REAL_SMOKE_RUNBOOK_MD).read_text(encoding="utf-8"))
+
+    def test_cli_api_are_deterministic_and_credential_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            commands = (
+                "provider-real-smoke-plan",
+                "provider-real-smoke-fixture-manifest",
+                "provider-real-smoke-acceptance-criteria",
+                "provider-real-smoke-safety-checklist",
+            )
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                self.assertEqual([cli_main([command, state.as_posix()]) for command in commands], [0] * len(commands))
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    endpoints = (*commands, "provider-real-smoke-evidence-template")
+                    self.assertEqual([_http_get(host, port, f"/api/{endpoint}?state_dir={state.as_posix()}")[0] for endpoint in endpoints], [200] * len(endpoints))
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+                post.assert_not_called()
+
+    def test_artifact_state_and_release_audit_track_smoke_protocol(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            write_json(state / "provider-execution-policy.json", {"execution_mode": "real_provider", "provider_name": "example", "provider_profile_id": "local-smoke", "model_name": "example-model"})
+            build_provider_real_smoke_artifacts(state)
+            first = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in first["artifacts"]}
+            self.assertTrue({"provider_real_smoke_plan", "provider_real_smoke_fixture_manifest", "provider_real_smoke_evidence_template", "provider_real_smoke_safety_checklist"}.issubset(ids))
+
+            release = build_release_audit_artifacts(state)
+            evidence = release["release_evidence_manifest"]["evidence"]
+            self.assertNotEqual(evidence["provider_real_smoke_plan"]["status"], "missing")
+            self.assertIn("provider_backed_quality", release["release_readiness_audit"]["forbidden_claims"])
+
+            policy = read_json(state / "provider-execution-policy.json")
+            policy["model_name"] = "changed-model"
+            write_json(state / "provider-execution-policy.json", policy)
+            tracked = {item["artifact_id"]: item for item in build_artifact_state(state)["artifacts"]}
+            self.assertEqual(tracked["provider_real_smoke_plan"]["status"], "stale")
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):
