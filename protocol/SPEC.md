@@ -2143,3 +2143,30 @@ CLI commands are `provider-execution-attempt-ledger`,
 `provider-result-quarantine-report`, `provider-result-staging-manifest`, and
 `provider-staging-claim-boundary`. Matching GET APIs expose local artifacts. No
 command in this seed executes providers or applies staged output.
+
+## Controlled real-provider smoke protocol
+
+The no-execution smoke protocol consists of:
+
+- `provider-real-smoke-plan.json` for manual-local, outside-CI execution scope
+  and the required evidence chain;
+- `provider-real-smoke-fixture-manifest.json` selecting two public-safe keys
+  from the quickstart JSON fixture;
+- `provider-real-smoke-runbook.md` for explicit run/profile-bound consent,
+  network opt-in, local raw-output handling, and post-execution reconciliation;
+- `provider-real-smoke-acceptance-criteria.json` defining pass, partial, and
+  fail without treating path execution as semantic quality;
+- `provider-real-smoke-evidence-template.json` for a future sanitized manual
+  result summary, with raw output and credentials excluded;
+- `provider-real-smoke-safety-checklist.json` for secrets, data, mutation,
+  apply, network, cost, and provider terms/privacy confirmation;
+- `provider-real-smoke-non-claims.md` preserving strong public non-claims.
+
+Builders and GET APIs are deterministic and provider-free. CLI commands are
+`provider-real-smoke-plan`, `provider-real-smoke-fixture-manifest`,
+`provider-real-smoke-acceptance-criteria`, and
+`provider-real-smoke-safety-checklist`. Real execution is manual, local,
+explicit, outside CI, and not implemented by this seed. Raw provider responses
+are local-only by default. A successful smoke proves only path execution and
+does not support provider-backed quality, locale-complete, production-ready,
+or full-product-localization claims.

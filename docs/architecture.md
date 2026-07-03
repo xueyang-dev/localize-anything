@@ -1883,3 +1883,26 @@ or fallback output may be inspected but cannot enter normal staging, delivery,
 benchmark, release, apply, or provider-backed-quality evidence. External import
 provenance remains explicit. This layer never calls providers or mutates target
 project files.
+
+## Controlled Real Provider Smoke Run Protocol / No-Execution Fixture Seed
+
+The first future real-provider smoke is defined before it is executed. The
+protocol reuses two public keys from
+`examples/quickstart-json/locales/en-US.json`; it does not copy commercial,
+private, or sensitive content into a provider request. CI only validates the
+plan, schemas, and safety boundaries and never requires credentials or network
+access.
+
+The plan and runbook require a manual local execution with explicit network
+opt-in and consent bound to run id, provider/profile/model, locale, source and
+handoff hashes, and batch ids. Credential values and raw request/response or
+network logs remain local and must not enter repository artifacts, delivery
+packages, benchmarks, or releases. A sanitized evidence summary may be
+committed only after intentional review.
+
+Pass means the exact authorized path executed and all required evidence is
+current. Partial means review, QA, admission, or downstream propagation is
+incomplete. Fail means safety, authorization, execution, provenance, QA, or
+quarantine policy failed. Even pass proves provider-path execution only;
+provider-backed quality, locale completeness, production readiness, and full
+product localization remain non-claims without separate evidence.

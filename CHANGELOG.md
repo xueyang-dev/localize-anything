@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add Controlled Real Provider Smoke Run Protocol / No-Execution Fixture seed
+  with a two-segment public quickstart fixture selection, manual-local runbook,
+  acceptance criteria, evidence template, safety checklist, non-claims, and
+  provider-free CLI/API projections. The seed performs no provider call,
+  requires no CI credentials or network access, keeps raw responses local by
+  default, and treats smoke success as provider-path evidence only.
 - Add Provider Execution Attempt Ledger / Result Staging Admission Gate seed
   with attempt, summary, admission, quarantine, staging-manifest, and claim-
   boundary artifacts; provider-free CLI/API projections; artifact-state,
