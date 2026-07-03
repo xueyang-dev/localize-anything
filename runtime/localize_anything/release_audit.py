@@ -32,6 +32,7 @@ PUBLIC_CLAIMS = {
     "provider_execution_hardening_seed": "seed_only_claim",
     "provider_real_execution_dry_run_seed": "seed_only_claim",
     "provider_execution_authorization_gate_seed": "seed_only_claim",
+    "provider_result_staging_admission_seed": "seed_only_claim",
     "benchmark_lab_seed": "seed_only_claim",
     "adapter_support_matrix_seed": "seed_only_claim",
     "adapter_evidence_provenance_seed": "seed_only_claim",
@@ -57,6 +58,7 @@ CAPABILITIES = {
     "provider_execution_hardening": "implemented_seed",
     "provider_real_execution_dry_run_boundary": "implemented_seed",
     "provider_execution_authorization_gate": "implemented_seed",
+    "provider_result_staging_admission_gate": "implemented_seed",
     "knowledge_usage_audit": "implemented_seed",
     "locale_capability_analysis": "implemented_seed",
     "translation_provenance_view": "implemented_seed",
@@ -120,6 +122,8 @@ EVIDENCE_FILES = {
     "provider_real_execution_blockers": "provider-real-execution-blockers.json",
     "provider_execution_authorization": "provider-execution-authorization-decision.json",
     "provider_execution_preflight_gate": "provider-execution-preflight-gate.json",
+    "provider_result_staging_admission": "provider-result-staging-admission.json",
+    "provider_staging_claim_boundary": "provider-staging-claim-boundary.json",
     "provider_redaction_audit": "provider-redaction-audit.json",
     "knowledge_assurance": "knowledge-assurance-summary.json",
     "workflow_recovery": "workflow-recovery-result.json",
@@ -487,6 +491,8 @@ def _claim_supporting_evidence(claim: str, manifest: dict[str, Any]) -> list[str
         evidence.append("provider-real-execution-blockers.json")
     if claim == "provider_execution_authorization_gate_seed" and files.get("provider_execution_preflight_gate", {}).get("status") != "missing":
         evidence.append("provider-execution-preflight-gate.json")
+    if claim == "provider_result_staging_admission_seed" and files.get("provider_result_staging_admission", {}).get("status") != "missing":
+        evidence.append("provider-result-staging-admission.json")
     return evidence
 
 
@@ -554,6 +560,10 @@ def _release_blockers(manifest: dict[str, Any], public_claims: dict[str, Any]) -
     if evidence.get("provider_execution_preflight_gate", {}).get("status") in {"blocked", "failed", "stale", "revoked", "expired", "scope_mismatch", "dry_run_only"}:
         blockers.append(
             _blocker("provider_execution_not_authorized", "provider execution preflight gate is not authorized", "blocking", "provider-execution-preflight-gate.json")
+        )
+    if evidence.get("provider_result_staging_admission", {}).get("status") in {"blocked", "mixed", "failed", "stale"}:
+        blockers.append(
+            _blocker("provider_result_not_admitted", "provider results have not passed staging admission", "blocking", "provider-result-staging-admission.json")
         )
     if evidence.get("locale_readiness", {}).get("status") in {"missing", "blocked", "review_required", "stale"}:
         blockers.append(

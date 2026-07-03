@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-execution-attempt-summary.schema.json",
+  "title": "Provider Execution Attempt Summary",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "attempt_count", "attempt_type_counts", "result_state_counts", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-execution-attempt-summary-v1" },
+    "artifact": { "const": "provider-execution-attempt-summary.json" },
+    "status": { "enum": ["attempts_recorded", "missing"] },
+    "attempt_count": { "type": "integer", "minimum": 0 },
+    "attempt_type_counts": { "type": "object" },
+    "result_state_counts": { "type": "object" },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -299,6 +299,8 @@ def _load_artifacts(
         "provider_real_execution_blockers": _read_optional_json(state_dir / PROVIDER_REAL_EXECUTION_BLOCKERS_JSON),
         "provider_execution_authorization_decision": _read_optional_json(state_dir / PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON),
         "provider_execution_preflight_gate": _read_optional_json(state_dir / PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON),
+        "provider_result_staging_admission": _read_optional_json(state_dir / "provider-result-staging-admission.json"),
+        "provider_staging_claim_boundary": _read_optional_json(state_dir / "provider-staging-claim-boundary.json"),
         "locale_capability_report": _read_optional_json(state_dir / LOCALE_CAPABILITY_REPORT_JSON),
         "locale_risk_report": _read_optional_json(state_dir / LOCALE_RISK_REPORT_JSON),
         "locale_readiness_impact": _read_optional_json(state_dir / LOCALE_READINESS_IMPACT_JSON),
@@ -747,6 +749,13 @@ def _forbidden_claims(
     if any(isinstance(item, dict) and item and str(item.get("status") or "") != "authorized" for item in (authorization, preflight)):
         claims.update(PROVIDER_CLAIMS)
         claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    staging_admission = artifacts.get("provider_result_staging_admission", {})
+    staging_boundary = artifacts.get("provider_staging_claim_boundary", {})
+    if staging_admission and str(staging_admission.get("status") or "") != "admitted":
+        claims.update(PROVIDER_CLAIMS)
+        claims.update({"delivery_ready", "apply_ready", "production_ready"})
+    if staging_boundary:
+        claims.update(str(claim) for claim in staging_boundary.get("forbidden_claims", []) if claim)
     locale_impact = artifacts.get("locale_readiness_impact", {})
     locale_risk = artifacts.get("locale_risk_report", {})
     locale_capability = artifacts.get("locale_capability_report", {})

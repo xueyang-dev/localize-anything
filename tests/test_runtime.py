@@ -342,6 +342,15 @@ from runtime.localize_anything.provider_consent import (
     build_provider_execution_preflight_gate,
     record_provider_consent_action,
 )
+from runtime.localize_anything.provider_staging import (
+    PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL,
+    PROVIDER_RESULT_STAGING_ADMISSION_JSON,
+    build_provider_execution_attempt_summary,
+    build_provider_result_quarantine_report,
+    build_provider_result_staging_admission,
+    build_provider_result_staging_manifest,
+    build_provider_staging_claim_boundary,
+)
 from runtime.localize_anything.locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -12156,7 +12165,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 166)
+        self.assertEqual(result["schemas_checked"], 172)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13872,6 +13881,114 @@ class ProviderConsentAuthorizationTests(unittest.TestCase):
             tracked = {item["artifact_id"]: item for item in second["artifacts"]}
             self.assertIn("provider_execution_preflight_gate", tracked)
             self.assertIn(tracked["provider_execution_preflight_gate"]["status"], {"stale", "blocked"})
+
+
+class ProviderExecutionAttemptStagingTests(unittest.TestCase):
+    def test_blocked_and_mock_attempts_are_quarantined(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_mock_run(state, scenario="success", run_id="mock-staging")
+            summary = build_provider_execution_attempt_summary(state)
+            admission = build_provider_result_staging_admission(state)
+            quarantine = build_provider_result_quarantine_report(state, admission)
+            manifest = build_provider_result_staging_manifest(state, admission)
+            boundary = build_provider_staging_claim_boundary(state, admission)
+
+            record = read_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)[0]
+            assert_protocol_schema(self, "provider-execution-attempt-ledger", record)
+            assert_protocol_schema(self, "provider-execution-attempt-summary", summary)
+            assert_protocol_schema(self, "provider-result-staging-admission", admission)
+            assert_protocol_schema(self, "provider-result-quarantine-report", quarantine)
+            assert_protocol_schema(self, "provider-result-staging-manifest", manifest)
+            assert_protocol_schema(self, "provider-staging-claim-boundary", boundary)
+            self.assertEqual(record["attempt_type"], "mock_execution")
+            self.assertEqual(admission["items"][0]["decision"], "mock_only")
+            self.assertEqual(manifest["admitted_result_ids"], [])
+            self.assertIn("provider_backed_quality", boundary["forbidden_claims"])
+            self.assertFalse(boundary["provider_or_model_called_by_runtime"])
+
+    def test_authorized_accepted_external_result_is_admitted_with_limited_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, scope = ProviderConsentAuthorizationTests()._state(Path(directory))
+            record_provider_consent_action(state, ProviderConsentAuthorizationTests._action(scope))
+            request = read_json(state / PROVIDER_HANDOFF_REQUEST_JSON)
+            append_provider_execution_ledger_entry(state, {"request_id": request["request_id"], "execution_mode": "real_provider", "outcome": "external_imported"})
+            write_json(state / "provider-output.json", {"target": "鎮ㄥソ"})
+            result = record_provider_result_intake(state, {
+                "result_id": "external-result-1",
+                "request_id": request["request_id"],
+                "result_source": "external_provider_result",
+                "provider_status": "passed",
+                "provenance": {"provider_name": "example", "external_reference": "ticket-72"},
+                "target_artifact_references": ["provider-output.json"],
+                "scope": request.get("scope", {}),
+                "segments": [_provider_segment()],
+            })
+            record_provider_result_review_evidence(state, _provider_review(result["result_id"]))
+            record_provider_result_acceptance_decision(state, _provider_acceptance(result["result_id"]))
+            admission = build_provider_result_staging_admission(state)
+            manifest = build_provider_result_staging_manifest(state, admission)
+            boundary = build_provider_staging_claim_boundary(state, admission)
+
+            self.assertEqual(admission["items"][0]["decision"], "admitted")
+            self.assertEqual(manifest["admitted_result_ids"], ["external-result-1"])
+            self.assertIn("provider_backed_quality", boundary["forbidden_claims"])
+            self.assertIn("provider_execution_complete", boundary["supported_claims"])
+
+    def test_partial_and_stale_evidence_never_enter_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state, result = _provider_gate_state(Path(directory))
+            records = read_jsonl(state / PROVIDER_RESULT_INTAKE_JSONL)
+            records[0]["provider_status"] = "partial_response"
+            write_jsonl(state / PROVIDER_RESULT_INTAKE_JSONL, records)
+            (state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL).unlink(missing_ok=True)
+            admission = build_provider_result_staging_admission(state)
+            self.assertEqual(admission["items"][0]["decision"], "blocked")
+            self.assertIn("partial_response", admission["items"][0]["blockers"])
+            self.assertEqual(result["result_source"], "external_provider_result")
+
+    def test_provider_linked_staging_is_fail_closed_before_write(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "locales" / "en-US.json"
+            source.parent.mkdir(parents=True)
+            source.write_text('{"hello":"Hello"}\n', encoding="utf-8")
+            staging = root / "staging"
+            with self.assertRaisesRegex(ValueError, "require --state-dir"):
+                stage_generated(
+                    root,
+                    [{"segment_id": "s1", "source_path": "locales/en-US.json", "pointer": "/hello", "source": "Hello", "target": "鎮ㄥソ", "provider_result_id": "not-admitted", "result_source": "external_provider_result"}],
+                    staging,
+                    "en-US",
+                    "zh-CN",
+                )
+            self.assertFalse(staging.exists())
+
+    def test_cli_api_and_artifact_state_are_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            build_provider_mock_run(state, scenario="malformed_response", run_id="mock-malformed")
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                commands = (
+                    "provider-execution-attempt-ledger", "provider-execution-attempt-summary",
+                    "provider-result-staging-admission", "provider-result-quarantine-report",
+                    "provider-result-staging-manifest", "provider-staging-claim-boundary",
+                )
+                self.assertEqual([cli_main([command, state.as_posix()]) for command in commands], [0] * len(commands))
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    statuses = [_http_get(host, port, f"/api/{command}?state_dir={state.as_posix()}")[0] for command in commands]
+                    self.assertEqual(statuses, [200] * len(commands))
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+                post.assert_not_called()
+            ids = {item["artifact_id"] for item in build_artifact_state(state)["artifacts"]}
+            self.assertTrue({"provider_execution_attempt_ledger", "provider_result_staging_admission", "provider_staging_claim_boundary"}.issubset(ids))
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):

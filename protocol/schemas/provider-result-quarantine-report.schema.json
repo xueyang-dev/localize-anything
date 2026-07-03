@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-result-quarantine-report.schema.json",
+  "title": "Provider Result Quarantine Report",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "items", "quarantined_result_count", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-result-quarantine-report-v1" },
+    "artifact": { "const": "provider-result-quarantine-report.json" },
+    "status": { "enum": ["quarantined", "clear"] },
+    "items": { "type": "array", "items": { "type": "object" } },
+    "quarantined_result_count": { "type": "integer", "minimum": 0 },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

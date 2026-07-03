@@ -184,6 +184,14 @@ from .provider_consent import (
     read_provider_execution_preflight_gate,
     record_provider_consent_action,
 )
+from .provider_staging import (
+    read_provider_execution_attempt_ledger,
+    read_provider_execution_attempt_summary,
+    read_provider_result_quarantine_report,
+    read_provider_result_staging_admission,
+    read_provider_result_staging_manifest,
+    read_provider_staging_claim_boundary,
+)
 from .locale_capability import (
     read_locale_capability_report,
     read_locale_readiness_impact,
@@ -503,6 +511,24 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/provider-consent-audit-log":
                     self._handle_workflow_artifact_query(parsed.query, "provider_consent_audit_log", lambda state_dir: {"records": read_provider_consent_audit_log(state_dir)})
+                    return
+                if parsed.path == "/api/provider-execution-attempt-ledger":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_attempt_ledger", lambda state_dir: {"records": read_provider_execution_attempt_ledger(state_dir)})
+                    return
+                if parsed.path == "/api/provider-execution-attempt-summary":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_execution_attempt_summary", read_provider_execution_attempt_summary)
+                    return
+                if parsed.path == "/api/provider-result-staging-admission":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_staging_admission", read_provider_result_staging_admission)
+                    return
+                if parsed.path == "/api/provider-result-quarantine-report":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_quarantine_report", read_provider_result_quarantine_report)
+                    return
+                if parsed.path == "/api/provider-result-staging-manifest":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_result_staging_manifest", read_provider_result_staging_manifest)
+                    return
+                if parsed.path == "/api/provider-staging-claim-boundary":
+                    self._handle_workflow_artifact_query(parsed.query, "provider_staging_claim_boundary", read_provider_staging_claim_boundary)
                     return
                 if parsed.path == "/api/locale-capability-report":
                     self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)

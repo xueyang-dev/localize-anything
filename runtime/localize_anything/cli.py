@@ -221,6 +221,15 @@ from .provider_consent import (
     record_provider_consent_action,
     provider_execution_preflight_blocker,
 )
+from .provider_staging import (
+    build_provider_execution_attempt_ledger,
+    build_provider_execution_attempt_summary,
+    build_provider_result_quarantine_report,
+    build_provider_result_staging_admission,
+    build_provider_result_staging_manifest,
+    build_provider_staging_claim_boundary,
+    record_provider_execution_attempt,
+)
 from .locale_capability import (
     build_locale_capability_report,
     build_locale_capability_reports,
@@ -1015,6 +1024,21 @@ def build_parser() -> argparse.ArgumentParser:
         command_parser.add_argument("--run-id")
         command_parser.add_argument("--output", type=Path)
 
+    provider_attempt_parser = subparsers.add_parser("provider-execution-attempt-ledger", help="Create/read the provider execution attempt ledger without executing providers")
+    provider_attempt_parser.add_argument("state_dir", type=Path)
+    provider_attempt_parser.add_argument("--input", type=Path)
+    provider_attempt_parser.add_argument("--output", type=Path)
+    for command, help_text in (
+        ("provider-execution-attempt-summary", "Create provider-execution-attempt-summary.json"),
+        ("provider-result-staging-admission", "Create the fail-closed provider result staging admission decision"),
+        ("provider-result-quarantine-report", "Create provider-result-quarantine-report.json"),
+        ("provider-result-staging-manifest", "Create provider-result-staging-manifest.json"),
+        ("provider-staging-claim-boundary", "Create provider-staging-claim-boundary.json"),
+    ):
+        command_parser = subparsers.add_parser(command, help=help_text)
+        command_parser.add_argument("state_dir", type=Path)
+        command_parser.add_argument("--output", type=Path)
+
     provider_safety_parser = subparsers.add_parser("provider-safety-check", help="Create all provider execution safety artifacts")
     provider_safety_parser.add_argument("state_dir", type=Path)
     provider_safety_parser.add_argument("--input", type=Path, help="Optional provider profile JSON")
@@ -1730,6 +1754,7 @@ def build_parser() -> argparse.ArgumentParser:
     stage_generated_parser.add_argument("--target-locale", required=True)
     stage_generated_parser.add_argument("--source-file", action="append", dest="source_files")
     stage_generated_parser.add_argument("--staging-dir", type=Path, required=True)
+    stage_generated_parser.add_argument("--state-dir", type=Path)
     stage_generated_parser.add_argument("--output", type=Path)
 
     localize_run_parser = subparsers.add_parser(
@@ -2549,6 +2574,20 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "provider-consent-audit-log":
             records = read_provider_consent_audit_log(args.state_dir) if args.read else build_provider_consent_audit_log(args.state_dir)
             return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-consent-audit-log-read-v1", "records": records}, args.output)
+        if args.command == "provider-execution-attempt-ledger":
+            if args.input:
+                record_provider_execution_attempt(args.state_dir, read_json(args.input))
+            return _emit_json({"protocol_version": "0.1", "schema": "localize-anything-provider-execution-attempt-ledger-read-v1", "records": build_provider_execution_attempt_ledger(args.state_dir)}, args.output)
+        if args.command == "provider-execution-attempt-summary":
+            return _emit_json(build_provider_execution_attempt_summary(args.state_dir), args.output)
+        if args.command == "provider-result-staging-admission":
+            return _emit_json(build_provider_result_staging_admission(args.state_dir), args.output)
+        if args.command == "provider-result-quarantine-report":
+            return _emit_json(build_provider_result_quarantine_report(args.state_dir), args.output)
+        if args.command == "provider-result-staging-manifest":
+            return _emit_json(build_provider_result_staging_manifest(args.state_dir), args.output)
+        if args.command == "provider-staging-claim-boundary":
+            return _emit_json(build_provider_staging_claim_boundary(args.state_dir), args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
             return _emit_json(result, args.output)
@@ -3190,6 +3229,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.source_locale,
                     args.target_locale,
                     args.source_files,
+                    state_dir=args.state_dir,
                 ),
                 args.output,
             )

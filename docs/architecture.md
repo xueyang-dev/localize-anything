@@ -1860,3 +1860,26 @@ CLI commands are `release-readiness-audit`, `public-claims-report`,
 `non-claims`, `release-blockers`, `release-evidence-manifest`, and
 `release-audit`. API GET endpoints expose the JSON artifacts. The seed adds no
 provider/model calls, no release/tag actions, and no target-file mutation.
+
+## Provider Execution Attempt Ledger / Result Staging Admission Gate Seed
+
+This seed separates execution authorization, execution attempts, result intake,
+and staging admission. `provider-execution-attempt-ledger.jsonl` records
+blocked, dry-run, mock, imported, skipped, failed-policy, or future execution
+placeholders without executing a provider. The summary never treats an attempt
+as a successful result.
+
+Admission is fail closed. `provider-result-staging-admission.json` requires
+compatible consent resolution, authorization, preflight and safety decisions,
+attempt provenance, handoff/request evidence, intake, reconciliation, QA,
+review acceptance, and claim support. Non-admitted results appear in
+`provider-result-quarantine-report.json`; only admitted result and segment IDs
+appear in `provider-result-staging-manifest.json`. Provider-linked segments are
+rejected at the staging write boundary unless their result ID is admitted.
+
+`provider-staging-claim-boundary.json` preserves unsupported claims after
+admission. Mock, synthetic, dry-run, failed, timeout, malformed, partial, empty,
+or fallback output may be inspected but cannot enter normal staging, delivery,
+benchmark, release, apply, or provider-backed-quality evidence. External import
+provenance remains explicit. This layer never calls providers or mutates target
+project files.

@@ -377,6 +377,8 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "provider_real_execution_blockers": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_REAL_EXECUTION_BLOCKERS_JSON)),
         "provider_execution_authorization_decision": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON)),
         "provider_execution_preflight_gate": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON)),
+        "provider_result_staging_admission": _read_optional_json(_first_existing(state_dir, delivery_dir, "provider-result-staging-admission.json")),
+        "provider_staging_claim_boundary": _read_optional_json(_first_existing(state_dir, delivery_dir, "provider-staging-claim-boundary.json")),
         "locale_capability_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_CAPABILITY_REPORT_JSON)),
         "locale_risk_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_RISK_REPORT_JSON)),
         "locale_readiness_impact": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_READINESS_IMPACT_JSON)),
@@ -555,6 +557,12 @@ def _provider_status(artifacts: dict[str, Any]) -> dict[str, Any]:
     real_execution_blockers = artifacts.get("provider_real_execution_blockers", {})
     authorization = artifacts.get("provider_execution_authorization_decision", {})
     preflight = artifacts.get("provider_execution_preflight_gate", {})
+    staging_admission = artifacts.get("provider_result_staging_admission", {})
+    staging_boundary = artifacts.get("provider_staging_claim_boundary", {})
+    if staging_admission and str(staging_admission.get("status") or "") != "admitted":
+        return {"status": BLOCKED, "domain": "provider", "summary": "provider results have not passed staging admission"}
+    if staging_boundary and "provider_execution_complete" in staging_boundary.get("forbidden_claims", []):
+        return {"status": BLOCKED, "domain": "provider", "summary": "provider staging claim boundary remains blocking"}
     if authorization and str(authorization.get("status") or "") != "authorized":
         return {"status": BLOCKED if authorization.get("status") != "stale" else STALE, "domain": "provider", "summary": "provider execution authorization is not current and granted"}
     if preflight and str(preflight.get("status") or "") != "authorized":

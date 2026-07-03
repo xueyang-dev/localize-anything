@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-staging-claim-boundary.schema.json",
+  "title": "Provider Staging Claim Boundary",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "forbidden_claims", "provider_backed_quality_supported", "staging_admission_alone_supports_quality", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-staging-claim-boundary-v1" },
+    "artifact": { "const": "provider-staging-claim-boundary.json" },
+    "status": { "enum": ["supported", "limited", "blocked"] },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_backed_quality_supported": { "type": "boolean" },
+    "staging_admission_alone_supports_quality": { "const": false },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

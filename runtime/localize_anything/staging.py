@@ -26,7 +26,13 @@ def stage_generated(
     target_locale: str,
     source_files: list[str] | None = None,
     preserve_target_only: bool = False,
+    state_dir: Path | None = None,
 ) -> dict[str, Any]:
+    from .provider_staging import provider_result_staging_blocker
+
+    blocker = provider_result_staging_blocker(state_dir, generated_segments)
+    if blocker:
+        raise ValueError(blocker)
     inspection = inspect_project(project_root)
     inventory = {item["path"]: item for item in inspection["supported_files"]}
     selected_files = source_files or sorted(_source_paths(generated_segments))

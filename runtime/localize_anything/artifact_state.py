@@ -144,6 +144,14 @@ from .provider_consent import (
     PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON,
     PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON,
 )
+from .provider_staging import (
+    PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL,
+    PROVIDER_EXECUTION_ATTEMPT_SUMMARY_JSON,
+    PROVIDER_RESULT_QUARANTINE_REPORT_JSON,
+    PROVIDER_RESULT_STAGING_ADMISSION_JSON,
+    PROVIDER_RESULT_STAGING_MANIFEST_JSON,
+    PROVIDER_STAGING_CLAIM_BOUNDARY_JSON,
+)
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -266,6 +274,12 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_execution_authorization_decision", "provider_execution_authorization_decision", PROVIDER_EXECUTION_AUTHORIZATION_DECISION_JSON, "provider_consent", ("provider_consent_resolution_report", "provider_data_disclosure_report", "provider_credential_policy_report", "provider_network_boundary_report", "provider_redaction_audit", "provider_execution_safety_decision")),
     ArtifactSpec("provider_execution_preflight_gate", "provider_execution_preflight_gate", PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON, "provider_consent", ("provider_execution_authorization_decision", "provider_consent_scope_diff")),
     ArtifactSpec("provider_consent_audit_log", "provider_consent_audit_log", PROVIDER_CONSENT_AUDIT_LOG_JSONL, "provider_consent", ("provider_consent_actions", "provider_consent_resolution_report", "provider_execution_authorization_decision")),
+    ArtifactSpec("provider_execution_attempt_ledger", "provider_execution_attempt_ledger", PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, "provider_staging", ("provider_execution_authorization_decision", "provider_execution_preflight_gate", "provider_result_intake"), required_for_delivery=True),
+    ArtifactSpec("provider_execution_attempt_summary", "provider_execution_attempt_summary", PROVIDER_EXECUTION_ATTEMPT_SUMMARY_JSON, "provider_staging", ("provider_execution_attempt_ledger",), required_for_delivery=True),
+    ArtifactSpec("provider_result_staging_admission", "provider_result_staging_admission", PROVIDER_RESULT_STAGING_ADMISSION_JSON, "provider_staging", ("provider_consent_resolution_report", "provider_execution_authorization_decision", "provider_execution_preflight_gate", "provider_execution_safety_decision", "provider_execution_attempt_ledger", "provider_result_intake", "provider_evidence_reconciliation", "provider_result_qa_report", "provider_result_acceptance_decision", "provider_claim_support_report"), required_for_delivery=True),
+    ArtifactSpec("provider_result_quarantine_report", "provider_result_quarantine_report", PROVIDER_RESULT_QUARANTINE_REPORT_JSON, "provider_staging", ("provider_result_staging_admission",)),
+    ArtifactSpec("provider_result_staging_manifest", "provider_result_staging_manifest", PROVIDER_RESULT_STAGING_MANIFEST_JSON, "provider_staging", ("provider_result_staging_admission", "provider_result_intake"), required_for_delivery=True),
+    ArtifactSpec("provider_staging_claim_boundary", "provider_staging_claim_boundary", PROVIDER_STAGING_CLAIM_BOUNDARY_JSON, "provider_staging", ("provider_result_staging_admission", "provider_claim_support_report"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),

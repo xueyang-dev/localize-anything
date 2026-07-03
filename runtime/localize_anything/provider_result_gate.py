@@ -136,6 +136,9 @@ def record_provider_result_review_evidence(state_dir: Path, evidence: dict[str, 
     write_jsonl(state_dir / PROVIDER_RESULT_REVIEW_EVIDENCE_JSONL, records)
     build_workbench_provider_review_queue(state_dir)
     build_provider_claim_support_report(state_dir)
+    from .provider_staging import build_provider_staging_artifacts
+
+    build_provider_staging_artifacts(state_dir)
     return record
 
 
@@ -216,6 +219,9 @@ def record_provider_result_acceptance_decision(state_dir: Path, decision: dict[s
     write_json(state_dir / PROVIDER_RESULT_ACCEPTANCE_DECISION_JSON, record)
     build_provider_claim_support_report(state_dir)
     build_workbench_provider_review_queue(state_dir)
+    from .provider_staging import build_provider_staging_artifacts
+
+    build_provider_staging_artifacts(state_dir)
     return record
 
 
