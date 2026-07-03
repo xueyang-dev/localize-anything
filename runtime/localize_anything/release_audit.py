@@ -126,6 +126,7 @@ EVIDENCE_FILES = {
     "provider_execution_preflight_gate": "provider-execution-preflight-gate.json",
     "provider_result_staging_admission": "provider-result-staging-admission.json",
     "provider_staging_claim_boundary": "provider-staging-claim-boundary.json",
+    "provider_execution_evidence_classification": "provider-execution-evidence-classification.json",
     "provider_real_smoke_plan": "provider-real-smoke-plan.json",
     "provider_real_smoke_fixture": "provider-real-smoke-fixture-manifest.json",
     "provider_real_smoke_safety": "provider-real-smoke-safety-checklist.json",

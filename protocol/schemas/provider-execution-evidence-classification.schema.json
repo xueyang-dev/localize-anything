@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-execution-evidence-classification.schema.json",
+  "title": "Provider Execution Evidence Classification",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "classifications", "runtime_real_provider_execution_available", "external_result_import_supports_runtime_execution", "provider_backed_quality_supported", "staging_admission_supports_quality", "benchmark_expansion_allowed", "forbidden_claims", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-execution-evidence-classification-v1" },
+    "artifact": { "const": "provider-execution-evidence-classification.json" },
+    "status": { "enum": ["classified", "blocked", "not_run"] },
+    "classifications": { "type": "array", "items": { "type": "object" } },
+    "runtime_real_provider_execution_available": { "type": "boolean" },
+    "external_result_import_supports_runtime_execution": { "const": false },
+    "provider_backed_quality_supported": { "const": false },
+    "staging_admission_supports_quality": { "const": false },
+    "benchmark_expansion_allowed": { "const": false },
+    "forbidden_claims": { "type": "array", "items": { "type": "string" } },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

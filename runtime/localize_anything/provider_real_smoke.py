@@ -5,6 +5,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, sha256_file, write_json
+from .provider_attempt_semantics import build_provider_attempt_type_normalization, infer_attempt_type
 
 
 PROVIDER_REAL_SMOKE_PLAN_JSON = "provider-real-smoke-plan.json"
@@ -334,6 +335,7 @@ def build_provider_real_smoke_evidence_review(state_dir: Path, *, write: bool = 
 
 def build_provider_real_smoke_ledger_audit(state_dir: Path, *, write: bool = True) -> dict[str, Any]:
     state_dir = state_dir.resolve()
+    build_provider_attempt_type_normalization(state_dir, write=write)
     ledger = _optional_jsonl(state_dir / "provider-execution-attempt-ledger.jsonl")
     intake = {str(item.get("result_id") or ""): item for item in _optional_jsonl(state_dir / "provider-result-intake.jsonl")}
     items = []
@@ -344,11 +346,9 @@ def build_provider_real_smoke_ledger_audit(state_dir: Path, *, write: bool = Tru
         source = str(record.get("result_source") or provenance.get("result_source") or "")
         attempt_type = str(attempt.get("attempt_type") or "")
         issues = []
-        expected = _expected_attempt_semantics(source)
+        expected = infer_attempt_type(attempt, record)
         if expected and attempt_type != expected:
             issues.append(f"attempt_type_{attempt_type or 'missing'}_does_not_match_{expected}")
-        if source == "real_provider" and attempt_type == "external_result_import":
-            issues.append("real_provider_execution_mislabeled_as_external_import")
         if attempt.get("result_state") == "success" and not result_id:
             issues.append("success_attempt_missing_result_id")
         if source == "real_provider" and (
@@ -479,6 +479,8 @@ def build_provider_real_smoke_expansion_decision(
         blockers.append("staging_admission_audit_not_consistent")
     if claim_review.get("status") != "non_claims_preserved":
         blockers.append("smoke_claim_boundary_conflict")
+    if any(item.get("recorded_attempt_type") == "manual_controlled_real_provider_smoke" for item in ledger_audit.get("items", [])):
+        blockers.append("manual_smoke_does_not_authorize_scope_expansion")
     decision = "review_before_expansion" if not blockers else "do_not_expand"
     report = {
         "protocol_version": PROTOCOL_VERSION,
@@ -541,17 +543,6 @@ def _status(path: Path) -> str:
 
 def _existing_names(state_dir: Path, *names: str) -> list[str]:
     return [name for name in names if name and (state_dir / name).is_file()]
-
-
-def _expected_attempt_semantics(source: str) -> str:
-    return {
-        "real_provider": "real_provider_execution",
-        "external_provider_result": "external_result_import",
-        "mock": "mock_execution",
-        "synthetic": "mock_execution",
-        "dry_run": "dry_run_only",
-        "skipped": "skipped",
-    }.get(source, "")
 
 
 def _required_json(path: Path) -> dict[str, Any]:

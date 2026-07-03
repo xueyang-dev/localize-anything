@@ -152,6 +152,13 @@ from .provider_staging import (
     PROVIDER_RESULT_STAGING_MANIFEST_JSON,
     PROVIDER_STAGING_CLAIM_BOUNDARY_JSON,
 )
+from .provider_attempt_semantics import (
+    PROVIDER_ATTEMPT_SEMANTICS_REPORT_JSON,
+    PROVIDER_ATTEMPT_TYPE_NORMALIZATION_JSON,
+    PROVIDER_EXECUTION_EVIDENCE_CLASSIFICATION_JSON,
+    PROVIDER_LEDGER_SEMANTIC_MIGRATION_REPORT_JSON,
+    PROVIDER_SMOKE_LEDGER_LINKAGE_REPORT_JSON,
+)
 from .provider_real_smoke import (
     PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
     PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
@@ -294,6 +301,11 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_result_quarantine_report", "provider_result_quarantine_report", PROVIDER_RESULT_QUARANTINE_REPORT_JSON, "provider_staging", ("provider_result_staging_admission",)),
     ArtifactSpec("provider_result_staging_manifest", "provider_result_staging_manifest", PROVIDER_RESULT_STAGING_MANIFEST_JSON, "provider_staging", ("provider_result_staging_admission", "provider_result_intake"), required_for_delivery=True),
     ArtifactSpec("provider_staging_claim_boundary", "provider_staging_claim_boundary", PROVIDER_STAGING_CLAIM_BOUNDARY_JSON, "provider_staging", ("provider_result_staging_admission", "provider_claim_support_report"), required_for_handoff=True, required_for_delivery=True),
+    ArtifactSpec("provider_attempt_type_normalization", "provider_attempt_type_normalization", PROVIDER_ATTEMPT_TYPE_NORMALIZATION_JSON, "provider_attempt_semantics", ("provider_execution_attempt_ledger", "provider_result_intake")),
+    ArtifactSpec("provider_attempt_semantics_report", "provider_attempt_semantics_report", PROVIDER_ATTEMPT_SEMANTICS_REPORT_JSON, "provider_attempt_semantics", ("provider_attempt_type_normalization", "provider_execution_attempt_ledger", "provider_result_intake")),
+    ArtifactSpec("provider_smoke_ledger_linkage_report", "provider_smoke_ledger_linkage_report", PROVIDER_SMOKE_LEDGER_LINKAGE_REPORT_JSON, "provider_attempt_semantics", ("provider_attempt_semantics_report", "provider_real_smoke_evidence_review")),
+    ArtifactSpec("provider_execution_evidence_classification", "provider_execution_evidence_classification", PROVIDER_EXECUTION_EVIDENCE_CLASSIFICATION_JSON, "provider_attempt_semantics", ("provider_attempt_semantics_report", "provider_smoke_ledger_linkage_report", "provider_result_staging_admission", "provider_staging_claim_boundary")),
+    ArtifactSpec("provider_ledger_semantic_migration_report", "provider_ledger_semantic_migration_report", PROVIDER_LEDGER_SEMANTIC_MIGRATION_REPORT_JSON, "provider_attempt_semantics", ("provider_attempt_type_normalization",)),
     ArtifactSpec("provider_real_smoke_fixture_manifest", "provider_real_smoke_fixture_manifest", PROVIDER_REAL_SMOKE_FIXTURE_MANIFEST_JSON, "provider_real_smoke"),
     ArtifactSpec("provider_real_smoke_plan", "provider_real_smoke_plan", PROVIDER_REAL_SMOKE_PLAN_JSON, "provider_real_smoke", ("provider_real_smoke_fixture_manifest", "provider_execution_policy", "provider_handoff_request", "provider_dry_run_plan", "provider_execution_authorization_decision")),
     ArtifactSpec("provider_real_smoke_acceptance_criteria", "provider_real_smoke_acceptance_criteria", PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON, "provider_real_smoke", ("provider_real_smoke_plan",)),

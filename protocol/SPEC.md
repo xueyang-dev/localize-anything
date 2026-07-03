@@ -2188,3 +2188,24 @@ Post-smoke evidence review uses five deterministic JSON artifacts:
 Matching CLI commands and GET APIs use the artifact filenames as command and
 endpoint names. They read sanitized metadata only, call no provider, authorize
 no new execution, and mutate no target project files.
+
+## Provider attempt semantics normalization
+
+Normalized attempt types are `blocked_before_execution`, `dry_run_only`,
+`mock_execution`, `external_result_import`,
+`manual_controlled_real_provider_smoke`, `runtime_real_provider_execution`,
+`skipped`, and `failed_policy_check`. `result_state: no_execution` distinguishes
+an authorized or planned path that never executed.
+
+The artifacts are `provider-attempt-semantics-report.json`,
+`provider-attempt-type-normalization.json`,
+`provider-smoke-ledger-linkage-report.json`,
+`provider-execution-evidence-classification.json`, and
+`provider-ledger-semantic-migration-report.json`. Matching CLI commands and GET
+APIs are deterministic and provider-free.
+
+External imports do not prove runtime execution. Manual controlled smoke proves
+only its exact public fixture path. Runtime-managed execution is unavailable
+without compatible runtime provenance and current authorization/preflight/result
+evidence. No attempt type or staging-admission decision proves semantic quality
+or authorizes benchmark expansion.

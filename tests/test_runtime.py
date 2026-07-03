@@ -351,6 +351,16 @@ from runtime.localize_anything.provider_staging import (
     build_provider_result_staging_manifest,
     build_provider_staging_claim_boundary,
 )
+from runtime.localize_anything.provider_attempt_semantics import (
+    PROVIDER_ATTEMPT_SEMANTICS_REPORT_JSON,
+    PROVIDER_ATTEMPT_TYPE_NORMALIZATION_JSON,
+    PROVIDER_EXECUTION_EVIDENCE_CLASSIFICATION_JSON,
+    PROVIDER_LEDGER_SEMANTIC_MIGRATION_REPORT_JSON,
+    PROVIDER_SMOKE_LEDGER_LINKAGE_REPORT_JSON,
+    build_provider_attempt_semantics_artifacts,
+    build_provider_attempt_semantics_report,
+    build_provider_execution_evidence_classification,
+)
 from runtime.localize_anything.provider_real_smoke import (
     PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
     PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
@@ -12182,7 +12192,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 182)
+        self.assertEqual(result["schemas_checked"], 187)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -13950,7 +13960,8 @@ class ProviderExecutionAttemptStagingTests(unittest.TestCase):
             self.assertEqual(admission["items"][0]["decision"], "admitted")
             self.assertEqual(manifest["admitted_result_ids"], ["external-result-1"])
             self.assertIn("provider_backed_quality", boundary["forbidden_claims"])
-            self.assertIn("provider_execution_complete", boundary["supported_claims"])
+            self.assertIn("provider_execution_complete", boundary["forbidden_claims"])
+            self.assertFalse(boundary["runtime_real_provider_execution_available"])
 
     def test_partial_and_stale_evidence_never_enter_staging(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -14114,7 +14125,7 @@ class ProviderRealSmokeEvidenceReviewTests(unittest.TestCase):
             self.assertFalse(artifacts["provider_real_smoke_expansion_decision"]["provider_scope_expansion_authorized"])
             post.assert_not_called()
 
-    def test_real_provider_intake_mislabeled_as_external_import_is_audited_not_rewritten(self) -> None:
+    def test_real_provider_smoke_attempt_is_normalized_and_expansion_stays_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             build_provider_real_smoke_artifacts(state)
@@ -14122,9 +14133,10 @@ class ProviderRealSmokeEvidenceReviewTests(unittest.TestCase):
             write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, [{
                 "attempt_id": "attempt-real-1", "result_id": "result-real-1", "attempt_type": "external_result_import",
                 "result_state": "success", "authorization_status": "authorized", "preflight_status": "authorized",
-                "provenance": {"result_source": "real_provider"},
+                "scope": {"fixture_id": "quickstart-json-provider-smoke-v1"},
+                "provenance": {"result_source": "real_provider", "run_id": "provider-smoke-test-001"},
             }])
-            write_jsonl(state / "provider-result-intake.jsonl", [{"result_id": "result-real-1", "result_source": "real_provider"}])
+            write_jsonl(state / "provider-result-intake.jsonl", [{"result_id": "result-real-1", "result_source": "real_provider", "run_id": "provider-smoke-test-001", "scope": {"fixture_id": "quickstart-json-provider-smoke-v1"}, "provenance": {"run_id": "provider-smoke-test-001"}}])
             write_json(state / "provider-evidence-reconciliation.json", {"status": "clear"})
             write_json(state / "provider-result-qa-report.json", {"status": "passed"})
             write_json(state / "provider-result-acceptance-decision.json", {"status": "accepted_with_limitations"})
@@ -14136,11 +14148,13 @@ class ProviderRealSmokeEvidenceReviewTests(unittest.TestCase):
             ledger = artifacts["provider_real_smoke_ledger_audit"]
             admission = artifacts["provider_real_smoke_admission_audit"]
 
-            self.assertEqual(ledger["status"], "semantic_mismatch")
-            self.assertIn("real_provider_execution_mislabeled_as_external_import", ledger["items"][0]["issues"])
-            self.assertEqual(read_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)[0]["attempt_type"], "external_result_import")
-            self.assertEqual(admission["status"], "review_required")
+            normalized = read_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)[0]
+            self.assertEqual(ledger["status"], "consistent")
+            self.assertEqual(normalized["attempt_type"], "manual_controlled_real_provider_smoke")
+            self.assertEqual(normalized["legacy_attempt_type"], "external_result_import")
+            self.assertEqual(admission["status"], "consistent")
             self.assertEqual(artifacts["provider_real_smoke_expansion_decision"]["status"], "do_not_expand")
+            self.assertIn("manual_smoke_does_not_authorize_scope_expansion", artifacts["provider_real_smoke_expansion_decision"]["blockers"])
 
     def test_smoke_claim_review_rejects_quality_claim_support(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -14181,6 +14195,152 @@ class ProviderRealSmokeEvidenceReviewTests(unittest.TestCase):
                 "provider_real_smoke_admission_audit", "provider_real_smoke_claim_review",
                 "provider_real_smoke_expansion_decision",
             }.issubset(ids))
+
+
+class ProviderAttemptSemanticsTests(unittest.TestCase):
+    def _manual_smoke_state(self, state: Path) -> None:
+        write_json(state / "provider-real-smoke-evidence.json", {
+            "status": "pass", "run_id": "provider-smoke-deepseek-quickstart-001",
+            "fixture_id": "quickstart-json-provider-smoke-v1", "provider_backed_quality_supported": False,
+        })
+        write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, [{
+            "attempt_id": "attempt-smoke-1", "result_id": "result-smoke-1",
+            "attempt_type": "external_result_import", "result_state": "success",
+            "authorization_status": "authorized", "preflight_status": "authorized",
+            "scope": {"fixture_id": "quickstart-json-provider-smoke-v1", "segment_ids": ["menu.start", "menu.welcome"]},
+            "provenance": {"result_source": "real_provider", "run_id": "provider-smoke-deepseek-quickstart-001"},
+            "provider_or_model_called_by_runtime": False,
+        }])
+        write_jsonl(state / "provider-result-intake.jsonl", [{
+            "result_id": "result-smoke-1", "result_source": "real_provider",
+            "run_id": "provider-smoke-deepseek-quickstart-001",
+            "scope": {"fixture_id": "quickstart-json-provider-smoke-v1", "segment_ids": ["menu.start", "menu.welcome"]},
+            "provenance": {"run_id": "provider-smoke-deepseek-quickstart-001", "execution_mode": "real_provider"},
+        }])
+
+    def test_manual_smoke_is_normalized_linked_and_never_quality_or_expansion_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            self._manual_smoke_state(state)
+            reports = build_provider_attempt_semantics_artifacts(state)
+            ledger = read_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)[0]
+
+            for name, artifact in (
+                ("provider-attempt-type-normalization", reports["provider_attempt_type_normalization"]),
+                ("provider-attempt-semantics-report", reports["provider_attempt_semantics_report"]),
+                ("provider-smoke-ledger-linkage-report", reports["provider_smoke_ledger_linkage_report"]),
+                ("provider-execution-evidence-classification", reports["provider_execution_evidence_classification"]),
+                ("provider-ledger-semantic-migration-report", reports["provider_ledger_semantic_migration_report"]),
+            ):
+                assert_protocol_schema(self, name, artifact)
+            self.assertEqual(ledger["attempt_type"], "manual_controlled_real_provider_smoke")
+            self.assertEqual(ledger["legacy_attempt_type"], "external_result_import")
+            self.assertTrue(reports["provider_smoke_ledger_linkage_report"]["provider_path_smoke_supported"])
+            classification = reports["provider_execution_evidence_classification"]
+            self.assertFalse(classification["provider_backed_quality_supported"])
+            self.assertFalse(classification["benchmark_expansion_allowed"])
+
+    def test_external_mock_and_dry_run_never_become_runtime_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            records = [
+                {"attempt_id": "external", "result_id": "r1", "attempt_type": "external_result_import", "result_state": "success", "provenance": {"result_source": "external_provider_result"}},
+                {"attempt_id": "mock", "result_id": "r2", "attempt_type": "mock_execution", "result_state": "success", "provenance": {"result_source": "mock"}},
+                {"attempt_id": "dry", "result_id": "", "attempt_type": "dry_run_only", "result_state": "no_execution", "provenance": {"result_source": "dry_run"}},
+            ]
+            write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, records)
+            report = build_provider_attempt_semantics_report(state)
+            by_id = {item["attempt_id"]: item for item in report["items"]}
+
+            self.assertEqual(by_id["external"]["evidence_class"], "external_result_only")
+            self.assertEqual(by_id["mock"]["evidence_class"], "mock_only")
+            self.assertEqual(by_id["dry"]["evidence_class"], "planning_only")
+            self.assertFalse(any(item["runtime_execution_supported"] for item in by_id.values()))
+
+    def test_runtime_real_execution_requires_runtime_managed_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            attempt = {
+                "attempt_id": "runtime", "result_id": "runtime-result",
+                "attempt_type": "runtime_real_provider_execution", "result_state": "success",
+                "authorization_status": "authorized", "preflight_status": "authorized", "provenance": {},
+            }
+            write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, [attempt])
+            blocked = build_provider_execution_evidence_classification(state)
+            self.assertFalse(blocked["runtime_real_provider_execution_available"])
+
+            attempt["provenance"] = {"execution_mode": "runtime_real_provider_execution", "runtime_managed_execution": True}
+            write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, [attempt])
+            supported = build_provider_execution_evidence_classification(state)
+            self.assertTrue(supported["runtime_real_provider_execution_available"])
+            self.assertFalse(supported["provider_backed_quality_supported"])
+
+    def test_staging_release_and_benchmark_claims_remain_conservative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "smoke"
+            state.mkdir()
+            self._manual_smoke_state(state)
+            write_json(state / "provider-claim-support-report.json", {"provider_execution_complete_supported": True, "provider_backed_quality_supported": True})
+            admission = {"status": "admitted", "items": [{"result_id": "result-smoke-1", "decision": "admitted", "admitted": True, "blockers": []}]}
+            write_json(state / PROVIDER_RESULT_STAGING_ADMISSION_JSON, admission)
+            boundary = build_provider_staging_claim_boundary(state, admission)
+            classification = build_provider_execution_evidence_classification(state)
+            release = build_release_audit_artifacts(state, repo_root=root)
+
+            self.assertTrue(boundary["provider_path_smoke_supported"])
+            self.assertFalse(boundary["provider_backed_quality_supported"])
+            self.assertIn("provider_backed_quality", boundary["forbidden_claims"])
+            self.assertIn("provider_backed_quality", release["release_readiness_audit"]["forbidden_claims"])
+            self.assertFalse(classification["benchmark_expansion_allowed"])
+
+            benchmark_state = _benchmark_run_state(root / "benchmark")
+            candidate = benchmark_state / "candidate"
+            write_json(candidate / "provider-evidence-reconciliation.json", {"status": "clear"})
+            write_json(candidate / "provider-claim-support-report.json", {"provider_backed_quality_supported": True})
+            write_json(candidate / "provider-result-staging-admission.json", {"status": "admitted"})
+            write_json(candidate / "provider-staging-claim-boundary.json", {"provider_backed_quality_supported": True})
+            write_json(candidate / PROVIDER_EXECUTION_EVIDENCE_CLASSIFICATION_JSON, classification)
+            write_jsonl(candidate / "provider-result-intake.jsonl", [{"result_source": "real_provider"}])
+            benchmark = build_benchmark_lab_reports(benchmark_state)
+            self.assertFalse(benchmark["benchmark_candidate_report"]["provider_evidence"]["provider_backed_supported"])
+            self.assertFalse(benchmark["benchmark_candidate_report"]["provider_evidence"]["benchmark_expansion_allowed"])
+
+    def test_cli_api_and_artifact_state_are_deterministic_and_provider_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            self._manual_smoke_state(state)
+            build_provider_attempt_semantics_artifacts(state)
+            commands = (
+                "provider-attempt-semantics-report", "provider-attempt-type-normalization",
+                "provider-smoke-ledger-linkage-report", "provider-execution-evidence-classification",
+                "provider-ledger-semantic-migration-report",
+            )
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                self.assertEqual([cli_main([command, state.as_posix()]) for command in commands], [0] * len(commands))
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    self.assertEqual([_http_get(host, port, f"/api/{command}?state_dir={state.as_posix()}")[0] for command in commands], [200] * len(commands))
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+                post.assert_not_called()
+            first = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in first["artifacts"]}
+            self.assertTrue({
+                "provider_attempt_semantics_report", "provider_attempt_type_normalization",
+                "provider_smoke_ledger_linkage_report", "provider_execution_evidence_classification",
+                "provider_ledger_semantic_migration_report",
+            }.issubset(ids))
+            records = read_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)
+            records[0]["limitations"] = ["changed"]
+            write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, records)
+            tracked = {item["artifact_id"]: item for item in build_artifact_state(state)["artifacts"]}
+            self.assertEqual(tracked["provider_attempt_type_normalization"]["status"], "stale")
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):
