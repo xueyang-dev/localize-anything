@@ -152,6 +152,7 @@ from .provider_dry_run import PROVIDER_DRY_RUN_ASSETS, provider_dry_run_asset_pa
 from .provider_consent import PROVIDER_CONSENT_ASSETS, provider_consent_asset_paths
 from .provider_staging import PROVIDER_STAGING_ASSETS, provider_staging_asset_paths
 from .provider_real_smoke import PROVIDER_REAL_SMOKE_ASSETS, provider_real_smoke_asset_paths
+from .provider_smoke_closure import PROVIDER_SMOKE_CLOSURE_ASSETS, provider_smoke_closure_asset_paths
 from .locale_capability import (
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -254,6 +255,7 @@ OPTIONAL_CANONICAL_ASSETS = (
     *PROVIDER_CONSENT_ASSETS.values(),
     *PROVIDER_STAGING_ASSETS.values(),
     *PROVIDER_REAL_SMOKE_ASSETS.values(),
+    *PROVIDER_SMOKE_CLOSURE_ASSETS.values(),
     LOCALE_CAPABILITY_REPORT_JSON,
     LOCALE_RISK_REPORT_JSON,
     LOCALE_READINESS_IMPACT_JSON,
@@ -390,6 +392,7 @@ def package_delivery(
                 **provider_consent_asset_paths(state_dir),
                 **provider_staging_asset_paths(state_dir),
                 **provider_real_smoke_asset_paths(state_dir),
+                **provider_smoke_closure_asset_paths(state_dir),
                 **locale_capability_asset_paths(state_dir),
                 **translation_provenance_asset_paths(state_dir),
                 **benchmark_lab_asset_paths(state_dir),

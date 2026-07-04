@@ -361,6 +361,15 @@ from runtime.localize_anything.provider_attempt_semantics import (
     build_provider_attempt_semantics_report,
     build_provider_execution_evidence_classification,
 )
+from runtime.localize_anything.provider_smoke_closure import (
+    PROVIDER_SMOKE_CLOSURE_REPORT_JSON,
+    PROVIDER_SMOKE_EVIDENCE_MANIFEST_JSON,
+    PROVIDER_SMOKE_NEXT_STEP_DECISION_JSON,
+    PROVIDER_SMOKE_RELEASE_BOUNDARY_AUDIT_JSON,
+    PROVIDER_SMOKE_REMAINING_BLOCKERS_JSON,
+    build_provider_smoke_closure_artifacts,
+    build_provider_smoke_evidence_manifest,
+)
 from runtime.localize_anything.provider_real_smoke import (
     PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
     PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
@@ -12192,7 +12201,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 187)
+        self.assertEqual(result["schemas_checked"], 192)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):
@@ -14341,6 +14350,134 @@ class ProviderAttemptSemanticsTests(unittest.TestCase):
             write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, records)
             tracked = {item["artifact_id"]: item for item in build_artifact_state(state)["artifacts"]}
             self.assertEqual(tracked["provider_attempt_type_normalization"]["status"], "stale")
+
+
+class ProviderSmokeClosureTests(unittest.TestCase):
+    def _complete_state(self, state: Path) -> None:
+        ProviderAttemptSemanticsTests._manual_smoke_state(self, state)
+        evidence = read_json(state / "provider-real-smoke-evidence.json")
+        evidence.update({
+            "provider_id": "deepseek", "provider_profile": "deepseek", "model_name": "deepseek-chat",
+            "source_locale": "en-US", "target_locale": "zh-CN", "segment_count": 2,
+            "real_provider_call_executed": True, "intake_status": "received",
+            "reconciliation_status": "clear", "qa_status": "passed",
+            "acceptance_status": "accepted_with_limitations", "staging_admission_status": "admitted",
+            "raw_output_local_only": True, "raw_output_committed": False,
+            "credentials_recorded": False, "sanitized_secret_leak_count": 0,
+            "target_files_mutated": False,
+        })
+        write_json(state / "provider-real-smoke-evidence.json", evidence)
+        write_json(state / "provider-result-acceptance-decision.json", {"status": "accepted_with_limitations"})
+        write_json(state / "provider-evidence-reconciliation.json", {"status": "clear"})
+        write_json(state / "provider-result-qa-report.json", {"status": "passed"})
+        write_json(state / "provider-result-staging-admission.json", {"status": "admitted"})
+
+    def test_manual_smoke_closes_with_provider_path_limitations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            self._complete_state(state)
+            reports = build_provider_smoke_closure_artifacts(state)
+
+            for name, artifact in (
+                ("provider-smoke-evidence-manifest", reports["provider_smoke_evidence_manifest"]),
+                ("provider-smoke-release-boundary-audit", reports["provider_smoke_release_boundary_audit"]),
+                ("provider-smoke-remaining-blockers", reports["provider_smoke_remaining_blockers"]),
+                ("provider-smoke-closure-report", reports["provider_smoke_closure_report"]),
+                ("provider-smoke-next-step-decision", reports["provider_smoke_next_step_decision"]),
+            ):
+                assert_protocol_schema(self, name, artifact)
+            manifest = reports["provider_smoke_evidence_manifest"]
+            self.assertEqual(manifest["attempt_type"], "manual_controlled_real_provider_smoke")
+            self.assertEqual(manifest["evidence_class"], "provider_path_smoke_only")
+            self.assertTrue(manifest["accepted_with_limitations"])
+            self.assertEqual(manifest["sanitized_evidence_status"], "safe")
+            self.assertFalse(manifest["raw_output_policy"]["committed"])
+            self.assertFalse(manifest["raw_output_policy"]["referenced_by_manifest"])
+            self.assertEqual(reports["provider_smoke_closure_report"]["status"], "closed_with_limitations")
+            self.assertFalse(reports["provider_smoke_closure_report"]["raw_output_committable"])
+            boundary = reports["provider_smoke_release_boundary_audit"]
+            self.assertFalse(boundary["provider_backed_quality_supported"])
+            self.assertFalse(boundary["runtime_real_provider_execution_available"])
+            self.assertFalse(boundary["benchmark_expansion_allowed"])
+            self.assertEqual(reports["provider_smoke_next_step_decision"]["status"], "repeat_same_scope_or_stop")
+
+    def test_missing_sanitized_evidence_remains_incomplete_and_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            write_jsonl(state / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL, [])
+            manifest = build_provider_smoke_evidence_manifest(state)
+            reports = build_provider_smoke_closure_artifacts(state)
+            blocker_ids = {item["blocker_id"] for item in reports["provider_smoke_remaining_blockers"]["blockers"]}
+
+            self.assertEqual(manifest["status"], "incomplete")
+            self.assertEqual(manifest["sanitized_evidence_status"], "missing")
+            self.assertIn("sanitized_smoke_evidence_missing_or_unsafe", blocker_ids)
+            self.assertEqual(reports["provider_smoke_closure_report"]["status"], "incomplete")
+            self.assertFalse(reports["provider_smoke_next_step_decision"]["provider_scope_expansion_authorized"])
+
+    def test_release_benchmark_and_readiness_stay_conservative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "smoke"
+            state.mkdir()
+            self._complete_state(state)
+            reports = build_provider_smoke_closure_artifacts(state)
+            release = build_release_audit_artifacts(state, repo_root=root)
+            matrix = build_readiness_authorization_matrix(state)
+
+            self.assertIn("provider_backed_quality", release["release_readiness_audit"]["forbidden_claims"])
+            self.assertIn("production_ready", matrix["forbidden_claims"])
+            self.assertIn("provider_backed_quality", matrix["forbidden_claims"])
+
+            benchmark_state = _benchmark_run_state(root / "benchmark")
+            candidate = benchmark_state / "candidate"
+            write_json(candidate / PROVIDER_EXECUTION_EVIDENCE_CLASSIFICATION_JSON, read_json(state / PROVIDER_EXECUTION_EVIDENCE_CLASSIFICATION_JSON))
+            write_json(candidate / PROVIDER_SMOKE_RELEASE_BOUNDARY_AUDIT_JSON, reports["provider_smoke_release_boundary_audit"])
+            write_json(candidate / "provider-claim-support-report.json", {"provider_backed_quality_supported": True})
+            write_json(candidate / "provider-result-staging-admission.json", {"status": "admitted"})
+            write_json(candidate / "provider-staging-claim-boundary.json", {"provider_backed_quality_supported": True})
+            write_jsonl(candidate / "provider-result-intake.jsonl", [{"result_source": "real_provider"}])
+            benchmark = build_benchmark_lab_reports(benchmark_state)
+            provider = benchmark["benchmark_candidate_report"]["provider_evidence"]
+            self.assertFalse(provider["provider_backed_supported"])
+            self.assertFalse(provider["benchmark_expansion_allowed"])
+            self.assertFalse(provider["smoke_evidence_registered_for_benchmark"])
+
+    def test_cli_api_and_artifact_state_are_provider_free_and_stale_aware(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            self._complete_state(state)
+            build_provider_smoke_closure_artifacts(state)
+            commands = (
+                "provider-smoke-closure-report", "provider-smoke-release-boundary-audit",
+                "provider-smoke-evidence-manifest", "provider-smoke-remaining-blockers",
+                "provider-smoke-next-step-decision",
+            )
+            with mock.patch("runtime.localize_anything.provider._post_provider_request", side_effect=AssertionError("provider called")) as post:
+                self.assertEqual([cli_main([command, state.as_posix()]) for command in commands], [0] * len(commands))
+                server = create_ui_server(port=0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                host, port = server.server_address[:2]
+                try:
+                    self.assertEqual([_http_get(host, port, f"/api/{command}?state_dir={state.as_posix()}")[0] for command in commands], [200] * len(commands))
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+                post.assert_not_called()
+            first = build_artifact_state(state)
+            ids = {item["artifact_id"] for item in first["artifacts"]}
+            self.assertTrue({
+                "provider_smoke_closure_report", "provider_smoke_release_boundary_audit",
+                "provider_smoke_evidence_manifest", "provider_smoke_remaining_blockers",
+                "provider_smoke_next_step_decision",
+            }.issubset(ids))
+            evidence = read_json(state / "provider-real-smoke-evidence.json")
+            evidence["segment_count"] = 3
+            write_json(state / "provider-real-smoke-evidence.json", evidence)
+            tracked = {item["artifact_id"]: item for item in build_artifact_state(state)["artifacts"]}
+            self.assertEqual(tracked["provider_smoke_evidence_manifest"]["status"], "stale")
 
 
 class ProviderSafeMockHarnessTests(unittest.TestCase):

@@ -1946,3 +1946,25 @@ authorization, preflight, result, and runtime-managed provenance all exist.
 Staging admission remains separate from quality evidence. The previous
 two-segment quickstart smoke therefore stays `do_not_expand` even after its
 ledger label is normalized.
+
+## Provider Smoke Evidence Closure / Release Boundary
+
+The closure layer records the manual two-segment DeepSeek smoke as
+`provider_path_smoke_only`. Its evidence manifest references allowlisted
+sanitized artifacts and records raw output as local-only and uncommittable; it
+does not read or package the raw provider response.
+
+Closure is deliberately `closed_with_limitations`. It proves only that the
+explicitly authorized provider path executed for the public smoke fixture.
+Provider-backed quality, production readiness, locale completeness,
+full-product localization, benchmark evidence, runtime-managed execution, and
+release promotion remain unsupported. Readiness and release projections ingest
+these forbidden claims, while Benchmark Lab treats the smoke as unregistered
+for benchmark evidence.
+
+The remaining-blockers and next-step artifacts retain the missing independent
+semantic review, tiny sample size, absent reliability sample, absent
+benchmark-scale run, absent runtime-managed execution, and absent promotion
+evidence. The default decision is `repeat_same_scope_or_stop`; a small-batch
+protocol requires a separate explicit future loop and never follows
+automatically from smoke closure.

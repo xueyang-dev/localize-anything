@@ -697,6 +697,7 @@ def _evidence(run_dir: Path) -> dict[str, Any]:
         "provider_result_staging_admission": _optional_json(run_dir / "provider-result-staging-admission.json"),
         "provider_staging_claim_boundary": _optional_json(run_dir / "provider-staging-claim-boundary.json"),
         "provider_execution_evidence_classification": _optional_json(run_dir / "provider-execution-evidence-classification.json"),
+        "provider_smoke_release_boundary_audit": _optional_json(run_dir / "provider-smoke-release-boundary-audit.json"),
         "provider_real_smoke_plan": _optional_json(run_dir / "provider-real-smoke-plan.json"),
         "provider_real_smoke_evidence_template": _optional_json(run_dir / "provider-real-smoke-evidence-template.json"),
         "provider_real_smoke_safety_checklist": _optional_json(run_dir / "provider-real-smoke-safety-checklist.json"),
@@ -805,6 +806,8 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     staging_admission = evidence["provider_result_staging_admission"]
     staging_boundary = evidence["provider_staging_claim_boundary"]
     classification = evidence["provider_execution_evidence_classification"]
+    smoke_boundary = evidence["provider_smoke_release_boundary_audit"]
+    smoke_not_registered = bool(smoke_boundary) and smoke_boundary.get("benchmark_evidence_registered") is not True
     synthetic = any(str(item.get("result_source") or item.get("source") or "") in {"synthetic", "mock", "dry_run", "failed", "local_draft"} for item in intake)
     failed = str(reconciliation.get("status") or "") in {"failed", "blocked", "stale"}
     supported = (
@@ -813,6 +816,7 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
         and staging_boundary.get("provider_backed_quality_supported") is True
         and classification.get("provider_backed_quality_supported") is True
         and classification.get("benchmark_expansion_allowed") is True
+        and not smoke_not_registered
         and not synthetic
         and not failed
     )
@@ -824,7 +828,8 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
         "execution_authorization_status": authorization.get("status") or "missing",
         "execution_preflight_status": preflight.get("status") or "missing",
         "execution_evidence_classification": classification.get("status") or "missing",
-        "benchmark_expansion_allowed": classification.get("benchmark_expansion_allowed") is True,
+        "benchmark_expansion_allowed": classification.get("benchmark_expansion_allowed") is True and not smoke_not_registered,
+        "smoke_evidence_registered_for_benchmark": bool(smoke_boundary) and not smoke_not_registered,
         "summary": "provider-backed quality is supported" if supported else "provider-backed quality is not supported by benchmark evidence",
         "artifacts": _existing_names(
             ("provider-evidence-reconciliation.json", reconciliation),
@@ -833,6 +838,7 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             ("provider-result-staging-admission.json", staging_admission),
             ("provider-staging-claim-boundary.json", staging_boundary),
             ("provider-execution-evidence-classification.json", classification),
+            ("provider-smoke-release-boundary-audit.json", smoke_boundary),
         ),
     }
 

@@ -92,6 +92,7 @@ def build_readiness_authorization_matrix(
     scorecard = artifacts["evaluation_scorecard"]
     forbidden = set(_strings(scorecard.get("forbidden_claims")))
     forbidden.update(_strings(artifacts.get("benchmark_claim_boundary_report", {}).get("forbidden_claims", [])))
+    forbidden.update(_strings(artifacts.get("provider_smoke_release_boundary_audit", {}).get("forbidden_claims", [])))
     blockers: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
 
@@ -379,6 +380,7 @@ def _load_artifacts(state_dir: Path, delivery_dir: Path | None) -> dict[str, Any
         "provider_execution_preflight_gate": _read_optional_json(_first_existing(state_dir, delivery_dir, PROVIDER_EXECUTION_PREFLIGHT_GATE_JSON)),
         "provider_result_staging_admission": _read_optional_json(_first_existing(state_dir, delivery_dir, "provider-result-staging-admission.json")),
         "provider_staging_claim_boundary": _read_optional_json(_first_existing(state_dir, delivery_dir, "provider-staging-claim-boundary.json")),
+        "provider_smoke_release_boundary_audit": _read_optional_json(_first_existing(state_dir, delivery_dir, "provider-smoke-release-boundary-audit.json")),
         "locale_capability_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_CAPABILITY_REPORT_JSON)),
         "locale_risk_report": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_RISK_REPORT_JSON)),
         "locale_readiness_impact": _read_optional_json(_first_existing(state_dir, delivery_dir, LOCALE_READINESS_IMPACT_JSON)),
