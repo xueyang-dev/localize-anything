@@ -1925,3 +1925,24 @@ provider execution by itself.
 The audit reads fixed sanitized JSON/JSONL evidence paths only. It does not
 read raw provider responses, change provider execution behavior, mutate target
 files, promote staging results, or turn path execution into a quality claim.
+
+## Provider Ledger Enum / Attempt Semantics Normalization
+
+Provider attempt records now distinguish blocked/no-execution, dry-run, mock,
+external import, manual controlled real-provider smoke, and future
+runtime-managed real-provider execution. Normalization preserves the stable
+attempt id and the previous label in `legacy_attempt_type`; it changes evidence
+semantics only and does not execute a provider.
+
+The five deterministic reports cover normalized types, per-attempt semantic
+validation, linkage from sanitized smoke evidence to its ledger record,
+execution-evidence classification, and migration history. An external import
+is content evidence, not runtime execution evidence. A manual controlled smoke
+may prove the narrow provider path, but cannot establish provider-backed
+quality, production readiness, locale completeness, full-product localization,
+or benchmark expansion. Runtime-managed execution remains unavailable unless
+authorization, preflight, result, and runtime-managed provenance all exist.
+
+Staging admission remains separate from quality evidence. The previous
+two-segment quickstart smoke therefore stays `do_not_expand` even after its
+ledger label is normalized.

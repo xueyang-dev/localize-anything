@@ -7,6 +7,7 @@ from typing import Any
 
 from . import PROTOCOL_VERSION
 from .io_utils import read_json, read_jsonl, write_json, write_jsonl
+from .provider_attempt_semantics import ATTEMPT_TYPES, classify_attempt_record, infer_attempt_type, normalize_attempt_record
 
 
 PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL = "provider-execution-attempt-ledger.jsonl"
@@ -25,15 +26,6 @@ PROVIDER_STAGING_ASSETS = {
     "provider_staging_claim_boundary": PROVIDER_STAGING_CLAIM_BOUNDARY_JSON,
 }
 
-ATTEMPT_TYPES = {
-    "blocked_before_execution",
-    "dry_run_only",
-    "mock_execution",
-    "external_result_import",
-    "skipped",
-    "failed_policy_check",
-    "future_real_execution_placeholder",
-}
 RESULT_STATES = {
     "no_execution",
     "blocked",
@@ -58,14 +50,14 @@ def build_provider_execution_attempt_ledger(state_dir: Path, *, write: bool = Tr
     state_dir = state_dir.resolve()
     existing = _optional_jsonl(state_dir / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)
     by_result = {str(item.get("result_id") or ""): item for item in existing if item.get("result_id")}
-    records = [item for item in existing if not item.get("result_id")]
+    records = [normalize_attempt_record(item) for item in existing if not item.get("result_id")]
     authorization = _optional_json(state_dir / "provider-execution-authorization-decision.json")
     preflight = _optional_json(state_dir / "provider-execution-preflight-gate.json")
     request = _optional_json(state_dir / "provider-handoff-request.json")
     for intake in _optional_jsonl(state_dir / "provider-result-intake.jsonl"):
         result_id = str(intake.get("result_id") or "")
         record = by_result.get(result_id) or _attempt_from_intake(intake, authorization, preflight, request)
-        records.append(record)
+        records.append(normalize_attempt_record(record, intake))
     if not records:
         records.append(_empty_attempt(authorization, preflight, request))
     records = sorted(records, key=lambda item: str(item.get("attempt_id") or ""))
@@ -105,6 +97,8 @@ def record_provider_execution_attempt(state_dir: Path, attempt: dict[str, Any]) 
         "source_artifact_references": _strings(attempt.get("source_artifact_references")),
         "provider_or_model_called_by_runtime": False,
     }
+    intake = {str(item.get("result_id") or ""): item for item in _optional_jsonl(state_dir / "provider-result-intake.jsonl")}
+    record = normalize_attempt_record(record, intake.get(record["result_id"]))
     records = _optional_jsonl(state_dir / PROVIDER_EXECUTION_ATTEMPT_LEDGER_JSONL)
     if not any(item.get("attempt_id") == record["attempt_id"] for item in records):
         records.append(record)
@@ -193,6 +187,8 @@ def build_provider_result_staging_admission(state_dir: Path, *, write: bool = Tr
         items.append({
             "result_id": result_id,
             "attempt_id": str(attempt.get("attempt_id") or ""),
+            "attempt_type": str(attempt.get("attempt_type") or ""),
+            "execution_evidence_class": classify_attempt_record(attempt, intake).get("evidence_class"),
             "decision": decision,
             "admitted": decision == "admitted",
             "effective_scope": intake.get("scope", {}),
@@ -288,8 +284,12 @@ def build_provider_staging_claim_boundary(state_dir: Path, admission: dict[str, 
     admission = admission or build_provider_result_staging_admission(state_dir, write=write)
     claims = _optional_json(state_dir / "provider-claim-support-report.json")
     admitted_ids = [str(item.get("result_id")) for item in admission.get("items", []) if item.get("admitted")]
-    quality_supported = bool(admitted_ids) and claims.get("provider_backed_quality_supported") is True
-    execution_supported = bool(admitted_ids) and claims.get("provider_execution_complete_supported") is True
+    attempts = {str(item.get("result_id") or ""): item for item in build_provider_execution_attempt_ledger(state_dir, write=write)}
+    classifications = [classify_attempt_record(attempts[result_id]) for result_id in admitted_ids if result_id in attempts]
+    runtime_execution_supported = bool(classifications) and all(item.get("runtime_execution_supported") for item in classifications)
+    manual_smoke_supported = any(item.get("provider_path_smoke_supported") for item in classifications)
+    execution_supported = runtime_execution_supported and claims.get("provider_execution_complete_supported") is True
+    quality_supported = execution_supported and claims.get("provider_backed_quality_supported") is True
     forbidden = set(PROVIDER_CLAIMS)
     if execution_supported:
         forbidden.discard("provider_execution_complete")
@@ -304,6 +304,8 @@ def build_provider_staging_claim_boundary(state_dir: Path, admission: dict[str, 
         "supported_claims": [claim for claim, supported in (("provider_execution_complete", execution_supported), ("provider_backed_quality", quality_supported)) if supported],
         "forbidden_claims": sorted(forbidden),
         "provider_backed_quality_supported": quality_supported,
+        "provider_path_smoke_supported": manual_smoke_supported,
+        "runtime_real_provider_execution_available": runtime_execution_supported,
         "staging_admission_alone_supports_quality": False,
         "provider_or_model_called_by_runtime": False,
         "source_artifact_references": [PROVIDER_RESULT_STAGING_ADMISSION_JSON, "provider-claim-support-report.json"],
@@ -357,15 +359,7 @@ def _attempt_from_intake(intake: dict[str, Any], authorization: dict[str, Any], 
     source = str(intake.get("result_source") or "unknown")
     provenance = intake.get("provenance") if isinstance(intake.get("provenance"), dict) else {}
     status = str(intake.get("provider_status") or intake.get("status") or "")
-    attempt_type = "external_result_import"
-    if source in {"mock", "synthetic"} or provenance.get("execution_mode") == "provider_safe_mock" or provenance.get("provider_name") == "mock":
-        attempt_type = "mock_execution"
-    elif source == "dry_run":
-        attempt_type = "dry_run_only"
-    elif source == "skipped":
-        attempt_type = "skipped"
-    elif status in {"blocked", "rejected_shape", "rejected_provenance", "rejected_stale"}:
-        attempt_type = "failed_policy_check"
+    attempt_type = infer_attempt_type({"attempt_type": "external_result_import", "provenance": {"result_source": source, **provenance}}, intake)
     result_state = _result_state(status, intake)
     result_id = str(intake.get("result_id") or "")
     identity = [result_id, attempt_type, result_state, intake.get("request_id")]
@@ -391,7 +385,7 @@ def _attempt_from_intake(intake: dict[str, Any], authorization: dict[str, Any], 
 
 def _empty_attempt(authorization: dict[str, Any], preflight: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
     authorized = authorization.get("status") == "authorized" and preflight.get("status") == "authorized"
-    attempt_type = "future_real_execution_placeholder" if authorized else "blocked_before_execution"
+    attempt_type = "blocked_before_execution"
     return {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-provider-execution-attempt-record-v1",
@@ -459,7 +453,7 @@ def _admission_blockers(intake: dict[str, Any], attempt: dict[str, Any], reconci
         blockers.append("failed_result_qa")
     if result_id not in accepted and result_id not in limited:
         blockers.append("missing_review_acceptance")
-    if not claims.get("provider_execution_complete_supported"):
+    if attempt.get("attempt_type") == "runtime_real_provider_execution" and not claims.get("provider_execution_complete_supported"):
         blockers.append("provider_claim_support_incompatible")
     expected_scope = authorization.get("authorization_scope") if isinstance(authorization.get("authorization_scope"), dict) else {}
     provenance = intake.get("provenance") if isinstance(intake.get("provenance"), dict) else {}

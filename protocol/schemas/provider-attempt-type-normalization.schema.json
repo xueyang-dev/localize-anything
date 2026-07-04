@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/provider-attempt-type-normalization.schema.json",
+  "title": "Provider Attempt Type Normalization",
+  "type": "object",
+  "required": ["protocol_version", "schema", "artifact", "status", "normalized_attempt_types", "items", "summary", "provider_execution_behavior_changed", "provider_or_model_called_by_runtime"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-provider-attempt-type-normalization-v1" },
+    "artifact": { "const": "provider-attempt-type-normalization.json" },
+    "status": { "enum": ["normalized", "current", "no_attempts"] },
+    "normalized_attempt_types": { "type": "array", "items": { "type": "string" } },
+    "items": { "type": "array", "items": { "type": "object", "required": ["attempt_id", "previous_attempt_type", "normalized_attempt_type", "changed"] } },
+    "summary": { "type": "object" },
+    "provider_execution_behavior_changed": { "const": false },
+    "provider_or_model_called_by_runtime": { "const": false }
+  },
+  "additionalProperties": true
+}

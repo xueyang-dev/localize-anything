@@ -696,6 +696,7 @@ def _evidence(run_dir: Path) -> dict[str, Any]:
         "provider_execution_preflight_gate": _optional_json(run_dir / "provider-execution-preflight-gate.json"),
         "provider_result_staging_admission": _optional_json(run_dir / "provider-result-staging-admission.json"),
         "provider_staging_claim_boundary": _optional_json(run_dir / "provider-staging-claim-boundary.json"),
+        "provider_execution_evidence_classification": _optional_json(run_dir / "provider-execution-evidence-classification.json"),
         "provider_real_smoke_plan": _optional_json(run_dir / "provider-real-smoke-plan.json"),
         "provider_real_smoke_evidence_template": _optional_json(run_dir / "provider-real-smoke-evidence-template.json"),
         "provider_real_smoke_safety_checklist": _optional_json(run_dir / "provider-real-smoke-safety-checklist.json"),
@@ -803,12 +804,15 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     preflight = evidence["provider_execution_preflight_gate"]
     staging_admission = evidence["provider_result_staging_admission"]
     staging_boundary = evidence["provider_staging_claim_boundary"]
+    classification = evidence["provider_execution_evidence_classification"]
     synthetic = any(str(item.get("result_source") or item.get("source") or "") in {"synthetic", "mock", "dry_run", "failed", "local_draft"} for item in intake)
     failed = str(reconciliation.get("status") or "") in {"failed", "blocked", "stale"}
     supported = (
         bool(claim_support.get("provider_backed_quality_supported"))
         and staging_admission.get("status") == "admitted"
         and staging_boundary.get("provider_backed_quality_supported") is True
+        and classification.get("provider_backed_quality_supported") is True
+        and classification.get("benchmark_expansion_allowed") is True
         and not synthetic
         and not failed
     )
@@ -819,6 +823,8 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
         "synthetic_or_failed_output_present": synthetic or failed,
         "execution_authorization_status": authorization.get("status") or "missing",
         "execution_preflight_status": preflight.get("status") or "missing",
+        "execution_evidence_classification": classification.get("status") or "missing",
+        "benchmark_expansion_allowed": classification.get("benchmark_expansion_allowed") is True,
         "summary": "provider-backed quality is supported" if supported else "provider-backed quality is not supported by benchmark evidence",
         "artifacts": _existing_names(
             ("provider-evidence-reconciliation.json", reconciliation),
@@ -826,6 +832,7 @@ def _provider_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             ("provider-execution-preflight-gate.json", preflight),
             ("provider-result-staging-admission.json", staging_admission),
             ("provider-staging-claim-boundary.json", staging_boundary),
+            ("provider-execution-evidence-classification.json", classification),
         ),
     }
 

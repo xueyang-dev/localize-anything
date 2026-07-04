@@ -192,6 +192,7 @@ from .provider_staging import (
     read_provider_result_staging_manifest,
     read_provider_staging_claim_boundary,
 )
+from .provider_attempt_semantics import read_provider_attempt_semantics_artifact
 from .provider_real_smoke import read_provider_real_smoke_artifact
 from .locale_capability import (
     read_locale_capability_report,
@@ -531,6 +532,16 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 if parsed.path == "/api/provider-staging-claim-boundary":
                     self._handle_workflow_artifact_query(parsed.query, "provider_staging_claim_boundary", read_provider_staging_claim_boundary)
                     return
+                for endpoint, artifact_name in (
+                    ("/api/provider-attempt-semantics-report", "provider_attempt_semantics_report"),
+                    ("/api/provider-attempt-type-normalization", "provider_attempt_type_normalization"),
+                    ("/api/provider-smoke-ledger-linkage-report", "provider_smoke_ledger_linkage_report"),
+                    ("/api/provider-execution-evidence-classification", "provider_execution_evidence_classification"),
+                    ("/api/provider-ledger-semantic-migration-report", "provider_ledger_semantic_migration_report"),
+                ):
+                    if parsed.path == endpoint:
+                        self._handle_workflow_artifact_query(parsed.query, artifact_name, lambda state_dir, name=artifact_name: read_provider_attempt_semantics_artifact(state_dir, name))
+                        return
                 for endpoint, artifact_name in (
                     ("/api/provider-real-smoke-plan", "provider_real_smoke_plan"),
                     ("/api/provider-real-smoke-fixture-manifest", "provider_real_smoke_fixture_manifest"),

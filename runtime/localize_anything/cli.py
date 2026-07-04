@@ -230,6 +230,13 @@ from .provider_staging import (
     build_provider_staging_claim_boundary,
     record_provider_execution_attempt,
 )
+from .provider_attempt_semantics import (
+    build_provider_attempt_semantics_report,
+    build_provider_attempt_type_normalization,
+    build_provider_execution_evidence_classification,
+    build_provider_ledger_semantic_migration_report,
+    build_provider_smoke_ledger_linkage_report,
+)
 from .provider_real_smoke import (
     build_provider_real_smoke_admission_audit,
     build_provider_real_smoke_acceptance_criteria,
@@ -1061,6 +1068,17 @@ def build_parser() -> argparse.ArgumentParser:
         ("provider-result-quarantine-report", "Create provider-result-quarantine-report.json"),
         ("provider-result-staging-manifest", "Create provider-result-staging-manifest.json"),
         ("provider-staging-claim-boundary", "Create provider-staging-claim-boundary.json"),
+    ):
+        command_parser = subparsers.add_parser(command, help=help_text)
+        command_parser.add_argument("state_dir", type=Path)
+        command_parser.add_argument("--output", type=Path)
+
+    for command, help_text in (
+        ("provider-attempt-semantics-report", "Create provider-attempt-semantics-report.json"),
+        ("provider-attempt-type-normalization", "Normalize provider attempt types with auditable legacy labels"),
+        ("provider-smoke-ledger-linkage-report", "Link controlled provider smoke evidence to its ledger attempt"),
+        ("provider-execution-evidence-classification", "Classify provider execution evidence without quality claims"),
+        ("provider-ledger-semantic-migration-report", "Create provider ledger semantic migration report"),
     ):
         command_parser = subparsers.add_parser(command, help=help_text)
         command_parser.add_argument("state_dir", type=Path)
@@ -2615,6 +2633,16 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_provider_result_staging_manifest(args.state_dir), args.output)
         if args.command == "provider-staging-claim-boundary":
             return _emit_json(build_provider_staging_claim_boundary(args.state_dir), args.output)
+        if args.command == "provider-attempt-semantics-report":
+            return _emit_json(build_provider_attempt_semantics_report(args.state_dir), args.output)
+        if args.command == "provider-attempt-type-normalization":
+            return _emit_json(build_provider_attempt_type_normalization(args.state_dir), args.output)
+        if args.command == "provider-smoke-ledger-linkage-report":
+            return _emit_json(build_provider_smoke_ledger_linkage_report(args.state_dir), args.output)
+        if args.command == "provider-execution-evidence-classification":
+            return _emit_json(build_provider_execution_evidence_classification(args.state_dir), args.output)
+        if args.command == "provider-ledger-semantic-migration-report":
+            return _emit_json(build_provider_ledger_semantic_migration_report(args.state_dir), args.output)
         if args.command == "provider-real-smoke-plan":
             result = build_provider_real_smoke_artifacts(args.state_dir, run_id=args.run_id)
             return _emit_json(result["provider_real_smoke_plan"], args.output)

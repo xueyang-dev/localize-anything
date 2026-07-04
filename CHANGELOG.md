@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add Provider Ledger Enum / Attempt Semantics Normalization with explicit
+  manual-controlled-smoke and future runtime-managed execution types,
+  auditable legacy-label migration, smoke-ledger linkage, execution-evidence
+  classification, provider-free CLI/API projections, and conservative
+  benchmark/release claim boundaries.
 - Add Provider Smoke Evidence Review / Attempt Ledger Semantics Audit seed
   with five provider-free review artifacts for sanitized evidence completeness,
   real-execution versus external-import ledger semantics, staging-admission

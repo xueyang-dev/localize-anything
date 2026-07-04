@@ -14,6 +14,7 @@ from .provider_evidence import (
     PROVIDER_HANDOFF_REQUEST_JSON,
     PROVIDER_RESULT_INTAKE_JSONL,
 )
+from .provider_attempt_semantics import classify_attempt_record
 
 
 PROVIDER_RESULT_QA_REPORT_JSON = "provider-result-qa-report.json"
@@ -236,9 +237,14 @@ def build_provider_claim_support_report(state_dir: Path, *, write: bool = True) 
     signoff = _optional_json(state_dir / "signoff-record.json")
     accepted = _strings(acceptance.get("accepted_result_ids"))
     limited = _strings(acceptance.get("accepted_with_limitations_result_ids"))
+    attempts = {str(item.get("result_id") or ""): item for item in _optional_jsonl(state_dir / "provider-execution-attempt-ledger.jsonl")}
     qa_by_id = {str(item.get("result_id") or ""): item for item in qa.get("results", []) if isinstance(item, dict)}
     usable = [result_id for result_id in accepted + limited if qa_by_id.get(result_id, {}).get("status") in {"passed", "requires_human_review"}]
-    execution_supported = bool(usable) and acceptance.get("status") in {"accepted", "accepted_with_limitations"}
+    runtime_execution_supported = bool(usable) and all(
+        classify_attempt_record(attempts.get(result_id, {})).get("runtime_execution_supported")
+        for result_id in usable
+    )
+    execution_supported = runtime_execution_supported and acceptance.get("status") in {"accepted", "accepted_with_limitations"}
     signoff_compatible = signoff.get("status") in {"accepted", "accepted_with_limitations"} and _scope_contains(signoff.get("signoff_scope", {}), acceptance.get("effective_scope", {}))
     full_scope = acceptance.get("status") == "accepted" and not _is_limited_scope(acceptance.get("effective_scope", {}))
     quality_supported = execution_supported and signoff_compatible and full_scope
@@ -266,6 +272,7 @@ def build_provider_claim_support_report(state_dir: Path, *, write: bool = True) 
         "forbidden_claims": sorted(forbidden),
         "global_forbidden_claims": ["provider_backed_quality"] if narrow_quality else [],
         "provider_execution_complete_supported": execution_supported,
+        "runtime_real_provider_execution_available": runtime_execution_supported,
         "provider_backed_quality_supported": quality_supported,
         "compatible_signoff": signoff_compatible,
         "effective_scope": acceptance.get("effective_scope", {}),

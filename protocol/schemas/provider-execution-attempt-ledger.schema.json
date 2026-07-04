@@ -8,7 +8,7 @@
     "protocol_version": { "const": "0.1" },
     "schema": { "const": "localize-anything-provider-execution-attempt-record-v1" },
     "attempt_id": { "type": "string", "minLength": 1 },
-    "attempt_type": { "enum": ["blocked_before_execution", "dry_run_only", "mock_execution", "external_result_import", "skipped", "failed_policy_check", "future_real_execution_placeholder"] },
+    "attempt_type": { "enum": ["blocked_before_execution", "dry_run_only", "mock_execution", "external_result_import", "manual_controlled_real_provider_smoke", "runtime_real_provider_execution", "skipped", "failed_policy_check"] },
     "result_state": { "enum": ["no_execution", "blocked", "success", "failure", "timeout", "malformed_response", "partial_response", "empty_output", "fallback_attempted", "quarantined"] },
     "provider_or_model_called_by_runtime": { "const": false }
   },
