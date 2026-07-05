@@ -159,6 +159,13 @@ from .provider_attempt_semantics import (
     PROVIDER_LEDGER_SEMANTIC_MIGRATION_REPORT_JSON,
     PROVIDER_SMOKE_LEDGER_LINKAGE_REPORT_JSON,
 )
+from .provider_smoke_closure import (
+    PROVIDER_SMOKE_CLOSURE_REPORT_JSON,
+    PROVIDER_SMOKE_EVIDENCE_MANIFEST_JSON,
+    PROVIDER_SMOKE_NEXT_STEP_DECISION_JSON,
+    PROVIDER_SMOKE_RELEASE_BOUNDARY_AUDIT_JSON,
+    PROVIDER_SMOKE_REMAINING_BLOCKERS_JSON,
+)
 from .provider_real_smoke import (
     PROVIDER_REAL_SMOKE_ACCEPTANCE_CRITERIA_JSON,
     PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON,
@@ -318,6 +325,12 @@ STATE_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("provider_real_smoke_admission_audit", "provider_real_smoke_admission_audit", PROVIDER_REAL_SMOKE_ADMISSION_AUDIT_JSON, "provider_real_smoke", ("provider_result_staging_admission", "provider_real_smoke_ledger_audit")),
     ArtifactSpec("provider_real_smoke_claim_review", "provider_real_smoke_claim_review", PROVIDER_REAL_SMOKE_CLAIM_REVIEW_JSON, "provider_real_smoke", ("provider_claim_support_report", "provider_staging_claim_boundary", "provider_real_smoke_non_claims")),
     ArtifactSpec("provider_real_smoke_expansion_decision", "provider_real_smoke_expansion_decision", PROVIDER_REAL_SMOKE_EXPANSION_DECISION_JSON, "provider_real_smoke", ("provider_real_smoke_evidence_review", "provider_real_smoke_ledger_audit", "provider_real_smoke_admission_audit", "provider_real_smoke_claim_review")),
+    ArtifactSpec("provider_real_smoke_evidence", "provider_real_smoke_evidence", "provider-real-smoke-evidence.json", "provider_real_smoke"),
+    ArtifactSpec("provider_smoke_evidence_manifest", "provider_smoke_evidence_manifest", PROVIDER_SMOKE_EVIDENCE_MANIFEST_JSON, "provider_smoke_closure", ("provider_real_smoke_evidence", "provider_execution_evidence_classification", "provider_result_acceptance_decision", "provider_evidence_reconciliation", "provider_result_qa_report", "provider_result_staging_admission")),
+    ArtifactSpec("provider_smoke_release_boundary_audit", "provider_smoke_release_boundary_audit", PROVIDER_SMOKE_RELEASE_BOUNDARY_AUDIT_JSON, "provider_smoke_closure", ("provider_smoke_evidence_manifest", "provider_execution_evidence_classification")),
+    ArtifactSpec("provider_smoke_remaining_blockers", "provider_smoke_remaining_blockers", PROVIDER_SMOKE_REMAINING_BLOCKERS_JSON, "provider_smoke_closure", ("provider_smoke_evidence_manifest",)),
+    ArtifactSpec("provider_smoke_closure_report", "provider_smoke_closure_report", PROVIDER_SMOKE_CLOSURE_REPORT_JSON, "provider_smoke_closure", ("provider_smoke_evidence_manifest", "provider_smoke_release_boundary_audit", "provider_smoke_remaining_blockers")),
+    ArtifactSpec("provider_smoke_next_step_decision", "provider_smoke_next_step_decision", PROVIDER_SMOKE_NEXT_STEP_DECISION_JSON, "provider_smoke_closure", ("provider_smoke_closure_report", "provider_smoke_remaining_blockers", "provider_real_smoke_expansion_decision")),
     ArtifactSpec("locale_capability_report", "locale_capability_report", LOCALE_CAPABILITY_REPORT_JSON, "locale_capability", ("localization_brief_json", "source_inventory", "state_delivery_manifest"), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_risk_report", "locale_risk_report", LOCALE_RISK_REPORT_JSON, "locale_capability", ("locale_capability_report",), required_for_handoff=True, required_for_delivery=True),
     ArtifactSpec("locale_readiness_impact", "locale_readiness_impact", LOCALE_READINESS_IMPACT_JSON, "locale_capability", ("locale_capability_report", "locale_risk_report"), required_for_handoff=True, required_for_delivery=True),

@@ -2209,3 +2209,26 @@ only its exact public fixture path. Runtime-managed execution is unavailable
 without compatible runtime provenance and current authorization/preflight/result
 evidence. No attempt type or staging-admission decision proves semantic quality
 or authorizes benchmark expansion.
+
+## Provider smoke evidence closure
+
+Provider smoke closure uses five deterministic artifacts:
+
+- `provider-smoke-evidence-manifest.json` records the provider/profile, public
+  fixture, locale pair, two-segment scope, normalized attempt type, evidence
+  class, gate outcomes, accepted-with-limitations status, sanitized evidence,
+  raw-output policy, and claim boundary;
+- `provider-smoke-closure-report.json` separates the narrow provider-path fact
+  from all unsupported quality, readiness, locale, product, benchmark, and
+  runtime-execution claims;
+- `provider-smoke-release-boundary-audit.json` keeps release, benchmark, and
+  readiness promotion disabled;
+- `provider-smoke-remaining-blockers.json` records the evidence still missing;
+- `provider-smoke-next-step-decision.json` defaults to
+  `repeat_same_scope_or_stop` and requires a separate explicit loop for any
+  small-batch protocol design.
+
+Matching CLI commands and GET APIs are artifact-backed and provider-free. Raw
+provider output is never referenced, packaged, or made committable. Smoke
+closure remains compatible with `do_not_expand` and cannot grant
+provider-backed quality or public production claims.

@@ -193,6 +193,7 @@ from .provider_staging import (
     read_provider_staging_claim_boundary,
 )
 from .provider_attempt_semantics import read_provider_attempt_semantics_artifact
+from .provider_smoke_closure import read_provider_smoke_closure_artifact
 from .provider_real_smoke import read_provider_real_smoke_artifact
 from .locale_capability import (
     read_locale_capability_report,
@@ -556,6 +557,16 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 ):
                     if parsed.path == endpoint:
                         self._handle_workflow_artifact_query(parsed.query, artifact_name, lambda state_dir, name=artifact_name: read_provider_real_smoke_artifact(state_dir, name))
+                        return
+                for endpoint, artifact_name in (
+                    ("/api/provider-smoke-closure-report", "provider_smoke_closure_report"),
+                    ("/api/provider-smoke-release-boundary-audit", "provider_smoke_release_boundary_audit"),
+                    ("/api/provider-smoke-evidence-manifest", "provider_smoke_evidence_manifest"),
+                    ("/api/provider-smoke-remaining-blockers", "provider_smoke_remaining_blockers"),
+                    ("/api/provider-smoke-next-step-decision", "provider_smoke_next_step_decision"),
+                ):
+                    if parsed.path == endpoint:
+                        self._handle_workflow_artifact_query(parsed.query, artifact_name, lambda state_dir, name=artifact_name: read_provider_smoke_closure_artifact(state_dir, name))
                         return
                 if parsed.path == "/api/locale-capability-report":
                     self._handle_locale_artifact_query(parsed.query, "locale_capability_report", read_locale_capability_report)

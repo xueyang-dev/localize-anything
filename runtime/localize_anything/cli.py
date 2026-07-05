@@ -237,6 +237,13 @@ from .provider_attempt_semantics import (
     build_provider_ledger_semantic_migration_report,
     build_provider_smoke_ledger_linkage_report,
 )
+from .provider_smoke_closure import (
+    build_provider_smoke_closure_report,
+    build_provider_smoke_evidence_manifest,
+    build_provider_smoke_next_step_decision,
+    build_provider_smoke_release_boundary_audit,
+    build_provider_smoke_remaining_blockers,
+)
 from .provider_real_smoke import (
     build_provider_real_smoke_admission_audit,
     build_provider_real_smoke_acceptance_criteria,
@@ -1052,6 +1059,11 @@ def build_parser() -> argparse.ArgumentParser:
         ("provider-real-smoke-admission-audit", "Audit provider smoke staging admission"),
         ("provider-real-smoke-claim-review", "Review provider smoke claim boundaries"),
         ("provider-real-smoke-expansion-decision", "Create the fail-closed provider smoke expansion decision"),
+        ("provider-smoke-closure-report", "Close sanitized provider smoke evidence with explicit limitations"),
+        ("provider-smoke-release-boundary-audit", "Audit provider smoke release and claim boundaries"),
+        ("provider-smoke-evidence-manifest", "Create the sanitized provider smoke evidence manifest"),
+        ("provider-smoke-remaining-blockers", "Report provider smoke blockers that remain after closure"),
+        ("provider-smoke-next-step-decision", "Create the fail-closed provider smoke next-step decision"),
     ):
         command_parser = subparsers.add_parser(command, help=help_text)
         command_parser.add_argument("state_dir", type=Path)
@@ -2662,6 +2674,16 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_json(build_provider_real_smoke_claim_review(args.state_dir), args.output)
         if args.command == "provider-real-smoke-expansion-decision":
             return _emit_json(build_provider_real_smoke_expansion_decision(args.state_dir), args.output)
+        if args.command == "provider-smoke-closure-report":
+            return _emit_json(build_provider_smoke_closure_report(args.state_dir), args.output)
+        if args.command == "provider-smoke-release-boundary-audit":
+            return _emit_json(build_provider_smoke_release_boundary_audit(args.state_dir), args.output)
+        if args.command == "provider-smoke-evidence-manifest":
+            return _emit_json(build_provider_smoke_evidence_manifest(args.state_dir), args.output)
+        if args.command == "provider-smoke-remaining-blockers":
+            return _emit_json(build_provider_smoke_remaining_blockers(args.state_dir), args.output)
+        if args.command == "provider-smoke-next-step-decision":
+            return _emit_json(build_provider_smoke_next_step_decision(args.state_dir), args.output)
         if args.command == "locale-capability-report":
             result = read_locale_capability_report(args.state_dir) if args.read else build_locale_capability_report(args.state_dir, target_locale=args.target_locale, adapters=args.adapters or None)
             return _emit_json(result, args.output)

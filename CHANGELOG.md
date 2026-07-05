@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add Provider Smoke Evidence Closure / Release Boundary Audit with five
+  provider-free artifacts that record the two-segment manual smoke as narrow
+  provider-path evidence, preserve raw-output locality and strong non-claims,
+  block benchmark/release promotion, and surface remaining evidence gaps.
 - Add Provider Ledger Enum / Attempt Semantics Normalization with explicit
   manual-controlled-smoke and future runtime-managed execution types,
   auditable legacy-label migration, smoke-ledger linkage, execution-evidence
