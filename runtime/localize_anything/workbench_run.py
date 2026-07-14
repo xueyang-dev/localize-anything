@@ -128,9 +128,29 @@ def build_workbench_run_view(project_root: Path | str, run_id: str | None) -> di
     # must not make the whole Review projection unusable.  Keep the artifact
     # error scoped to its projection so the UI can show the raw file and the
     # other cards can continue to render.
-    selected = _snapshot(selected_root, requested_run_id, strict=False)
+    selected_pending = _awaiting_generated_responses(session)
+    selected = _snapshot(
+        selected_root,
+        requested_run_id,
+        strict=False,
+        pending_missing=selected_pending,
+    )
     current_run_id = str(index.get("latest_session_id") or "").strip() or None
-    current = _snapshot(project / ".localize-anything", current_run_id, strict=False)
+    current_session = next(
+        (
+            item
+            for item in index.get("sessions", [])
+            if isinstance(item, dict)
+            and str(item.get("run_id") or item.get("session_id") or "") == current_run_id
+        ),
+        None,
+    )
+    current = _snapshot(
+        project / ".localize-anything",
+        current_run_id,
+        strict=False,
+        pending_missing=_awaiting_generated_responses(current_session),
+    )
     summary_path = run_directory / "run-summary.json"
     summary_artifact: dict[str, Any]
     try:
@@ -201,17 +221,23 @@ def build_workbench_run_view(project_root: Path | str, run_id: str | None) -> di
     }
 
 
-def _snapshot(root: Path, expected_run_id: str | None, *, strict: bool) -> dict[str, dict[str, Any]]:
+def _snapshot(
+    root: Path,
+    expected_run_id: str | None,
+    *,
+    strict: bool,
+    pending_missing: bool = False,
+) -> dict[str, dict[str, Any]]:
     snapshot: dict[str, dict[str, Any]] = {}
     for key, name in RUN_ARTIFACTS.items():
         path = root / name
         if not path.is_file():
             snapshot[key] = {
-                "state": "missing",
+                "state": "pending" if pending_missing else "missing",
                 "artifact": name,
                 "path": path.as_posix(),
                 "run_id": expected_run_id,
-                "reason": "ARTIFACT_MISSING",
+                "reason": "WAITING_FOR_GENERATED_RESPONSES" if pending_missing else "ARTIFACT_MISSING",
             }
             continue
         try:
@@ -256,6 +282,10 @@ def _snapshot(root: Path, expected_run_id: str | None, *, strict: bool) -> dict[
             "data": value,
         }
     return snapshot
+
+
+def _awaiting_generated_responses(session: dict[str, Any] | None) -> bool:
+    return isinstance(session, dict) and str(session.get("status") or "") == "awaiting_llm_responses"
 
 
 def _current_projection(current: dict[str, dict[str, Any]], current_run_id: str | None, selected_run_id: str) -> dict[str, Any]:

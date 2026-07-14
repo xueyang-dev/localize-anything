@@ -3732,6 +3732,53 @@ class WorkbenchUITests(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=2)
 
+    def test_ui_handoff_run_marks_generated_evidence_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                run_status, run_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/agent-run",
+                    {
+                        "project": project.as_posix(),
+                        "source_locale": "en-US",
+                        "target_locale": "zh-CN",
+                        "source_files": ["locales/en-US.json"],
+                        "output_root": (root / "out").as_posix(),
+                        "run_id": "ui-handoff-pending-001",
+                        "max_segments": 2,
+                    },
+                )
+                self.assertEqual(run_status, 200)
+                self.assertEqual(run_payload["agent_result"]["status"], "awaiting_llm_responses")
+
+                view_status, view_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=ui-handoff-pending-001",
+                )
+                self.assertEqual(view_status, 200)
+                view = json.loads(view_body)
+                self.assertEqual(view["session"]["status"], "awaiting_llm_responses")
+                for key in ("review_readiness", "delivery_readiness", "apply_readiness", "artifact_state"):
+                    with self.subTest(key=key):
+                        self.assertEqual(view[key]["state"], "pending")
+                        self.assertEqual(view[key]["reason"], "WAITING_FOR_GENERATED_RESPONSES")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
     def test_ui_android_routing_excludes_locale_references_from_source_defaults(self) -> None:
         project_fixture = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets"
         with tempfile.TemporaryDirectory() as directory:
@@ -3952,10 +3999,12 @@ class WorkbenchUITests(unittest.TestCase):
             for marker in (
                 "function available(data)",
                 "function missing(reason",
+                "function pending(reason",
                 "function stale(data",
                 "function error(code",
                 "function resultFromProjection",
                 "function reviewEvidence",
+                "review.awaitingResponses",
                 "Current project evidence for the same run (snapshot missing)",
                 "function evidenceStatus",
                 "function renderArtifactState",
