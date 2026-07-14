@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-run-projection.schema.json",
+  "title": "Localize Anything Workbench Run Artifact Projection",
+  "type": "object",
+  "required": ["state", "artifact", "path", "run_id", "reason"],
+  "properties": {
+    "state": { "enum": ["available", "missing", "stale", "error"] },
+    "artifact": { "type": "string", "minLength": 1 },
+    "path": { "type": "string", "minLength": 1 },
+    "run_id": { "type": ["string", "null"] },
+    "expected_run_id": { "type": "string" },
+    "reason": { "type": "string", "minLength": 1 },
+    "message": { "type": "string" },
+    "data": { "type": ["object", "array", "string", "number", "boolean", "null"] }
+  },
+  "additionalProperties": true
+}

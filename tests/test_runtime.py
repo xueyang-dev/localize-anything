@@ -18,6 +18,7 @@ import tempfile
 import threading
 import unittest
 import urllib.error
+import urllib.parse
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -500,6 +501,15 @@ def assert_protocol_schema(testcase: unittest.TestCase, name: str, value: object
 
 
 class JsonAdapterTests(unittest.TestCase):
+    def test_extract_accepts_utf8_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "bom.json"
+            source.write_bytes(b"\xef\xbb\xbf{\"hello\": \"Hello\"}\n")
+
+            segments = extract_segments(source, "en-US", "locales/en-US.json")
+
+            self.assertEqual([segment["source"] for segment in segments], ["Hello"])
+
     def test_extract_rebuild_and_validate(self) -> None:
         source = FIXTURE_ROOT / "locales" / "en-US.json"
         expected = FIXTURE_ROOT / "locales" / "zh-CN.json"
@@ -3502,6 +3512,163 @@ class ProviderPathHygieneTests(unittest.TestCase):
 
 
 class WorkbenchUITests(unittest.TestCase):
+    def test_ui_language_switch_localizes_static_and_dynamic_workbench_copy(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            status, body = _http_get(host, port, "/settings")
+            self.assertEqual(status, 200)
+            for marker in (
+                'data-i18n="overview.title"',
+                'data-i18n="prepare.languageTitle"',
+                'data-i18n="review.risksTitle"',
+                'data-i18n="sessions.title"',
+                'data-i18n="settings.languageCopy"',
+                'data-i18n="operation.kicker"',
+                'data-i18n-placeholder="prepare.projectPlaceholder"',
+                'data-i18n-aria-label="nav.aria"',
+                'navigator.language.toLowerCase().startsWith("zh")',
+                "function renderLocalizedState",
+                "renderRouting(currentRouting,true)",
+                "renderRunView(currentRunView)",
+                "sourceLocaleManual",
+                "routeRestoreQueued",
+                "if(busy){routeRestoreQueued=true;return;}",
+                "if(!preserveInputs && !sourceLocaleManual)",
+                "sourceLocaleManual=true",
+                "正在识别项目",
+                "目标语言不能与源语言相同",
+                "切换整个工作台界面",
+            ):
+                self.assertIn(marker, body)
+            self.assertGreater(body.count("data-i18n="), 70)
+            self.assertNotIn("Changes navigation labels and the session empty state.", body)
+            translations = body.split("const TRANSLATIONS = {", 1)[1].split("const STATUS_REGISTRY", 1)[0]
+            english, chinese = translations.split('"zh-CN": {', 1)
+            key_pattern = r'"([A-Za-z][A-Za-z0-9_.]+)"\s*:'
+            english_keys = set(re.findall(key_pattern, english))
+            chinese_keys = set(re.findall(key_pattern, chinese))
+            self.assertEqual(english_keys, chinese_keys)
+            referenced_keys = set(re.findall(r'data-i18n(?:-placeholder|-aria-label)?="([A-Za-z][A-Za-z0-9_.]+)"', body))
+            referenced_keys.update(re.findall(r'\bt\("([A-Za-z][A-Za-z0-9_.]+)"', body.split("const STATUS_REGISTRY", 1)[1]))
+            self.assertFalse(referenced_keys - english_keys)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_ui_routes_and_quickstart_demo_are_safe_and_reviewable(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        demo_roots: list[Path] = []
+        try:
+            for route in ("/", "/generate", "/review", "/sessions", "/settings"):
+                status, body = _http_get(host, port, route)
+                self.assertEqual(status, 200, route)
+                self.assertIn("Localize Anything Workbench", body)
+                self.assertIn('data-route="/review"', body)
+                self.assertIn('localize-anything-language', body)
+                self.assertIn("Prepare generation handoff", body)
+                self.assertIn("Stage synthetic draft (demo)", body)
+                self.assertIn("Review package ready with warnings", body)
+                self.assertIn("No provider smoke evidence found", body)
+                self.assertIn("/api/artifact-state", body)
+                self.assertIn("provider_or_model_called_by_runtime", body)
+                self.assertIn('id="contextProjectAction"', body)
+                self.assertIn('class="home-dashboard"', body)
+                self.assertIn('class="project-dashboard"', body)
+                self.assertIn('id="overviewSessions"', body)
+                self.assertIn('class="review-run-header"', body)
+                self.assertIn('id="reviewRunFreshness"', body)
+                self.assertIn("current_project_projection", body)
+                self.assertIn("summary_artifact", body)
+                self.assertIn('class="review-dashboard"', body)
+                self.assertIn('id="riskList"', body)
+                self.assertIn('id="applyDetails"', body)
+                self.assertIn('id="recentArtifacts"', body)
+                self.assertIn('id="reviewInspector"', body)
+                self.assertIn("readJsonArtifact(artifacts.apply_plan)", body)
+                self.assertIn("openRawArtifactPreview", body)
+                self.assertIn("Extraction coverage", body)
+                self.assertIn("Applying output requires separate authorization", body)
+                self.assertIn("Local service ready", body)
+                self.assertIn("No provider or model call from the safe demo", body)
+                self.assertIn("sessions.emptyTitle", body)
+                self.assertIn('id="projectTransition"', body)
+                self.assertIn("function setProjectTransition", body)
+                self.assertIn('id="projectStepTitle"', body)
+                self.assertIn('id="recognitionStepTitle"', body)
+                self.assertIn('id="languageStepTitle"', body)
+                self.assertIn('id="prepareStepTitle"', body)
+                self.assertLess(body.index('id="projectStepTitle"'), body.index('id="recognitionStepTitle"'))
+                self.assertLess(body.index('id="recognitionStepTitle"'), body.index('id="languageStepTitle"'))
+                self.assertLess(body.index('id="languageStepTitle"'), body.index('id="prepareStepTitle"'))
+                self.assertIn('postJson("/api/inspect",{project:selection.project})', body)
+                self.assertNotIn("Generate localization artifacts", body)
+                self.assertNotIn("AI-generated translation", body)
+                self.assertNotIn("pass /", body)
+                self.assertNotIn("flow-number", body)
+                self.assertNotIn("drop-icon", body)
+                self.assertNotIn("step-label", body)
+                self.assertNotRegex(body, "[—–]")
+
+            missing_status, _ = _http_get(host, port, "/missing")
+            self.assertEqual(missing_status, 404)
+
+            summaries = []
+            for _ in range(2):
+                demo_status, payload = _http_post_json(host, port, "/api/quickstart-demo", {})
+                self.assertEqual(demo_status, 200)
+                self.assertEqual(payload["status"], "pass")
+                summary = payload["demo_summary"]
+                summaries.append(summary)
+                demo_roots.append(Path(summary["demo_output_root"]))
+                self.assertFalse(summary["safety"]["provider_or_model_called"])
+                self.assertFalse(summary["safety"]["source_fixture_mutated"])
+                self.assertFalse(summary["safety"]["target_project_files_mutated"])
+                self.assertEqual(summary["readiness_status"]["delivery"], "ready_with_warnings")
+                self.assertEqual(summary["readiness_status"]["apply"], "blocked")
+
+                sessions_status, sessions = _http_post_json(
+                    host,
+                    port,
+                    "/api/sessions",
+                    {"project": summary["copied_project"]},
+                )
+                self.assertEqual(sessions_status, 200)
+                self.assertEqual(sessions["session_index"]["latest_session_id"], "quickstart-demo")
+
+                artifact_state_status, artifact_state_payload = _http_get(
+                    host,
+                    port,
+                    f"/api/artifact-state?project={urllib.parse.quote(summary['copied_project'])}",
+                )
+                self.assertEqual(artifact_state_status, 200)
+                artifact_state = json.loads(artifact_state_payload)["artifact_state"]
+                self.assertEqual(artifact_state["run_id"], "quickstart-demo")
+                self.assertEqual(artifact_state["status"], "requires_human_review")
+
+                read_status, artifact = _http_post_json(
+                    host,
+                    port,
+                    "/api/read-artifact",
+                    {"path": summary["artifacts"]["run_summary"]},
+                )
+                self.assertEqual(read_status, 200)
+                self.assertIn('"synthetic_test"', artifact["content"])
+
+            self.assertNotEqual(summaries[0]["demo_output_root"], summaries[1]["demo_output_root"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+            for root in demo_roots:
+                shutil.rmtree(root, ignore_errors=True)
+
     def test_ui_server_inspects_runs_agent_and_reads_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -3521,6 +3688,8 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(inspect_status, 200)
                 self.assertEqual(inspected["status"], "pass")
                 self.assertEqual(inspected["routing"]["adapter_counts"], {"core.json-locale": 1})
+                self.assertEqual(inspected["routing"]["detected_project_type"], "generic")
+                self.assertEqual(inspected["routing"]["source_locale_suggestion"]["locale"], "en-US")
 
                 run_status, run_payload = _http_post_json(
                     host,
@@ -3558,6 +3727,514 @@ class WorkbenchUITests(unittest.TestCase):
                 )
                 self.assertEqual(read_status, 200)
                 self.assertIn("Translation Review Sheet", artifact["content"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_handoff_run_marks_generated_evidence_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                run_status, run_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/agent-run",
+                    {
+                        "project": project.as_posix(),
+                        "source_locale": "en-US",
+                        "target_locale": "zh-CN",
+                        "source_files": ["locales/en-US.json"],
+                        "output_root": (root / "out").as_posix(),
+                        "run_id": "ui-handoff-pending-001",
+                        "max_segments": 2,
+                    },
+                )
+                self.assertEqual(run_status, 200)
+                self.assertEqual(run_payload["agent_result"]["status"], "awaiting_llm_responses")
+
+                view_status, view_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=ui-handoff-pending-001",
+                )
+                self.assertEqual(view_status, 200)
+                view = json.loads(view_body)
+                self.assertEqual(view["session"]["status"], "awaiting_llm_responses")
+                for key in ("review_readiness", "delivery_readiness", "apply_readiness", "artifact_state"):
+                    with self.subTest(key=key):
+                        self.assertEqual(view[key]["state"], "pending")
+                        self.assertEqual(view[key]["reason"], "WAITING_FOR_GENERATED_RESPONSES")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_android_routing_excludes_locale_references_from_source_defaults(self) -> None:
+        project_fixture = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets"
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "android-project"
+            shutil.copytree(project_fixture, project)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                inspect_status, inspected = _http_post_json(host, port, "/api/inspect", {"project": project.as_posix()})
+                self.assertEqual(inspect_status, 200)
+                routing = inspected["routing"]
+                self.assertEqual(routing["source_file_count"], 10)
+                self.assertNotIn("app/src/main/res/values-zh-rCN/strings.xml", routing["source_files"])
+                self.assertEqual(len(routing["android_locale_reference_files"]), 3)
+
+                run_status, run_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/agent-run",
+                    {
+                        "project": project.as_posix(),
+                        "source_locale": "en-US",
+                        "target_locale": "zh-CN",
+                        "source_files": ["app/src/main/res/values-zh-rCN/strings.xml"],
+                        "output_root": (Path(directory) / "out").as_posix(),
+                        "run_id": "android-locale-reference-rejected",
+                    },
+                )
+                self.assertEqual(run_status, 400)
+                self.assertIn("Android locale references or uncertain qualifier paths cannot be source truth", run_payload["error"]["message"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_ux01_two_runs_keep_selected_run_identity(self) -> None:
+        """Two runs keep the explicitly selected run identity."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for run_id in ("ux01-old-run", "ux01-new-run"):
+                    run_status, run_payload = _http_post_json(
+                        host,
+                        port,
+                        "/api/agent-run",
+                        {
+                            "project": project.as_posix(),
+                            "source_locale": "en-US",
+                            "target_locale": "zh-CN",
+                            "source_files": ["locales/en-US.json"],
+                            "output_root": (root / "out").as_posix(),
+                            "run_id": run_id,
+                            "max_segments": 2,
+                            "synthetic_draft": True,
+                            "operating_mode": "blind_benchmark",
+                            "reference_policy": "blind",
+                        },
+                    )
+                    self.assertEqual(run_status, 200)
+                    self.assertEqual(run_payload["agent_result"]["run_id"], run_id)
+
+                sessions_status, sessions_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/sessions",
+                    {"project": project.as_posix()},
+                )
+                self.assertEqual(sessions_status, 200)
+                self.assertEqual(sessions_payload["session_index"]["latest_session_id"], "ux01-new-run")
+                self.assertEqual(
+                    [item["run_id"] for item in sessions_payload["session_index"]["sessions"]],
+                    ["ux01-old-run", "ux01-new-run"],
+                )
+
+                query = "?project=" + urllib.parse.quote(project.as_posix()) + "&run_id=ux01-old-run"
+                artifact_status, artifact_body = _http_get(host, port, "/api/workbench-run" + query)
+                self.assertEqual(artifact_status, 200)
+                artifact_state = json.loads(artifact_body)["artifact_state"]
+                self.assertEqual(artifact_state["run_id"], "ux01-old-run")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_ux01_invalid_project_and_run_fail_without_latest_fallback(self) -> None:
+        """PROJECT_NOT_FOUND and RUN_NOT_FOUND remain page-level errors."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+            missing_project = root / "does-not-exist"
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                missing_project_status, missing_project_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/sessions",
+                    {"project": missing_project.as_posix()},
+                )
+                with self.subTest("missing project"):
+                    self.assertEqual(missing_project_status, 404)
+                    self.assertEqual(missing_project_payload["error"]["code"], "PROJECT_NOT_FOUND")
+
+                run_status, run_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/agent-run",
+                    {
+                        "project": project.as_posix(),
+                        "source_locale": "en-US",
+                        "target_locale": "zh-CN",
+                        "source_files": ["locales/en-US.json"],
+                        "output_root": (root / "out").as_posix(),
+                        "run_id": "ux01-known-run",
+                        "max_segments": 2,
+                        "synthetic_draft": True,
+                        "operating_mode": "blind_benchmark",
+                        "reference_policy": "blind",
+                    },
+                )
+                self.assertEqual(run_status, 200)
+                self.assertEqual(run_payload["agent_result"]["run_id"], "ux01-known-run")
+
+                query = "?project=" + urllib.parse.quote(project.as_posix()) + "&run_id=ux01-missing-run"
+                missing_run_status, missing_run_body = _http_get(host, port, "/api/workbench-run" + query)
+                with self.subTest("missing run"):
+                    self.assertEqual(missing_run_status, 404)
+                    self.assertEqual(json.loads(missing_run_body)["error"]["code"], "RUN_NOT_FOUND")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_ux01_readiness_and_corrupt_artifact_errors_are_typed(self) -> None:
+        """Missing, corrupt, and server-fault readiness responses stay typed."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                query = "?project=" + urllib.parse.quote(project.as_posix())
+                missing_status, missing_body = _http_get(host, port, "/api/readiness-authorization-matrix" + query)
+                with self.subTest("missing readiness artifact"):
+                    self.assertEqual(missing_status, 404)
+                    self.assertEqual(json.loads(missing_body)["error"]["code"], "ARTIFACT_MISSING")
+
+                artifact_missing_status, artifact_missing_body = _http_get(host, port, "/api/artifact-state" + query)
+                with self.subTest("missing artifact state"):
+                    self.assertEqual(artifact_missing_status, 404)
+                    self.assertEqual(json.loads(artifact_missing_body)["error"]["code"], "ARTIFACT_MISSING")
+
+                artifact_state_path = project / ".localize-anything" / "artifact-state.json"
+                artifact_state_path.parent.mkdir(parents=True, exist_ok=True)
+                artifact_state_path.write_text("{not-json", encoding="utf-8")
+                corrupt_status, corrupt_body = _http_get(host, port, "/api/artifact-state" + query)
+                with self.subTest("corrupt artifact JSON"):
+                    self.assertEqual(corrupt_status, 422)
+                    self.assertEqual(json.loads(corrupt_body)["error"]["code"], "INVALID_ARTIFACT_JSON")
+
+                with mock.patch(
+                    "runtime.localize_anything.ui.read_readiness_authorization_matrix",
+                    side_effect=OSError("injected readiness failure"),
+                ):
+                    server_error_status, server_error_body = _http_get(
+                        host,
+                        port,
+                        "/api/readiness-authorization-matrix" + query,
+                    )
+                with self.subTest("readiness server error"):
+                    self.assertEqual(server_error_status, 500)
+                    self.assertEqual(json.loads(server_error_body)["error"]["code"], "SERVER_ERROR")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_ux01_frontend_does_not_swallow_readiness_failures(self) -> None:
+        """The main client keeps missing, stale, and error results distinguishable."""
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            _, body = _http_get(host, port, "/")
+            self.assertNotIn("return response.ok && data.status !== \"fail\" ? data : null;", body)
+            self.assertNotIn("catch (_) {\n        return null;\n      }", body)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_ui_ux03_frontend_exposes_typed_results_and_local_retry(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            _, body = _http_get(host, port, "/")
+            for marker in (
+                "function available(data)",
+                "function missing(reason",
+                "function pending(reason",
+                "function stale(data",
+                "function error(code",
+                "function resultFromProjection",
+                "function reviewEvidence",
+                "review.awaitingResponses",
+                'id="reviewNextAction"',
+                "function continueLocalization",
+                "function openPrepareForRun",
+                "review.continueLocalization",
+                "Current project evidence for the same run (snapshot missing)",
+                "function evidenceStatus",
+                "function renderArtifactState",
+                'id="artifactStateCounts"',
+                "function rawPreviewAction",
+                "rawArtifactPreviews",
+                "retryReviewLoad",
+                'id="reviewRetry"',
+                "await renderApply(view,applyEvidence)",
+                'role=\"alert\"',
+            ):
+                self.assertIn(marker, body)
+            self.assertNotIn("function getOptional", body)
+            self.assertIn("const selectedRun=runId || (currentSession", body)
+            self.assertNotIn("else if(currentIndex && currentIndex.latest_session_id)", body)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_ui_ux04_review_actions_delegate_and_refresh_exact_run(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            _, body = _http_get(host, port, "/review")
+            for marker in (
+                'id="actionQueue"',
+                'id="actionComposer"',
+                'id="actionResult"',
+                "/api/workbench-action",
+                "/api/workbench-readiness-action",
+                "target_queue_item_id",
+                "await renderSessionReview(currentSession)",
+                "result.outcome || result.status",
+                "review.actionRunMismatch",
+                "current_project_projection",
+                "freshness === \"current\"",
+                "review.queueScopeCurrent",
+                "review.queueScopeSelected",
+                "rawPreviewAction(result",
+            ):
+                self.assertIn(marker, body)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_ui_ux05_status_registry_is_family_based_and_unknown_is_neutral(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            _, body = _http_get(host, port, "/review")
+            for marker in ("STATUS_REGISTRY", "function statusContract", "function statusFamily", "status_family", "status.unknown"):
+                self.assertIn(marker, body)
+            self.assertNotIn('raw.includes("ready")', body)
+            self.assertIn('status_code: "unknown"', body)
+            self.assertIn('status_family: "neutral"', body)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_ui_ux06_core_accessibility_semantics_are_present(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            _, body = _http_get(host, port, "/review")
+            for marker in (
+                'class="skip-link"',
+                'id="main-content"',
+                '<h1 id="pageTitle"',
+                'aria-current="page"',
+                'role="status" aria-live="polite"',
+                'id="errorStatus"',
+                'role="alert"',
+                'role="dialog"',
+                'aria-modal="true"',
+                'id="inspectorClose"',
+                'dir="auto"',
+                'aria-describedby="projectError"',
+                'aria-describedby="targetLocaleError"',
+                'function setFieldError',
+                ':focus-visible',
+                'prefers-reduced-motion: reduce',
+                'min-height: 44px',
+                'a11y.navScroll',
+            ):
+                self.assertIn(marker, body)
+            self.assertIn('aria-describedby="navScrollHint"', body)
+            self.assertNotIn('id="status" class="status notice-bar" aria-live="polite"', body)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_ui_workbench_run_aggregate_is_exact_and_marks_current_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            _copy_json_fixture_project(project, include_existing_target=False)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                for run_id in ("aggregate-old-run", "aggregate-new-run"):
+                    run_status, run_payload = _http_post_json(
+                        host,
+                        port,
+                        "/api/agent-run",
+                        {
+                            "project": project.as_posix(),
+                            "source_locale": "en-US",
+                            "target_locale": "zh-CN",
+                            "source_files": ["locales/en-US.json"],
+                            "output_root": (root / "out").as_posix(),
+                            "run_id": run_id,
+                            "max_segments": 2,
+                            "synthetic_draft": True,
+                            "operating_mode": "blind_benchmark",
+                            "reference_policy": "blind",
+                        },
+                    )
+                    self.assertEqual(run_status, 200)
+                    self.assertEqual(run_payload["agent_result"]["run_id"], run_id)
+
+                old_status, old_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=aggregate-old-run",
+                )
+                self.assertEqual(old_status, 200)
+                old_view = json.loads(old_body)
+                assert_protocol_schema(self, "workbench-run-view", old_view)
+                self.assertEqual(old_view["status"], "pass")
+                self.assertEqual(old_view["api_version"], "workbench-v1")
+                self.assertEqual(old_view["run_id"], "aggregate-old-run")
+                self.assertEqual(old_view["session"]["run_id"], "aggregate-old-run")
+                self.assertEqual(old_view["artifact_state"]["run_id"], "aggregate-old-run")
+                self.assertEqual(old_view["freshness"], "historical")
+                self.assertTrue(old_view["newer_project_state_available"])
+                self.assertEqual(old_view["current_project_projection"]["run_id"], "aggregate-new-run")
+                self.assertEqual(old_view["current_project_projection"]["freshness"], "newer_project_state_available")
+                self.assertEqual(
+                    old_view["current_project_projection"]["mismatch"],
+                    {
+                        "selected_run_id": "aggregate-old-run",
+                        "current_run_id": "aggregate-new-run",
+                        "reason": "PROJECT_CURRENT_RUN_DIFFERS",
+                    },
+                )
+
+                selected_artifacts = old_view["session"].get("artifacts", {})
+                selected_root = Path(selected_artifacts.get("delivery_directory") or selected_artifacts["run_directory"])
+                matrix_path = selected_root / "readiness-authorization-matrix.json"
+                matrix_path.parent.mkdir(parents=True, exist_ok=True)
+                matrix_path.write_text("{not-json", encoding="utf-8")
+                corrupt_status, corrupt_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=aggregate-old-run",
+                )
+                self.assertEqual(corrupt_status, 200)
+                corrupt_view = json.loads(corrupt_body)
+                self.assertEqual(corrupt_view["review_readiness"]["state"], "error")
+                self.assertEqual(corrupt_view["review_readiness"]["reason"], "INVALID_ARTIFACT_JSON")
+                self.assertEqual(corrupt_view["artifact_state"]["run_id"], "aggregate-old-run")
+
+                summary_path = Path(selected_artifacts["run_directory"]) / "run-summary.json"
+                summary_path.write_text("{also-not-json", encoding="utf-8")
+                summary_status, summary_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=aggregate-old-run",
+                )
+                self.assertEqual(summary_status, 200)
+                summary_view = json.loads(summary_body)
+                assert_protocol_schema(self, "workbench-run-view", summary_view)
+                self.assertEqual(summary_view["summary_artifact"]["state"], "error")
+                self.assertEqual(summary_view["summary_artifact"]["reason"], "INVALID_ARTIFACT_JSON")
+                self.assertEqual(summary_view["summary_artifact"]["run_id"], "aggregate-old-run")
+                self.assertIsInstance(summary_view["summary"], dict)
+
+                current_queue_path = project / ".localize-anything" / "workbench-review-queue.json"
+                current_queue_path.write_text(
+                    json.dumps({"run_id": "aggregate-new-run", "items": [{"item_id": "refreshed-current-item"}]}),
+                    encoding="utf-8",
+                )
+                refreshed_status, refreshed_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=aggregate-new-run",
+                )
+                self.assertEqual(refreshed_status, 200)
+                refreshed_view = json.loads(refreshed_body)
+                current_queue = refreshed_view["current_project_projection"]["queues"]["review"]
+                self.assertEqual(current_queue["state"], "available")
+                self.assertEqual(current_queue["data"]["run_id"], "aggregate-new-run")
+                self.assertEqual(current_queue["data"]["items"][0]["item_id"], "refreshed-current-item")
+
+                missing_status, missing_body = _http_get(
+                    host,
+                    port,
+                    "/api/workbench-run?project="
+                    + urllib.parse.quote(project.as_posix())
+                    + "&run_id=aggregate-missing-run",
+                )
+                self.assertEqual(missing_status, 404)
+                missing_error = json.loads(missing_body)["error"]
+                self.assertEqual(missing_error["code"], "RUN_NOT_FOUND")
+                self.assertTrue(missing_error["recoverable"])
             finally:
                 server.shutdown()
                 server.server_close()
@@ -3602,7 +4279,8 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(payload["source_files"], ["docs/upload.docx", "locales/en-US.json"])
                 home_status, home = _http_get(host, port, "/")
                 self.assertEqual(home_status, 200)
-                self.assertIn("dropzone", home)
+                self.assertIn('id="projectTransition"', home)
+                self.assertIn('id="importFilesButton"', home)
                 self.assertNotIn("folderPicker", home)
                 self.assertNotIn('accept=".docx', home)
                 self.assertIn('onclick="pickProjectDirectory()"', home)
@@ -3610,7 +4288,19 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertNotIn("traverseEntry", home)
                 self.assertIn('id="targetLocale" value="zh-CN" list="localeOptions"', home)
                 self.assertIn('id="sourceLocale" value="en-US" list="localeOptions"', home)
-                self.assertIn('value="th-TH" label="🇹🇭 泰语 · ไทย（泰国）"', home)
+                self.assertIn('value="th-TH" label="ไทย (ประเทศไทย) · 泰语（泰国）"', home)
+
+                document_project = root / "document-project"
+                document_project.mkdir()
+                shutil.copy2(source, document_project / "upload.docx")
+                document_status, document_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": document_project.as_posix()},
+                )
+                self.assertEqual(document_status, 200)
+                self.assertEqual(document_payload["routing"]["detected_project_type"], "document")
 
                 unsafe_status, unsafe = _http_post_json(
                     host,
@@ -3639,13 +4329,76 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertEqual(payload["status"], "pass")
                 self.assertEqual(Path(payload["project"]), project.resolve())
-                self.assertEqual(payload["routing"]["adapter_counts"], {"core.json-locale": 1})
-                self.assertEqual(payload["source_files"], ["locales/en-US.json"])
+                self.assertNotIn("routing", payload)
+                self.assertNotIn("source_files", payload)
+
+                inspect_status, inspected = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": payload["project"]},
+                )
+                self.assertEqual(inspect_status, 200)
+                self.assertEqual(inspected["routing"]["adapter_counts"], {"core.json-locale": 1})
+                self.assertEqual(
+                    [item["path"] for item in inspected["routing"]["supported_files"]],
+                    ["locales/en-US.json"],
+                )
 
                 with mock.patch("runtime.localize_anything.ui._pick_directory", return_value=None):
                     cancelled_status, cancelled = _http_post_json(host, port, "/api/pick-directory", {})
                 self.assertEqual(cancelled_status, 200)
                 self.assertEqual(cancelled["status"], "cancelled")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_inspection_suggests_source_locale_from_recognized_resource_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            source = project / "resources" / "strings.json"
+            source.parent.mkdir(parents=True)
+            source.write_text('{"hello": "你好"}\n', encoding="utf-8")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, payload = _http_post_json(host, port, "/api/inspect", {"project": project.as_posix()})
+                self.assertEqual(status, 200)
+                suggestion = payload["routing"]["source_locale_suggestion"]
+                self.assertEqual(suggestion["locale"], "zh-CN")
+                self.assertEqual(suggestion["confidence"], "medium")
+
+                android_project = Path(directory) / "android-project"
+                base_strings = android_project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+                localized_strings = android_project / "app" / "src" / "main" / "res" / "values-zh-rCN" / "strings.xml"
+                base_strings.parent.mkdir(parents=True)
+                localized_strings.parent.mkdir(parents=True)
+                base_strings.write_text('<resources><string name="hello">Hello</string></resources>\n', encoding="utf-8")
+                localized_strings.write_text('<resources><string name="hello">你好</string></resources>\n', encoding="utf-8")
+                android_status, android_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": android_project.as_posix()},
+                )
+                self.assertEqual(android_status, 200)
+                self.assertEqual(android_payload["routing"]["source_locale_suggestion"]["locale"], "en-US")
+
+                japanese_project = Path(directory) / "japanese-project"
+                japanese_source = japanese_project / "resources" / "strings.json"
+                japanese_source.parent.mkdir(parents=True)
+                japanese_source.write_text('{"open": "設定画面を開く"}\n', encoding="utf-8")
+                japanese_status, japanese_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": japanese_project.as_posix()},
+                )
+                self.assertEqual(japanese_status, 200)
+                self.assertEqual(japanese_payload["routing"]["source_locale_suggestion"]["locale"], "ja-JP")
             finally:
                 server.shutdown()
                 server.server_close()
@@ -6968,6 +7721,37 @@ class WorkbenchActionSurfaceTests(unittest.TestCase):
                 log_status, log_body = _http_get(host, port, f"/api/workbench-action-log?state_dir={state.as_posix()}")
                 self.assertEqual(log_status, 200)
                 self.assertEqual(len(json.loads(log_body)["workbench_action_log"]), 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_api_workbench_action_rejects_mismatched_run_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / ".localize-anything"
+            _build_scorecard_state(state)
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/workbench-action",
+                    {
+                        "state_dir": state.as_posix(),
+                        "run_id": "run-a",
+                        "action": {
+                            "run_id": "run-b",
+                            "action_type": "request_follow_up",
+                            "actor_role": "project_owner",
+                            "payload": {"reason": "mismatch"},
+                        },
+                    },
+                )
+                self.assertEqual(status, 409)
+                self.assertEqual(payload["error"]["code"], "RUN_STATE_MISMATCH")
             finally:
                 server.shutdown()
                 server.server_close()
@@ -12201,7 +12985,7 @@ class ProtocolFilesTests(unittest.TestCase):
         root = Path(__file__).parents[1]
         result = validate_protocol_tree(root / "protocol")
         self.assertEqual(result["status"], "pass", result["errors"])
-        self.assertEqual(result["schemas_checked"], 192)
+        self.assertEqual(result["schemas_checked"], 194)
 
 
 class V021ModeSystemBenchmarkTests(unittest.TestCase):

@@ -4,6 +4,15 @@
 
 ### Added
 
+- Add a multi-route Workbench first-run experience with localized navigation,
+  a provider-free safe-demo action, URL-restorable session review, curated
+  summary/QA/readiness/delivery/apply previews, artifact-backed claim and
+  provider-smoke boundaries, a compact responsive header and project context
+  strip, dashboard-style first-run and completed-run overviews with
+  artifact-backed status, actionable empty states, and a lightweight local
+  settings surface. The UI delegates to existing runtime artifacts and does
+  not add provider calls, evidence gates, automatic apply, or stronger quality
+  claims.
 - Add Provider Smoke Evidence Closure / Release Boundary Audit with five
   provider-free artifacts that record the two-segment manual smoke as narrow
   provider-path evidence, preserve raw-output locality and strong non-claims,

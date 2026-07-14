@@ -177,6 +177,17 @@ git-ignored `localize-anything-demo-output/`. It does not call providers, mutate
 the source fixture, or apply changes to a project. See
 [Quickstart Demo](docs/quickstart-demo.md).
 
+The same safe path is available from the local Workbench:
+
+```bash
+python -m runtime.localize_anything ui --open
+```
+
+Choose **Run safe demo** on the overview, then inspect the generated summary,
+QA/readiness, delivery package, and apply plan. The Workbench presents runtime
+artifacts without upgrading the demo into provider-quality, production-ready,
+or automatic-apply claims.
+
 ### Inspect a real project
 
 ```bash

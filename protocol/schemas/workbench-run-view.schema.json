@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/workbench-run-view.schema.json",
+  "title": "Localize Anything Workbench Exact Run View",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "status",
+    "api_version",
+    "project_root",
+    "run_id",
+    "snapshot_kind",
+    "freshness",
+    "newer_project_state_available",
+    "session",
+    "summary",
+    "review_readiness",
+    "delivery_readiness",
+    "apply_readiness",
+    "artifact_state",
+    "queues",
+    "signoff",
+    "artifacts",
+    "limitations",
+    "next_actions",
+    "current_project_projection"
+  ],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "status": { "const": "pass" },
+    "status_code": { "type": "string", "minLength": 1 },
+    "status_family": { "enum": ["neutral", "progress", "success", "warning", "blocked", "error"] },
+    "message_code": { "type": "string", "minLength": 1 },
+    "message_params": { "type": "object" },
+    "api_version": { "const": "workbench-v1" },
+    "project_root": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "snapshot_kind": { "const": "exact_run" },
+    "freshness": { "enum": ["current", "historical"] },
+    "newer_project_state_available": { "type": "boolean" },
+    "session": { "type": "object" },
+    "summary": { "type": "object" },
+    "summary_artifact": { "$ref": "workbench-run-projection.schema.json" },
+    "review_readiness": { "$ref": "workbench-run-projection.schema.json" },
+    "delivery_readiness": { "$ref": "workbench-run-projection.schema.json" },
+    "apply_readiness": { "$ref": "workbench-run-projection.schema.json" },
+    "artifact_state": { "$ref": "workbench-run-projection.schema.json" },
+    "queues": {
+      "type": "object",
+      "required": ["review", "claims", "readiness_actions"],
+      "properties": {
+        "review": { "$ref": "workbench-run-projection.schema.json" },
+        "claims": { "$ref": "workbench-run-projection.schema.json" },
+        "readiness_actions": { "$ref": "workbench-run-projection.schema.json" }
+      },
+      "additionalProperties": true
+    },
+    "signoff": { "$ref": "workbench-run-projection.schema.json" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["artifact_id", "path", "state", "scope"],
+        "properties": {
+          "artifact_id": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "state": { "enum": ["available", "directory", "missing"] },
+          "scope": { "enum": ["selected_run", "project_current", "external"] },
+          "run_id": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "next_actions": { "type": "array", "items": { "type": "string" } },
+    "current_project_projection": {
+      "type": "object",
+      "required": ["snapshot_kind", "run_id", "freshness", "review_readiness", "delivery_readiness", "apply_readiness", "artifact_state", "queues", "signoff"],
+      "properties": {
+        "snapshot_kind": { "const": "project_current" },
+        "run_id": { "type": ["string", "null"] },
+        "freshness": { "enum": ["current", "newer_project_state_available", "no_current_run"] },
+        "mismatch": { "type": ["object", "null"] },
+        "review_readiness": { "$ref": "workbench-run-projection.schema.json" },
+        "delivery_readiness": { "$ref": "workbench-run-projection.schema.json" },
+        "apply_readiness": { "$ref": "workbench-run-projection.schema.json" },
+        "artifact_state": { "$ref": "workbench-run-projection.schema.json" },
+        "queues": { "type": "object" },
+        "signoff": { "$ref": "workbench-run-projection.schema.json" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

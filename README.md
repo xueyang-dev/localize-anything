@@ -155,6 +155,14 @@ python -m runtime.localize_anything quickstart-demo
 
 该命令会复制一个很小的公开 JSON fixture，使用本地合成草稿跑完检查、预检、暂存、确定性 QA、readiness 和交付包路径摘要。默认输出写入已被 git 忽略的 `localize-anything-demo-output/`。它不会调用 provider，不会修改原始 fixture，也不会 apply 到项目。详见 [Quickstart Demo](docs/quickstart-demo.md)。
 
+也可以从本地 Workbench 运行同一条安全路径：
+
+```bash
+python -m runtime.localize_anything ui --open
+```
+
+在概览页选择 **Run safe demo**，随后依次检查生成摘要、QA/readiness、交付包和 Apply 计划。Workbench 只呈现 runtime 产物，不会把演示升级为 provider 质量、生产就绪或自动 apply 声明。
+
 ### 检查真实项目
 
 ```bash
