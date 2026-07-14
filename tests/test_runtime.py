@@ -501,6 +501,15 @@ def assert_protocol_schema(testcase: unittest.TestCase, name: str, value: object
 
 
 class JsonAdapterTests(unittest.TestCase):
+    def test_extract_accepts_utf8_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "bom.json"
+            source.write_bytes(b"\xef\xbb\xbf{\"hello\": \"Hello\"}\n")
+
+            segments = extract_segments(source, "en-US", "locales/en-US.json")
+
+            self.assertEqual([segment["source"] for segment in segments], ["Hello"])
+
     def test_extract_rebuild_and_validate(self) -> None:
         source = FIXTURE_ROOT / "locales" / "en-US.json"
         expected = FIXTURE_ROOT / "locales" / "zh-CN.json"
