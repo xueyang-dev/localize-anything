@@ -178,6 +178,8 @@ def _detected_project_type(adapter_counts: dict[str, int]) -> str:
     ]
     if len(detected) == 1 and sum(adapter_counts.values()) == adapter_counts[detected[0][0]]:
         return detected[0][1]
+    if adapter_counts.get("core.word-document") and sum(adapter_counts.values()) == adapter_counts["core.word-document"]:
+        return "document"
     if detected:
         return "mixed"
     return "generic"

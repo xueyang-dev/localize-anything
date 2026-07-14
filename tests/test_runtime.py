@@ -3542,6 +3542,16 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertIn("Local service ready", body)
                 self.assertIn("No provider or model call from the safe demo", body)
                 self.assertIn("sessions.emptyTitle", body)
+                self.assertIn('id="projectTransition"', body)
+                self.assertIn("function setProjectTransition", body)
+                self.assertIn('id="projectStepTitle"', body)
+                self.assertIn('id="recognitionStepTitle"', body)
+                self.assertIn('id="languageStepTitle"', body)
+                self.assertIn('id="prepareStepTitle"', body)
+                self.assertLess(body.index('id="projectStepTitle"'), body.index('id="recognitionStepTitle"'))
+                self.assertLess(body.index('id="recognitionStepTitle"'), body.index('id="languageStepTitle"'))
+                self.assertLess(body.index('id="languageStepTitle"'), body.index('id="prepareStepTitle"'))
+                self.assertIn('postJson("/api/inspect",{project:selection.project})', body)
                 self.assertNotIn("Generate localization artifacts", body)
                 self.assertNotIn("AI-generated translation", body)
                 self.assertNotIn("pass /", body)
@@ -3622,6 +3632,8 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(inspect_status, 200)
                 self.assertEqual(inspected["status"], "pass")
                 self.assertEqual(inspected["routing"]["adapter_counts"], {"core.json-locale": 1})
+                self.assertEqual(inspected["routing"]["detected_project_type"], "generic")
+                self.assertEqual(inspected["routing"]["source_locale_suggestion"]["locale"], "en-US")
 
                 run_status, run_payload = _http_post_json(
                     host,
@@ -4120,7 +4132,8 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(payload["source_files"], ["docs/upload.docx", "locales/en-US.json"])
                 home_status, home = _http_get(host, port, "/")
                 self.assertEqual(home_status, 200)
-                self.assertIn("dropzone", home)
+                self.assertIn('id="projectTransition"', home)
+                self.assertIn('id="importFilesButton"', home)
                 self.assertNotIn("folderPicker", home)
                 self.assertNotIn('accept=".docx', home)
                 self.assertIn('onclick="pickProjectDirectory()"', home)
@@ -4128,7 +4141,19 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertNotIn("traverseEntry", home)
                 self.assertIn('id="targetLocale" value="zh-CN" list="localeOptions"', home)
                 self.assertIn('id="sourceLocale" value="en-US" list="localeOptions"', home)
-                self.assertIn('value="th-TH" label="🇹🇭 泰语 · ไทย（泰国）"', home)
+                self.assertIn('value="th-TH" label="ไทย (ประเทศไทย) · 泰语（泰国）"', home)
+
+                document_project = root / "document-project"
+                document_project.mkdir()
+                shutil.copy2(source, document_project / "upload.docx")
+                document_status, document_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": document_project.as_posix()},
+                )
+                self.assertEqual(document_status, 200)
+                self.assertEqual(document_payload["routing"]["detected_project_type"], "document")
 
                 unsafe_status, unsafe = _http_post_json(
                     host,
@@ -4157,13 +4182,76 @@ class WorkbenchUITests(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertEqual(payload["status"], "pass")
                 self.assertEqual(Path(payload["project"]), project.resolve())
-                self.assertEqual(payload["routing"]["adapter_counts"], {"core.json-locale": 1})
-                self.assertEqual(payload["source_files"], ["locales/en-US.json"])
+                self.assertNotIn("routing", payload)
+                self.assertNotIn("source_files", payload)
+
+                inspect_status, inspected = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": payload["project"]},
+                )
+                self.assertEqual(inspect_status, 200)
+                self.assertEqual(inspected["routing"]["adapter_counts"], {"core.json-locale": 1})
+                self.assertEqual(
+                    [item["path"] for item in inspected["routing"]["supported_files"]],
+                    ["locales/en-US.json"],
+                )
 
                 with mock.patch("runtime.localize_anything.ui._pick_directory", return_value=None):
                     cancelled_status, cancelled = _http_post_json(host, port, "/api/pick-directory", {})
                 self.assertEqual(cancelled_status, 200)
                 self.assertEqual(cancelled["status"], "cancelled")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+    def test_ui_inspection_suggests_source_locale_from_recognized_resource_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            source = project / "resources" / "strings.json"
+            source.parent.mkdir(parents=True)
+            source.write_text('{"hello": "你好"}\n', encoding="utf-8")
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                status, payload = _http_post_json(host, port, "/api/inspect", {"project": project.as_posix()})
+                self.assertEqual(status, 200)
+                suggestion = payload["routing"]["source_locale_suggestion"]
+                self.assertEqual(suggestion["locale"], "zh-CN")
+                self.assertEqual(suggestion["confidence"], "medium")
+
+                android_project = Path(directory) / "android-project"
+                base_strings = android_project / "app" / "src" / "main" / "res" / "values" / "strings.xml"
+                localized_strings = android_project / "app" / "src" / "main" / "res" / "values-zh-rCN" / "strings.xml"
+                base_strings.parent.mkdir(parents=True)
+                localized_strings.parent.mkdir(parents=True)
+                base_strings.write_text('<resources><string name="hello">Hello</string></resources>\n', encoding="utf-8")
+                localized_strings.write_text('<resources><string name="hello">你好</string></resources>\n', encoding="utf-8")
+                android_status, android_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": android_project.as_posix()},
+                )
+                self.assertEqual(android_status, 200)
+                self.assertEqual(android_payload["routing"]["source_locale_suggestion"]["locale"], "en-US")
+
+                japanese_project = Path(directory) / "japanese-project"
+                japanese_source = japanese_project / "resources" / "strings.json"
+                japanese_source.parent.mkdir(parents=True)
+                japanese_source.write_text('{"open": "設定画面を開く"}\n', encoding="utf-8")
+                japanese_status, japanese_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/inspect",
+                    {"project": japanese_project.as_posix()},
+                )
+                self.assertEqual(japanese_status, 200)
+                self.assertEqual(japanese_payload["routing"]["source_locale_suggestion"]["locale"], "ja-JP")
             finally:
                 server.shutdown()
                 server.server_close()

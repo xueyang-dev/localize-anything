@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import re
 import uuid
 import webbrowser
 from dataclasses import dataclass, field
@@ -48,6 +49,7 @@ from .human_review import (
     read_signoff_record,
     record_human_review_evidence,
 )
+from .inspect_summary import build_inspect_summary
 from .knowledge_pack import (
     export_knowledge_pack,
     init_knowledge_pack,
@@ -1039,16 +1041,7 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
                 self._send_json({"status": "cancelled"})
                 return
             state.add_allowed_root(project)
-            inspection = inspect_project(project)
-            self._send_json(
-                {
-                    "status": "pass",
-                    "project": project.as_posix(),
-                    "routing": _routing_view(inspection),
-                    "inspection": inspection,
-                    "source_files": [item["path"] for item in inspection.get("supported_files", [])],
-                }
-            )
+            self._send_json({"status": "pass", "project": project.as_posix()})
 
         def _handle_agent_run(self, payload: dict[str, Any]) -> None:
             project = _required_path(payload, "project")
@@ -2148,12 +2141,143 @@ def _optional_int(value: Any, default: int) -> int:
 def _routing_view(inspection: dict[str, Any]) -> dict[str, Any]:
     supported = inspection.get("supported_files", [])
     assessment = inspection.get("preflight_assessment", {})
+    summary = build_inspect_summary(inspection)
     return {
         "supported_file_count": len(supported),
         "adapter_counts": inspection.get("adapter_counts", {}),
+        "adapters": summary.get("adapters", []),
+        "detected_project_type": summary.get("detected_project_type", "unknown"),
+        "primary_adapter": summary.get("primary_adapter"),
+        "source_locale_suggestion": _suggest_source_locale(inspection),
         "unprocessed_non_text_asset_count": len(inspection.get("unprocessed_non_text_assets", [])),
         "recommended_preflight_mode": assessment.get("recommended_preflight_mode"),
         "recommended_workflow_depth": assessment.get("recommended_workflow_depth"),
         "reason": assessment.get("reason"),
+        "warnings": summary.get("warnings", [])[:5],
         "supported_files": supported[:500],
     }
+
+
+_LOCALE_PATH_PATTERN = re.compile(r"(?<![A-Za-z])([a-z]{2})(?:[-_](?:r)?([A-Za-z]{2}))?(?![A-Za-z])", re.IGNORECASE)
+_DEFAULT_LOCALES = {
+    "ar": "ar",
+    "de": "de-DE",
+    "en": "en-US",
+    "es": "es-ES",
+    "fr": "fr-FR",
+    "he": "he",
+    "hi": "hi-IN",
+    "ja": "ja-JP",
+    "ko": "ko-KR",
+    "pt": "pt-BR",
+    "ru": "ru-RU",
+    "th": "th-TH",
+    "zh": "zh-CN",
+}
+
+
+def _suggest_source_locale(inspection: dict[str, Any]) -> dict[str, str]:
+    project = Path(str(inspection.get("project_root") or ""))
+    supported = inspection.get("supported_files", [])
+
+    for item in supported:
+        if item.get("adapter") != "core.xcstrings":
+            continue
+        try:
+            source_language = json.loads((project / str(item["path"])).read_text(encoding="utf-8")).get("sourceLanguage")
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        normalized = _normalize_locale(source_language)
+        if normalized:
+            return {
+                "locale": normalized,
+                "confidence": "high",
+                "reason": "Read from the String Catalog sourceLanguage field.",
+            }
+
+    source_candidates = [item for item in supported if item.get("android_role") == "source_candidate"] or supported
+    path_locales = {
+        locale
+        for item in source_candidates
+        for locale in [_locale_from_path(str(item.get("path") or ""))]
+        if locale
+    }
+    if len(path_locales) == 1:
+        return {
+            "locale": next(iter(path_locales)),
+            "confidence": "medium",
+            "reason": "Inferred from the locale identifier in the recognized resource path.",
+        }
+
+    scripted_locale = _locale_from_resource_script(project, source_candidates) if not path_locales else None
+    if scripted_locale:
+        return {
+            "locale": scripted_locale,
+            "confidence": "medium",
+            "reason": "Inferred from the dominant writing system in recognized text resources.",
+        }
+
+    return {
+        "locale": "en-US",
+        "confidence": "low",
+        "reason": "No explicit source-language metadata was found; verify the English default.",
+    }
+
+
+def _normalize_locale(value: Any) -> str | None:
+    text = str(value or "").strip().replace("_", "-")
+    if not text:
+        return None
+    parts = text.split("-")
+    language = parts[0].lower()
+    if language not in _DEFAULT_LOCALES:
+        return None
+    if len(parts) > 1 and len(parts[1]) == 2:
+        return f"{language}-{parts[1].upper()}"
+    return _DEFAULT_LOCALES[language]
+
+
+def _locale_from_path(value: str) -> str | None:
+    for match in _LOCALE_PATH_PATTERN.finditer(value.replace("\\", "/")):
+        language = match.group(1).lower()
+        if language not in _DEFAULT_LOCALES:
+            continue
+        region = match.group(2)
+        return f"{language}-{region.upper()}" if region else _DEFAULT_LOCALES[language]
+    return None
+
+
+def _locale_from_resource_script(project: Path, supported: list[dict[str, Any]]) -> str | None:
+    counts = {"ja-JP": 0, "ko-KR": 0, "th-TH": 0, "zh-CN": 0, "ru-RU": 0, "ar": 0, "he": 0, "hi-IN": 0}
+    readable_suffixes = {".json", ".md", ".markdown", ".html", ".htm", ".xml", ".strings", ".po", ".pot", ".yaml", ".yml", ".toml", ".srt", ".vtt", ".xlf", ".xliff"}
+    for item in supported[:12]:
+        path = project / str(item.get("path") or "")
+        if path.suffix.lower() not in readable_suffixes:
+            continue
+        try:
+            with path.open("r", encoding="utf-8", errors="ignore") as handle:
+                text = handle.read(100_000)
+        except OSError:
+            continue
+        for character in text:
+            code = ord(character)
+            if 0x3040 <= code <= 0x30FF:
+                counts["ja-JP"] += 1
+            elif 0xAC00 <= code <= 0xD7AF:
+                counts["ko-KR"] += 1
+            elif 0x0E00 <= code <= 0x0E7F:
+                counts["th-TH"] += 1
+            elif 0x4E00 <= code <= 0x9FFF:
+                counts["zh-CN"] += 1
+            elif 0x0400 <= code <= 0x04FF:
+                counts["ru-RU"] += 1
+            elif 0x0600 <= code <= 0x06FF:
+                counts["ar"] += 1
+            elif 0x0590 <= code <= 0x05FF:
+                counts["he"] += 1
+            elif 0x0900 <= code <= 0x097F:
+                counts["hi-IN"] += 1
+    if counts["ja-JP"] >= 2:
+        return "ja-JP"
+    locale, count = max(counts.items(), key=lambda item: item[1])
+    return locale if count >= 2 else None

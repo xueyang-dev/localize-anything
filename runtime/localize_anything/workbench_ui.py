@@ -119,8 +119,6 @@ WORKBENCH_HTML = r"""<!doctype html>
     .card-copy { margin: 5px 0 0; font-size: 13px; }
     .hero { padding: clamp(26px, 5vw, 54px); background: linear-gradient(135deg, #fff 20%, #eff6ff); }
     .hero-actions, .inline-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
-    .dropzone { display: flex; align-items: center; min-height: 44px; margin: 0; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 10px 12px; color: var(--muted); background: var(--surface-subtle); }
-    .dropzone:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
     .boundary { margin-top: 20px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
     .boundary-item { border: 1px solid #bfdbfe; border-radius: 8px; background: rgba(255,255,255,.8); padding: 13px; }
     .boundary-item strong { display: block; margin-bottom: 3px; font-size: 13px; }
@@ -132,13 +130,66 @@ WORKBENCH_HTML = r"""<!doctype html>
     .metric strong { display: block; margin-top: 5px; font-size: 19px; overflow-wrap: anywhere; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
     .form-grid .wide { grid-column: 1 / -1; }
+    .workflow-shell { max-width: 940px; margin: 0 auto; }
+    .workflow-card { overflow: hidden; }
+    .workflow-section { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 16px; padding: 24px; }
+    .workflow-section + .workflow-section { border-top: 1px solid var(--line); }
+    .workflow-section.is-locked .step-index { border-color: var(--line); background: var(--surface-subtle); color: var(--muted); }
+    .workflow-section.is-locked .stage-content { opacity: .58; }
+    .step-index { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #bfdbfe; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 820; }
+    .step-heading { margin-bottom: 16px; }
+    .step-heading h2 { font-size: 17px; }
+    .step-heading p { margin: 5px 0 0; font-size: 13px; }
+    .project-path-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: start; }
+    .project-path-row button { margin-top: 25px; }
+    .choice-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 10px; }
+    .choice-note { margin: 0; color: var(--muted); font-size: 12px; }
+    .recognition-placeholder { border: 1px dashed var(--line-strong); border-radius: 9px; padding: 22px; background: var(--surface-subtle); text-align: center; }
+    .recognition-placeholder p { margin: 5px 0 0; font-size: 13px; }
+    .project-summary { display: grid; grid-template-columns: minmax(220px,1.5fr) repeat(3,minmax(110px,.55fr)); gap: 10px; }
+    .project-signature, .summary-stat { min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 14px; background: var(--surface-subtle); }
+    .project-signature { border-color: #bfdbfe; background: var(--accent-soft); }
+    .project-signature span, .summary-stat span { display: block; color: var(--muted); font-size: 11px; font-weight: 760; letter-spacing: .04em; text-transform: uppercase; }
+    .project-signature strong, .summary-stat strong { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+    .project-signature p { margin: 5px 0 0; font-size: 12px; }
+    .recognized-files { margin-top: 12px; border: 1px solid var(--line); border-radius: 9px; }
+    .recognized-files summary { padding: 11px 13px; }
+    .recognized-files .table-wrap { padding: 0 13px 13px; }
+    .locale-flow { display: grid; grid-template-columns: minmax(0,1fr) 52px minmax(0,1fr); gap: 12px; align-items: stretch; }
+    .locale-card { border: 1px solid var(--line); border-radius: 10px; padding: 15px; background: var(--surface-subtle); }
+    .locale-card.source { border-color: #bfdbfe; background: var(--accent-soft); }
+    .locale-role { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; color: var(--muted); font-size: 12px; font-weight: 760; }
+    .auto-badge { display: inline-flex; align-items: center; min-height: 22px; border: 1px solid #bfdbfe; border-radius: 999px; padding: 1px 8px; background: #fff; color: var(--accent); font-size: 11px; }
+    .locale-card label { font-size: 12px; }
+    .locale-hint { min-height: 36px; margin: 7px 0 0; font-size: 12px; }
+    .locale-arrow { display: grid; place-items: center; color: var(--accent); }
+    .locale-arrow svg { width: 28px; height: 28px; }
+    .workflow-options { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: end; }
+    .workflow-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+    .safety-note { margin-top: 14px; border-left: 3px solid var(--line-strong); padding: 2px 0 2px 12px; color: var(--muted); font-size: 12px; }
+    .operation-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(15,23,42,.46); backdrop-filter: blur(4px); }
+    .operation-overlay[hidden] { display: none; }
+    .operation-card { width: min(520px,100%); border: 1px solid rgba(255,255,255,.7); border-radius: 14px; padding: 30px; background: var(--surface); box-shadow: 0 24px 70px rgba(15,23,42,.24); text-align: center; }
+    .scan-indicator { position: relative; width: 66px; height: 66px; margin: 0 auto 18px; display: grid; place-items: center; }
+    .scan-ring { position: absolute; inset: 0; border: 3px solid #dbeafe; border-top-color: var(--accent); border-radius: 50%; animation: scan-rotate 1s ease-in-out infinite; }
+    .scan-core { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 10px; font-weight: 820; }
+    .operation-overlay.complete .scan-ring { border-color: #a7f3d0; border-top-color: var(--success); animation: none; }
+    .operation-overlay.complete .scan-core { background: var(--success-soft); color: var(--success); }
+    .operation-kicker { margin: 0 0 6px; color: var(--accent); font-size: 11px; font-weight: 820; letter-spacing: .08em; text-transform: uppercase; }
+    .operation-card h2 { font-size: 21px; }
+    .operation-card > p:not(.operation-kicker) { margin: 8px auto 0; max-width: 390px; font-size: 13px; }
+    .operation-track { height: 4px; margin: 22px 0 17px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+    .operation-track span { display: block; width: 38%; height: 100%; border-radius: inherit; background: var(--accent); animation: scan-track 1.35s ease-in-out infinite; }
+    .operation-overlay.complete .operation-track span { width: 100%; background: var(--success); animation: none; }
+    .operation-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; color: var(--muted); font-size: 11px; }
+    .operation-step { border-top: 2px solid var(--line); padding-top: 7px; }
+    .operation-step.active { border-color: var(--accent); color: var(--accent); font-weight: 760; }
+    .operation-step.complete { border-color: var(--success); color: var(--success); }
+    @keyframes scan-rotate { to { transform: rotate(360deg); } }
+    @keyframes scan-track { 0% { transform: translateX(-110%); } 50% { transform: translateX(85%); } 100% { transform: translateX(245%); } }
     details { border-top: 1px solid var(--line); }
     summary { padding: 14px 18px; color: var(--muted); font-weight: 750; }
     .details-body { padding: 0 18px 18px; }
-    .mode-list { display: grid; gap: 8px; }
-    .mode-option { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 8px; padding: 12px; cursor: pointer; }
-    .mode-option input { width: 18px; min-height: 18px; margin-top: 2px; }
-    .mode-option span { color: var(--muted); font-size: 12px; }
     .status-notice, .error-notice { display: none; margin-bottom: 16px; border-radius: 8px; padding: 12px 14px; }
     .status-notice.visible { display: block; border: 1px solid #a7f3d0; background: var(--success-soft); color: #065f46; }
     .error-notice.visible { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border: 1px solid #fecaca; background: var(--danger-soft); color: #991b1b; }
@@ -171,6 +222,8 @@ WORKBENCH_HTML = r"""<!doctype html>
       .brand { min-width: 0; }
       .nav-wrap { order: 3; flex-basis: 100%; }
       .grid.two, .grid.three, .metric-grid, .boundary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .project-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .project-signature { grid-column: 1 / -1; }
     }
     @media (max-width: 640px) {
       main { padding: 24px 14px 44px; }
@@ -182,9 +235,17 @@ WORKBENCH_HTML = r"""<!doctype html>
       .hero { padding: 24px 18px; }
       .artifact-row, .session-row, .action-row { grid-template-columns: 1fr; }
       .artifact-row button, .session-row button, .action-row button { width: 100%; }
+      .workflow-section { grid-template-columns: 1fr; gap: 10px; padding: 20px 16px; }
+      .project-path-row, .workflow-options, .project-summary, .locale-flow { grid-template-columns: 1fr; }
+      .project-path-row button { width: 100%; margin-top: 0; }
+      .project-signature { grid-column: auto; }
+      .locale-arrow { min-height: 36px; transform: rotate(90deg); }
+      .workflow-actions button, .choice-row button { width: 100%; justify-content: center; }
+      .operation-card { padding: 25px 18px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      .scan-ring, .operation-track span { animation: none !important; }
     }
   </style>
 </head>
@@ -247,54 +308,94 @@ WORKBENCH_HTML = r"""<!doctype html>
     </section>
 
     <section class="page" data-page="/generate" hidden>
-      <div class="page-heading"><div><p class="eyebrow">Prepare</p><h1>Prepare a localization handoff</h1><p class="lead">Inspect the project first, then create staged evidence. This does not call a provider unless a separate provider workflow is explicitly authorized.</p></div></div>
-      <div class="grid two">
-        <div class="card">
-          <div class="card-header"><div><h2>Project and locale</h2><p class="card-copy">Required inputs stay visible. Less common controls are under Advanced.</p></div></div>
-          <div class="card-body stack">
-            <div><label for="project">Project path *</label><input id="project" aria-describedby="projectError" placeholder="C:\path\to\project"><div class="field-error" id="projectError"></div></div>
-            <div class="inline-actions"><button type="button" onclick="pickProjectDirectory()">Choose local directory</button><label class="dropzone"><span>Import selected files into a temporary project</span><input id="filePicker" type="file" multiple hidden></label></div>
-            <div class="form-grid">
-              <div><label for="sourceLocale">Source locale</label><input id="sourceLocale" value="en-US" list="localeOptions" autocomplete="off"></div>
-              <div><label for="targetLocale">Target locale *</label><input id="targetLocale" value="zh-CN" list="localeOptions" aria-describedby="targetLocaleError" autocomplete="off"><div class="field-error" id="targetLocaleError"></div></div>
+      <div class="workflow-shell">
+        <div class="page-heading"><div><p class="eyebrow">Prepare</p><h1>Set up localization in order</h1><p class="lead">Choose a project, confirm what was recognized, then set the language direction before preparing any handoff.</p></div></div>
+        <div class="card workflow-card">
+          <section class="workflow-section" aria-labelledby="projectStepTitle">
+            <div class="step-index" aria-hidden="true">1</div>
+            <div class="stage-content">
+              <div class="step-heading"><h2 id="projectStepTitle">Choose the project</h2><p>Open a local folder, or paste its path and recognize it manually.</p></div>
+              <div class="project-path-row">
+                <div><label for="project">Project path *</label><input id="project" aria-describedby="projectError" placeholder="C:\path\to\project"><div class="field-error" id="projectError"></div></div>
+                <button id="recognizeProjectButton" type="button" onclick="inspectProject()">Recognize project</button>
+              </div>
+              <div class="choice-row">
+                <button class="primary" id="chooseProjectButton" type="button" onclick="pickProjectDirectory()">Choose local folder</button>
+                <button id="importFilesButton" type="button" onclick="$('filePicker').click()">Import files instead</button><input id="filePicker" type="file" multiple aria-label="Import files" hidden>
+                <p class="choice-note">Local folders stay on this computer. Imported files are copied to a temporary project.</p>
+              </div>
             </div>
-            <datalist id="localeOptions">
-              <option value="de-DE" label="🇩🇪 德语 · Deutsch（德国）"></option>
-              <option value="en-US" label="🇺🇸 英语 · English（美国）"></option>
-              <option value="es-ES" label="🇪🇸 西班牙语 · Español（西班牙）"></option>
-              <option value="fr-FR" label="🇫🇷 法语 · Français（法国）"></option>
-              <option value="ja-JP" label="🇯🇵 日语 · 日本語（日本）"></option>
-              <option value="ko-KR" label="🇰🇷 韩语 · 한국어（韩国）"></option>
-              <option value="th-TH" label="🇹🇭 泰语 · ไทย（泰国）"></option>
-              <option value="zh-CN" label="🇨🇳 简体中文 · 中文（中国大陆）"></option>
-              <option value="zh-TW" label="🇹🇼 繁体中文 · 中文（台湾）"></option>
-            </datalist>
-            <div class="mode-list">
-              <label class="mode-option"><input type="radio" name="mode" value="greenfield_localization" checked><strong>New localization<br><span>Style-aware, provider-free handoff preparation.</span></strong></label>
-              <label class="mode-option"><input type="radio" name="mode" value="existing_locale_maintenance"><strong>Maintain an existing locale<br><span>Preserve current translated content where possible.</span></strong></label>
-              <label class="mode-option"><input type="radio" name="mode" value="blind_benchmark"><strong>Blind benchmark<br><span>High-assurance workflow without reference leakage.</span></strong></label>
+          </section>
+
+          <section class="workflow-section" id="recognitionSection" aria-labelledby="recognitionStepTitle">
+            <div class="step-index" aria-hidden="true">2</div>
+            <div class="stage-content">
+              <div class="step-heading"><h2 id="recognitionStepTitle">Confirm the recognized project</h2><p>Project type and resource routing come directly from the local inspection result.</p></div>
+              <div id="routing" aria-live="polite"><div class="recognition-placeholder"><strong>Waiting for a project</strong><p>Recognition starts automatically after a folder is chosen.</p></div></div>
             </div>
-          </div>
-          <details>
-            <summary>Advanced run options</summary>
-            <div class="details-body form-grid">
-              <div class="wide"><label for="sourceFiles">Source files, one relative path per line</label><textarea id="sourceFiles"></textarea></div>
-              <div><label for="outputRoot">Output root</label><input id="outputRoot"></div>
-              <div><label for="runId">Run ID</label><input id="runId"></div>
-              <div><label for="maxSegments">Segment limit</label><input id="maxSegments" type="number" min="1" value="80"></div>
-              <div><label for="responsesDir">Generated responses directory</label><input id="responsesDir"></div>
+          </section>
+
+          <section class="workflow-section is-locked" id="languageSection" aria-labelledby="languageStepTitle" aria-disabled="true">
+            <div class="step-index" aria-hidden="true">3</div>
+            <div class="stage-content">
+              <div class="step-heading"><h2 id="languageStepTitle">Set the language direction</h2><p>The source is suggested from recognized metadata or writing system. You can correct it before continuing.</p></div>
+              <div class="locale-flow">
+                <div class="locale-card source">
+                  <div class="locale-role"><span>Source</span><span class="auto-badge" id="sourceLocaleBadge">Waiting for recognition</span></div>
+                  <label for="sourceLocale">Source language</label>
+                  <input id="sourceLocale" value="en-US" list="localeOptions" autocomplete="off" disabled>
+                  <p class="locale-hint" id="sourceLocaleHint">Choose a project to get a source-language suggestion.</p>
+                </div>
+                <div class="locale-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="locale-card">
+                  <div class="locale-role"><span>Target</span><span>Required</span></div>
+                  <label for="targetLocale">Target language</label>
+                  <input id="targetLocale" value="zh-CN" list="localeOptions" aria-describedby="targetLocaleError" autocomplete="off" disabled>
+                  <div class="field-error" id="targetLocaleError"></div>
+                </div>
+              </div>
+              <datalist id="localeOptions">
+                <option value="de-DE" label="Deutsch (Deutschland) · 德语（德国）"></option>
+                <option value="en-US" label="English (United States) · 英语（美国）"></option>
+                <option value="es-ES" label="Español (España) · 西班牙语（西班牙）"></option>
+                <option value="fr-FR" label="Français (France) · 法语（法国）"></option>
+                <option value="ja-JP" label="日本語 (日本) · 日语（日本）"></option>
+                <option value="ko-KR" label="한국어 (대한민국) · 韩语（韩国）"></option>
+                <option value="pt-BR" label="Português (Brasil) · 葡萄牙语（巴西）"></option>
+                <option value="ru-RU" label="Русский (Россия) · 俄语（俄罗斯）"></option>
+                <option value="th-TH" label="ไทย (ประเทศไทย) · 泰语（泰国）"></option>
+                <option value="zh-CN" label="简体中文（中国大陆）"></option>
+                <option value="zh-TW" label="繁體中文（台灣）"></option>
+              </datalist>
             </div>
-          </details>
-          <div class="card-body inline-actions">
-            <button type="button" onclick="inspectProject()">Inspect project</button>
-            <button class="primary" type="button" onclick="runAgent('handoff')">Prepare generation handoff</button>
-            <button type="button" onclick="runAgent('synthetic')">Stage synthetic draft (demo)</button>
-            <button type="button" onclick="runAgent('responses')">Import generated responses</button>
-          </div>
-        </div>
-        <div class="stack">
-          <div class="card"><div class="card-header"><div><h2>Inspection</h2><p class="card-copy">Supported resources and adapter routing.</p></div></div><div class="card-body" id="routing"><div class="empty">Inspect a project to see its supported resources.</div></div></div>
-          <div class="card"><div class="card-header"><div><h2>Safety boundary</h2></div></div><div class="card-body"><ul class="list"><li class="list-item"><strong>Prepare, do not overclaim</strong><p>The primary action creates handoff artifacts, not translated output.</p></li><li class="list-item"><strong>Review package ready with warnings</strong><p>This status is not delivery authorization or production readiness.</p></li><li class="list-item"><strong>Provider evidence is explicit</strong><p>No provider smoke evidence found means provider quality and reliability claims remain unsupported.</p></li></ul></div></div>
+          </section>
+
+          <section class="workflow-section is-locked" id="prepareSection" aria-labelledby="prepareStepTitle" aria-disabled="true">
+            <div class="step-index" aria-hidden="true">4</div>
+            <div class="stage-content">
+              <div class="step-heading"><h2 id="prepareStepTitle">Prepare the handoff</h2><p>Review the recognized project and language direction, then choose the smallest useful next action.</p></div>
+              <div class="workflow-options">
+                <div><label for="operatingMode">Workflow mode</label><select id="operatingMode" disabled><option value="greenfield_localization">New localization</option><option value="existing_locale_maintenance">Maintain an existing locale</option><option value="blind_benchmark">Blind benchmark</option></select></div>
+                <span class="status-chip">Provider-free preparation</span>
+              </div>
+              <details>
+                <summary>Advanced run options</summary>
+                <div class="details-body form-grid">
+                  <div class="wide"><label for="sourceFiles">Recognized source files, one relative path per line</label><textarea id="sourceFiles" disabled></textarea></div>
+                  <div><label for="outputRoot">Output root</label><input id="outputRoot" disabled></div>
+                  <div><label for="runId">Run ID</label><input id="runId" disabled></div>
+                  <div><label for="maxSegments">Segment limit</label><input id="maxSegments" type="number" min="1" value="80" disabled></div>
+                  <div><label for="responsesDir">Generated responses directory</label><input id="responsesDir" disabled></div>
+                </div>
+              </details>
+              <div class="workflow-actions">
+                <button class="primary" id="prepareHandoffButton" type="button" onclick="runAgent('handoff')" disabled>Prepare generation handoff</button>
+                <button id="syntheticDraftButton" type="button" onclick="runAgent('synthetic')" disabled>Stage synthetic draft (demo)</button>
+                <button id="importResponsesButton" type="button" onclick="runAgent('responses')" disabled>Import generated responses</button>
+              </div>
+              <p class="safety-note">Preparation creates evidence and staged artifacts. It does not call a provider, change source files, authorize delivery, or execute Apply.</p>
+            </div>
+          </section>
         </div>
       </div>
     </section>
@@ -320,7 +421,7 @@ WORKBENCH_HTML = r"""<!doctype html>
             <div class="card"><div class="card-header"><div><h2>Provider smoke</h2><p class="card-copy">Two-segment path evidence is not a quality claim.</p></div></div><div class="card-body" id="providerSmoke">No provider smoke evidence found. The field provider_or_model_called_by_runtime is unavailable.</div></div>
           </div>
           <div class="grid two">
-            <div class="card"><div class="card-header"><div><h2>Action queue</h2><p class="card-copy" id="queueScope">Selected run evidence</p></div></div><div class="card-body"><div id="actionQueue" class="stack"></div><form id="actionComposer" class="stack" onsubmit="submitReviewAction(event)"><input id="actionItemId" name="target_queue_item_id" placeholder="Queue item ID"><select id="actionType"><option value="request_follow_up">Request follow-up</option><option value="acknowledge_limitation">Acknowledge limitation</option></select><textarea id="actionReason" placeholder="Reason"></textarea><button type="submit">Record action</button></form><div id="actionResult" role="status" aria-live="polite"></div></div></div>
+            <div class="card"><div class="card-header"><div><h2>Action queue</h2><p class="card-copy" id="queueScope">Selected run evidence</p></div></div><div class="card-body"><div id="actionQueue" class="stack"></div><form id="actionComposer" class="stack" onsubmit="submitReviewAction(event)"><div><label for="actionItemId">Queue item ID</label><input id="actionItemId" name="target_queue_item_id"></div><div><label for="actionType">Action</label><select id="actionType"><option value="request_follow_up">Request follow-up</option><option value="acknowledge_limitation">Acknowledge limitation</option></select></div><div><label for="actionReason">Reason</label><textarea id="actionReason"></textarea></div><button type="submit">Record action</button></form><div id="actionResult" role="status" aria-live="polite"></div></div></div>
             <div class="card"><div class="card-header"><div><h2>Recent artifacts</h2><p class="card-copy">Open readable files in the inspector.</p></div></div><div class="card-body" id="recentArtifacts"></div></div>
           </div>
           <div class="card"><div class="card-header"><div><h2>All runtime artifacts</h2><p class="card-copy">Directories remain path-only.</p></div></div><div class="card-body" id="allArtifacts"></div></div>
@@ -341,6 +442,21 @@ WORKBENCH_HTML = r"""<!doctype html>
       </div>
     </section>
   </main>
+
+  <div class="operation-overlay" id="projectTransition" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden>
+    <div class="operation-card">
+      <div class="scan-indicator" aria-hidden="true"><span class="scan-ring"></span><span class="scan-core">LA</span></div>
+      <p class="operation-kicker">Project intake</p>
+      <h2 id="projectTransitionTitle">Opening project</h2>
+      <p id="projectTransitionDetail">Waiting for the local folder selection.</p>
+      <div class="operation-track" aria-hidden="true"><span></span></div>
+      <div class="operation-steps" aria-hidden="true">
+        <span class="operation-step" data-operation-step="choose">Choose</span>
+        <span class="operation-step" data-operation-step="inspect">Recognize</span>
+        <span class="operation-step" data-operation-step="ready">Ready</span>
+      </div>
+    </div>
+  </div>
 
   <aside class="inspector" id="reviewInspector" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="inspectorTitle">
     <div class="inspector-panel"><div class="inspector-header"><div><h2 id="inspectorTitle">Artifact</h2><div class="path" id="inspectorPath"></div></div><button id="inspectorClose" type="button" onclick="closeInspector()">Close</button></div><pre class="inspector-content" id="inspectorContent" dir="auto"></pre></div>
@@ -368,12 +484,15 @@ WORKBENCH_HTML = r"""<!doctype html>
     };
     let language = localStorage.getItem(LANGUAGE_KEY) || "en";
     let busy = false;
+    let busyReturnFocus = null;
+    let routingReady = false;
     let currentProject = "";
     let currentIndex = null;
     let currentArtifactState = null;
     let currentSession = null;
     let currentRunView = null;
     let inspectorReturnFocus = null;
+    let operationReturnFocus = null;
     const rawArtifactPreviews = {};
 
     class WorkbenchRequestError extends Error {
@@ -407,8 +526,35 @@ WORKBENCH_HTML = r"""<!doctype html>
     function showError(value) { $("errorMessage").textContent=value.message || String(value); $("errorStatus").classList.add("visible"); }
     function clearError() { $("errorStatus").classList.remove("visible"); }
     function setFieldError(id, message) { const field=$(id); const output=$(id+"Error"); if(output) output.textContent=message || ""; if(field) field.setAttribute("aria-invalid", String(Boolean(message))); }
-    function setBusy(value) { busy=value; document.body.setAttribute("aria-busy", String(value)); document.querySelectorAll("button").forEach((node) => node.disabled=value); }
-    async function runBusy(task) { if(busy) return; clearError(); setBusy(true); try { await task(); } catch(value) { showError(value); } finally { setBusy(false); } }
+    function setBusy(value) {
+      busy=value;
+      document.body.setAttribute("aria-busy", String(value));
+      document.querySelectorAll("button,input,select,textarea").forEach((node) => {
+        if(value){node.dataset.busyDisabled=String(node.disabled);node.disabled=true;}
+        else if("busyDisabled" in node.dataset){node.disabled=node.dataset.busyDisabled === "true";delete node.dataset.busyDisabled;}
+      });
+      if(!value) syncWorkflowControls();
+    }
+    async function runBusy(task) { if(busy) return; busyReturnFocus=document.activeElement; clearError(); setStatus(""); setBusy(true); try { await task(); } catch(value) { showError(value); } finally { setBusy(false); if(operationReturnFocus && typeof operationReturnFocus.focus === "function") operationReturnFocus.focus(); operationReturnFocus=null; busyReturnFocus=null; } }
+    function syncWorkflowControls() {
+      const enabled=routingReady && !busy;
+      for(const id of ["sourceLocale","targetLocale","operatingMode","sourceFiles","outputRoot","runId","maxSegments","responsesDir"]){$(id).disabled=!enabled;}
+      const source=$("sourceLocale").value.trim(); const target=$("targetLocale").value.trim();
+      const directionReady=enabled && Boolean(source) && Boolean(target) && source !== target;
+      for(const id of ["prepareHandoffButton","syntheticDraftButton","importResponsesButton"]){$(id).disabled=!directionReady;}
+      for(const id of ["languageSection","prepareSection"]){$(id).classList.toggle("is-locked",!routingReady);$(id).setAttribute("aria-disabled",String(!routingReady));}
+    }
+    function setProjectTransition(stage, title, detail) {
+      const overlay=$("projectTransition");
+      if(overlay.hidden){operationReturnFocus=busyReturnFocus || document.activeElement;overlay.hidden=false;overlay.focus();}
+      overlay.classList.toggle("complete",stage === "ready");
+      $("projectTransitionTitle").textContent=title;
+      $("projectTransitionDetail").textContent=detail;
+      const order=["choose","inspect","ready"]; const active=order.indexOf(stage);
+      overlay.querySelectorAll("[data-operation-step]").forEach((node)=>{const index=order.indexOf(node.dataset.operationStep);node.classList.toggle("active",index === active);node.classList.toggle("complete",index < active || stage === "ready");});
+    }
+    function hideProjectTransition() { const overlay=$("projectTransition"); overlay.hidden=true; overlay.classList.remove("complete"); }
+    function transitionPause() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? Promise.resolve() : new Promise((resolve)=>setTimeout(resolve,420)); }
 
     async function requestJson(path, options) {
       let response;
@@ -439,17 +585,32 @@ WORKBENCH_HTML = r"""<!doctype html>
       $("contextProjectAction").textContent=currentProject ? "Change project" : "Open project";
     }
     function payloadBase() {
-      const modeKey=(document.querySelector("input[name='mode']:checked") || {}).value || "greenfield_localization";
+      const modeKey=$("operatingMode").value || "greenfield_localization";
       const mode=MODE_CONFIG[modeKey];
       return {project:$("project").value.trim(), source_locale:$("sourceLocale").value.trim() || "en-US", target_locale:$("targetLocale").value.trim(), source_files:$("sourceFiles").value, output_root:$("outputRoot").value.trim(), run_id:$("runId").value.trim(), max_segments:Number($("maxSegments").value || 80), operating_mode:modeKey, reference_policy:mode.reference_policy, workflow_depth:mode.workflow_depth, preflight_mode:mode.preflight_mode, privacy_mode:"standard", data_classification:"internal", status:"draft_package"};
     }
-    function validateRunInputs() { const project=$("project").value.trim(); const locale=$("targetLocale").value.trim(); setFieldError("project", project ? "" : "Project path is required."); setFieldError("targetLocale", locale ? "" : "Target locale is required."); if(!project || !locale) throw new WorkbenchRequestError("VALIDATION_ERROR", "Complete the required fields.", 400, true, []); }
+    function validateProjectInput() { const project=$("project").value.trim(); setFieldError("project",project ? "" : "Project path is required."); if(!project) throw new WorkbenchRequestError("VALIDATION_ERROR","Choose or enter a project path.",400,true,[]); return project; }
+    function validateRunInputs() { const project=validateProjectInput(); const source=$("sourceLocale").value.trim(); const target=$("targetLocale").value.trim(); const targetError=!target ? "Target language is required." : source === target ? "Target language must differ from the source." : ""; setFieldError("targetLocale",targetError); if(!routingReady || targetError) throw new WorkbenchRequestError("VALIDATION_ERROR",!routingReady ? "Recognize the project before preparing a handoff." : targetError,400,true,[]); return project; }
 
-    async function pickProjectDirectory() { await runBusy(async()=>{ const data=await postJson("/api/pick-directory", {}); if(data.status==="cancelled") return; currentSession=null; currentRunView=null; $("project").value=data.project; $("sourceFiles").value=(data.source_files || []).join("\n"); currentProject=data.project; renderRouting(data.routing); await loadProjectState(); navigate("/generate"); setStatus("Local project opened. Directory content was not uploaded."); }); }
+    async function pickProjectDirectory() { await runBusy(async()=>{ setProjectTransition("choose","Choose a local project","Use the system folder window to select the project you want to recognize."); try { const selection=await postJson("/api/pick-directory", {}); if(selection.status==="cancelled") return; currentSession=null; currentRunView=null; $("project").value=selection.project; currentProject=selection.project; resetProjectWorkflow(); updateContext(); setProjectTransition("inspect","Recognizing the project","Reading supported resources and adapter evidence. Large projects can take a little longer."); const data=await postJson("/api/inspect",{project:selection.project}); useInspection(data); await loadProjectState(); navigate("/generate"); setProjectTransition("ready","Project recognized",`${data.routing.supported_file_count || 0} supported resource files are ready to configure.`); await transitionPause(); setStatus("Local project recognized. Directory content stayed on this computer."); } finally { hideProjectTransition(); } }); }
     function fileToBase64(file) { return new Promise((resolve,reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(String(reader.result || "").split(",",2)[1] || ""); reader.onerror=()=>reject(reader.error); reader.readAsDataURL(file); }); }
-    async function importSelectedFiles(files) { const items=Array.from(files || []); if(!items.length) return; await runBusy(async()=>{ const payload=[]; for(const file of items) payload.push({relative_path:file.webkitRelativePath || file.name, content_base64:await fileToBase64(file)}); const data=await postJson("/api/import-files",{files:payload}); currentSession=null; currentRunView=null; $("project").value=data.project; $("sourceFiles").value=(data.source_files || []).join("\n"); currentProject=data.project; renderRouting(data.routing); await loadProjectState(); setStatus(`Imported ${items.length} files into a temporary project.`); }); }
-    async function inspectProject() { await runBusy(async()=>{ validateRunInputs(); const data=await postJson("/api/inspect",{project:$("project").value.trim()}); currentSession=null; currentRunView=null; renderRouting(data.routing); currentProject=$("project").value.trim(); await loadSessions(); setStatus("Project inspection complete."); }); }
-    function renderRouting(routing) { if(!routing){$("routing").innerHTML='<div class="empty">No inspection data.</div>';return;} const files=routing.supported_files || []; $("routing").innerHTML=`<div class="metric-grid"><div class="metric"><span>Supported files</span><strong>${routing.supported_file_count ?? "Unavailable"}</strong></div><div class="metric"><span>Adapters</span><strong>${Object.keys(routing.adapter_counts || {}).length}</strong></div></div><div class="table-wrap"><table><thead><tr><th>Path</th><th>Adapter</th></tr></thead><tbody>${files.slice(0,40).map(item=>`<tr><td>${escapeHtml(item.path || item)}</td><td>${escapeHtml(item.adapter || "")}</td></tr>`).join("")}</tbody></table></div>`; }
+    async function importSelectedFiles(files) { const items=Array.from(files || []); if(!items.length) return; await runBusy(async()=>{ setProjectTransition("choose","Reading selected files",`Preparing 0 of ${items.length} files for a temporary project.`); try { const payload=[]; for(let index=0;index<items.length;index++){const file=items[index];payload.push({relative_path:file.webkitRelativePath || file.name,content_base64:await fileToBase64(file)});$("projectTransitionDetail").textContent=`Preparing ${index+1} of ${items.length} files for a temporary project.`;} setProjectTransition("inspect","Importing and recognizing","Creating the temporary project and reading supported resources."); const data=await postJson("/api/import-files",{files:payload}); currentSession=null; currentRunView=null; $("project").value=data.project; currentProject=data.project; useInspection(data); await loadProjectState(); navigate("/generate"); setProjectTransition("ready","Project imported",`${data.routing.supported_file_count || 0} supported resource files are ready to configure.`); await transitionPause(); setStatus(`Imported and recognized ${items.length} files in a temporary project.`); } finally { hideProjectTransition(); $("filePicker").value=""; } }); }
+    async function inspectProject() { await runBusy(async()=>{ const project=validateProjectInput(); resetProjectWorkflow(); setProjectTransition("inspect","Recognizing the project","Reading supported resources and adapter evidence. Large projects can take a little longer."); try { const data=await postJson("/api/inspect",{project}); currentSession=null; currentRunView=null; currentProject=project; useInspection(data); await loadProjectState(); setProjectTransition("ready","Project recognized",`${data.routing.supported_file_count || 0} supported resource files are ready to configure.`); await transitionPause(); setStatus("Project recognition complete."); } finally { hideProjectTransition(); } }); }
+    function resetProjectWorkflow() { routingReady=false; $("routing").innerHTML='<div class="recognition-placeholder"><strong>Recognition pending</strong><p>Supported resources and project type will appear here.</p></div>'; $("sourceLocaleBadge").textContent="Waiting for recognition"; $("sourceLocaleHint").textContent="Recognition must finish before the language direction is available."; syncWorkflowControls(); }
+    function useInspection(data) { const routing=data.routing || {}; $("sourceFiles").value=(data.source_files || (routing.supported_files || []).map(item=>item.path || item)).join("\n"); renderRouting(routing); }
+    function projectTypeLabel(value) { return ({android:"Android application resources",ios:"iOS string resources",xcstrings:"Apple String Catalog",document:"OpenXML document project",mixed:"Mixed localization project",generic:"General localization resources",unknown:"Unrecognized project"})[value] || String(value || "Unrecognized project").replaceAll("_"," "); }
+    function adapterLabel(value) { return ({"core.android-strings":"Android strings","core.ios-strings":"iOS strings","core.xcstrings":"String Catalog","core.word-document":"Word documents","core.json-locale":"JSON locale files","core.gettext-po":"Gettext catalogs","core.xliff":"XLIFF files","core.markup":"Markup content","core.subtitles":"Subtitles","core.tabular":"Tabular content","core.yaml-toml":"YAML or TOML"})[value] || String(value || "Unavailable"); }
+    function renderRouting(routing) {
+      if(!routing){resetProjectWorkflow();return;}
+      const files=routing.supported_files || []; const count=Number(routing.supported_file_count || 0); const adapters=routing.adapters || Object.entries(routing.adapter_counts || {}).map(([adapter,file_count])=>({adapter,file_count})); const suggestion=routing.source_locale_suggestion || {};
+      routingReady=count > 0;
+      if(!routingReady){$("routing").innerHTML=`<div class="recognition-placeholder"><strong>No supported localization resources found</strong><p>${escapeHtml(routing.reason || "Choose a different folder or import supported resource files.")}</p></div>`;$("sourceLocaleBadge").textContent="No suggestion";$("sourceLocaleHint").textContent="No source language can be suggested without supported resources.";syncWorkflowControls();return;}
+      if(suggestion.locale){$("sourceLocale").value=suggestion.locale;$("sourceLocaleBadge").textContent=`Auto · ${suggestion.confidence || "suggested"}`;$("sourceLocaleHint").textContent=suggestion.reason || "Suggested from project recognition.";}
+      if(!$("targetLocale").value.trim() || $("targetLocale").value.trim() === $("sourceLocale").value.trim()) $("targetLocale").value=$("sourceLocale").value.trim() === "zh-CN" ? "en-US" : "zh-CN";
+      const primary=routing.primary_adapter || (adapters[0] && adapters[0].adapter) || "Unavailable"; const preflight=routing.recommended_preflight_mode || "auto"; const reason=routing.reason ? `<p>${escapeHtml(routing.reason)}</p>` : ""; const warning=(routing.warnings || [])[0];
+      $("routing").innerHTML=`<div class="project-summary"><div class="project-signature"><span>Detected project nature</span><strong>${escapeHtml(projectTypeLabel(routing.detected_project_type))}</strong>${reason}</div><div class="summary-stat"><span>Resources</span><strong>${count}</strong></div><div class="summary-stat"><span>Adapters</span><strong>${adapters.length}</strong></div><div class="summary-stat"><span>Primary route</span><strong>${escapeHtml(adapterLabel(primary))}</strong></div></div>${warning ? `<p class="safety-note">${escapeHtml(warning)}</p>` : ""}<details class="recognized-files"><summary>View recognized files (${count})</summary><div class="table-wrap"><table><thead><tr><th>Path</th><th>Adapter</th></tr></thead><tbody>${files.slice(0,40).map(item=>`<tr><td>${escapeHtml(item.path || item)}</td><td>${escapeHtml(item.adapter || "")}</td></tr>`).join("")}</tbody></table>${files.length>40 ? `<p>${files.length-40} more recognized files are available in the inspection result.</p>` : ""}<p>Recommended preflight: ${escapeHtml(preflight)}</p></div></details>`;
+      syncWorkflowControls();
+    }
     async function runAgent(mode) { await runBusy(async()=>{ validateRunInputs(); const payload=payloadBase(); if(mode==="synthetic") payload.synthetic_draft=true; if(mode==="responses"){payload.responses_dir=$("responsesDir").value.trim(); if(!payload.responses_dir) throw new WorkbenchRequestError("RESPONSES_REQUIRED","Generated responses directory is required.",400,true,[]);} const data=await postJson("/api/agent-run",payload); currentProject=payload.project; currentSession={...data.agent_result, run_id:data.agent_result.run_id}; await loadProjectState(currentSession.run_id); navigate("/review",currentSession.run_id); setStatus("Run artifacts prepared for review."); }); }
     async function runSafeDemo() { await runBusy(async()=>{ const data=await postJson("/api/quickstart-demo",{}); const summary=data.demo_summary; $("project").value=summary.copied_project; currentProject=summary.copied_project; await loadProjectState(summary.run_id); navigate("/review",summary.run_id); setStatus("Safe demo complete. Review package ready with warnings."); }); }
 
@@ -495,11 +656,12 @@ WORKBENCH_HTML = r"""<!doctype html>
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]); }
     function escapeJs(value) { return String(value ?? "").replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
 
-    async function restoreFromUrl() { const url=new URL(location.href); const project=url.searchParams.get("project") || ""; const runId=url.searchParams.get("run"); if($("project").value.trim() !== project){$("project").value=project;currentProject=project;currentIndex=null;currentSession=null;currentRunView=null;} renderRoute(); if(project){await runBusy(async()=>{await loadProjectState(runId);if(location.pathname==="/review" && currentSession) await renderSessionReview(currentSession);});}else{renderOverview();updateContext();} }
-    async function initializeWorkbench() { applyLanguage(); try { const health=await getJson("/api/health"); $("healthDot").classList.add("pass"); $("healthLabel").textContent="Local service ready"; $("settingsHealth").textContent=`Local service ready, version ${health.version}`; } catch(healthError) { $("healthLabel").textContent="Local service offline"; $("settingsHealth").textContent=healthError.message; } await restoreFromUrl(); }
+    async function restoreFromUrl() { const url=new URL(location.href); const project=url.searchParams.get("project") || ""; const runId=url.searchParams.get("run"); if($("project").value.trim() !== project){$("project").value=project;currentProject=project;currentIndex=null;currentSession=null;currentRunView=null;resetProjectWorkflow();} renderRoute(); if(project){await runBusy(async()=>{await loadProjectState(runId);if(location.pathname==="/review" && currentSession) await renderSessionReview(currentSession);});}else{renderOverview();updateContext();} }
+    async function initializeWorkbench() { applyLanguage(); syncWorkflowControls(); try { const health=await getJson("/api/health"); $("healthDot").classList.add("pass"); $("healthLabel").textContent="Local service ready"; $("settingsHealth").textContent=`Local service ready, version ${health.version}`; } catch(healthError) { $("healthLabel").textContent="Local service offline"; $("settingsHealth").textContent=healthError.message; } await restoreFromUrl(); }
     document.querySelectorAll("[data-route]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();navigate(link.dataset.route);}));
-    $("project").addEventListener("input",()=>{currentSession=null;currentRunView=null;currentIndex=null;currentArtifactState=null;setFieldError("project","");updateContext();});
-    $("targetLocale").addEventListener("input",()=>setFieldError("targetLocale",""));
+    $("project").addEventListener("input",()=>{currentSession=null;currentRunView=null;currentIndex=null;currentArtifactState=null;setFieldError("project","");resetProjectWorkflow();updateContext();});
+    $("sourceLocale").addEventListener("input",()=>{if(routingReady){$("sourceLocaleBadge").textContent="Manual";$("sourceLocaleHint").textContent="Source language adjusted manually after recognition.";}setFieldError("targetLocale","");syncWorkflowControls();});
+    $("targetLocale").addEventListener("input",()=>{setFieldError("targetLocale","");syncWorkflowControls();});
     $("filePicker").addEventListener("change",event=>importSelectedFiles(event.target.files));
     $("reviewInspector").addEventListener("click",event=>{if(event.target === $("reviewInspector")) closeInspector();});
     document.addEventListener("keydown",event=>{if(event.key === "Escape" && $("reviewInspector").classList.contains("open")) closeInspector();});
