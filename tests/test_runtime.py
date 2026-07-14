@@ -3503,6 +3503,51 @@ class ProviderPathHygieneTests(unittest.TestCase):
 
 
 class WorkbenchUITests(unittest.TestCase):
+    def test_ui_language_switch_localizes_static_and_dynamic_workbench_copy(self) -> None:
+        server = create_ui_server(port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address[:2]
+        try:
+            status, body = _http_get(host, port, "/settings")
+            self.assertEqual(status, 200)
+            for marker in (
+                'data-i18n="overview.title"',
+                'data-i18n="prepare.languageTitle"',
+                'data-i18n="review.risksTitle"',
+                'data-i18n="sessions.title"',
+                'data-i18n="settings.languageCopy"',
+                'data-i18n="operation.kicker"',
+                'data-i18n-placeholder="prepare.projectPlaceholder"',
+                'data-i18n-aria-label="nav.aria"',
+                'navigator.language.toLowerCase().startsWith("zh")',
+                "function renderLocalizedState",
+                "renderRouting(currentRouting,true)",
+                "renderRunView(currentRunView)",
+                "sourceLocaleManual",
+                "if(!preserveInputs && !sourceLocaleManual)",
+                "sourceLocaleManual=true",
+                "正在识别项目",
+                "目标语言不能与源语言相同",
+                "切换整个工作台界面",
+            ):
+                self.assertIn(marker, body)
+            self.assertGreater(body.count("data-i18n="), 70)
+            self.assertNotIn("Changes navigation labels and the session empty state.", body)
+            translations = body.split("const TRANSLATIONS = {", 1)[1].split("const STATUS_REGISTRY", 1)[0]
+            english, chinese = translations.split('"zh-CN": {', 1)
+            key_pattern = r'"([A-Za-z][A-Za-z0-9_.]+)"\s*:'
+            english_keys = set(re.findall(key_pattern, english))
+            chinese_keys = set(re.findall(key_pattern, chinese))
+            self.assertEqual(english_keys, chinese_keys)
+            referenced_keys = set(re.findall(r'data-i18n(?:-placeholder|-aria-label)?="([A-Za-z][A-Za-z0-9_.]+)"', body))
+            referenced_keys.update(re.findall(r'\bt\("([A-Za-z][A-Za-z0-9_.]+)"', body.split("const STATUS_REGISTRY", 1)[1]))
+            self.assertFalse(referenced_keys - english_keys)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_ui_routes_and_quickstart_demo_are_safe_and_reviewable(self) -> None:
         server = create_ui_server(port=0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
