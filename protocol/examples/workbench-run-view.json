@@ -1,0 +1,87 @@
+{
+  "protocol_version": "0.1",
+  "status": "pass",
+  "status_code": "pass",
+  "status_family": "success",
+  "message_code": "WORKBENCH_RUN_AVAILABLE",
+  "message_params": {},
+  "api_version": "workbench-v1",
+  "project_root": "/workspace/example-project",
+  "run_id": "agent-001",
+  "snapshot_kind": "exact_run",
+  "freshness": "historical",
+  "newer_project_state_available": true,
+  "session": {
+    "session_id": "agent-001",
+    "run_id": "agent-001",
+    "kind": "agent_run",
+    "status": "draft_package_created",
+    "run_directory": "localize-anything-output/agent-001"
+  },
+  "summary": {
+    "source_file_count": 1,
+    "segment_count": 4,
+    "qa_status": "pass",
+    "overall_claim": "review_ready"
+  },
+  "summary_artifact": {
+    "state": "available",
+    "artifact": "run-summary.json",
+    "path": "localize-anything-output/agent-001/run-summary.json",
+    "run_id": "agent-001",
+    "reason": "available",
+    "data": {"run_id": "agent-001", "summary": {"segment_count": 4}}
+  },
+  "review_readiness": {
+    "state": "missing",
+    "artifact": "readiness-authorization-matrix.json",
+    "path": "localize-anything-output/agent-001/readiness-authorization-matrix.json",
+    "run_id": "agent-001",
+    "reason": "ARTIFACT_MISSING"
+  },
+  "delivery_readiness": {
+    "state": "missing",
+    "artifact": "delivery-readiness-report.json",
+    "path": "localize-anything-output/agent-001/delivery-readiness-report.json",
+    "run_id": "agent-001",
+    "reason": "ARTIFACT_MISSING"
+  },
+  "apply_readiness": {
+    "state": "missing",
+    "artifact": "apply-readiness-report.json",
+    "path": "localize-anything-output/agent-001/apply-readiness-report.json",
+    "run_id": "agent-001",
+    "reason": "ARTIFACT_MISSING"
+  },
+  "artifact_state": {
+    "state": "available",
+    "artifact": "artifact-state.json",
+    "path": "localize-anything-output/agent-001/artifact-state.json",
+    "run_id": "agent-001",
+    "reason": "available",
+    "data": {"status": "requires_human_review"}
+  },
+  "queues": {
+    "review": {"state": "missing", "artifact": "workbench-review-queue.json", "path": "localize-anything-output/agent-001/workbench-review-queue.json", "run_id": "agent-001", "reason": "ARTIFACT_MISSING"},
+    "claims": {"state": "missing", "artifact": "workbench-claim-queue.json", "path": "localize-anything-output/agent-001/workbench-claim-queue.json", "run_id": "agent-001", "reason": "ARTIFACT_MISSING"},
+    "readiness_actions": {"state": "missing", "artifact": "workbench-readiness-action-queue.json", "path": "localize-anything-output/agent-001/workbench-readiness-action-queue.json", "run_id": "agent-001", "reason": "ARTIFACT_MISSING"}
+  },
+  "signoff": {"state": "missing", "artifact": "workbench-signoff-summary.json", "path": "localize-anything-output/agent-001/workbench-signoff-summary.json", "run_id": "agent-001", "reason": "ARTIFACT_MISSING"},
+  "artifacts": [
+    {"artifact_id": "agent_summary", "path": "localize-anything-output/agent-001/agent-summary.json", "state": "available", "scope": "selected_run", "run_id": "agent-001"}
+  ],
+  "limitations": ["Selected-run readiness artifacts are missing in this snapshot."],
+  "next_actions": ["Open the project-current projection only as an explicitly labelled newer state."],
+  "current_project_projection": {
+    "snapshot_kind": "project_current",
+    "run_id": "agent-002",
+    "freshness": "newer_project_state_available",
+    "mismatch": {"selected_run_id": "agent-001", "current_run_id": "agent-002", "reason": "PROJECT_CURRENT_RUN_DIFFERS"},
+    "review_readiness": {"state": "available", "artifact": "readiness-authorization-matrix.json", "path": ".localize-anything/readiness-authorization-matrix.json", "run_id": "agent-002", "reason": "available", "data": {"review_readiness_status": "review_required"}},
+    "delivery_readiness": {"state": "available", "artifact": "delivery-readiness-report.json", "path": ".localize-anything/delivery-readiness-report.json", "run_id": "agent-002", "reason": "available", "data": {"delivery_status": "blocked"}},
+    "apply_readiness": {"state": "available", "artifact": "apply-readiness-report.json", "path": ".localize-anything/apply-readiness-report.json", "run_id": "agent-002", "reason": "available", "data": {"apply_status": "blocked"}},
+    "artifact_state": {"state": "available", "artifact": "artifact-state.json", "path": ".localize-anything/artifact-state.json", "run_id": "agent-002", "reason": "available", "data": {"status": "blocked"}},
+    "queues": {"review": {"state": "missing", "artifact": "workbench-review-queue.json", "path": ".localize-anything/workbench-review-queue.json", "run_id": "agent-002", "reason": "ARTIFACT_MISSING"}, "claims": {"state": "missing", "artifact": "workbench-claim-queue.json", "path": ".localize-anything/workbench-claim-queue.json", "run_id": "agent-002", "reason": "ARTIFACT_MISSING"}, "readiness_actions": {"state": "missing", "artifact": "workbench-readiness-action-queue.json", "path": ".localize-anything/workbench-readiness-action-queue.json", "run_id": "agent-002", "reason": "ARTIFACT_MISSING"}},
+    "signoff": {"state": "missing", "artifact": "workbench-signoff-summary.json", "path": ".localize-anything/workbench-signoff-summary.json", "run_id": "agent-002", "reason": "ARTIFACT_MISSING"}
+  }
+}

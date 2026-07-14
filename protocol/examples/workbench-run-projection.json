@@ -1,0 +1,8 @@
+{
+  "state": "available",
+  "artifact": "artifact-state.json",
+  "path": ".localize-anything/artifact-state.json",
+  "run_id": "agent-001",
+  "reason": "available",
+  "data": {"status": "requires_human_review"}
+}

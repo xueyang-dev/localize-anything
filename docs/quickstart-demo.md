@@ -7,6 +7,28 @@ staging, deterministic QA, readiness reports, and a delivery package.
 It does not call providers, require credentials, mutate the fixture, or apply
 changes back to a project.
 
+## Web Workbench
+
+Start the local Workbench:
+
+```bash
+python -m runtime.localize_anything ui --open
+```
+
+Choose **Run safe demo** on the overview. The Workbench creates a unique copy
+under the system temporary directory and opens its review surface in this
+order:
+
+1. generated run summary;
+2. deterministic QA and readiness artifacts;
+3. delivery package dashboard;
+4. non-mutating apply plan.
+
+The project path and run ID are kept in the local browser URL so the review can
+be refreshed. Artifact paths and contents are not added to the URL.
+
+## Command Line
+
 ```bash
 python -m runtime.localize_anything quickstart-demo
 ```
