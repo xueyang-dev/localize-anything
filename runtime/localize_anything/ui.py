@@ -1019,10 +1019,7 @@ def _handler_factory(state: WorkbenchState) -> type[BaseHTTPRequestHandler]:
             project = _write_imported_files(payload.get("files"))
             state.add_allowed_root(project)
             inspection = inspect_project(project)
-            source_files = [
-                item["path"]
-                for item in inspection.get("supported_files", [])
-            ]
+            source_files = _source_truth_files(inspection)
             self._send_json(
                 {
                     "status": "pass",
@@ -2142,8 +2139,13 @@ def _routing_view(inspection: dict[str, Any]) -> dict[str, Any]:
     supported = inspection.get("supported_files", [])
     assessment = inspection.get("preflight_assessment", {})
     summary = build_inspect_summary(inspection)
+    source_files = _source_truth_files(inspection)
     return {
         "supported_file_count": len(supported),
+        "source_file_count": len(source_files),
+        "source_files": source_files,
+        "android_generation_source_files": inspection.get("android_generation_source_files", []),
+        "android_locale_reference_files": inspection.get("android_locale_reference_files", []),
         "adapter_counts": inspection.get("adapter_counts", {}),
         "adapters": summary.get("adapters", []),
         "detected_project_type": summary.get("detected_project_type", "unknown"),
@@ -2156,6 +2158,22 @@ def _routing_view(inspection: dict[str, Any]) -> dict[str, Any]:
         "warnings": summary.get("warnings", [])[:5],
         "supported_files": supported[:500],
     }
+
+
+def _source_truth_files(inspection: dict[str, Any]) -> list[str]:
+    """Return recognized files that are safe defaults for source truth.
+
+    Android locale resources stay visible in inspection evidence, but they are
+    existing target/reference material and must never be auto-selected as
+    generation sources. The runtime keeps a second validation gate for any
+    explicit user selection.
+    """
+    android_sources = set(inspection.get("android_generation_source_files", []))
+    return [
+        str(item["path"])
+        for item in inspection.get("supported_files", [])
+        if item.get("adapter") != "core.android-strings" or item.get("path") in android_sources
+    ]
 
 
 _LOCALE_PATH_PATTERN = re.compile(r"(?<![A-Za-z])([a-z]{2})(?:[-_](?:r)?([A-Za-z]{2}))?(?![A-Za-z])", re.IGNORECASE)

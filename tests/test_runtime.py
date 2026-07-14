@@ -3721,6 +3721,44 @@ class WorkbenchUITests(unittest.TestCase):
                 server.server_close()
                 thread.join(timeout=2)
 
+    def test_ui_android_routing_excludes_locale_references_from_source_defaults(self) -> None:
+        project_fixture = REPOSITORY_ROOT / "benchmarks" / "v022-android-resource-reliability" / "fixture-source-sets"
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "android-project"
+            shutil.copytree(project_fixture, project)
+
+            server = create_ui_server(port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            host, port = server.server_address[:2]
+            try:
+                inspect_status, inspected = _http_post_json(host, port, "/api/inspect", {"project": project.as_posix()})
+                self.assertEqual(inspect_status, 200)
+                routing = inspected["routing"]
+                self.assertEqual(routing["source_file_count"], 10)
+                self.assertNotIn("app/src/main/res/values-zh-rCN/strings.xml", routing["source_files"])
+                self.assertEqual(len(routing["android_locale_reference_files"]), 3)
+
+                run_status, run_payload = _http_post_json(
+                    host,
+                    port,
+                    "/api/agent-run",
+                    {
+                        "project": project.as_posix(),
+                        "source_locale": "en-US",
+                        "target_locale": "zh-CN",
+                        "source_files": ["app/src/main/res/values-zh-rCN/strings.xml"],
+                        "output_root": (Path(directory) / "out").as_posix(),
+                        "run_id": "android-locale-reference-rejected",
+                    },
+                )
+                self.assertEqual(run_status, 400)
+                self.assertIn("Android locale references or uncertain qualifier paths cannot be source truth", run_payload["error"]["message"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
     def test_ui_ux01_two_runs_keep_selected_run_identity(self) -> None:
         """Two runs keep the explicitly selected run identity."""
         with tempfile.TemporaryDirectory() as directory:
