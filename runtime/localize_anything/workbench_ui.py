@@ -566,6 +566,7 @@ WORKBENCH_HTML = r"""<!doctype html>
     let operationReturnFocus = null;
     let operationFlow = "project";
     let retryAction = null;
+    let routeRestoreQueued = false;
     const rawArtifactPreviews = {};
 
     class WorkbenchRequestError extends Error {
@@ -628,7 +629,7 @@ WORKBENCH_HTML = r"""<!doctype html>
       });
       if(!value) syncWorkflowControls();
     }
-    async function runBusy(task) { if(busy) return; busyReturnFocus=document.activeElement; retryAction=null; clearError(); setStatus(""); setBusy(true); try { await task(); } catch(value) { showError(value); } finally { setBusy(false); if(operationReturnFocus && typeof operationReturnFocus.focus === "function") operationReturnFocus.focus(); operationReturnFocus=null; busyReturnFocus=null; } }
+    async function runBusy(task) { if(busy) return; busyReturnFocus=document.activeElement; retryAction=null; clearError(); setStatus(""); setBusy(true); try { await task(); } catch(value) { showError(value); } finally { setBusy(false); if(operationReturnFocus && typeof operationReturnFocus.focus === "function") operationReturnFocus.focus(); operationReturnFocus=null; busyReturnFocus=null; if(routeRestoreQueued){routeRestoreQueued=false; await restoreFromUrl();} } }
     function syncWorkflowControls() {
       const enabled=routingReady && !busy;
       for(const id of ["sourceLocale","targetLocale","operatingMode","sourceFiles","outputRoot","runId","maxSegments","responsesDir"]){$(id).disabled=!enabled;}
@@ -762,7 +763,7 @@ WORKBENCH_HTML = r"""<!doctype html>
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]); }
     function escapeJs(value) { return String(value ?? "").replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
 
-    async function restoreFromUrl() { const url=new URL(location.href); const project=url.searchParams.get("project") || ""; const runId=url.searchParams.get("run"); if($("project").value.trim() !== project){$("project").value=project;currentProject=project;currentIndex=null;currentSession=null;currentRunView=null;resetProjectWorkflow();} renderRoute(); if(project){await runBusy(async()=>{await loadProjectState(runId);if(location.pathname==="/review" && currentSession) await renderSessionReview(currentSession);});}else{renderOverview();updateContext();} }
+    async function restoreFromUrl() { if(busy){routeRestoreQueued=true;return;} const url=new URL(location.href); const project=url.searchParams.get("project") || ""; const runId=url.searchParams.get("run"); if($("project").value.trim() !== project){$("project").value=project;currentProject=project;currentIndex=null;currentSession=null;currentRunView=null;resetProjectWorkflow();} renderRoute(); if(project){await runBusy(async()=>{await loadProjectState(runId);if(location.pathname==="/review" && currentSession) await renderSessionReview(currentSession);});}else{renderOverview();updateContext();} }
     function renderHealth() { if(healthState.kind==="ready"){$("healthLabel").textContent=t("health.ready");$("settingsHealth").textContent=t("health.readyVersion",{version:healthState.version});}else if(healthState.kind==="offline"){$("healthLabel").textContent=t("health.offline");$("settingsHealth").textContent=healthState.message || t("health.offline");}else{$("healthLabel").textContent=t("health.checking");$("settingsHealth").textContent=t("settings.checking");} }
     async function initializeWorkbench() { applyLanguage(); syncWorkflowControls(); renderHealth(); try { const health=await getJson("/api/health"); healthState={kind:"ready",version:health.version}; $("healthDot").classList.add("pass"); } catch(healthError) { healthState={kind:"offline",version:"",message:healthError.message}; } renderHealth(); await restoreFromUrl(); }
     document.querySelectorAll("[data-route]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();navigate(link.dataset.route);}));

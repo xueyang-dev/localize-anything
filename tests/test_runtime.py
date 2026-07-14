@@ -3534,6 +3534,8 @@ class WorkbenchUITests(unittest.TestCase):
                 "renderRouting(currentRouting,true)",
                 "renderRunView(currentRunView)",
                 "sourceLocaleManual",
+                "routeRestoreQueued",
+                "if(busy){routeRestoreQueued=true;return;}",
                 "if(!preserveInputs && !sourceLocaleManual)",
                 "sourceLocaleManual=true",
                 "正在识别项目",
