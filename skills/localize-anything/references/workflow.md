@@ -1,61 +1,100 @@
 # Workflow
 
-## Standard Project Flow
+## Standard
 
 ```text
-Intake -> Capability Scan -> Source Confirmation -> Localization Brief
-       -> Adapter Detection -> Preflight -> Memory Initialization
-       -> Termbase Preflight -> Generation Strategy -> Resolution Gate
-       -> Generation Handoff Enforcement -> Artifact State Check
-       -> Segment Staleness / Reuse Decision -> Batch Planning
-       -> Context Retrieval -> Localization -> Deterministic QA
-       -> Review -> Targeted Repair -> Patch-Based Repair
-       -> Evaluation Scorecard -> Human Review Evidence
-       -> Claim Acceptance -> Delivery -> Review Import
-       -> Signoff Record -> Optional Apply
+Product and repository preflight
+-> Declared scope and completion criteria
+-> Candidate classification
+-> Glossary, style, preserve rules, and Translation Memory
+-> Coding Agent implementation
+-> Deterministic structural checks
+-> Independent Agent review
+-> Risk-ranked human confirmations
+-> Review Report
+-> Confirmed memory updates
 ```
 
-## Intake
+Use Standard for a normal locale addition, an existing-locale update, or a
+focused localization repair.
 
-Confirm source materials, source locale, target locales, intended audience, delivery intent, project sensitivity, and whether a localization entrypoint exists. Bundle related blocking questions instead of asking one field at a time.
+## Release
+
+Release includes every Standard stage plus:
+
+- primary-page target-locale screenshots;
+- page/component semantic and visual review;
+- actual project build and test results;
+- locale switch, persistence, system/browser detection, and fallback checks;
+- a clean Git diff;
+- commit or pull-request preparation;
+- promotion of confirmed results into Project Memory.
 
 ## Preflight
 
-Scan all content when feasible. For oversized material, scan in context-safe layers and update the same compressed project context after each layer. Skip deep preflight for very long, weakly connected, non-literary utility text; still inspect structure, adapters, hard constraints, and delivery requirements.
+Identify:
 
-Assess workflow depth and recommend `fast`, `standard`, or `high-assurance`. Ask the user to choose.
+- what the product is and who uses it;
+- source and target locales;
+- pages, components, files, resource types, and dynamic surfaces in scope;
+- non-text and external surfaces that cannot be processed;
+- existing i18n architecture and locale behavior;
+- product concepts, style, preserve rules, and prior translations;
+- project-specific completion requirements.
 
-## Batch Planning
+Bundle related blocking questions. Do not ask for information the repository
+already answers.
 
-Split by semantic unit before size: screen or flow, scene or conversation, chapter, document section, subtitle scene, sheet, campaign, or feature namespace. Preserve speaker and narrative continuity. Use size only as a safety limit.
+## Candidate Classification
 
-## Questions
+Classify every discovered candidate in scope:
 
-- Ask project-level blocking questions after preflight.
-- Ask batch-specific blocking questions before the affected batch.
-- Preserve ambiguous low-risk source forms and collect important questions at the batch boundary.
-- Put minor questions and review notes in the QA report.
+- `translate`: requires a target-locale result;
+- `preserve`: brand, code, identifier, universal label, or deliberate source
+  form;
+- `locale_format`: date, time, number, currency, unit, plural, or other value
+  that belongs in locale-aware formatting;
+- `developer_only`: logs, diagnostics, tests, or internal engineering text;
+- `dynamic_external`: supplied by server, CMS, OS, dependency, or another
+  runtime surface;
+- `needs_context`: meaning cannot be decided safely yet.
 
-Allow independent batches and locales to continue when one branch is blocked.
+Coverage is complete when every candidate in the declared scope is classified
+and every `translate` candidate has a target result.
 
-## Evidence Spine
+## Implementation
 
-Use runtime artifacts as the source of truth for readiness:
+Use the project's existing i18n library, resource conventions, routing, tests,
+and build system. The Coding Agent may add missing i18n architecture when the
+task requires it, but Localize Anything does not prescribe a universal
+framework.
 
-- `localization-brief.json` / `.yaml` for task intent.
-- Term Governance and termbase preflight artifacts for terminology.
-- `generation-strategy.json`, Resolution Gate artifacts, and
-  `generation-handoff-decision.json` for generation policy.
-- `artifact-state.json`, `stale-segments.jsonl`, and `reuse-decision.json` for
-  freshness and reuse.
-- `segment-regeneration-plan.json`, `repair-request.json`,
-  `repair-result.json`, and `repair-history.jsonl` for repair state.
-- `evaluation-scorecard.json` and `evidence-level-report.md` for current
-  evidence level, forbidden claims, and next actions.
-- `human-review-evidence.jsonl`, `claim-acceptance-decision.json`, and
-  `signoff-record.json` for qualified review, accepted claims, and owner
-  authorization.
+Keep semantic batches coherent by screen, flow, component, document section, or
+feature namespace. Preserve source provenance and adjacent UI context.
 
-Do not infer readiness from UI state, prompt wording, or a successful file write.
-If an upstream evidence artifact is stale, missing, or blocked, downgrade or
-block the downstream claim.
+## Independent Review
+
+Review from a context separate from generation. Provide source, target, relevant
+Glossary concepts, style rules, UI context, screenshots, and deterministic
+findings. Do not expose irrelevant generation rationale as evidence.
+
+Review all three levels:
+
+1. string;
+2. page or component;
+3. product concept.
+
+## Completion
+
+Return:
+
+- declared and excluded scope;
+- translated, preserved, formatted, developer-only, external, and unresolved
+  candidate counts;
+- deterministic check result;
+- Agent review result;
+- auto-cleared and human-confirmation counts;
+- build/test and screenshot evidence required by the chosen depth;
+- Git diff/commit/PR state;
+- unresolved risks and next actions;
+- confirmed Project Memory updates.

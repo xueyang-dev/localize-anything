@@ -1,4 +1,4 @@
 interface:
   display_name: "Localize Anything"
-  short_description: "Deliver production-ready localization across formats"
-  default_prompt: "Use $localize-anything to inspect this project and prepare a review-ready localization delivery package."
+  short_description: "Localization workflow and review for Coding Agents"
+  default_prompt: "Use $localize-anything to localize this project with scoped preflight, project memory, deterministic checks, independent review, and risk-ranked human confirmations."

@@ -1,94 +1,117 @@
 # Memory And Context
 
-## Canonical Memory
+## User-Facing Model
 
-Maintain artifact-backed project memory for standard projects. The exact set
-depends on the delivery level, but current canonical memory may include:
+Keep two durable product concepts:
 
 ```text
-localization-context.md
-localization-brief.json
-localization-brief.yaml
-glossary.csv
-translation-memory.jsonl
-term-registry.csv
-term-decisions.jsonl
-forbidden-translations.csv
-term-conflicts.jsonl
-term-provenance.jsonl
-candidate-terms.jsonl
-termbase-preflight-report.json
-term-review-queue.json
-term-review-decisions.jsonl
-generation-strategy.json
-blocking-questions.json
-resolution-options.json
-user-resolution-decisions.jsonl
-generation-handoff-decision.json
-artifact-state.json
-stale-segments.jsonl
-reuse-decision.json
-segment-regeneration-plan.json
-repair-request.json
-repair-result.json
-repair-history.jsonl
-evaluation-scorecard.json
-evidence-level-report.md
-human-review-evidence.jsonl
-claim-acceptance-decision.json
-signoff-record.json
-delivery-manifest.json
-delivery-decision.json
-apply-plan.json
+Glossary
+Project Memory
 ```
 
-Keep long-lived state in `.localize-anything/`. Copy relevant immutable snapshots into each delivery package.
-Do not turn rebuildable indexes, embeddings, browser state, or chat summaries
-into a source of truth.
+The storage representation may evolve, but do not make users maintain separate
+term registries, term decisions, review-decision logs, and Knowledge Pack term
+files as competing sources of truth.
 
-## Context Priorities
+Store durable project memory under `.localize-anything/` when appropriate. Ask
+before committing project memory if it may contain private product information.
 
-Always load P0: project contract, source of truth, target audience/locales, content strategy, hard constraints, approved decisions, QA contract, and blockers.
+## Concept-Centered Glossary
 
-Retrieve P1 by relevance: characters, entities, relationships, world/domain notes, narrative state, locale notes, adapter constraints, and recent relevant batch facts.
+Model the product concept first, then its expressions across locales:
 
-Keep P2 archived: rejected alternatives, old logs, long summaries, and resolved low-risk review notes.
+```yaml
+concepts:
+  - id: workspace
+    source_terms:
+      en: [Workspace]
+    translations:
+      zh-CN:
+        preferred: 工作区
+        forbidden: [工作空间]
+      ru:
+        preferred: Рабочая область
+    status: locked
+    scope: product
+    notes: Main space where users manage projects and runs.
 
-Do not store complete source text, complete translations, private reasoning, duplicated adapter rules, or unverified guesses as facts.
+  - id: cny
+    source_terms:
+      universal: [CNY]
+    action: preserve
+    status: locked
+```
 
-## Working Context Packet
+Entries may include source terms, per-locale preferred/forbidden translations,
+`translate` or `preserve` behavior, status, scope, context, notes, provenance,
+and human confirmation.
 
-Build the packet ephemerally from canonical context, relevant glossary rows, relevant TM segments, and adapter constraints. Do not save it by default. In debug or benchmark mode, save it outside the standard delivery package and record its references and budget.
+## First-Run Glossary Flow
 
-Allocate context approximately as follows when runtime limits are known:
+```text
+Discover -> Import -> Normalize -> Rank -> Confirm -> Use
+```
 
-- working context: 20%
-- current source batch: 40%
-- expected output: 20%
-- QA and repair: 10%
-- safety reserve: 10%
+- Discover existing glossaries, locale resources, README/product docs, repeated
+  UI concepts, brands, code entities, Translation Memory, and prior decisions.
+- Import canonical project data plus supported CSV, YAML, or JSON.
+- Normalize duplicates and conflicting representations without discarding
+  provenance.
+- Rank approximately 5–15 high-impact concepts rather than asking the user to
+  approve every low-risk term.
+- Confirm preferred, forbidden, preserve, scope, and product-meaning decisions.
+- Use approved concepts in generation and review.
 
-Use conservative limits when the runtime cannot report a context window. Shrink the batch before dropping P0 or hard constraints.
+Low-risk candidates may be provisionally accepted by the Agent and corrected
+through later review. Locked or high-risk decisions require explicit evidence
+or user confirmation.
 
-## Retrieval
+## Translation Memory
 
-Prefer accepted decisions, exact glossary matches, exact segment IDs, exact source matches, and only then high-confidence fuzzy TM matches within compatible scope and content type. Do not cross target locales. Treat generated memory as reference, not authority.
+Use project-level Translation Memory to:
 
-Use canonical files as source of truth. Permit a rebuildable SQLite index for lookup; do not require embeddings in v0.1.
+- reuse confirmed complete sentences;
+- detect source changes that make old targets stale;
+- suggest similar reviewed copy;
+- preserve human corrections;
+- reduce duplicate work.
 
-Knowledge-pack and Document Evidence Pack assets are roadmap features unless the
-current runtime writes their protocol artifacts. Treat imported glossaries,
-translation memories, examples, and style notes as reference material until
-their provenance, scope, and review status are explicit.
+Prefer exact segment ID, exact source, compatible scope, and then conservative
+fuzzy matching. Never mix target locales. Unreviewed generated text is reference
+material, not authoritative memory.
+
+## Style And Preserve Rules
+
+Project Memory should also retain:
+
+- audience and product voice;
+- capitalization, punctuation, formality, and UI-length guidance;
+- brands, codes, variables, URLs, product names, and other preserved forms;
+- locale-specific conventions;
+- recurring defects and accepted corrections.
+
+## Context Construction
+
+For each implementation or review batch, load only:
+
+- product and user context;
+- declared scope and candidate classifications;
+- relevant Glossary concepts;
+- relevant reviewed Translation Memory;
+- relevant style and preserve rules;
+- adjacent UI or document context;
+- hard format constraints;
+- unresolved high-risk decisions.
+
+Do not treat chat summaries, embeddings, browser state, generated guesses, or
+unreviewed model output as durable truth.
 
 ## Promotion
 
-After each batch, route information by function:
+Promote information only after its scope and review status are clear:
 
-- strategy, character, narrative, or cross-file decisions -> context
-- reusable approved or locked terms -> term governance
-- reviewed segment targets -> translation memory within accepted scope
-- defects, unresolved questions, stale evidence, and repair outcomes -> QA,
-  scorecard, repair, or delivery-decision artifacts
-
-Promote only within accepted locale, content, file, and batch scope.
+- confirmed concepts and translations -> Glossary;
+- reviewed complete targets -> Translation Memory;
+- accepted voice and convention decisions -> style rules;
+- recurring mistakes and corrections -> review history;
+- unresolved ambiguity -> human confirmation, not memory.

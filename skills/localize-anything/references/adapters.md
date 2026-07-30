@@ -1,54 +1,68 @@
 # Adapters
 
-## Selection
+## Role
 
-Prefer, in order: explicit user selection, project lock, core adapter, verified/community adapter, generic fallback. Never change a locked adapter silently.
+Adapters are deterministic helpers for discovering, extracting, comparing,
+validating, and rebuilding localization resources. They are not the product
+architecture and do not replace the Coding Agent's understanding of the
+project.
 
-Distinguish format adapters from scenario adapters and platform overlays. A game scenario adapter should orchestrate engine detection, format adapters, platform risks, and delivery conventions rather than parse every format itself.
+Prefer:
 
-Use the layer names precisely:
+1. the project's native i18n tooling and conventions;
+2. an existing Localize Anything handler when its documented boundary matches;
+3. direct Coding Agent edits with explicit limitations when no handler fits.
 
-- Format Adapter: extracts, validates, and rebuilds a file format.
-- Platform Overlay: expands or qualifies the source surface for a platform,
-  such as Android merged dependency resources.
-- Scenario Adapter: defines task intent, audience, risk, review, and delivery
-  conventions for a localization scenario.
+Do not add a new framework, dependency, registry, trust tier, or plugin system
+just to process a format the Coding Agent can safely handle with existing
+project tools.
 
-Do not present a platform or scenario as supported just because one underlying
-format can be parsed.
+## Hard Constraints
 
-## Capability Levels
+When an adapter is used, preserve:
 
-- `full_round_trip`
-- `extract_and_rebuild`
-- `extract_only`
-- `inspect_only`
-- `unsupported`
+- resource keys and stable identities;
+- placeholders and ICU branches;
+- markup and escapes;
+- comments or metadata required for round-trip safety;
+- encoding and newline behavior where relevant;
+- target-only content unless deletion is explicitly intended;
+- source-project safety.
 
-Record actual runtime capability. Missing rendering, OCR, network, dependency, or parser support must degrade the claim and QA scope.
+Unsupported syntax must be preserved or surfaced for review. Do not guess at a
+destructive rewrite.
 
-## Contract
+## Current Reusable Handlers
 
-Follow the lifecycle `detect -> inventory -> extract -> validate-source -> rebuild -> validate-output -> plan-apply`. Exchange schema-defined JSON and JSONL. Write to staging until apply is confirmed.
+The repository currently contains handlers for:
 
-Keep dependencies isolated and version-locked. Ask before downloading packages or executable community adapters. Permit project-local forks without requiring publication.
+- JSON locale files;
+- YAML and TOML localization scalars;
+- Android XML;
+- Apple `.strings`, `.stringsdict`, and `.xcstrings`;
+- PO/POT;
+- XLIFF;
+- CSV, TSV, and XLSX;
+- Markdown and HTML visible text;
+- SRT and WebVTT;
+- Word OpenXML.
 
-Future registry entries should declare adapter id, supported extensions or
-project types, version, maintainer, capability level, trust tier, permissions,
-dependencies, and contract-test status. An adapter is stable only when contract
-tests and evidence support that claim.
+See `docs/adapters.md` for exact current implementation boundaries. Existing
+format count does not imply that every framework, dynamic surface, asset, or
+locale behavior is supported.
 
-## Core v0.1 Routing
+## v1 Priority
 
-- JSON -> `core.json-locale`
-- PO/POT -> `core.gettext-po`
-- YAML/TOML -> `core.yaml-toml`
-- CSV/TSV/XLSX -> `core.tabular`
-- Markdown/HTML -> `core.markup`
-- SRT/WebVTT -> `core.subtitles`
-- XLIFF -> `core.xliff`
-- Wesnoth WML context -> compose `scenario.wesnoth` over `core.gettext-po`
+The first simplified CLI tier prioritizes JSON, YAML, Android XML, Apple
+`.strings`, `.xcstrings`, PO/POT, and XLIFF. Other existing handlers may remain
+available, but workflow quality, review quality, and lower human review cost
+take priority over expanding format count.
 
-Read `docs/adapters.md` from the companion repository when exact v0.1 format
-limitations matter. Do not claim unsupported YAML complex scalars, HTML
-attributes, workbook visual QA, or subtitle reading-speed QA as completed.
+## Capability Degradation
+
+If a deterministic handler cannot safely process the input:
+
+- let the Coding Agent use the project's own tooling or make scoped edits;
+- record which checks were not available;
+- retain the file or unit for manual/Agent review;
+- do not claim structural coverage that was not verified.
