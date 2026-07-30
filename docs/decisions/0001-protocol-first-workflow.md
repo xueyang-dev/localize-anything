@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0002](0002-coding-agent-localization-layer.md) on
+2026-07-30. Retained as the historical v0.4 architecture decision.
 
 ## Decision
 

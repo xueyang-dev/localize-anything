@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  面向真实代码库的智能体本地化交付框架。
+  <strong>面向 Coding Agent 的本地化专业能力层。</strong>
 </p>
 
 <p align="center">
-  大模型可以生成译文；Localize Anything 负责把译文变成可验证、可审查、可回滚的交付结果。
+  目标：让 Agent 按专业流程完成本地化，复用项目语言知识，审查全部译文，只把少量高风险决策交给你。
 </p>
 
 <p align="center">
@@ -19,109 +19,207 @@
 <p align="center">
   <img alt="许可证：MIT" src="https://img.shields.io/badge/license-MIT-blue" />
   <img alt="持续集成状态" src="https://github.com/xueyang-dev/localize-anything/actions/workflows/ci.yml/badge.svg" />
-  <img alt="当前版本：v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-blue" />
-  <img alt="质量检查：确定性规则" src="https://img.shields.io/badge/QA-deterministic-green" />
-  <img alt="应用策略：先暂存，后写入" src="https://img.shields.io/badge/apply-staged%20first-blueviolet" />
+  <img alt="当前发布：v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-blue" />
+  <img alt="主入口：Agent Skill" src="https://img.shields.io/badge/interface-Agent%20Skill-blueviolet" />
 </p>
 
 ---
 
-Localize Anything 面向需要在真实代码库中开展本地化工作的开发者和本地化团队。它不是简单的翻译脚本，也不是把模型输出直接写回项目的工具；它提供一套可追踪、可审查、可复现的交付流程：提取可翻译内容，生成目标语言草稿，使用确定性规则检查结构，将结果写入暂存目录，并在人工检查应用计划和确认运行 ID 后再写入源码项目。
+当前仓库已经提供 Agent Skill、结构 QA、Translation Memory 和多种资源格式处理
+能力。新的 Skill 开始要求 Codex、Claude Code 等 Coding Agent 在本地化前明确
+范围和语言约束，并在完成初稿后使用独立 context 复查。以产品概念为中心的
+canonical Glossary、统一 Project Memory、页面级 Review 和自动风险压缩仍在按
+目标 v1 整合。
 
-## 适合使用的场景
+Coding Agent 已经能修改代码、建立 i18n、运行 build/test、生成截图和准备 PR。
+Localize Anything 不重复实现这些能力；它补上的是专业本地化流程和低成本 Review。
 
-当你需要处理以下任务时，可以使用 Localize Anything：
+> **An agent-native localization workflow and review layer.**
 
-- 本地化真实代码库，而不是翻译零散字符串；
-- 保护占位符、XML/HTML 标记、资源键、转义符和文件结构；
-- 为 Word 文档、Android、iOS 或常见文本资源生成可审查的目标语言文件；
-- 在写入源码前先查看暂存文件、QA 证据、交付决策和应用计划；
-- 维护已有译文时保留未变化的已审核内容，避免无意义重翻；
-- 在盲测、全新本地化、维护和重写场景之间使用不同的参考译文策略。
+## 适合谁
+
+核心用户是使用 Coding Agent 开发产品的：
+
+- 个人开发者和独立开发者；
+- 小型产品团队；
+- 开源项目维护者。
+
+典型请求：
+
+> 使用 Localize Anything，为这个项目增加俄语支持。
+
+它暂不以大型企业本地化团队、语言服务供应商或专业翻译机构为核心用户，也不与
+企业 TMS 竞争。
+
+## 它解决什么问题
+
+### 让 Agent 使用完整流程
+
+普通 Agent 容易逐页修补、无差别抽取字符串、只运行 build、忽略术语和语言审查。
+目标工作流要求任务从范围、项目记忆和完成标准开始，并以独立 Review 和风险汇总
+结束。当前 Skill 已纳入这些流程要求，配套的精简 CLI 与统一报告仍在迁移。
+
+### 保留稳定的项目语言
+
+目标 v1 的 Project Memory 将在 `.localize-anything/` 中保存并可通过 Git 共享：
+
+- 产品概念和各语言的确认译法；
+- 禁止译法与保留内容；
+- 风格规则；
+- 已审核 Translation Memory；
+- 人工修订和历史问题。
+
+当前运行时已经保存配置、Translation Memory 和多种术语/审核产物；将它们合并为
+单一 Project Memory 和概念级 Glossary 仍是 migration direction。完成后，即使
+更换 Agent、模型或会话，确认过的产品语言也应保持一致。
+
+### 降低人工 Review 成本
+
+目标体验是让 Agent 审查全部内容、按可见理由放行低风险项，并把产品正式译法、
+品牌和高风险歧义整理成少量人工确认项。当前 Skill 已要求独立 Review 和风险路由；
+自动放行、统计和完整报告仍在整合。理想结果是：
+
+```text
+Translated items: 412
+Agent-reviewed: 412
+Auto-cleared: 397
+Human confirmation required: 15
+Human-edited after review: 6
+```
+
+## 目标职责边界
+
+| 角色 | 职责 |
+| --- | --- |
+| Localize Anything Skill | 范围、Glossary、风格、项目记忆、流程、独立 Review 和最终报告 |
+| Coding Agent | i18n 架构、代码修改、语言资源、build/test、截图、Git diff、commit 和 PR |
+| 轻量 CLI | 扫描、source/target 对比、placeholder/markup/key 检查、覆盖统计和报告数据 |
+| Git | diff、history、rollback、branch、worktree、commit、PR 和团队 Review |
+| 用户 | 产品含义、品牌、高风险译法和最终发布判断 |
+
+## Skill 工作深度与目标 v1 工作流
+
+当前 Skill 已定义 Standard 和 Release 两种工作深度。它们是 Agent 工作方法，不是
+v0.4.1 运行时已经完整实现的两个产品模式；配套命令、统一 Project Memory、页面
+Review 和自动报告仍在整合。
+
+### Standard
+
+适合日常新增语言或更新文案：
+
+```text
+项目与范围预检
+-> Glossary、风格与保留规则
+-> Coding Agent 完成本地化
+-> 确定性结构检查
+-> 独立 Agent Review
+-> 高风险人工确认
+-> Review Report
+```
+
+### Release
+
+适合正式发布。在 Standard 基础上增加：
+
+- 主要页面目标语言截图；
+- 页面级语义和视觉审查；
+- build/test 结果确认；
+- 语言切换、持久化、系统语言检测和 fallback 验证；
+- clean Git diff；
+- commit 或 PR；
+- 将确认结果写回项目记忆。
+
+不是所有任务都需要 Release。
+
+## 目标 Review 模型
+
+目标 v1 不只审查孤立字符串：
+
+1. **字符串层**：source/target、placeholder、markup、数值、漏翻和禁止译法；
+2. **页面或组件层**：实际语义、相邻文案、控件语气、跨页面一致性和截图结果；
+3. **产品概念层**：同一概念在整个产品和不同目标语言中的一致表达。
+
+当前运行时已有字符串级结构 QA；页面/组件和产品概念级 Review 已写入 Skill
+方法，但还没有作为独立自动化引擎完整交付。目标质量输出保持三层分离：
+
+- Deterministic checks；
+- Agent review；
+- Human confirmation。
+
+不使用一个模糊总分替代它们。
+
+## Glossary 与 Project Memory
+
+目标 canonical Glossary 以产品概念为中心，而不是以单个语言对为中心。一个概念
+可以包含多个 source term、各 locale 的首选/禁止译法、保留行为、范围、状态和
+上下文。
+
+用户只需要理解两个长期概念：
+
+```text
+Glossary
+Project Memory
+```
+
+当前运行时中分散的 term registry、term decisions、review queue 和 Knowledge
+Pack term 将逐步合并到这两个概念，而不是继续增加用户需要维护的文件。
+
+Translation Memory 是项目级能力，不是企业 TM Server。它用于复用已确认句子、
+识别 source 变化、保留人工修订并减少重复翻译。
+
+## 可翻译性与覆盖
+
+候选内容不只分成“已翻译/未翻译”，而是：
+
+```text
+translate
+preserve
+locale_format
+developer_only
+dynamic_external
+needs_context
+```
+
+覆盖完整表示：本次声明范围内的候选内容都已分类，所有 `translate` 内容都有目标
+语言结果。它不表示项目里不能出现任何源语言字符。
 
 ## 当前状态
 
-**当前公开版本：** [v0.4.1 — Workbench UI Wiring](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.4.1)
+**当前公开版本：**
+[v0.4.1 — Workbench UI Wiring](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.4.1)
 
-v0.4.1 优化 Workbench WebUI：移除仿 macOS 窗口控制装饰，将本地化模式选择连接到 agent 的 `operating_mode` 和 `reference_policy`，新增基于 `/api/sessions` 的会话面板，并在项目路径、目标语言和响应目录缺失时先给出内联校验错误。
+2026-07-30，项目完成产品方向重置：Agent Skill 成为主入口，轻量 CLI 只做机械
+检查，Git 负责状态管理，独立 Review 和人工成本下降成为核心体验。
 
-v0.4.0 新增的 Word OpenXML 文档本地化和显式 opt-in Android merged dependency resource overlay 仍是当前功能基线。旧二进制 `.doc`、图片文字、嵌入对象内容和 provider-backed translation 语义质量仍不属于确定性覆盖声明。
+仓库仍包含 v0.4.1 的广义参考运行时，包括 Workbench、Provider evidence、
+workflow orchestration、authorization、release audit 和大量 protocol artifacts。
+这些代码暂时保留用于兼容和提取可复用能力，但不再定义产品方向，也不再是核心
+路线图。
 
-截至 PR #62，仓库已实现一组架构 seed，把源项目、用户审核知识、外部模型/provider 结果证据、locale 能力边界、译文 provenance、benchmark 证据、release audit、确定性 QA、范围化人工审核和可追踪交付串联起来。这些是已实现的架构 seed，不是新增的 v0.4.1 稳定发布声明。Localize Anything 不承诺“一键完美翻译”或未经合格审核的生产质量；输出保持暂存，真正 apply 仍需要显式审阅和确认。
+目标 v1 的精简命令面、canonical Glossary 和 Project Memory 正在从现有能力中
+整合。README 不把尚未完成的迁移描述成已发布功能。
 
-## 公开声明边界
+## 如何使用
 
-Localize Anything 可以公开声明的是：它提供一个本地化工程流程，用确定性检查、暂存交付、证据产物、人工审核和显式 apply plan 帮助团队审查本地化结果。它不会把 seed 能力、benchmark 产物、provider intake、knowledge pack、locale report 或 release audit 的存在自动升级为稳定质量声明。
+### 通过 Coding Agent
 
-Localize Anything 目前不声称：provider-backed quality、knowledge-backed quality、locale-complete、full-product localization、production-ready、zero-residual-English、DOCX-layout-fidelity、automatic apply，除非对应范围内的 release audit、scorecard、review/signoff 和 readiness 证据明确支持。
+当 Agent 已加载 Localize Anything Skill 时，直接描述项目级任务：
 
-公开文档对账说明见 [Public Claim Reconciliation](docs/public-claim-reconciliation.md)。
+```text
+使用 Localize Anything，为这个项目增加中文和俄语支持。
+使用 Release 深度，完成主要页面截图、build/test 和 PR 准备。
+```
 
-已验证的工程结果包括：
+当前 Skill 会指导 Agent 做范围和现有记忆预检、修改项目、运行可用的机械检查，
+并在独立 context 中 Review。canonical Glossary、自动低风险放行和统一风险报告
+仍按目标 v1 逐步接入。
 
-- v0.4.1 Workbench UI 状态、模式透传、会话端点和前端校验验证通过；
-- v0.4.0 Word adapter 提取、重建、校验覆盖通过；
-- Word `.docm` 宏字节保留验证通过；
-- Workbench 文件/文件夹导入 API 和 UI 冒烟测试通过；
-- 显式 opt-in 的 Android merged dependency resource overlay 测试通过；
-- v0.3.2 Android coverage diagnostics 验证通过；
-- v0.3.1 发布审计通过；
-- 运行时代码已确认不包含已检查的私有本地路径模式；
-- 单元测试、协议验证、适配器契约验证、编译检查和公开回归脚本通过；
-- AntennaPod 一次性克隆项目的只读检查和冒烟测试通过，未修改已跟踪源文件；
-- Android 真实项目压力矩阵记录了 AntennaPod、NewPipe、Tusky 和 Fossify File Manager 的检查/合成流程证据；
-- v0.2.3 Android 资源可靠性回归检查通过；
-- v0.2.1 运行模式基准检查通过；
-- AntennaPod DeepSeek 实测覆盖日语、韩语两个目标语言，每种语言 869 个文本段，确定性 QA 未发现阻断问题或警告，两个语言版本均编译成功。
+Skill 源文件位于
+[skills/localize-anything/SKILL.md](skills/localize-anything/SKILL.md)。
 
-这些结果证明的是流程、结构保护和交付证据的正确性，不等同于人工译文质量评价，也不表示生成结果可以免审查直接上线。详细记录见 [变更记录](CHANGELOG.md)、[适配器契约](docs/adapters.md)、[Android 覆盖范围模型](docs/android-coverage-model.md)、[v0.3.1 发布审计](docs/v0.3.1-release-audit.md) 和 [真实 Android 项目压力矩阵](docs/android-real-project-stress-matrix.md)。
+### 当前 CLI 开发预览
 
-## 为什么需要它
-
-大模型可以生成读起来合理的文本，但真正的软件本地化交付还要解决更具体的工程问题：
-
-- 占位符、标记、转义符和资源键不能被破坏；
-- 已经审核过的译文不应该被无意义重写；
-- 参考译文在盲测和维护场景下需要不同的可见性策略；
-- 每次运行都应该留下可复查的清单、QA 结果、审核状态和应用计划；
-- 工具不能在没有确认的情况下覆盖、删除或污染源码项目。
-
-Localize Anything 提供的是代码库、智能体或人工译者与最终交付物之间的工程层。运行时负责结构检查、暂存、冲突检测、打包和应用计划；智能体与模型服务负责语义生成；人工审核负责最终判断。
-
-## 工作流程
-
-**检查 → 预检 → 生成/导入 → 审核 → readiness-check → 交付/apply-plan**
-
-1. 检查真实项目支持的资源格式和源范围。
-2. 预检术语、coverage、locale、provider、knowledge 和证据边界。
-3. 生成草稿或导入外部结果；导入结果只是证据，不自动代表 provider-backed quality。
-4. 使用程序检查占位符、标记、转义符、资源键和文件结构，并保留人工审核入口。
-5. 在代码库之外暂存输出，供人工检查。
-6. 运行 readiness-check，确认 blocker、warning、forbidden claim、signoff 和 apply readiness。
-7. 交付可审查包；只有在明确确认运行 ID 后才应用变更，并在替换文件前创建备份。
-
-![Localize Anything 工作流：从项目智能体到备份后应用的九个步骤](docs/assets/workflow-dark.svg)
-
-## 核心保证
-
-| 保证 | 实现方式 |
-| --- | --- |
-| 先暂存，后写入 | 生成文件写入隔离的暂存目录，不直接修改源码项目。 |
-| 确定性 QA | 使用程序检查占位符一致性、标记完整性、转义符、资源键和格式规则。 |
-| 不静默覆盖 | 出现冲突时阻止应用，直到问题得到处理。 |
-| 确认后应用 | 必须提供匹配的 `--confirm-run-id`；替换文件前会创建备份。 |
-| 源文件变更检测 | 使用 SHA-256 检测运行期间出现的意外修改。 |
-| 维护模式保留 | 在经过验证的维护流程中，保留未发生变化的已审核译文，以及仅存在于 Android 目标语言文件中的资源。 |
-| 参考译文隔离 | 盲测模式不会让已有译文进入生成环节所使用的文件。 |
-| 交付过程可审查 | 清单、QA 结果、审核确认范围和文件操作均可检查。 |
-
-完整安全设计见 [安全说明](docs/security.md)。
-
-## 快速开始
-
-### 从源码安装
-
-需要使用 Python 3.11+。
+需要 Python 3.11+：
 
 ```bash
 git clone https://github.com/xueyang-dev/localize-anything.git
@@ -132,209 +230,68 @@ python -m pip install -e ".[yaml]"
 python -m unittest discover -s tests -v
 ```
 
-Windows PowerShell 可使用：
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-### 运行回归基准
-
-```bash
-python benchmarks/v022-android-resource-reliability/run.py
-python benchmarks/v022-android-resource-reliability/source_sets.py
-python benchmarks/v022-android-resource-reliability/risk_classification.py
-python benchmarks/v021-mode-system/run.py
-```
-
-### 运行安全 demo
-
-```bash
-python -m runtime.localize_anything quickstart-demo
-```
-
-该命令会复制一个很小的公开 JSON fixture，使用本地合成草稿跑完检查、预检、暂存、确定性 QA、readiness 和交付包路径摘要。默认输出写入已被 git 忽略的 `localize-anything-demo-output/`。它不会调用 provider，不会修改原始 fixture，也不会 apply 到项目。详见 [Quickstart Demo](docs/quickstart-demo.md)。
-
-### 检查真实项目
+当前运行时可以只读检查真实项目：
 
 ```bash
 localize-anything inspect /path/to/project
 ```
 
-推荐的安全路径是：先 `inspect`，再做 preflight 和生成/导入，随后 review，运行 readiness-check，最后只交付 review-ready 包或生成 apply plan。不要把草稿、benchmark 输出或外部 provider intake 当成可直接上线的结果。
+目标 v1 将把 Agent 常用机械能力收敛为 `scan`、`glossary bootstrap`、`check`、
+`review` 和 `report` 等小型能力组；这些名称是方向，不代表当前版本已经全部提供。
 
-## 示例工作流
+## 当前可复用的确定性能力
 
-下面的命令使用合成草稿，为 Android 源语言文件创建一份日语全新本地化的暂存交付包。整个过程不会调用外部模型，也不会直接写入项目。
+仓库已经包含可用于精简 v1 的实现：
 
-```bash
-localize-anything localize-run /path/to/project \
-  --source-locale en-US \
-  --target-locale ja \
-  --source-file app/src/main/res/values/strings.xml \
-  --operating-mode greenfield_localization \
-  --reference-policy style_only \
-  --run-id greenfield-001 \
-  --synthetic-draft
-```
+- segment 和稳定 ID；
+- candidate term extraction、禁止译法和 term review；
+- exact/fuzzy Translation Memory；
+- working context 构造；
+- placeholder、markup、key、escape 和资源结构 QA；
+- source/target coverage；
+- staging 与 Git diff 配合；
+- JSON、YAML/TOML、Android XML、Apple `.strings`、`.xcstrings`、PO/POT、
+  XLIFF、字幕、表格、Markup 和 Word OpenXML 等现有处理代码。
 
-这次运行会生成暂存文件、QA 报告、交付决策、readiness 证据和应用计划。写入源码项目是独立步骤：必须先检查预演计划，再明确确认对应的运行 ID。
+具体格式边界见 [适配器说明](docs/adapters.md)。历史基准和发布证据仍可用于验证
+这些实现，但不再主导产品定位。
 
-## 当前支持范围
+## 它不是什么
 
-### 已实现的通用适配器
+Localize Anything 不是：
 
-| 格式 | 当前能力 |
-| --- | --- |
-| JSON 本地化文件 | 提取、重建和结构保护 |
-| YAML / TOML | 面向本地化资源标量的提取与重建 |
-| CSV / TSV / XLSX | 表格坐标、键列和非文本单元保护 |
-| Markdown / HTML | 可见文本提取与重建；代码、属性以及 `script`、`style`、`svg` 内容保持不变 |
-| Word OpenXML 文档 | `.docx`、`.dotx`、`.docm`、`.dotm` 可见文本提取与重建，按目标语言规范化字体，并执行确定性包结构 QA |
-| SRT / WebVTT | 字幕 cue、时间轴和内联标记保护 |
-| XLIFF 1.2 / 2.x | 单元 ID、源文本和内联 XML 结构保护 |
-| GNU gettext PO/POT | 上下文、注释、复数、头部和占位符保护 |
+- 独立翻译模型；
+- 模型 Provider 管理平台；
+- 多 Agent 编排框架；
+- 企业 TMS、审批或权限系统；
+- Git、CI/CD 或项目构建系统的替代品；
+- 通用开发 Workbench；
+- 独立 i18n 框架生成器；
+- 全自动专业质量认证系统；
+- “绝对完美翻译”或“零源语言字符”的承诺。
 
-### 实验性平台适配器
+它可以要求 Coding Agent 完成 build/test、截图和 PR，但不重新实现这些系统。
 
-| 平台资源 | 当前边界 |
-| --- | --- |
-| Android `strings.xml` | 支持 `string`、`string-array`、`plurals`，并进行暂存、确定性 QA 和显式 opt-in 的 merged dependency resource overlay |
-| iOS `.strings` / `.stringsdict` | 支持基础资源提取、重建和目标 `.lproj` 暂存 |
-| Xcode `.xcstrings` | 支持 source language 单元和 variation leaf 的目标语言条目写入 |
+## 产品文档
 
-适配器 ID、内容保留规则和完整格式边界见 [适配器契约](docs/adapters.md)。
-
-## 工程证据
-
-### v0.4.0 Word 文档本地化
-
-v0.4.0 新增只依赖 Python 标准库的 Word OpenXML adapter 和 CLI 路径，支持 `.docx`、`.dotx`、`.docm`、`.dotm`。它本地化可安全编辑的可见 XML 文本，为译文 run 按目标语言规范化字体，保留非文本包内容，并校验宏字节不变且不执行宏。Workbench 可以把选择的文件、文件夹或拖拽文件复制到临时 project，再进入正常的暂存交付流程。
-
-旧 `.doc`、加密或 malformed package、图片文字和嵌入对象内容不会被静默声称已完成本地化。
-
-### v0.3.1 发布审计
-
-v0.3.1 移除了 DeepSeek provider 中硬编码的私有环境文件路径，并要求 provider 凭据通过显式环境配置提供。发布审计通过了单元测试、协议验证、适配器契约验证、编译检查和公开回归脚本，也确认运行时代码中不存在已检查的私有本地路径模式。
-
-详见 [v0.3.1 发布审计](docs/v0.3.1-release-audit.md)。
-
-### v0.3.0 真实项目工作流强化
-
-v0.3.0 新增只读检查摘要，并更新了 AntennaPod 一次性克隆项目的冒烟测试证据。该证据重点验证源文件不被意外修改、检查摘要可交付、受限合成草稿流程和可审查交付工件。它不声称已经验证 provider 真实翻译质量、破坏性应用流程或外部项目的完整生产级本地化。
-
-详见 [AntennaPod v0.3.0 冒烟测试结果](docs/antennapod-smoke-test-results-v0.3.0.md) 和 [Android 真实项目压力矩阵](docs/android-real-project-stress-matrix.md)。
-
-### v0.2.3 Android 资源可靠性
-
-实验性 Android 适配器目前覆盖：
-
-- `string`、`string-array` 和 `plurals`；
-- 占位符、转义百分号，以及 `\n`、`\t`、`\'`、`\"` 等 Android 转义符；
-- `<b>`、`<i>`、`<u>` 内联标记，以及只包含 `href` 属性的简单 `<a>` 链接；
-- CDATA 边界和资源前的 XML 注释；
-- 相互独立的源集（source set），以及符合 Android 顺序要求的资源限定符路由，包括 MCC/MNC 限定符；
-- 盲测模式下的参考译文隔离，以及现有语言维护模式；
-- 保留仅存在于目标语言文件中的旧资源；无法安全判断路径时会停止处理，不会猜测；
-- 对不支持的复杂标记保持原样，并标记为 `owner_review_required`；
-- 用于安排审核优先级的确定性风险元数据；这不是语义层面的译文质量评分。
-
-具体支持结构、已知限制和明确排除能力见 [v0.2.3 Android 支持说明](docs/android-v0.2.3-support.md)。
-
-### v0.2.1 运行模式基准
-
-| 运行模式 | 参考策略 | 结果 |
-| --- | --- | --- |
-| `blind_benchmark` | `blind` | 通过：已有译文不会泄漏到生成文件中 |
-| `greenfield_localization` | `style_only` | 通过 |
-| `existing_locale_maintenance` | `preserve_existing` | 通过：保留 10 个文本段，生成 2 个文本段 |
-| `rewrite_or_harmonization` | `tm_assisted` | 通过 |
-
-合成 Android 测试项目包含 12 个源语言文本段和 10 个已有的 `zh-CN` 译文。基准测试同时验证：仅存在于目标语言中的资源不会被删除，源码文件的哈希值不会发生变化。
-
-```bash
-python benchmarks/v021-mode-system/run.py
-```
-
-### AntennaPod DeepSeek 实测
-
-![AntennaPod 英语到日语和韩语 DeepSeek 基准：每种语言 869 个文本段，确定性 QA 未发现问题，编译成功](docs/assets/benchmark-antennapod.svg)
-
-| 指标 | 日语（`ja`） | 韩语（`ko`） |
-| --- | --- | --- |
-| 源项目 | AntennaPod `develop` 分支 | 同左 |
-| 文本段 | 869 | 869 |
-| 批次 | 29 | 29 |
-| 模型 | `deepseek-chat` | `deepseek-chat` |
-| 确定性 QA | 0 个阻断问题，0 个警告 | 0 个阻断问题，0 个警告 |
-| 编译 | `:app:assembleFreeDebug` ✓ | `:app:assembleFreeDebug` ✓ |
-
-完整流程：提取 → 分批 → DeepSeek API → 汇总 → 暂存 → QA → 打包交付。如需在单独克隆的 AntennaPod 项目上复现这套检查流程，请参阅 [AntennaPod Android 冒烟测试指南](docs/antennapod-smoke-test.md)。
-
-## 核心概念
-
-当前真实架构和能力状态见 [Architecture](docs/architecture.md)。未来路线见
-[Architecture Roadmap](docs/architecture-roadmap.md)；路线图不是当前 release 承诺。
-
-### 运行模式
-
-| 运行模式 | 适用场景 | 默认参考策略 |
-| --- | --- | --- |
-| `greenfield_localization` | 为项目新增目标语言 | `style_only` |
-| `existing_locale_maintenance` | 维护已经审核的现有译文 | `preserve_existing` |
-| `rewrite_or_harmonization` | 明确重写译文或统一表达风格 | `tm_assisted` |
-| `blind_benchmark` | 在已有译文完全隔离的条件下进行评估 | `blind` |
-
-### 项目记忆
-
-Localize Anything 会在 `.localize-anything/` 目录中保存已经审核的翻译记忆、运行历史和项目配置。在现有语言维护模式下，只要源文本哈希没有变化，已经审核的译文就会在后续运行中继续保留，不会被重复翻译，也不会产生无意义改动。
-
-### 审核与交付
-
-```text
-审核智能体 → 按范围审核确认 → 交付决策 → 应用计划 → 备份后应用
-```
-
-人工验收以文本段为单位。真正写入源码文件前，应用计划会列出每一项新建、替换、保持不变或发生冲突的文件操作。
-
-![Localize Anything 架构分层：协议、运行时、智能体、适配器、源文件与交付](docs/assets/architecture-layers.svg)
-
-## 不在支持范围内的能力
-
-Localize Anything 目前不是：
-
-- 提示词合集；
-- 通用机器翻译接口的简单封装；
-- 成熟的企业级翻译管理系统（TMS）；
-- 完整的 HTML 解析器，也不能自动处理任意嵌套标记；
-- Android layout、drawable、asset 的本地化工具；
-- Gradle 编辑器或 APK 反编译工具；
-- 语义层面的译文质量评分工具；
-- 覆盖复数、性别、RTL/bidi、格式化、Unicode 和 fallback 行为的 locale-complete 实现；
-- DOCX 布局或渲染页面保真度验证器；
-- 译文所述现实世界事实的真实性验证器；
-- 仅凭 provider 结果 intake、reconciliation 或确定性 QA 就声称完整 provider-backed quality 的工具；
-- 在范围、审核和 signoff 不匹配时声称完整 knowledge-backed quality 的工具；
-- 在非文本、动态、服务端、OS 或其他运行时表面未纳入源范围时声称完整产品本地化的工具；
-- APK 或 IPA 重新打包工具；
-- 专业人工审核的替代品；
-- 会在没有确认的情况下改写代码库的工具；
-- 自动执行破坏性 apply 的工具；
-- 对“大模型输出无需证据即可直接上线”的承诺。
-
-## 项目成熟度
-
-Localize Anything 当前更适合作为开发者工具和本地化工程实验框架使用。它已经有可复现的结构验证、暂存交付和安全应用流程，但平台适配器仍在扩展中，语义层面的译文质量仍需要人工审校或更高等级的评审证据。
+- [产品方向](docs/product-direction.md)
+- [目标架构](docs/architecture.md)
+- [路线图](docs/architecture-roadmap.md)
+- [公开声明边界](docs/public-claim-reconciliation.md)
+- [ADR 0002：Coding Agent 本地化工作流与审查层](docs/decisions/0002-coding-agent-localization-layer.md)
+- [v0.4 旧架构快照](docs/architecture-v0.4-legacy.md)
+- [变更记录](CHANGELOG.md)
 
 ## 仓库结构
 
 ```text
-protocol/         可移植的协议结构定义和生命周期规范
-runtime/          Python 参考运行时
-adapters/         适配器清单和入口
-benchmarks/       公开基准测试项目和运行脚本
-tests/            运行时单元测试和集成测试
-docs/             公开文档
+skills/            Agent Skill：产品主入口
+runtime/           当前 Python 参考运行时与迁移来源
+adapters/          现有格式处理清单
+protocol/          v0.4 兼容协议，不再是产品定位来源
+benchmarks/        历史与回归验证
+tests/             单元测试和集成测试
+docs/              产品方向、架构、边界和实现文档
 ```
 
 ## 许可证

@@ -1,61 +1,71 @@
 # Public Claim Reconciliation
 
-This note records the public documentation boundary after the Release Audit /
-Public Claims Boundary seed.
+This note keeps public wording aligned with the accepted
+[Product Direction](product-direction.md).
 
-## Source Of Truth
+## Canonical Positioning
 
-Public-facing claims should be checked against the release audit artifacts when
-they exist for a run:
+Chinese:
 
-- `release-readiness-audit.json`
-- `public-claims-report.json`
-- `public-claims-report.md`
-- `non-claims.md`
-- `release-blockers.json`
-- `release-evidence-manifest.json`
+> **Localize Anything 是面向 Coding Agent 的本地化专业能力层。**
 
-The protocol examples for these artifacts are conservative examples, not a
-release candidate. A release audit artifact can classify claims and blockers;
-it does not create a release, tag, or stable product claim by itself.
+English:
 
-## Current Public Boundary
+> **An agent-native localization workflow and review layer.**
 
-Stable public claims are limited to the released baseline and documented
-regression evidence: staged delivery, deterministic structural QA, explicit
-apply planning/confirmation, Workbench UI wiring, and released adapter behavior
-within documented format boundaries.
+## Safe Product Claims
 
-Implemented architecture seeds may be described as seeds. They include evidence
-spine gates, document evidence, personal knowledge, provider evidence, locale
-capability, translation provenance, benchmark comparison, workflow hardening,
-readiness authorization, and release audit. A seed is not a production-stable
-capability until a release audit, benchmark or real-project evidence, review
-evidence, documentation audit, and public claim review support promotion.
+Localize Anything may be described as a product that:
 
-Experimental capabilities must remain clearly scoped and opt-in. Unsupported
-capabilities must remain non-claims.
+- guides a Coding Agent through professional localization preflight,
+  implementation and independent review;
+- helps declare localization scope and classify candidate content;
+- carries project concepts, terminology, style, preserve rules and reviewed
+  Translation Memory across sessions;
+- uses deterministic tools for structural QA and declared-scope coverage;
+- reviews strings, pages/components and product concepts;
+- risk-ranks findings and minimizes human confirmation work;
+- integrates with the Coding Agent's build/test workflow and Git changes.
 
-## Claims To Keep Forbidden Unless Evidence Supports Them
+These are product-direction claims. Specific format, command or automation
+claims must still match current implementation and tests.
 
-- provider-backed quality
-- knowledge-backed quality
-- locale-complete support
-- full-product localization
-- production-ready quality
-- zero residual source-language text
-- DOCX layout or rendered-page fidelity
-- factual truth verification
-- automatic destructive apply or apply readiness without current authorization
+## Current Implementation Boundary
+
+The repository still contains the broad v0.4 reference runtime, protocol,
+Workbench, Provider evidence, workflow orchestration and release-governance
+systems. They may be described as current or legacy implementation, but not as
+the active product north star.
+
+The target v1 Skill and small CLI surface are being consolidated from existing
+capabilities. Documentation must not imply that every target command or
+simplified memory format already exists.
+
+## Claims To Avoid
+
+- Localize Anything is a translation model or is inherently better at writing
+  i18n code than the host Coding Agent.
+- Localize Anything replaces project builds, tests, CI, Git or pull requests.
+- Localize Anything is an enterprise TMS, Provider platform, approval system or
+  general multi-agent framework.
+- Deterministic QA alone proves semantic or professional translation quality.
+- Full coverage means no source-language characters remain anywhere.
+- Every framework, locale, dynamic surface, asset or document is supported.
+- A successful Agent run removes the need for high-risk human decisions.
+- The product guarantees perfect translation or automatic release readiness.
 
 ## README Safe Path
 
-The public quickstart should steer users through:
+The primary narrative should be:
 
 ```text
-inspect -> preflight -> generate/import -> review -> readiness-check -> deliver/apply-plan
+Coding Agent can do the engineering
+-> Localize Anything supplies professional localization workflow and memory
+-> deterministic checks catch mechanical defects
+-> independent review checks language and product concepts
+-> the user receives only high-risk decisions
+-> Git carries the final change
 ```
 
-Drafts, benchmark output, external provider intake, knowledge pack selection,
-locale reports, and provenance reports are evidence. They are not acceptance,
-signoff, or apply authorization by themselves.
+Historical releases and benchmarks can remain linked as implementation
+evidence, but they should not dominate the first-screen product story.

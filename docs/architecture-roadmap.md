@@ -1,173 +1,239 @@
 # Architecture Roadmap
 
-This roadmap separates implemented architecture seeds from stable release
-capabilities. It is not a release promise. Current classifications and public
-claim boundaries live in [Architecture](architecture.md).
+This roadmap implements the accepted [Product Direction](product-direction.md)
+and [target architecture](architecture.md). It is a deletion-first migration
+roadmap, not a plan to keep expanding the v0.4 platform.
 
-## Promotion Rule
-
-```text
-proposal -> seed -> reviewed PR -> tests -> release audit -> real-project and
-benchmark evidence -> documentation/public-claim audit -> stable release claim
-```
-
-Merging a seed proves that its contracts and conservative runtime behavior
-exist. It does not prove production translation quality, broad platform or
-locale coverage, or public release readiness.
-
-## Architecture Seed Track
-
-The following areas are implemented as artifact-backed seeds through PR #62:
-
-- Evidence Spine foundations, including brief, term governance, preflight,
-  generation strategy, resolution, handoff, Artifact State, repair, evaluation,
-  human review, claim acceptance, and signoff;
-- Workbench review/action/console projections;
-- Document Evidence enforcement, decisions, leadership review, claim
-  resolution, and signoff summary;
-- Personal Knowledge Pack building, knowledge consumption, Working Context
-  Packet, usage/constraint/conflict audit, enforcement, resolution, assurance,
-  repair planning, result QA/reconciliation, closure, and recompute;
-- Delivery/Apply Readiness Authorization Matrix and Workbench readiness actions;
-- workflow orchestration, incremental resume/selective recompute, checkpoint,
-  concurrency, transaction, recovery, and idempotency hardening;
-- provider/model handoff contracts and evidence reconciliation;
-- provider result deterministic QA, scoped review evidence, acceptance, claim
-  support, and Workbench review queue;
-- locale capability/risk/readiness projections;
-- translation provenance and claim provenance projections;
-- benchmark lab evidence comparison without a single quality score;
-- release audit and public claim boundary artifacts.
-
-These seeds remain subject to release audit, real-project regression evidence,
-benchmark evidence, documentation audit, and public claim-boundary review.
-
-## Optimized Target Agent Architecture
-
-The target architecture from the optimized agent proposal remains the design
-direction, not a stable capability claim:
+## Product Goal
 
 ```text
-CLI / Workbench / API
-        |
-Main Orchestrator -- artifact state, intent, next action
-        |
-        +-- Project Subagent -------- source truth, mode, intent coverage
-        +-- Knowledge Curator ------- terms, TM, examples, scoped user knowledge
-        +-- Generation Subagent ----- provider/model request and result evidence
-        +-- Review Subagent --------- deterministic QA, risk and semantic review
-        +-- Delivery Subagent ------- staging, bundles, apply plan and decision
-        +-- Evolution Subagent ------ failure mining and reviewed patch proposals
-        |
-Deterministic Runtime Kernel
-        |
-Format Adapters + Platform Overlays + Scenario Adapters
+Skill guides professional localization workflow
+CLI performs mechanical checks
+Coding Agent performs engineering
+Git manages changes and collaboration
+User resolves high-risk product decisions
 ```
 
-Current workflow orchestration seeds coordinate deterministic artifact builders;
-they are not yet this full subagent runtime. Subagents may propose or coordinate,
-but runtime validation, durable artifacts, and scoped human authorization remain
-the trust boundary. The Evolution Subagent stays P2 and must never merge, tag,
-release, or change safety policy autonomously.
+The main product metric is lower human review cost without hiding localization
+defects or structural risk.
 
-## Stable Release Track
+## Ordering Rule
 
-The stable track contains only released, documented behavior supported by the
-corresponding release evidence. The current public baseline is v0.4.1:
+Work proceeds in this order:
 
-- protocol and runtime contracts;
-- deterministic structural validation and staged delivery artifacts;
-- explicit apply planning/confirmation rather than automatic source mutation;
-- released Workbench and adapter behavior within documented format boundaries;
-- Word OpenXML and Android source-resource behavior only within their published
-  support boundaries.
+```text
+consolidate
+-> replace
+-> deprecate
+-> remove
+-> simplify
+-> complete only the missing target-v1 experience
+```
 
-Architecture seeds should be promoted in small audited groups. Promotion must
-state the exact supported scenario, locale, format, evidence level, limitations,
-and forbidden claims. A seed must not be promoted because it exists on `main`.
+Do not add a new artifact, report, queue, matrix, service, or UI surface when an
+existing capability can be consolidated or removed. New work must improve a
+Standard or Release workflow that a real Coding Agent can complete in a real
+repository.
 
-## Near-Term Route
+Trust-boundary validation, data-loss prevention, source safety, and benchmark
+evidence are not removed merely because their original subsystem is legacy.
 
-1. Public Docs Claim Reconciliation — keep README, public introduction, launch
-   checklist, architecture, and roadmap wording aligned with release audit
-   boundaries.
-2. Provider-safe mock execution harness or explicitly authorized real-provider
-   execution only after the evidence and release boundaries above are clear.
-3. Adapter-specific release promotion audits for small, bounded scenarios that
-   already have regression, benchmark, review, and claim-boundary evidence.
+## P0 — Align And Freeze
 
-Provider Result Staging Admission is intentionally deferred to P1. Acceptance
-artifacts first need a documented release boundary and provenance view so a
-staging gate cannot accidentally turn narrow review evidence into broad
-readiness or mutate target projects without an auditable chain.
+Goal: make every entry point tell the same product story and stop expanding the
+old one.
 
-## Priorities
+- Align README, Product Direction, Architecture, public claims, Skill,
+  contribution guidance, and repository metadata.
+- Make the Agent Skill the primary interface.
+- Mark the broad protocol as Compatibility and classify Core, Legacy, and
+  Experimental contracts explicitly.
+- Archive the v0.4 platform architecture as historical reference.
+- Freeze new Provider governance, Workbench, multi-agent orchestration,
+  workflow-state, authorization-matrix, enterprise-signoff, release-claim, and
+  adapter-promotion features.
 
-### P0 — Evidence Visibility And Release Boundary
+Exit criteria:
 
-- Public Docs Claim Reconciliation
-- Release-candidate evidence audit for one narrow scenario, if blockers clear
-- Provider-safe mock execution harness boundary design
+- a contributor can explain the product in one sentence;
+- active guidance does not route through a legacy subsystem by default;
+- target capabilities are not described as already shipped;
+- no legacy subsystem receives new scope without a new accepted product
+  decision.
 
-### P1 — Controlled Execution And Product Usability
+## P1 — Consolidate And Replace Project Memory
 
-- Provider-safe mock execution harness
-- Provider result staging admission
-- Real provider adapter hardening
-- Workbench UX simplification
-- Android/iOS real-project benchmark expansion
+Goal: replace competing terminology and knowledge structures with one user-
+facing model.
 
-P1 execution work must remain provider-safe by default, preserve provenance,
-stage output outside target projects, and require explicit apply confirmation.
+- Inventory current Glossary, term registry, term decisions, review decisions,
+  Knowledge Pack terms, Translation Memory, style, preserve, and history data.
+- Define the target concept-centered canonical Glossary.
+- Define Project Memory as the home for reviewed TM, style, preserve rules,
+  confirmed decisions, product context, and recurring defects.
+- Build migration readers before changing or deleting stored user data.
+- Consolidate duplicate sources of truth behind the new model.
+- Replace Skill references to old memory artifacts with Glossary and Project
+  Memory.
+- Deprecate direct user maintenance of term registry, term-decision, term-review,
+  and Knowledge Pack term files.
+- Remove obsolete representations only after migration tests prove no approved
+  terms or reviewed translations are lost.
 
-### P2 — Broader Platform And Ecosystem Depth
+Target Glossary discovery may later support:
 
-- Deep locale engineering: plural/gender rules, RTL/bidi, formatting, Unicode,
-  fallback chains, and locale-specific QA
-- Non-text asset pipeline
-- Visual/layout QA
-- Team knowledge governance
-- Community adapter registry
-- Evolution subagent
+```text
+Discover -> Import -> Normalize -> Rank -> Confirm -> Use
+```
 
-P2 items are non-claims until separately implemented, tested, audited, and
-released.
+Automatic discovery, ranking, and a final canonical file format remain planned
+until implemented and tested.
 
-## Seed Status By PR Range
+Exit criteria:
 
-| PR range | Area | Status |
-| --- | --- | --- |
-| #25–#36 | Evidence Spine foundations | Implemented seeds; release status varies by underlying capability. |
-| #37–#39 | Workbench review/action/console | Implemented seeds. |
-| #40–#42 | Document Evidence | Implemented seeds. |
-| #43–#47 | Personal Knowledge, Knowledge Audit, Knowledge Assurance | Implemented seeds. |
-| #48–#50 | Knowledge Repair, Closure, Recompute | Implemented seeds. |
-| #51–#52 | Readiness Matrix, Workbench Readiness Actions | Implemented seeds. |
-| #53–#55 | Workflow Orchestration, Incremental Resume, Hardening | Implemented seeds. |
-| #56–#57 | Provider Evidence, Provider Result QA/Review Acceptance | Implemented seeds; provider-backed quality remains evidence-gated. |
-| #58 | Architecture and roadmap progress synchronization | Documentation seed; public claim boundaries synced to implemented seed state at that point. |
-| #59 | Locale Capability Report | Implemented seed; not full CLDR or locale-complete support. |
-| #60 | Translation Provenance View | Implemented seed; provenance explains evidence and unsupported claims without proving quality. |
-| #61 | Benchmark Lab Minimal Seed | Implemented seed; no single synthetic quality score and no automatic release claim. |
-| #62 | Release Audit / Public Claims Boundary | Implemented seed; release audit artifacts classify claims and blockers without creating releases or tags. |
+- users maintain one Glossary and one Project Memory;
+- existing approved terminology and reviewed translations migrate losslessly;
+- changing Coding Agent or session does not change confirmed product language;
+- old memory artifacts are no longer required by the default Skill path.
 
-## Required Evidence Before Stable Promotion
+## P2 — Simplify The CLI And Replace Default Paths
 
-Every promoted capability needs:
+Goal: replace the broad platform command surface with the smallest deterministic
+toolset the Skill needs.
 
-- a release audit tied to an exact commit;
-- protocol/contract and regression validation;
-- representative fixture evidence and, where applicable, real-project evidence;
-- benchmark results that state scope and limitations;
-- stale/missing/conflicting evidence behavior that fails closed;
-- documentation and README claim review;
-- explicit non-claims for unsupported formats, locales, surfaces, quality
-  levels, and destructive operations.
+Target capability groups:
 
-## Persistent Non-Claims
+```text
+scan
+glossary bootstrap
+check
+review
+report
+```
 
-The roadmap does not promise complete Android or full-product localization,
-zero residual English, locale-complete behavior, DOCX render fidelity,
-real-world factual truth verification, production provider/model quality,
-knowledge-backed quality without scoped review/signoff, or automatic destructive
-apply. Roadmap position and merged code do not override those boundaries.
+- Map existing parsing, comparison, QA, coverage, TM, and report primitives to
+  these target capability groups.
+- Keep existing commands available only where compatibility callers require
+  them.
+- Replace the Skill's default path with the smaller capabilities.
+- Deprecate commands whose purpose is Provider governance, Workbench state,
+  orchestration, readiness matrices, claim acceptance, signoff, or release-
+  evidence management.
+- Remove deprecated commands and protocol wiring after callers and tests have
+  migrated.
+- Simplify generated output so the user sees deterministic findings, Agent
+  review, human confirmations, and Git state—not an internal artifact graph.
+
+The exact target command spelling is planned and may change before it is
+implemented.
+
+Exit criteria:
+
+- Standard workflow mechanical checks use a small documented surface;
+- no default command requires Workbench, Provider management, workflow state,
+  enterprise approval, or release-claim machinery;
+- compatibility commands are visibly deprecated and have a removal path;
+- fewer public commands and outputs remain than before the migration.
+
+## P3 — Deprecate And Remove Legacy Product Surfaces
+
+Goal: shrink the repository after replacement paths exist.
+
+Legacy candidates:
+
+- Provider execution, consent, ledger and smoke evidence;
+- multi-agent orchestration and workflow state-machine surfaces;
+- concurrency, recovery and idempotency product layers;
+- Readiness Authorization Matrix, Claim Acceptance and enterprise signoff;
+- release-claim and adapter-promotion governance;
+- Workbench Web UI;
+- Document Evidence leadership workflows;
+- productized runtime Benchmark Lab;
+- large user-facing protocol schema inventories.
+
+For each candidate:
+
+1. identify real callers, data, tests, and safety checks;
+2. extract any primitive required by target v1;
+3. replace the default user/Skill path;
+4. mark the old surface deprecated;
+5. preserve a documented compatibility window when needed;
+6. remove code, schemas, examples, docs, and tests that no longer protect a
+   supported path;
+7. verify that source safety and migration behavior remain covered.
+
+Protocol cleanup must reduce the number of Compatibility and Legacy contracts.
+Creating a replacement matrix, queue, or report with a new name is not
+simplification.
+
+Exit criteria:
+
+- Workbench and Provider governance are not required for Standard or Release;
+- legacy endpoints and commands have been removed or have explicit remaining
+  callers and removal criteria;
+- protocol validation reports a materially smaller long-term surface;
+- repository concepts match what users see in the Skill.
+
+## P4 — Complete Independent Review And Release Experience
+
+Goal: fill only the user-facing gaps that remain after consolidation and
+removal.
+
+Planned review work:
+
+- separate review context from generation;
+- combine string, page/component, and product-concept review;
+- classify content as `translate`, `preserve`, `locale_format`,
+  `developer_only`, `dynamic_external`, or `needs_context`;
+- clear low-risk findings with visible reasons;
+- route product terminology, brand, high-risk ambiguity, and meaning changes to
+  human confirmation;
+- report total, reviewed, auto-cleared, confirmation-required, and human-edited
+  counts.
+
+Planned Release work:
+
+- target-locale screenshots for primary pages;
+- page semantic and visible-result review;
+- locale switch, persistence, system/browser detection, and fallback checks;
+- actual project build/test results;
+- a clear Git diff and optional commit or pull request;
+- confirmed decisions promoted into Project Memory.
+
+These are target capabilities, not current runtime claims. Prefer host Coding
+Agent capabilities over new Localize Anything infrastructure.
+
+Exit criteria:
+
+- every in-scope localized item is reviewed;
+- human confirmation items are risk-ranked and explain why a decision is
+  needed;
+- a Release run links scope, checks, review, screenshots, build/test results,
+  Git change, and unresolved risks;
+- Localize Anything does not duplicate the project build system, CI, or Git.
+
+## Format Priorities
+
+The first simplified CLI tier plans to prioritize:
+
+- JSON and YAML;
+- Android XML;
+- Apple `.strings` and `.xcstrings`;
+- PO/POT;
+- XLIFF.
+
+Existing TOML, tabular, Word OpenXML, subtitle, and markup handlers may remain
+available as Compatibility capabilities. Broader format count is secondary to
+consolidation, review quality, and lower human review cost.
+
+## Persistent Non-Goals
+
+The roadmap does not turn Localize Anything into:
+
+- a translation model or Provider marketplace;
+- an enterprise TMS;
+- a general multi-agent framework;
+- a replacement for Git, CI, or project build systems;
+- a universal i18n architecture generator;
+- an automatic professional-quality certification system;
+- a guarantee of perfect translation or zero source-language characters.

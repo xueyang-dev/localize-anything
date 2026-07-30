@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  Agent-native localization delivery for real source projects.
+  <strong>The localization expertise layer for Coding Agents.</strong>
 </p>
 
 <p align="center">
-  LLMs can translate strings. Localize Anything turns translations into staged, validated, reviewable deliverables.
+  Target: give agents a professional workflow, durable project language, complete review, and a much smaller set of human decisions.
 </p>
 
 <p align="center">
@@ -19,126 +19,239 @@
 <p align="center">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue" />
   <img alt="CI" src="https://github.com/xueyang-dev/localize-anything/actions/workflows/ci.yml/badge.svg" />
-  <img alt="Release: v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-blue" />
-  <img alt="QA: deterministic" src="https://img.shields.io/badge/QA-deterministic-green" />
-  <img alt="Apply: staged first" src="https://img.shields.io/badge/apply-staged%20first-blueviolet" />
+  <img alt="Current release: v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-blue" />
+  <img alt="Primary interface: Agent Skill" src="https://img.shields.io/badge/interface-Agent%20Skill-blueviolet" />
 </p>
 
 ---
 
-Localize Anything is built for developers and localization teams working with real source projects. It is not a translation script, and it does not write model output directly back into your repository. It provides a traceable, reviewable, and reproducible delivery workflow: extract translatable content, generate target-locale drafts, validate structure with deterministic checks, stage output, and write changes only after the apply plan is reviewed and the run ID is explicitly confirmed.
+The current repository already provides an Agent Skill, structural QA,
+Translation Memory, and handlers for multiple resource formats. The revised
+Skill now requires Codex, Claude Code, and similar Coding Agents to declare
+scope and language constraints before localization and to review drafts from a
+separate context. A concept-centered canonical Glossary, unified Project
+Memory, page-level review, and automatic risk compression are still being
+consolidated for target v1.
 
-## Use this when
+Coding Agents can already edit code, build i18n infrastructure, run builds and
+tests, capture screenshots, and prepare pull requests. Localize Anything does
+not rebuild those capabilities. It adds professional localization workflow and
+low-cost review.
 
-Use Localize Anything when you need to:
+> **An agent-native localization workflow and review layer.**
 
-- localize real source projects, not isolated strings;
-- protect placeholders, XML/HTML markup, resource keys, escapes, and file structure;
-- generate reviewable target-locale files for Word documents, Android, iOS, or common text resources;
-- inspect staged files, QA evidence, delivery decisions, and apply plans before writing changes;
-- preserve reviewed translations during existing-locale maintenance instead of re-translating unchanged content;
-- use different reference-translation policies for blind benchmarks, greenfield localization, maintenance, and rewrite workflows.
+## Who It Is For
 
-## Status
+The core users are:
 
-**Current release:** [v0.4.1 — Workbench UI Wiring](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.4.1)
+- individual and indie developers;
+- small product teams;
+- open-source maintainers;
 
-v0.4.1 refines the Workbench WebUI: it removes copied macOS window controls, connects localization mode selection to the agent `operating_mode` and `reference_policy`, adds a `/api/sessions`-backed sessions panel, and shows inline validation before backend calls when the project path, target locale, or responses directory is missing.
+who build products with Coding Agents.
 
-The v0.4.0 Word OpenXML localization and explicit opt-in Android merged dependency resource overlay remain the current feature baseline. Legacy binary `.doc` files, image text, embedded objects, and provider-backed translation quality remain outside the deterministic coverage claim.
+A typical request is:
 
-Architecture seeds merged through PR #62 connect source projects,
-user-approved knowledge, external model/provider result evidence, locale
-capability boundaries, translation provenance, benchmark evidence, release
-audit, deterministic QA, scoped human review, and traceable delivery artifacts.
-These are implemented seeds, not additional stable v0.4.1 release claims.
-Localize Anything does not promise one-click perfect translation or production
-quality without qualified review; outputs remain staged and apply requires an
-explicit reviewed confirmation.
+> Use Localize Anything to add Russian support to this project.
 
-## Public claim boundary
+Large enterprise localization teams, language-service providers, and
+professional translation agencies are not the initial core audience. Localize
+Anything does not compete with enterprise TMS products.
 
-Localize Anything can publicly claim a localization engineering workflow that
-uses deterministic checks, staged delivery, evidence artifacts, human review,
-and explicit apply plans to help teams inspect localization results. It does
-not promote seed capabilities, benchmark artifacts, provider intake, knowledge
-packs, locale reports, or release audits into stable quality claims merely
-because those artifacts exist.
+## What It Solves
 
-Localize Anything does not currently claim provider-backed quality,
-knowledge-backed quality, locale-complete support, full-product localization,
-production-ready quality, zero residual source-language text, DOCX layout
-fidelity, or automatic apply unless release audit, scorecard, review/signoff,
-and readiness evidence explicitly support that claim for the stated scope.
+### A complete localization workflow for the Agent
 
-See [Public Claim Reconciliation](docs/public-claim-reconciliation.md) for the
-public documentation sync note.
+A general Coding Agent can easily patch one screen at a time, extract every
+string indiscriminately, stop after a successful build, or skip terminology and
+language review. The target workflow starts with scope, project memory, and
+completion criteria, then ends with independent review and a risk summary. The
+current Skill now specifies that method; the smaller CLI and unified report
+remain migration work.
 
-Verified engineering evidence includes:
+### Durable project language
 
-- v0.4.1 Workbench UI state, mode forwarding, sessions endpoint, and inline validation: pass;
-- v0.4.0 Word adapter extract/rebuild/validate coverage: pass;
-- Word `.docm` macro-byte preservation: pass;
-- Workbench file/folder import API and UI smoke tests: pass;
-- opt-in Android merged dependency resource overlay tests: pass;
-- v0.3.2 Android coverage diagnostics: pass;
-- v0.3.1 release audit: pass;
-- runtime code verified against checked private local path patterns;
-- unit tests, protocol validation, adapter contract validation, compile checks, and public regression runners: pass;
-- disposable AntennaPod read-only inspect and smoke helper: pass with no tracked source mutation;
-- Android real-project stress matrix: inspect/synthetic evidence recorded for AntennaPod, NewPipe, Tusky, and Fossify File Manager;
-- v0.2.3 Android resource reliability regressions: pass;
-- v0.2.1 mode-system benchmark: pass;
-- AntennaPod DeepSeek test: 869 segments in each of two target locales, 0 deterministic QA blockers or warnings, and successful builds for both locales.
+Target v1 Project Memory will preserve and share through Git under
+`.localize-anything/`:
 
-These results demonstrate pipeline behavior, structural preservation, and delivery evidence. They are not a claim of native-level translation quality, and they do not mean generated translations should ship without review. See the [changelog](CHANGELOG.md), [Adapter Contract](docs/adapters.md), [Android coverage model](docs/android-coverage-model.md), [v0.3.1 release audit](docs/v0.3.1-release-audit.md), and [real-project stress matrix](docs/android-real-project-stress-matrix.md) for details.
+- product concepts and confirmed translations per locale;
+- forbidden translations and preserve rules;
+- style guidance;
+- reviewed Translation Memory;
+- human corrections and recurring defects.
 
-## Why this exists
+The current runtime already stores configuration, Translation Memory, and
+multiple terminology/review artifacts. Consolidating them into one Project
+Memory and concept-centered Glossary is still the migration direction. Once
+consolidated, confirmed product language should remain stable when the Agent,
+model, or session changes.
 
-An LLM can produce plausible strings. Real software localization delivery also needs to solve engineering problems:
+### Lower human review cost
 
-- placeholders, markup, escapes, and resource keys must not be damaged;
-- reviewed translations should not be rewritten without reason;
-- existing translations need different visibility rules in benchmark and maintenance modes;
-- every run should leave inspectable manifests, QA results, review state, and apply plans;
-- tools must not overwrite, delete, or pollute the source project without explicit confirmation.
+The target experience has the Agent review every item, clear low-risk content
+with visible reasons, and route only official product terminology, brands, and
+high-risk ambiguity to the user. The current Skill requires independent review
+and risk routing; automatic clearing, metrics, and the complete report are
+still being consolidated. An ideal result looks like:
 
-Localize Anything provides the engineering layer between a source repository, an agent or human translator, and the final deliverable. The runtime handles structure, staging, conflict detection, packaging, and apply plans. Agents and model providers handle semantic generation. Human review remains the final acceptance step.
+```text
+Translated items: 412
+Agent-reviewed: 412
+Auto-cleared: 397
+Human confirmation required: 15
+Human-edited after review: 6
+```
 
-## Workflow
+## Target Responsibility Boundaries
 
-**Inspect → Preflight → Generate/import → Review → Readiness-check → Deliver/apply-plan**
-
-1. Inspect supported resource formats and source scope in the real project.
-2. Preflight terminology, coverage, locale, provider, knowledge, and evidence boundaries.
-3. Generate drafts or import external results; imported results are evidence, not provider-backed quality.
-4. Validate placeholders, markup, escapes, keys, and file structure in code while preserving human-review paths.
-5. Stage output outside the source project for review.
-6. Run readiness-check to inspect blockers, warnings, forbidden claims, signoff, and apply readiness.
-7. Deliver a reviewable package; apply changes only after explicit run-id confirmation, with backups before replacement.
-
-![Localize Anything workflow: 9 steps from Project Agent to Apply with Backups](docs/assets/workflow-dark.svg)
-
-## Core guarantees
-
-| Guarantee | Enforcement |
+| Role | Responsibility |
 | --- | --- |
-| Staging first | Generated files are written to an isolated staging directory, not the source project. |
-| Deterministic QA | Placeholder parity, markup integrity, escapes, keys, and format rules are checked in code. |
-| No silent overwrite | Conflicts block apply until they are resolved. |
-| Confirmed apply | Apply requires a matching `--confirm-run-id`; replaced files are backed up. |
-| Source mutation detection | SHA-256 checks detect unexpected changes during a run. |
-| Maintenance preservation | Reviewed unchanged translations and Android target-only resources are preserved in verified maintenance workflows. |
-| Reference isolation | Blind benchmarks keep existing translations out of generation-facing artifacts. |
-| Reviewable delivery | Manifests, QA results, sign-off scope, and file operations remain inspectable. |
+| Localize Anything Skill | Scope, Glossary, style, project memory, workflow, independent review, final report |
+| Coding Agent | i18n architecture, code changes, locale resources, build/test, screenshots, Git diff, commits, pull requests |
+| Lightweight CLI | Scanning, source/target comparison, placeholder/markup/key checks, coverage summaries, report data |
+| Git | Diff, history, rollback, branches, worktrees, commits, pull requests, team review |
+| User | Product meaning, brands, high-risk wording, final release judgment |
 
-See [Security](docs/security.md) for the complete safety architecture.
+## Skill Depth And Target v1 Workflow
 
-## Quick start
+The current Skill defines Standard and Release depths. They are Agent workflow
+methods, not two fully integrated v0.4.1 runtime modes. Supporting commands,
+unified Project Memory, page review, and automatic reporting are still being
+consolidated.
 
-### Install from source
+### Standard
 
-Python 3.11+ is required.
+For everyday locale additions and copy updates:
+
+```text
+Project and scope preflight
+-> Glossary, style, and preserve rules
+-> Coding Agent implementation
+-> Deterministic structural checks
+-> Independent Agent review
+-> High-risk human confirmations
+-> Review Report
+```
+
+### Release
+
+For a formal release, add:
+
+- target-locale screenshots of primary pages;
+- page-level semantic and visual review;
+- build/test result confirmation;
+- locale switching, persistence, system-language detection, and fallback
+  verification;
+- a clean Git diff;
+- a commit or pull request;
+- promotion of confirmed decisions into project memory.
+
+Not every task needs Release depth.
+
+## Target Review Model
+
+Target v1 reviews more than isolated strings:
+
+1. **String level:** source/target mapping, placeholders, markup, values,
+   omissions, and forbidden terms.
+2. **Page or component level:** actual meaning, neighboring copy, control tone,
+   cross-screen consistency, and screenshots.
+3. **Product-concept level:** consistent expression of the same concepts across
+   the product and target locales.
+
+The current runtime already provides string-level structural QA. Page/component
+and product-concept review are now required by the Skill but are not yet
+delivered as a complete standalone automation engine. Target quality output
+remains separated into:
+
+- deterministic checks;
+- Agent review;
+- human confirmation.
+
+One vague aggregate score does not replace these channels.
+
+## Glossary And Project Memory
+
+The target canonical Glossary is centered on product concepts, not isolated
+language pairs. One concept may include multiple source terms, preferred and
+forbidden translations per locale, preserve behavior, scope, status, context,
+and product meaning.
+
+Users should understand only two durable concepts:
+
+```text
+Glossary
+Project Memory
+```
+
+The current runtime's separate term registry, term decisions, review queues,
+and Knowledge Pack terms will be consolidated behind those concepts instead of
+becoming additional user-maintained sources of truth.
+
+Translation Memory is a project capability, not an enterprise TM server. It
+reuses confirmed sentences, detects stale source changes, preserves human
+corrections, and reduces duplicate translation.
+
+## Translatability And Coverage
+
+Candidate content is classified as:
+
+```text
+translate
+preserve
+locale_format
+developer_only
+dynamic_external
+needs_context
+```
+
+Complete coverage means every candidate in the declared scope has a
+classification and every `translate` item has a target result. It does not mean
+that no source-language characters may remain anywhere in the project.
+
+## Current Status
+
+**Current public release:**
+[v0.4.1 — Workbench UI Wiring](https://github.com/xueyang-dev/localize-anything/releases/tag/v0.4.1)
+
+On 2026-07-30, the project reset its product direction: the Agent Skill is the
+primary interface, the lightweight CLI performs mechanical checks, Git manages
+state, and independent review plus lower human review cost define the core
+experience.
+
+The repository still contains the broad v0.4.1 reference runtime, including
+Workbench, Provider evidence, workflow orchestration, authorization, release
+audit, and many protocol artifacts. That code remains temporarily for
+compatibility and reusable implementation primitives, but it no longer defines
+the product or core roadmap.
+
+The target v1 command surface, canonical Glossary, and Project Memory are being
+consolidated from existing capabilities. This README does not present that
+migration as already shipped.
+
+## How To Use It
+
+### Through A Coding Agent
+
+When the Localize Anything Skill is available to the Agent, describe a project-
+level task:
+
+```text
+Use Localize Anything to add Chinese and Russian support to this project.
+Use Release depth, including primary-page screenshots, build/test, and PR preparation.
+```
+
+The current Skill guides the Agent through scope and existing-memory preflight,
+project changes, available mechanical checks, and review from a separate
+context. The canonical Glossary, automatic low-risk clearing, and unified risk
+report are being connected incrementally for target v1.
+
+The Skill source is
+[skills/localize-anything/SKILL.md](skills/localize-anything/SKILL.md).
+
+### Current CLI Developer Preview
+
+Python 3.11+ is required:
 
 ```bash
 git clone https://github.com/xueyang-dev/localize-anything.git
@@ -149,228 +262,73 @@ python -m pip install -e ".[yaml]"
 python -m unittest discover -s tests -v
 ```
 
-On Windows PowerShell, activate the environment with:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-### Run regression benchmarks
-
-```bash
-python benchmarks/v022-android-resource-reliability/run.py
-python benchmarks/v022-android-resource-reliability/source_sets.py
-python benchmarks/v022-android-resource-reliability/risk_classification.py
-python benchmarks/v021-mode-system/run.py
-```
-
-### Run the safe demo
-
-```bash
-python -m runtime.localize_anything quickstart-demo
-```
-
-This command copies a tiny public JSON fixture, uses local synthetic drafts,
-and runs inspection, preflight, staging, deterministic QA, readiness, and
-delivery-package summary paths. By default, output is written under the
-git-ignored `localize-anything-demo-output/`. It does not call providers, mutate
-the source fixture, or apply changes to a project. See
-[Quickstart Demo](docs/quickstart-demo.md).
-
-### Inspect a real project
+The current runtime can inspect a real project without writing to it:
 
 ```bash
 localize-anything inspect /path/to/project
 ```
 
-The safe path is: inspect, preflight, generate or import, review, run
-readiness-check, then deliver a review-ready package or produce an apply plan.
-Do not treat drafts, benchmark output, or external provider intake as directly
-ship-ready results.
+Target v1 will converge common Agent mechanics into small `scan`, `glossary
+bootstrap`, `check`, `review`, and `report` capability groups. Those names are
+directional and are not all shipped in the current release.
 
-## Example workflow
+## Reusable Deterministic Capabilities
 
-Create a staged Japanese greenfield delivery from an Android source file using synthetic drafts. This does not call an external model and does not write into the project.
+The repository already contains implementation that can support the smaller v1:
 
-```bash
-localize-anything localize-run /path/to/project \
-  --source-locale en-US \
-  --target-locale ja \
-  --source-file app/src/main/res/values/strings.xml \
-  --operating-mode greenfield_localization \
-  --reference-policy style_only \
-  --run-id greenfield-001 \
-  --synthetic-draft
-```
+- segments and stable IDs;
+- candidate-term extraction, forbidden terms, and term review;
+- exact/fuzzy Translation Memory;
+- working-context construction;
+- placeholder, markup, key, escape, and resource-structure QA;
+- source/target coverage;
+- staging and Git-diff integration;
+- existing handlers for JSON, YAML/TOML, Android XML, Apple `.strings`,
+  `.xcstrings`, PO/POT, XLIFF, subtitles, tables, markup, and Word OpenXML.
 
-The run produces staged files, a QA report, a delivery decision, readiness
-evidence, and an apply plan. Writing into the source project is a separate
-step: review the dry-run plan first, then explicitly confirm the matching run
-ID.
+See [Adapters](docs/adapters.md) for exact format boundaries. Historical
+benchmarks and releases remain implementation evidence, but no longer define
+the product positioning.
 
-## Current support
-
-### Implemented core adapters
-
-| Format | Current capability |
-| --- | --- |
-| JSON locale files | Extraction, rebuild, and structural preservation |
-| YAML / TOML | Localization-resource scalar extraction and rebuild |
-| CSV / TSV / XLSX | Table coordinates, key columns, and non-text cell protection |
-| Markdown / HTML | Visible text extraction/rebuild; code, attributes, and `script`/`style`/`svg` content remain untouched |
-| Word OpenXML documents | `.docx`, `.dotx`, `.docm`, and `.dotm` visible text extraction/rebuild with target-locale font normalization and deterministic package QA |
-| SRT / WebVTT | Cue identity, timing, and inline tag preservation |
-| XLIFF 1.2 / 2.x | Unit IDs, source text, and inline XML preservation |
-| GNU gettext PO/POT | Context, comments, plurals, headers, and placeholder preservation |
-
-### Experimental platform adapters
-
-| Platform resource | Current boundary |
-| --- | --- |
-| Android `strings.xml` | Supports `string`, `string-array`, and `plurals`, with staging, deterministic QA, and explicit opt-in merged dependency resource overlays |
-| iOS `.strings` / `.stringsdict` | Supports basic resource extraction, rebuild, and target `.lproj` staging |
-| Xcode `.xcstrings` | Supports source-language units and variation leaves written as target-language entries |
-
-See the [Adapter Contract](docs/adapters.md) for adapter IDs, preservation rules, and the full format boundary.
-
-## Evidence
-
-### v0.4.0 Word document localization
-
-v0.4.0 adds a stdlib-only Word OpenXML adapter and CLI path for `.docx`, `.dotx`, `.docm`, and `.dotm` files. It localizes visible editable XML text, normalizes target-locale fonts on localized runs, preserves non-text package content, and verifies macro bytes without executing macros. The Workbench can import selected files, folders, or dropped files into a temporary project before running the normal staged delivery workflow.
-
-Legacy `.doc`, encrypted or malformed packages, image text, and embedded object content are not silently claimed as localized.
-
-### v0.3.1 release audit
-
-v0.3.1 removes a hardcoded private DeepSeek provider env-file path and requires provider credentials through explicit environment configuration. The release audit passed unit tests, protocol validation, adapter contract validation, compile checks, and public regression runners. It also verified that runtime code contains no checked private local path patterns.
-
-See [v0.3.1 Release Audit](docs/v0.3.1-release-audit.md).
-
-### v0.3.0 real-project workflow hardening
-
-v0.3.0 adds read-only inspect summaries and refreshed disposable-clone AntennaPod smoke evidence. The workflow evidence focuses on source mutation safety, inspect-summary artifacts, scoped synthetic drafts, and reviewable delivery artifacts. It does not claim provider-backed translation quality, destructive apply safety, or full production localization of external projects.
-
-See [AntennaPod v0.3.0 smoke results](docs/antennapod-smoke-test-results-v0.3.0.md) and the [Android real-project stress matrix](docs/android-real-project-stress-matrix.md).
-
-### v0.2.3 Android resource reliability
-
-The experimental Android adapter currently covers:
-
-- `string`, `string-array`, and `plurals`;
-- placeholders, escaped percent signs, and Android escapes such as `\n`, `\t`, `\'`, and `\"`;
-- inline `<b>`, `<i>`, and `<u>` tags, plus simple `<a href="...">` links;
-- CDATA boundaries and XML comments before resources;
-- separate source sets and canonical resource qualifier routing, including MCC/MNC ordering;
-- blind reference isolation and existing-locale maintenance behavior;
-- target-only obsolete resource preservation and fail-closed routing;
-- unsupported complex markup preservation with `owner_review_required`;
-- deterministic review-risk metadata for prioritization, not semantic translation quality scoring.
-
-See [Android Support in v0.2.3](docs/android-v0.2.3-support.md) for supported structures, known limitations, and explicit non-goals.
-
-### v0.2.1 mode-system benchmark
-
-| Mode | Reference policy | Result |
-| --- | --- | --- |
-| `blind_benchmark` | `blind` | pass: no leakage to generation artifacts |
-| `greenfield_localization` | `style_only` | pass |
-| `existing_locale_maintenance` | `preserve_existing` | pass: 10 preserved, 2 generated |
-| `rewrite_or_harmonization` | `tm_assisted` | pass |
-
-The synthetic Android fixture contains 12 source segments and 10 existing `zh-CN` translations. The benchmark also verifies target-only key protection and unchanged source hashes.
-
-```bash
-python benchmarks/v021-mode-system/run.py
-```
-
-### AntennaPod DeepSeek test
-
-![AntennaPod en-US to Japanese and Korean DeepSeek benchmark: 869 segments, 0 QA issues, builds successful](docs/assets/benchmark-antennapod.svg)
-
-| Metric | Japanese (`ja`) | Korean (`ko`) |
-| --- | --- | --- |
-| Source | AntennaPod `develop` branch | same |
-| Segments | 869 | 869 |
-| Batches | 29 | 29 |
-| Model | `deepseek-chat` | `deepseek-chat` |
-| Deterministic QA | 0 blockers, 0 warnings | 0 blockers, 0 warnings |
-| Build | `:app:assembleFreeDebug` ✓ | `:app:assembleFreeDebug` ✓ |
-
-Full pipeline: extract → batch → DeepSeek API → collect → stage → QA → deliver. Reproduce a public-safe external-project check with the [AntennaPod Android smoke-test guide](docs/antennapod-smoke-test.md).
-
-## Concepts
-
-See [Architecture](docs/architecture.md) for the current architecture and
-capability status. Future direction is tracked in
-[Architecture Roadmap](docs/architecture-roadmap.md); roadmap items are not
-current release claims.
-
-### Operating modes
-
-| Mode | Intended use | Default reference policy |
-| --- | --- | --- |
-| `greenfield_localization` | Add a new locale | `style_only` |
-| `existing_locale_maintenance` | Maintain reviewed translations | `preserve_existing` |
-| `rewrite_or_harmonization` | Intentionally rewrite or align style | `tm_assisted` |
-| `blind_benchmark` | Evaluate without reference-translation leakage | `blind` |
-
-### Project memory
-
-Localize Anything persists reviewed translation memory, session history, and project configuration under `.localize-anything/`. In maintenance mode, reviewed translations with unchanged source hashes survive subsequent runs without retranslation or churn.
-
-### Review and delivery
-
-```text
-Review Agent → scoped sign-off → Delivery Decision → Apply Plan → Apply with backups
-```
-
-Human acceptance is segment-scoped. The apply plan lists every create, replace, unchanged, or conflicting file operation before any source file is written.
-
-![Architecture layers: Protocol, Runtime, Agent, Adapters, Source and Delivery](docs/assets/architecture-layers.svg)
-
-## What it is not
+## What It Is Not
 
 Localize Anything is not:
 
-- a prompt collection;
-- a generic machine translation wrapper;
-- a finished enterprise translation management system;
-- a full HTML parser or automatic localizer for arbitrary nested markup;
-- an Android layout, drawable, or asset localizer;
-- a Gradle editor or APK decompiler;
-- a semantic translation quality scorer;
-- a locale-complete implementation across plural, gender, RTL/bidi, formatting,
-  Unicode, and fallback behavior;
-- a DOCX layout or rendered-page fidelity verifier;
-- a verifier of real-world factual truth in translated claims;
-- a claim of full provider-backed quality from result intake, reconciliation,
-  or deterministic QA alone;
-- a claim of full knowledge-backed quality without matching scope, review, and
-  signoff;
-- a claim of full product localization when non-text, dynamic, server, OS, or
-  other runtime surfaces are outside the selected source scope;
-- an APK or IPA repackaging tool;
-- a replacement for qualified human review;
-- a tool that silently rewrites a source project;
-- an automatic destructive apply tool;
-- a claim that LLM output is production-ready without evidence.
+- a standalone translation model;
+- a model Provider management platform;
+- a general multi-agent orchestration framework;
+- an enterprise TMS, approval, or permissions system;
+- a replacement for Git, CI/CD, or project build systems;
+- a general development Workbench;
+- an independent i18n framework generator;
+- an automatic professional-quality certification system;
+- a promise of perfect translation or zero source-language characters.
 
-## Project maturity
+It may require the Coding Agent to run builds/tests, capture screenshots, and
+prepare a PR, but it does not reimplement those systems.
 
-Localize Anything is best understood today as a developer tool and localization-engineering framework. It already provides reproducible structure validation, staged delivery, and safe apply workflows, while platform adapters are still expanding and semantic translation quality still requires human review or higher-level evaluation evidence.
+## Product Documents
 
-## Repository layout
+- [Product Direction](docs/product-direction.md)
+- [Target Architecture](docs/architecture.md)
+- [Roadmap](docs/architecture-roadmap.md)
+- [Public Claim Boundary](docs/public-claim-reconciliation.md)
+- [ADR 0002: Coding-Agent Localization Workflow And Review Layer](docs/decisions/0002-coding-agent-localization-layer.md)
+- [v0.4 Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md)
+- [Changelog](CHANGELOG.md)
+
+## Repository Layout
 
 ```text
-protocol/         Portable schemas and lifecycle specification
-runtime/          Reference runtime (Python)
-adapters/         Adapter manifests and entrypoints
-benchmarks/       Public benchmark fixtures and runners
-tests/            Runtime unit and integration tests
-docs/             Public documentation
+skills/            Agent Skill: the primary product interface
+runtime/           Current Python reference runtime and migration source
+adapters/          Existing format-handler manifests
+protocol/          v0.4 compatibility protocol, not product positioning
+benchmarks/        Historical and regression validation
+tests/             Unit and integration tests
+docs/              Product direction, architecture, boundaries, implementation docs
 ```
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
