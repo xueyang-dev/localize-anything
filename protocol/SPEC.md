@@ -1,17 +1,43 @@
-# Localize Anything Protocol 0.1
+# Localize Anything Compatibility Protocol 0.1
+
+> **Compatibility status:** this specification documents the broad v0.4
+> reference runtime and its existing machine-readable artifacts. It is not the
+> current product north star or a requirement that v1 expose these artifacts to
+> users. See [Product Direction](../docs/product-direction.md) and
+> [Architecture](../docs/architecture.md).
 
 ## Purpose
 
-Define portable artifacts between agents, runtimes, and adapters. The protocol does not prescribe a model provider or implementation language.
+Preserve compatibility for the current runtime, tests, adapters, historical
+deliveries, and migration work. The protocol does not prescribe a model
+provider or implementation language.
 
-The protocol is the machine-readable part of the optimized architecture's
-Evidence Spine. Runtime, agents, Workbench, and delivery tooling should derive
-readiness from artifacts, not from prompt text or UI state. Architecture
-proposal artifacts such as locale capability reports, task-intent coverage
-reports, and non-text asset coverage reports are not canonical protocol
-artifacts until this spec adds schemas/examples and the runtime validates them.
+The accepted v1 direction uses an Agent Skill as the primary interface, a small
+deterministic CLI, canonical Glossary and Project Memory, independent review,
+and Git-based delivery. Existing protocol artifacts may remain as internal
+implementation details while useful parsing, safety, memory, and QA primitives
+are consolidated. New product work should not expand this schema surface by
+default.
 
-## Canonical Artifacts
+## Contract Status Model
+
+Protocol validation status and long-term product API status are different. A
+schema can be valid and covered by tests while still being compatibility-only
+or planned for removal.
+
+| Status | Meaning | Current treatment |
+| --- | --- | --- |
+| **Core** | Minimal contracts intended to support target v1: stable segment identity, canonical Glossary and Project Memory, deterministic check findings, and Review Report data. | The final Core schema set is not yet frozen. Existing artifacts must be explicitly promoted after consolidation; they are not Core merely because they exist. |
+| **Compatibility** | Contracts required by the current v0.4 runtime, tests, historical deliveries, or migration tooling. | Maintained while callers still depend on them. May be replaced by a smaller Core representation. |
+| **Legacy** | Platform-oriented contracts outside the new product core, including Provider execution governance, Workbench state, workflow orchestration/state-machine artifacts, readiness/claim/signoff matrices, release-claim governance, and enterprise-style queues. | Freeze expansion, deprecate public reliance, migrate useful data, then remove when compatibility allows. |
+| **Experimental** | Prototypes or bounded format/review/evidence contracts whose long-term shape is undecided. | No stability promise. Keep only when they provide evidence for a target-v1 workflow or a tested compatibility path. |
+
+Unless a section explicitly says otherwise, the artifacts listed below are
+**Compatibility**. The Legacy and Experimental categories are subsets that
+remain machine-valid during migration. None of the 192 validated schemas is a
+long-term public API solely because protocol validation passes.
+
+## Current Compatibility Artifacts
 
 - Project configuration selects operational policy.
 - Project sessions record source-selection policy, routing decisions, resumable

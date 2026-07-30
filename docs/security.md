@@ -13,11 +13,19 @@ Never store credentials, tokens, private keys, or passwords in project memory or
 
 ## Adapter Trust
 
-Distinguish declarative, scripted, and verified adapters. A future registry may discover candidates automatically, but must not silently download or execute community code.
+Existing format handlers may be declarative or scripted. Localize Anything does
+not need a community registry for v1. Never silently download or execute
+third-party handler code; prefer the project's existing tooling and explicit
+user authorization.
 
 ## Apply Safety
 
-Require staged writes, dry-run output, explicit confirmation, diff reporting, original hashes, and post-apply validation. Do not delete source or target artifacts by default.
+The Coding Agent owns project edits and Git delivery. Inspect existing changes,
+keep localization edits visible in the diff, run deterministic checks before
+completion, and do not delete or overwrite uncertain source or target artifacts.
+The current compatibility runtime must retain staged writes, dry-run output,
+explicit confirmation, original hashes, and post-apply validation where those
+paths remain in use.
 
 ## Commercial Game Data
 

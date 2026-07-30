@@ -1,8 +1,12 @@
 # Quickstart Demo
 
-The quickstart demo is the shortest safe path for trying Localize Anything from
-a source checkout. It uses a tiny JSON fixture, synthetic local draft output,
-staging, deterministic QA, readiness reports, and a delivery package.
+> **v0.4 compatibility demo:** this exercises the current broad reference
+> runtime. It is useful for implementation regression testing, but it is no
+> longer the primary product onboarding path. The target experience starts from
+> the Localize Anything Agent Skill.
+
+The demo uses a tiny JSON fixture, synthetic local draft output, staging,
+deterministic QA, compatibility readiness reports, and a delivery package.
 
 It does not call providers, require credentials, mutate the fixture, or apply
 changes back to a project.
@@ -32,4 +36,5 @@ to:
 
 Synthetic demo output proves the engineering path works. It is not
 provider-backed quality, production-ready translation, locale-complete support,
-or full-product localization.
+or full-product localization. It also does not demonstrate the complete target
+v1 Standard workflow, independent three-level review, or review-cost reduction.

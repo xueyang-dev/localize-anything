@@ -6,10 +6,10 @@ Asset inventory for the Localize Anything documentation.
 
 | File | Purpose | Used in | Maintained |
 |------|---------|---------|------------|
-| `workflow-dark.svg` | Main localization workflow (9 steps + QA loop) | README.md, README.en.md | hand-edited |
-| `architecture-layers.svg` | Protocol → Runtime → Agent → Adapter layer stack | README.md | hand-edited |
-| `delivery-package.svg` | Delivery package structure and evidence chain | docs/delivery-package.svg | hand-edited |
-| `benchmark-antennapod.svg` | AntennaPod DeepSeek benchmark summary | README.md | hand-edited |
+| `workflow-dark.svg` | Legacy v0.4 workflow diagram | Historical documentation asset | hand-edited |
+| `architecture-layers.svg` | Legacy Protocol → Runtime → Agent → Adapter stack | Historical documentation asset | hand-edited |
+| `delivery-package.svg` | Legacy delivery package and evidence chain | Historical documentation asset | hand-edited |
+| `benchmark-antennapod.svg` | Historical AntennaPod DeepSeek benchmark summary | Benchmark documentation asset | hand-edited |
 
 ## Raster images
 

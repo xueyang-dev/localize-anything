@@ -1,76 +1,85 @@
 name: Feature request
-description: Propose a concrete, safety-aware improvement
+description: Propose an improvement to the Coding-Agent localization workflow
 title: "[Feature]: "
 body:
   - type: markdown
     attributes:
       value: |
-        Feature requests should include concrete fixtures, expected safety behavior, and review requirements. Do not include private or proprietary data.
+        Localize Anything is the localization workflow and review layer for Coding Agents. Strong proposals improve scope discovery, Glossary or Project Memory, deterministic checks, independent review, risk compression, or Standard/Release completion without recreating Git, CI, Provider management, Workbench, or a general agent platform.
   - type: textarea
     id: problem
     attributes:
-      label: Problem
-      description: What concrete limitation or workflow problem are you encountering?
+      label: User problem
+      description: What localization or review problem does a developer using a Coding Agent face?
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow_depth
+    attributes:
+      label: Workflow depth
+      options:
+        - Standard
+        - Release
+        - Both
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: current_agent_behavior
+    attributes:
+      label: Current Coding Agent behavior
+      description: What does the host Coding Agent do today, and where does professional localization guidance or review break down?
     validations:
       required: true
   - type: textarea
     id: proposed_behavior
     attributes:
       label: Proposed behavior
-      description: Describe the expected behavior, including fail-closed behavior where relevant.
-    validations:
-      required: true
-  - type: input
-    id: target_platform
-    attributes:
-      label: Target platform / adapter
-      placeholder: Android, xcstrings, XLIFF, core.android-strings
-    validations:
-      required: true
-  - type: input
-    id: resource_format
-    attributes:
-      label: Resource format
-      placeholder: strings.xml, .xcstrings, XLIFF 2.0
+      description: "Describe the smallest useful change and which role owns it: Skill, deterministic CLI, Coding Agent, Git, or user."
     validations:
       required: true
   - type: textarea
-    id: safety_review
+    id: review_cost
     attributes:
-      label: Safety / review concerns
-      description: Explain preservation, validation, staging, owner-review, and corruption risks.
-    validations:
-      required: true
-  - type: textarea
-    id: fixture
-    attributes:
-      label: Example fixture
-      description: Provide a minimal public-safe input and the expected staged output or QA result.
-    validations:
-      required: true
-  - type: textarea
-    id: existing_support
-    attributes:
-      label: Why existing support is insufficient
+      label: Review-cost impact
+      description: How would this reduce human review work or prevent localization defects?
     validations:
       required: true
   - type: dropdown
-    id: support_level
+    id: memory_impact
     attributes:
-      label: Desired support level
+      label: Memory impact
       options:
-        - Stable support
-        - Experimental support
+        - No persistent memory change
+        - Glossary
+        - Project Memory
+        - Both Glossary and Project Memory
         - Unsure
     validations:
       required: true
-  - type: dropdown
-    id: contribution
+  - type: textarea
+    id: formats
     attributes:
-      label: Willingness to contribute tests / fixtures
-      options:
-        - Yes
-        - Maybe, with guidance
-        - No
+      label: Relevant project or formats
+      description: Optional framework, resource format, locale, page, or component context.
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and hard constraints
+      description: Explain placeholder, markup, key, source-control, privacy, or data-loss risks.
     validations:
       required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Example and success criteria
+      description: Provide a minimal public-safe example and how we would know the change improved Standard or Release workflow.
+    validations:
+      required: true
+  - type: checkboxes
+    id: direction_check
+    attributes:
+      label: Product-direction check
+      options:
+        - label: This proposal does not require Localize Anything to replace the Coding Agent, Git, CI, project build tools, or become a Provider/TMS/orchestration platform.
+          required: true

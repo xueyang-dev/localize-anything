@@ -1,92 +1,77 @@
 # Public Launch Checklist
 
-## GitHub repository settings
+## GitHub Repository Settings
 
 Recommended About description:
 
-> Agent-native localization engineering framework for traceable, review-ready
-> delivery artifacts from source projects, user knowledge, model drafts,
-> deterministic QA, and human review.
+> Localization workflow and review layer for Coding Agents.
 
 Recommended topics:
 
 - `localization`
 - `l10n`
-- `translation`
-- `android`
 - `i18n`
-- `ai-agents`
-- `developer-tools`
-- `automation`
+- `coding-agents`
+- `agent-skills`
+- `translation-memory`
+- `glossary`
 - `quality-assurance`
+- `developer-tools`
 
-Website:
+## README First Screen
 
-- Leave it blank unless a real project page exists.
-- Do not use an unrelated personal page.
+The first screen must answer:
 
-These are repository-setting recommendations only. Apply them manually after
-checking the public repository presentation.
+- What is it? The localization expertise layer for Coding Agents.
+- Who is it for? Individuals, indie developers, small teams and open-source
+  maintainers using Coding Agents.
+- What does it solve? Scope, durable project language, independent review and
+  review-cost reduction.
+- What does the Coding Agent still do? i18n engineering, code, build/test,
+  screenshots and Git.
+- What does the user do? Only high-risk product and release decisions.
 
-## README first-screen check
+## Direction Consistency
 
-The first screen should answer:
+- [ ] Chinese positioning says “面向 Coding Agent 的本地化专业能力层”.
+- [ ] English positioning says “An agent-native localization workflow and
+      review layer.”
+- [ ] Agent Skill is presented as the primary interface.
+- [ ] CLI is presented as a small deterministic helper.
+- [ ] Git is presented as the state and collaboration layer.
+- [ ] Standard and Release are the two workflow depths.
+- [ ] Review covers string, page/component and product-concept levels.
+- [ ] Glossary and Project Memory are the only user-facing memory concepts.
+- [ ] The main metric is lower human Review cost.
 
-- What is this?
-- Who is it for?
-- What problem does it solve?
-- Why is it safer than a simple translation script?
-- How can someone try it quickly?
-- What is stable versus experimental?
+## Current Versus Target
 
-## Public claim boundaries
+- [ ] Target v1 behavior is not described as already shipped unless verified.
+- [ ] The existing v0.4 runtime is described as current/legacy implementation.
+- [ ] Workbench is not presented as the future primary interface.
+- [ ] Provider governance and multi-agent orchestration are not presented as
+      core roadmap items.
+- [ ] Historical benchmark and release evidence remains scoped to what it
+      actually tested.
 
-Safe claims, when supported by the linked documentation and current regression
-evidence:
+## Claims To Avoid
 
-- agent-native localization framework
-- safe localization pipeline
-- Android resource reliability within the documented support boundary
-- blind reference isolation
-- existing-locale maintenance mode
-- target-only obsolete preservation
-- deterministic QA
-- CI-backed regression benchmarks
-- review-ready delivery artifacts
-- real-project smoke-test guide
-- architecture seeds clearly separated from stable release claims
-- release audit claim boundary artifacts as conservative evidence, not as a
-  release-readiness claim by themselves
+- [ ] No promise of perfect or fully automatic professional translation.
+- [ ] No implication that Localize Anything replaces Coding Agent engineering.
+- [ ] No enterprise TMS, Provider marketplace or general orchestration claim.
+- [ ] No definition of coverage as zero source-language characters.
+- [ ] No semantic quality claim based only on structural QA.
+- [ ] No universal framework, locale or content-surface support claim.
+- [ ] No release-readiness claim without real build/test, review and Git
+      evidence.
 
-Avoid claims of:
+## Pre-Posting Checks
 
-- fully automatic translation of any software
-- production-safe translation without review
-- complete Android app localization
-- a full HTML parser
-- layout, drawable, or asset localization
-- Gradle editing
-- APK decompilation
-- universal support for all localization formats
-- zero residual English or locale-complete support
-- provider-backed quality from intake or QA alone
-- knowledge-backed quality without scoped review/signoff
-- DOCX layout/render fidelity or factual truth verification
-- automatic destructive apply
-- release readiness from seed artifacts or benchmark artifacts alone
-
-## Pre-posting checklist
-
-- [ ] Confirm README links work.
-- [ ] Confirm the CI badge is green.
-- [ ] Confirm the latest public release is v0.4.1.
-- [ ] Confirm PR #25–#62 architecture seeds are not presented as stable release capabilities.
-- [ ] Confirm release audit artifacts are treated as the public claim boundary,
-      not as automatic release/tag authorization.
-- [ ] Confirm README quickstart follows inspect → preflight → generate/import
-      → review → readiness-check → deliver/apply-plan.
-- [ ] Confirm the v0.2.3 Android support boundary is linked.
-- [ ] Confirm v0.2.2 is not promoted.
-- [ ] Confirm issue templates and `CONTRIBUTING.md` exist.
-- [ ] Confirm the AntennaPod smoke-test guide is linked.
-- [ ] Confirm no private roadmap or internal planning documents are tracked.
+- [ ] README and documentation links work.
+- [ ] CI status is green.
+- [ ] Current release and implementation status are accurate.
+- [ ] Skill metadata and workflow references match the accepted direction.
+- [ ] Product Direction, Architecture, Roadmap and ADR 0002 agree.
+- [ ] Examples use Coding Agent language rather than platform-orchestrator
+      language.
+- [ ] No private user data, credentials or local paths are included.

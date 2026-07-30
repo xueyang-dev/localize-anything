@@ -313,6 +313,14 @@
 
 ### Changed
 
+- Reset the product direction around Localize Anything as the localization
+  workflow and review layer for Coding Agents: Agent Skill as the primary
+  interface, a small deterministic CLI, Git-based change management,
+  concept-centered Glossary and Project Memory, Standard/Release depth, and
+  independent three-level review. Preserve the v0.4 platform architecture as a
+  clearly labeled legacy snapshot and move Provider governance, Workbench,
+  multi-agent orchestration, enterprise authorization, and large protocol
+  expansion outside the core roadmap.
 - Synchronize architecture, Evidence Spine, roadmap priorities, README-facing
   positioning, and public non-claims with the implemented seed chain through
   PR #57. Merged seeds remain separate from stable release capabilities.

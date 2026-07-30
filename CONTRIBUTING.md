@@ -1,7 +1,9 @@
 # Contributing to Localize Anything
 
-Localize Anything is an agent-native localization framework for safely
-extracting, translating, reviewing, and applying localized resources.
+Localize Anything is the localization workflow and review layer for Coding
+Agents. Read [Product Direction](docs/product-direction.md) and
+[Architecture](docs/architecture.md) before proposing product or architecture
+changes.
 
 ## Development setup
 
@@ -30,6 +32,15 @@ python benchmarks/v021-mode-system/run.py
 ## Contribution rules
 
 - Keep pull requests narrow.
+- Prefer simplifying and consolidating existing capabilities over expanding the
+  legacy platform surface.
+- Keep the Agent Skill as the primary interface, the CLI deterministic and
+  small, and Git as the change-management layer.
+- Do not introduce a parallel Workbench, Provider-management platform,
+  multi-agent framework, enterprise approval workflow, or user-facing protocol
+  surface without a new accepted product decision.
+- Treat Glossary and Project Memory as the canonical user-facing memory
+  concepts.
 - Do not commit generated reports, benchmark work directories, caches, or local
   scratch files.
 - Do not expose private roadmaps or internal planning documents.
@@ -43,6 +54,10 @@ python benchmarks/v021-mode-system/run.py
 - What changed?
 - What validation was run, and what were the results?
 - Does the change affect source safety, staging, apply, or review behavior?
+- Does the change support Standard or Release workflow and reduce user Review
+  cost?
+- Does it add a user-facing concept that should instead be consolidated into
+  Glossary or Project Memory?
 - Does the change require public documentation updates?
 
 ## License

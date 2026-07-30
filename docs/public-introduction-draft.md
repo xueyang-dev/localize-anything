@@ -2,53 +2,66 @@
 
 ## English
 
-Localize Anything is an agent-native localization engineering framework for
-turning source projects, user-approved knowledge, model-generated drafts,
-deterministic QA, and scoped human review into traceable, review-ready delivery
-artifacts.
+Localize Anything is the localization expertise layer for Coding Agents.
 
-It is not a one-click perfect-translation product. The released baseline
-protects source structure, stages output outside the source project, records QA
-and review evidence, and requires an explicit apply plan and confirmation.
-Advanced document, knowledge, workflow, and provider-evidence gates implemented
-through PR #62 are architecture seeds rather than additional stable-release
-claims. Release audit artifacts define the current public claim boundary; they
-do not create a release or quality claim by themselves.
+Through an Agent Skill and lightweight deterministic QA tools, it helps Codex,
+Claude Code, and similar agents define localization scope, reuse product
+terminology and translation memory, apply style and preserve rules, and
+independently review localized results.
 
-The project does not claim production translation quality without qualified
-review, complete Android or full-product localization, zero residual English,
-locale-complete support, DOCX render fidelity, factual truth verification, or
-provider-/knowledge-backed quality from intake alone. It also does not claim
-automatic apply readiness without current readiness, signoff, and apply-plan
-evidence.
+The Coding Agent still owns i18n architecture, code changes, builds, tests,
+screenshots, Git diffs, commits, and pull requests. Localize Anything supplies
+the professional workflow and compresses hundreds of review decisions into a
+small set of high-risk items that genuinely need the developer.
+
+It is not a translation model, Provider platform, enterprise TMS, multi-agent
+orchestrator, independent Workbench, Git replacement, or automatic quality
+certification system.
+
+Short positioning:
+
+> **An agent-native localization workflow and review layer.**
+
+Product promise:
+
+> Make Coding Agents follow a professional localization workflow, consistently
+> reuse project knowledge, review every localized item, and minimize the work
+> that needs a developer's direct attention.
 
 Repo: https://github.com/xueyang-dev/localize-anything
 
 ## 中文
 
-Localize Anything 是一个面向 Agent 的本地化工程框架，把源项目、用户审核知识、模型生成草稿、确定性 QA 和范围化人工审核组织成可追踪、可审查的交付产物。
+Localize Anything 是面向 Coding Agent 的本地化专业能力层。
 
-它不是“一键完美翻译”产品。当前稳定发布基线负责保护源结构、在源项目之外暂存输出、记录 QA 与审核证据，并要求显式审阅 apply plan 和确认。PR #62 之前实现的高级文档、知识、工作流、locale、provenance、benchmark、release audit 和 provider evidence 能力属于架构 seed，不自动成为新的稳定发布声明。Release audit 产物定义当前公开声明边界；它们本身不创建 release 或质量声明。
+它通过 Agent Skill 和轻量确定性 QA 工具，帮助 Codex、Claude Code 等 Agent
+明确本地化范围，复用产品术语和翻译记忆，应用风格与保留规则，并在初稿完成后进行
+独立审查。
 
-项目不承诺未经合格审核的生产质量、完整 Android 或完整产品本地化、零残留英文、locale-complete 支持、DOCX 渲染保真、现实事实真实性验证，也不把 provider/knowledge intake 本身视为质量证明。没有当前 readiness、signoff 和 apply-plan 证据时，项目也不声称 automatic apply readiness。
+Coding Agent 仍然负责 i18n 架构、代码修改、build/test、截图、Git diff、commit
+和 PR。Localize Anything 提供专业流程，并把数百条译文的人工 Review 压缩成少量
+真正需要开发者确认的高风险项。
+
+它不是翻译模型、Provider 平台、企业 TMS、多 Agent 编排器、独立 Workbench、
+Git 替代品或自动质量认证系统。
+
+短定位：
+
+> **面向 Coding Agent 的本地化专业能力层。**
+
+产品承诺：
+
+> 让 Coding Agent 按专业本地化流程工作，稳定复用项目知识，系统审查所有译文，
+> 并把开发者需要亲自处理的内容压缩到最少。
 
 Repo: https://github.com/xueyang-dev/localize-anything
 
-## Short one-line versions
+## Claims To Avoid
 
-> Localize Anything is an agent-native localization engineering framework for
-> traceable, review-ready delivery—not one-click perfect translation.
-
-> Localize Anything 是一个面向 Agent 的本地化工程框架，目标是可追踪、可审查的交付，而不是“一键完美翻译”。
-
-## Things not to claim
-
-- complete or fully automatic localization of any product
-- zero residual source-language text
-- production-ready model/provider quality without qualified review
-- provider-backed quality from result intake or deterministic QA alone
-- knowledge-backed quality without matching scope, review, and signoff
-- locale-complete support
-- DOCX layout/render fidelity or factual truth verification
-- automatic destructive apply
-- public release readiness from seed artifacts alone
+- perfect or fully automatic professional translation;
+- replacing the Coding Agent's i18n engineering work;
+- enterprise TMS, Provider management or multi-agent orchestration;
+- universal support for every framework, locale or content surface;
+- zero source-language characters as the definition of coverage;
+- semantic quality proven by deterministic checks alone;
+- release readiness without actual project build/test, review and Git evidence.
