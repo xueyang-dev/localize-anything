@@ -1,0 +1,227 @@
+{
+  "schema": "localize-anything-phase5-capability-matrix-v1",
+  "generated_on": "2026-07-31",
+  "scope": "Phase 5 stabilization of the five-command core and bounded compatibility handlers",
+  "statuses": [
+    "covered",
+    "partially_covered",
+    "uncovered",
+    "intentionally_unsupported"
+  ],
+  "summary": {
+    "covered": 19,
+    "partially_covered": 4,
+    "uncovered": 0,
+    "intentionally_unsupported": 0,
+    "total": 23
+  },
+  "items": [
+    {
+      "id": "scan",
+      "capability": "scan",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "Core unit test and all three Phase 5 fixed slices discovered the declared source resource.",
+      "tests": ["tests/test_core_cli.py", "tests/test_skill_phase2.py"],
+      "limitations": "Discovery is format-aware but does not infer project-specific i18n architecture."
+    },
+    {
+      "id": "glossary-bootstrap",
+      "capability": "glossary bootstrap",
+      "status": "partially_covered",
+      "scope": "five-command core",
+      "evidence": "Candidate extraction and locked-constraint tests pass; all three slices produced a canonical glossary file.",
+      "tests": ["tests/test_core_capabilities.py", "tests/test_skill_phase2.py"],
+      "limitations": "Candidate extraction is intentionally conservative; small slices can correctly produce zero candidates and semantic term quality remains human-reviewed."
+    },
+    {
+      "id": "deterministic-check",
+      "capability": "check",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "JSON and Apple slices passed; Android surfaced an expected informational skipped-resource finding without a blocking error.",
+      "tests": ["tests/test_core_cli.py", "tests/test_core_capabilities.py", "tests/test_runtime.py"],
+      "limitations": "Structural and placeholder checks do not judge translation meaning or naturalness."
+    },
+    {
+      "id": "review-packet",
+      "capability": "review packet",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "Every fixed slice generated an independent-review packet containing Project Memory, Glossary, deterministic results, and aligned segments.",
+      "tests": ["tests/test_core_cli.py", "tests/test_skill_phase2.py"],
+      "limitations": "The packet is an input to an independent reviewer, not an automatic semantic approval."
+    },
+    {
+      "id": "independent-review",
+      "capability": "independent review",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "Fresh-context review payloads were accepted for JSON, Android, and Apple slices.",
+      "tests": ["tests/test_core_cli.py", "tests/test_skill_phase2.py"],
+      "limitations": "Reviewer quality is outside deterministic CLI control."
+    },
+    {
+      "id": "finding-confirmation-gate",
+      "capability": "finding/confirmation gate",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "JSON and Apple slices remained needs_human_confirmation until the exact open finding was confirmed; invalid IDs are rejected by the Skill test.",
+      "tests": ["tests/test_core_cli.py", "tests/test_skill_phase2.py"],
+      "limitations": "Confirmation records a human decision; it does not replace product-owner judgment."
+    },
+    {
+      "id": "report-readiness",
+      "capability": "report readiness",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "Reports correctly produced needs_human_confirmation, needs_attention, and ready outcomes across the clean-install and fixed-slice runs.",
+      "tests": ["tests/test_core_cli.py", "tests/test_skill_phase2.py"],
+      "limitations": "Ready is limited to Localize Anything evidence and explicitly does not claim project build/test release approval."
+    },
+    {
+      "id": "project-memory",
+      "capability": "Project Memory",
+      "status": "covered",
+      "scope": "five-command core",
+      "evidence": "scan writes source/target locales and selected resources; confirmed knowledge is imported into the memory boundary.",
+      "tests": ["tests/test_core_capabilities.py", "tests/test_skill_phase2.py"],
+      "limitations": "Project-native build configuration and runtime locale behavior remain Coding Agent responsibilities."
+    },
+    {
+      "id": "concept-centered-glossary",
+      "capability": "concept-centered Glossary",
+      "status": "partially_covered",
+      "scope": "five-command core",
+      "evidence": "Canonical glossary.json, stable concept IDs, locked preferred/forbidden targets, and preservation behavior are tested.",
+      "tests": ["tests/test_core_capabilities.py", "tests/test_skill_phase2.py"],
+      "limitations": "The core does not infer a complete product ontology or guarantee natural translation choices."
+    },
+    {
+      "id": "knowledge-import",
+      "capability": "knowledge import",
+      "status": "covered",
+      "scope": "lightweight confirmed-memory import",
+      "evidence": "Only confirmed terminology, translation memory, style rules, decisions, and approved packs enter Project Memory/Glossary.",
+      "tests": ["tests/test_core_capabilities.py"],
+      "limitations": "Knowledge Pack is not retained as a user-facing core concept; unconfirmed data is ignored."
+    },
+    {
+      "id": "segment-identity-diff-staleness",
+      "capability": "segment identity/diff/staleness",
+      "status": "covered",
+      "scope": "lightweight core segment boundary",
+      "evidence": "Stable IDs, alignment, source-hash changes, and stale/new/unchanged classification pass parity tests.",
+      "tests": ["tests/test_core_capabilities.py"],
+      "limitations": "No legacy workflow or artifact lifecycle is carried into the core."
+    },
+    {
+      "id": "json-yaml",
+      "capability": "JSON/YAML",
+      "status": "partially_covered",
+      "scope": "core JSON and structured YAML/TOML handlers",
+      "evidence": "JSON completed the clean-install end-to-end flow; YAML/TOML round-trip and placeholder tests pass.",
+      "tests": ["tests/test_core_cli.py", "tests/test_runtime.py"],
+      "limitations": "Full YAML syntax validation uses the optional yaml extra; complex block scalars, anchors, flow collections, and TOML multiline/array strings are intentionally bounded."
+    },
+    {
+      "id": "android-xml",
+      "capability": "Android XML",
+      "status": "covered",
+      "scope": "core Android resource adapter",
+      "evidence": "Extensive string/array/plural/qualifier/placeholder tests plus a ru fixed-slice scan/check/review/report run.",
+      "tests": ["tests/test_runtime.py", "tests/test_core_capabilities.py"],
+      "limitations": "Compose strings, layouts, assets, build variants, locale behavior, and APK packaging remain project work."
+    },
+    {
+      "id": "apple-strings",
+      "capability": "Apple .strings",
+      "status": "covered",
+      "scope": "core Apple strings adapter",
+      "evidence": "Round-trip/placeholder tests and a ru fixed-slice run validated with plutil.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "Xcode project files, storyboards, build settings, and application code are outside the handler."
+    },
+    {
+      "id": "xcstrings",
+      "capability": ".xcstrings",
+      "status": "covered",
+      "scope": "core catalog adapter",
+      "evidence": "Catalog round-trip and placeholder tests pass; core review pairing reads target localizations.",
+      "tests": ["tests/test_runtime.py", "tests/test_core_cli.py"],
+      "limitations": "Only declared catalog resources are checked; project-level Xcode behavior is not."
+    },
+    {
+      "id": "gettext-po",
+      "capability": "PO",
+      "status": "covered",
+      "scope": "core gettext adapter",
+      "evidence": "PO parsing, plural/header/placeholder validation and core review identity pairing pass.",
+      "tests": ["tests/test_runtime.py", "tests/test_core_cli.py"],
+      "limitations": "Semantic translation quality and project-native msgmerge/release tooling remain external."
+    },
+    {
+      "id": "xliff",
+      "capability": "XLIFF",
+      "status": "covered",
+      "scope": "core XLIFF 1.2/2.x adapter",
+      "evidence": "Both XLIFF versions round-trip with inline-tag and placeholder checks.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "Vendor-specific extensions are only covered when preserved by the bounded parser."
+    },
+    {
+      "id": "markup-compatibility",
+      "capability": "markup compatibility",
+      "status": "covered",
+      "scope": "explicit direct compatibility handler",
+      "evidence": "Markdown/HTML extraction, rebuild, links, tags, scripts, and code preservation tests pass.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "No automatic fallback or full HTML attribute/image-text localization."
+    },
+    {
+      "id": "subtitle-compatibility",
+      "capability": "subtitles compatibility",
+      "status": "covered",
+      "scope": "explicit direct compatibility handler",
+      "evidence": "SRT/WebVTT cue identity, timing, tags, and placeholder round-trip tests pass.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "Reading speed, line breaks, cultural context, and rendered playback require review."
+    },
+    {
+      "id": "tabular-compatibility",
+      "capability": "tabular compatibility",
+      "status": "covered",
+      "scope": "explicit direct compatibility handler",
+      "evidence": "CSV/TSV/XLSX round-trip tests preserve coordinates, keys, formulas, and non-text cells.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "The handler targets a locale-table convention and does not infer arbitrary workbook semantics."
+    },
+    {
+      "id": "wesnoth-compatibility",
+      "capability": "Wesnoth compatibility",
+      "status": "partially_covered",
+      "scope": "explicit scenario compatibility handler",
+      "evidence": "WML context extraction and pinned public fixture checks pass.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "The retained scenario adapter is extract-only; it is not a general five-command translation path."
+    },
+    {
+      "id": "word-compatibility",
+      "capability": "Word compatibility",
+      "status": "covered",
+      "scope": "explicit direct compatibility handler",
+      "evidence": "DOCX/DOTX/DOCM/DOTM visible-text round-trip tests preserve OpenXML parts and macro bytes.",
+      "tests": ["tests/test_runtime.py"],
+      "limitations": "Rendered-layout fidelity, images, embedded objects, legacy .doc, and encrypted documents need separate handling."
+    },
+    {
+      "id": "clean-package-installation",
+      "capability": "clean package installation",
+      "status": "covered",
+      "scope": "wheel install from a fresh clone and fresh venv",
+      "evidence": "localize-anything 0.4.1 installed with one localize entrypoint; five commands ran end-to-end; deleted modules were absent from wheel and import resolution.",
+      "tests": ["Phase 5 clean clone/venv run"],
+      "limitations": "Repository-only protocol/adapter catalogs are validation assets, not runtime package data."
+    }
+  ]
+}
