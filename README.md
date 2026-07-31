@@ -5,86 +5,33 @@
 </p>
 
 <p align="center">
-  <strong>面向 Coding Agent 的本地化专业能力层。</strong>
+  <strong>面向 Coding Agent 的本地化专业能力层。</strong><br />
+  <sub>An agent-native localization workflow and review layer.</sub>
 </p>
 
 <p align="center">
   简体中文 · <a href="README.en.md">English</a>
 </p>
 
-Localize Anything 帮助 Coding Agent 在真实项目中完成一条清晰、可审查的本地化链路：
+你已经让 Coding Agent 帮你写代码了。现在让它为项目增加俄语支持——它能翻，但翻完之后呢？术语是否一致、关键概念有没有译对、几百条译文怎么审查——这些问题 Agent 单靠自己解决不了。
+
+**Localize Anything 给它一套专业本地化流程：** 扫描范围、建立项目术语表、系统审查所有译文、把需要你亲自确认的高风险项压缩到个位数。它不是一个翻译工具，也不是又一个 CI 平台——它是嵌入 Agent 工作流的本地化专业层，让项目记忆跨会话复用，让审查从「逐条看」变成「只看那几条真正需要你决定的」。
+
+## 工作流
 
 ```text
-scan
-→ glossary bootstrap
-→ Coding Agent 本地化
-→ 项目原生 build/test
-→ check
-→ independent review
-→ human confirmation
-→ report
-```
-
-它不替代 Coding Agent、项目构建系统、Git 或人工产品判断。它负责范围、Project
-Memory、Glossary、确定性检查、独立审查和少量高风险确认。
-
-## 当前实现
-
-仓库当前只有一个公开 CLI：`localize`。默认路径只包含五个命令：
-
-```bash
 localize scan
-localize glossary bootstrap
-localize check
-localize review
-localize report
+→ localize glossary bootstrap
+→ Coding Agent 本地化（项目原生 build/test）
+→ localize check
+→ localize review
+→ 人工确认
+→ localize report
 ```
 
-旧的 `localize-anything` 平台 CLI、Provider、Workbench、readiness、workflow、
-signoff、Knowledge Pack、generation/delivery orchestration 和对应协议已移除。
-格式缺口由 Coding Agent 使用项目原生工具处理，不会自动退回旧平台。
+Localize Anything 不替代 Coding Agent、项目构建系统、Git 或人工产品判断。它负责范围、Project Memory、Glossary、确定性检查、独立审查和少量高风险确认。
 
-当前核心提供：
-
-- 可提交到 Git 的 Project Memory；
-- 以产品概念为中心的单一 `glossary.json`；
-- 已确认旧术语、TM、style 和 decisions 的保守导入；
-- JSON、YAML/TOML、Android XML、Apple `.strings` / `.xcstrings`、PO/POT 和
-  XLIFF 的扫描与结构检查；
-- placeholder、key、markup、Android escape/CDATA 和 locked Glossary 检查；
-- 面向新 Agent context 的独立 review packet；
-- finding 关联的人工确认门；
-- 精简的 JSON/Markdown 报告。
-
-Markdown/HTML、CSV/TSV/XLSX、Word OpenXML、字幕和 Wesnoth handler 作为有限的
-Python 兼容能力保留，但不是默认 CLI 回退路径。
-
-### Standard 和 Release
-
-- **Standard**：适合新增语言或更新文案，完成范围、Glossary、工程修改、确定性
-  检查、独立 Review 和高风险确认。
-- **Release**：在 Standard 之上增加页面截图、页面级审查、项目原生 build/test、
-  locale switch/persistence/detection/fallback 验证、干净 Git diff 和发布证据。
-
-### 让 Coding Agent 使用 Skill
-
-在 Codex 中，把仓库的 `skills/localize-anything/` 作为可用 Skill（或复制到你的
-Codex skills 目录），然后直接提出：
-
-> 使用 Localize Anything，为这个项目增加俄语支持。
-
-在 Claude Code 中，把同一目录放入项目的 `.claude/skills/localize-anything/`
-（保留 `SKILL.md` 和 `references/`），然后使用同样的自然语言请求。Skill 只指导
-Agent；代码、资源、build/test 和 Git 仍由 Agent 使用项目原生命令完成。
-
-### 格式边界
-
-默认核心覆盖 JSON、YAML/TOML、Android XML、Apple `.strings` / `.xcstrings`、
-PO/POT 和 XLIFF。Markdown/HTML、CSV/TSV/XLSX、Word、SRT/WebVTT 和 Wesnoth
-共有五个受限兼容 Adapter 方向；它们必须显式调用，只有声明的机械解析/重建能力，
-不会自动 fallback，也不等于完整产品支持。
-
-## 安装
+## 快速上手
 
 需要 Python 3.11+：
 
@@ -96,15 +43,7 @@ source .venv/bin/activate
 python -m pip install -e ".[yaml]"
 ```
 
-## 使用
-
-先扫描项目。未声明 source 时，`scan` 只列出可识别资源：
-
-```bash
-localize scan /path/to/project
-```
-
-声明一次本地化任务：
+对目标项目声明一次本地化任务，建立 Project Memory：
 
 ```bash
 localize scan /path/to/project \
@@ -113,78 +52,50 @@ localize scan /path/to/project \
   --source locales/en.json
 ```
 
-然后建立 canonical Glossary：
+生成 canonical Glossary：
 
 ```bash
 localize glossary bootstrap /path/to/project
 ```
 
-Coding Agent 接下来修改应用代码和目标语言资源，并运行项目自己的验证，例如：
+接下来 Coding Agent 修改应用代码与目标语言资源，并运行项目自己的验证（`npm test`、`npm run build`、`git diff` 等）。工程修改完成后：
 
 ```bash
-npm test
-npm run build
-git diff
+localize check /path/to/project --target locales/ru.json
+localize review /path/to/project --target locales/ru.json
 ```
 
-Localize Anything 不包装或替代这些命令。完成工程修改后运行：
+把 `.localize-anything/review-packet.json` 交给一个未参与生成译文的独立 Agent context 审查，导入审查结果并生成报告：
 
 ```bash
-localize check /path/to/project \
-  --target locales/ru.json
-
-localize review /path/to/project \
-  --target locales/ru.json
-```
-
-把 `.localize-anything/review-packet.json` 交给未参与生成译文的新 Agent context。
-审查结果格式为：
-
-```json
-{
-  "reviewer": "independent-agent",
-  "findings": [
-    {
-      "id": "navigation.share",
-      "severity": "high",
-      "status": "needs_human_confirmation",
-      "note": "产品动作含义需要确认"
-    }
-  ]
-}
-```
-
-导入审查并生成报告：
-
-```bash
-localize review /path/to/project \
-  --target locales/ru.json \
-  --findings review.json
-
+localize review /path/to/project --target locales/ru.json --findings review.json
 localize report /path/to/project
 ```
 
-只有 `needs_human_confirmation` 的开放 finding 可以接受人工确认：
+只有状态为 `needs_human_confirmation` 的开放 finding 可以接受人工确认：
 
 ```bash
 localize report /path/to/project --confirm confirmations.json
 ```
 
-确认文件示例：
+所有核心状态保存在目标项目的 `.localize-anything/` 目录，可随 Git 提交与共享。
 
-```json
-{
-  "confirmations": [
-    {
-      "finding_id": "navigation.share",
-      "decision": "使用“Поделиться”",
-      "note": "产品所有者确认"
-    }
-  ]
-}
-```
+## 让 Coding Agent 使用
 
-所有核心状态位于项目的 `.localize-anything/` 目录。
+主入口是 Agent Skill，CLI 是它的确定性工具。
+
+- **Codex**：把仓库的 `skills/localize-anything/` 目录作为可用 Skill（或复制到你的 Codex skills 目录），然后直接提出：
+  > 使用 Localize Anything，为这个项目增加俄语支持。
+- **Claude Code**：把同一目录放入项目的 `.claude/skills/localize-anything/`（保留 `SKILL.md` 和 `references/`），使用同样的自然语言请求即可。
+
+Skill 只指导流程；代码修改、资源编辑、build/test 和 Git 操作仍由 Coding Agent 使用项目原生命令完成。
+
+## 两种工作深度
+
+| 深度 | 适用场景 | 内容 |
+| --- | --- | --- |
+| **Standard** | 日常新增语言、更新文案 | 范围、Glossary、Agent 实施、确定性检查、独立 Review、高风险确认 |
+| **Release** | 正式发布 | Standard 全部内容 + 页面截图、页面级 Review、项目原生 build/test、locale 切换/持久化/检测/fallback 验证、干净 Git diff、发布证据 |
 
 ## 职责边界
 
@@ -195,9 +106,7 @@ localize report /path/to/project --confirm confirmations.json
 | Coding Agent | i18n 架构、代码和资源修改、语言切换、fallback、build/test、截图、Git |
 | 用户 | 产品含义、品牌、正式术语、高风险歧义和发布判断 |
 
-确定性检查不证明译文自然或语义正确；独立 Agent Review 也不等同于人工发布批准。
-`ready` 只表示当前声明范围内的核心检查、Review 和确认已完成，不替代项目原生
-build/test、截图或 Git Review。
+确定性检查不证明译文自然或语义正确，独立 Agent Review 也不等于人工发布批准。`ready` 只表示当前声明范围内的核心检查、Review 和确认已完成，不替代项目原生 build/test、截图或 Git Review。
 
 ## 开发验证
 
@@ -219,18 +128,16 @@ assert validate_adapter_tree(Path("adapters"))["status"] == "pass"
 
 ## 文档
 
-- [产品方向](docs/product-direction.md)
+- [产品方向](docs/product-direction.md) — 定位与范围基准，一切文档的源头
 - [当前架构](docs/architecture.md)
 - [架构路线图](docs/architecture-roadmap.md)
-- [格式处理边界](docs/adapters.md)
+- [格式处理边界](docs/adapters.md) — 核心格式与受限兼容方向的完整说明
 - [核心数据契约](protocol/SPEC.md)
 - [Agent Skill](skills/localize-anything/SKILL.md)
-- [Phase 2 真实项目验证](docs/validation/phase2-live-dry-run.md)
-- [Agent-native core 迁移说明](docs/migration/agent-native-core-migration.md)
-- [0.5.0 发布说明草案](docs/releases/0.5.0-release-notes.md)
+- [迁移说明](docs/migration/agent-native-core-migration.md) — 从旧平台迁移到五命令核心
+- [0.5.0 发布说明](docs/releases/0.5.0-release-notes.md)
 
-历史 v0.4 平台设计只保留在
-[Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) 和 Git 历史中。
+历史 v0.4 平台设计仅保留在 [Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) 与 Git 历史中。
 
 ## 非目标
 
@@ -241,7 +148,7 @@ Localize Anything 不是：
 - 通用多 Agent orchestration framework；
 - Workbench 或发布治理系统；
 - Git、CI 或项目构建系统的替代品；
-- “零源语言字符”或专业翻译质量的自动认证。
+- 「零源语言字符」或专业翻译质量的自动认证。
 
 ## License
 

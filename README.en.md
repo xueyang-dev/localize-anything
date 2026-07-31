@@ -12,91 +12,27 @@
   English · <a href="README.md">简体中文</a>
 </p>
 
-Localize Anything gives Coding Agents a clear, reviewable workflow for real
-application repositories:
+You've already handed your coding to an Agent. Now ask it to add Russian support to your project — it can translate, but then what? Are terms consistent across the app? Did it get the key concepts right? How do you review a few hundred translated strings without reading all of them? An Agent alone has no answer to these.
+
+**Localize Anything gives it a professional localization workflow:** scan the scope, build a project glossary, systematically review every translation, and shrink what needs your personal sign-off down to a handful of high-risk decisions. It is not a translation tool, and it is not another CI platform — it is an expertise layer embedded in the Agent workflow. Project memory carries across sessions, and review changes from "read everything" to "decide the few things only you can."
+
+## Workflow
 
 ```text
-scan
-→ glossary bootstrap
-→ Coding Agent localization
-→ project-native build/test
-→ check
-→ independent review
-→ human confirmation
-→ report
-```
-
-It does not replace the Coding Agent, project build system, Git, or human
-product judgment. It owns scope, Project Memory, the Glossary, deterministic
-checks, independent review, and a small set of high-risk confirmations.
-
-## Current Implementation
-
-The repository has one public CLI: `localize`. Its default path contains only
-five commands:
-
-```bash
 localize scan
-localize glossary bootstrap
-localize check
-localize review
-localize report
+→ localize glossary bootstrap
+→ Coding Agent localization (project-native build/test)
+→ localize check
+→ localize review
+→ human confirmation
+→ localize report
 ```
 
-The old `localize-anything` platform CLI, Provider, Workbench, readiness,
-workflow, signoff, Knowledge Pack, generation/delivery orchestration, and their
-protocols have been removed. A missing format handler is handled with
-project-native Coding Agent work; it never triggers an automatic fallback to
-the old platform.
+Localize Anything does not replace the Coding Agent, the project build system, Git, or human product judgment. It owns scope, Project Memory, the Glossary, deterministic checks, independent review, and a small set of high-risk confirmations.
 
-The core currently provides:
+## Quick start
 
-- Git-shareable Project Memory;
-- one product-concept-centered `glossary.json`;
-- conservative import of confirmed legacy terms, TM, style, and decisions;
-- scan and structural checks for JSON, YAML/TOML, Android XML, Apple `.strings`
-  and `.xcstrings`, PO/POT, and XLIFF;
-- placeholder, key, markup, Android escape/CDATA, and locked-Glossary checks;
-- a self-contained review packet for a fresh Agent context;
-- a finding-linked human confirmation gate;
-- concise JSON and Markdown reports.
-
-Markdown/HTML, CSV/TSV/XLSX, Word OpenXML, subtitle, and Wesnoth handlers remain
-as limited Python compatibility capabilities. They are not a default CLI
-fallback.
-
-### Standard and Release depth
-
-- **Standard** is for routine locale additions and copy updates: scope,
-  Glossary, Agent implementation, deterministic checks, independent review, and
-  high-risk confirmations.
-- **Release** adds page screenshots, page-level review, project-native
-  build/test, locale switch/persistence/detection/fallback checks, a clean Git
-  diff, and release evidence.
-
-### Make the Skill available to your Coding Agent
-
-For Codex, expose `skills/localize-anything/` as an available Skill (or copy it
-to your Codex skills directory), then ask:
-
-> Use Localize Anything to add Russian support to this project.
-
-For Claude Code, place the same directory under
-`.claude/skills/localize-anything/` with `SKILL.md` and `references/`, then use
-the same request. The Skill guides the Agent; the Agent still owns code,
-resources, project-native build/test, and Git.
-
-### Format boundaries
-
-The default core covers JSON, YAML/TOML, Android XML, Apple `.strings` and
-`.xcstrings`, PO/POT, and XLIFF. Markdown/HTML, CSV/TSV/XLSX, Word, SRT/WebVTT,
-and Wesnoth are five restricted compatibility Adapter directions. They require
-explicit invocation, provide only their declared mechanical parsing/rebuild
-capabilities, never auto-fallback, and do not imply complete product support.
-
-## Install
-
-Python 3.11+ is required:
+Requires Python 3.11+:
 
 ```bash
 git clone https://github.com/xueyang-dev/localize-anything.git
@@ -106,16 +42,7 @@ source .venv/bin/activate
 python -m pip install -e ".[yaml]"
 ```
 
-## Use
-
-Scan a project. Without declared source files, `scan` only inventories
-recognized resources:
-
-```bash
-localize scan /path/to/project
-```
-
-Declare a localization task:
+Declare a localization task for the target project and establish Project Memory:
 
 ```bash
 localize scan /path/to/project \
@@ -130,91 +57,57 @@ Bootstrap the canonical Glossary:
 localize glossary bootstrap /path/to/project
 ```
 
-The Coding Agent then edits application code and target-locale resources and
-runs the project's own verification, for example:
+The Coding Agent then edits application code and target-locale resources, and runs the project's own verification (`npm test`, `npm run build`, `git diff`, etc.). Once the engineering work is done:
 
 ```bash
-npm test
-npm run build
-git diff
+localize check /path/to/project --target locales/ru.json
+localize review /path/to/project --target locales/ru.json
 ```
 
-Localize Anything does not wrap or replace those commands. After the
-engineering changes:
+Hand `.localize-anything/review-packet.json` to a fresh Agent context that did not generate the translation, import its findings, and build the report:
 
 ```bash
-localize check /path/to/project \
-  --target locales/ru.json
-
-localize review /path/to/project \
-  --target locales/ru.json
-```
-
-Give `.localize-anything/review-packet.json` to a fresh Agent context that did
-not generate the translation. The review result has this shape:
-
-```json
-{
-  "reviewer": "independent-agent",
-  "findings": [
-    {
-      "id": "navigation.share",
-      "severity": "high",
-      "status": "needs_human_confirmation",
-      "note": "The product action needs an official wording decision."
-    }
-  ]
-}
-```
-
-Import the review and build the report:
-
-```bash
-localize review /path/to/project \
-  --target locales/ru.json \
-  --findings review.json
-
+localize review /path/to/project --target locales/ru.json --findings review.json
 localize report /path/to/project
 ```
 
-Only an open `needs_human_confirmation` finding can receive a human decision:
+Only an open finding with status `needs_human_confirmation` can receive a human decision:
 
 ```bash
 localize report /path/to/project --confirm confirmations.json
 ```
 
-Example confirmation file:
+All core state lives in the target project's `.localize-anything/` directory and can be committed and shared with Git.
 
-```json
-{
-  "confirmations": [
-    {
-      "finding_id": "navigation.share",
-      "decision": "Use “Поделиться”",
-      "note": "Confirmed by the product owner."
-    }
-  ]
-}
-```
+## Using it with your Coding Agent
 
-All core state lives under `.localize-anything/` in the target project.
+The entry point is the Agent Skill; the CLI is its deterministic tool.
 
-## Responsibility Boundary
+- **Codex:** expose the repository's `skills/localize-anything/` directory as an available Skill (or copy it into your Codex skills directory), then ask:
+  > Use Localize Anything to add Russian support to this project.
+- **Claude Code:** place the same directory under the project's `.claude/skills/localize-anything/` (keeping `SKILL.md` and `references/`), then use the same natural-language request.
+
+The Skill only guides the workflow. Code edits, resource changes, build/test, and Git operations remain the Coding Agent's job using the project's native commands.
+
+## Two levels of depth
+
+| Level | When to use | What it includes |
+| --- | --- | --- |
+| **Standard** | Routine locale additions, copy updates | Scope, Glossary, Agent implementation, deterministic checks, independent review, high-risk confirmations |
+| **Release** | Formal releases | Everything in Standard + page screenshots, page-level review, project-native build/test, locale switch/persistence/detection/fallback verification, a clean Git diff, release evidence |
+
+## Responsibility boundary
 
 | Role | Responsibility |
 | --- | --- |
 | Localize Anything Skill | Scope, Glossary, Project Memory, workflow, independent review, risk summary |
 | `localize` CLI | Scan, structural checks, review packet, finding/confirmation constraint, report |
-| Coding Agent | i18n architecture, code/resources, locale behavior, fallback, build/test, screenshots, Git |
+| Coding Agent | i18n architecture, code and resource changes, locale switching, fallback, build/test, screenshots, Git |
 | User | Product meaning, brands, official terminology, high-risk ambiguity, release judgment |
 
-Deterministic checks do not prove natural or semantically correct translation,
-and independent Agent review is not human release approval. `ready` means only
-that core checks, review, and confirmations for the declared scope are
-complete. It does not replace project-native build/test, screenshots, or Git
-review.
+Deterministic checks do not prove that translations are natural or semantically correct, and an independent Agent review is not human release approval. `ready` means only that the core checks, review, and confirmations for the declared scope are complete — it does not replace project-native build/test, screenshots, or Git review.
 
-## Development Validation
+## Development validation
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py'
@@ -234,21 +127,18 @@ assert validate_adapter_tree(Path("adapters"))["status"] == "pass"
 
 ## Documentation
 
-- [Product Direction](docs/product-direction.md)
+- [Product Direction](docs/product-direction.md) — the positioning and scope baseline every document follows
 - [Current Architecture](docs/architecture.md)
 - [Architecture Roadmap](docs/architecture-roadmap.md)
-- [Format Handler Boundaries](docs/adapters.md)
+- [Format Handler Boundaries](docs/adapters.md) — full detail on core formats and restricted compatibility directions
 - [Core Data Contracts](protocol/SPEC.md)
 - [Agent Skill](skills/localize-anything/SKILL.md)
-- [Phase 2 Real-Project Validation](docs/validation/phase2-live-dry-run.md)
-- [Agent-native core migration](docs/migration/agent-native-core-migration.md)
-- [0.5.0 release notes draft](docs/releases/0.5.0-release-notes.md)
+- [Migration Guide](docs/migration/agent-native-core-migration.md) — moving from the legacy platform to the five-command core
+- [0.5.0 Release Notes](docs/releases/0.5.0-release-notes.md)
 
-The v0.4 platform design remains only in the
-[Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) and Git
-history.
+The v0.4 platform design survives only in the [Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) and Git history.
 
-## Non-Goals
+## Non-goals
 
 Localize Anything is not:
 
@@ -257,8 +147,7 @@ Localize Anything is not:
 - a general multi-Agent orchestration framework;
 - a Workbench or release-governance system;
 - a replacement for Git, CI, or project build tools;
-- automated certification of “zero source-language characters” or
-  professional translation quality.
+- automated certification of "zero source-language characters" or professional translation quality.
 
 ## License
 
