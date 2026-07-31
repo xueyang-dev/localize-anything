@@ -1,1 +1,0 @@
-{"protocol_version":"0.1","schema":"localize-anything-provider-execution-attempt-summary-v1","artifact":"provider-execution-attempt-summary.json","status":"attempts_recorded","attempt_count":1,"attempt_type_counts":{"mock_execution":1},"result_state_counts":{"success":1},"result_ids":["mock-result-1"],"provider_or_model_called_by_runtime":false}
