@@ -10,14 +10,6 @@ localize-anything-demo-output/
 benchmarks/private/
 benchmarks/wesnoth-south-guard/work/
 benchmarks/wesnoth-south-guard/runs/
-benchmarks/android-antennapod/work/
-benchmarks/android-antennapod/runs/
-benchmarks/ios-signal/work/
-benchmarks/ios-signal/runs/
-benchmarks/ios-icecubes-xcstrings/work/
-benchmarks/ios-icecubes-xcstrings/runs/
-benchmarks/v021-mode-system/work/
-benchmarks/v021-mode-system/__pycache__/
 test01-Wesnoth/
 test02-antennapod/
 test_placeholder_fix.py
@@ -66,7 +58,7 @@ test01-*/
 test02-*/
 test03-*/
 test05-*/
-test_*.py
+/test_*.py
 *.tmp
 *.bak
 *.local
