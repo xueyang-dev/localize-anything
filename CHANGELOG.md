@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Release preparation: 0.5.0
+
+- Prepare the first agent-native core release: `localize` is the only public
+  CLI, with `scan`, `glossary bootstrap`, `check`, `review`, and `report` as
+  the default path.
+- Document Standard and Release depth, Skill availability for Codex and Claude
+  Code, restricted Adapter boundaries, and migration from the removed platform
+  Runtime.
+- Record clean-install, five-command, multi-format, and real Documenso release
+  acceptance evidence. The Documenso Google Vertex error remains an external
+  pre-existing issue and is not a Localize Anything defect.
+
 ### Removed
 
 - Complete Runtime convergence through Phase 4.7: remove readiness,

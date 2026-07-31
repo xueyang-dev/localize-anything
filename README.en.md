@@ -65,6 +65,35 @@ Markdown/HTML, CSV/TSV/XLSX, Word OpenXML, subtitle, and Wesnoth handlers remain
 as limited Python compatibility capabilities. They are not a default CLI
 fallback.
 
+### Standard and Release depth
+
+- **Standard** is for routine locale additions and copy updates: scope,
+  Glossary, Agent implementation, deterministic checks, independent review, and
+  high-risk confirmations.
+- **Release** adds page screenshots, page-level review, project-native
+  build/test, locale switch/persistence/detection/fallback checks, a clean Git
+  diff, and release evidence.
+
+### Make the Skill available to your Coding Agent
+
+For Codex, expose `skills/localize-anything/` as an available Skill (or copy it
+to your Codex skills directory), then ask:
+
+> Use Localize Anything to add Russian support to this project.
+
+For Claude Code, place the same directory under
+`.claude/skills/localize-anything/` with `SKILL.md` and `references/`, then use
+the same request. The Skill guides the Agent; the Agent still owns code,
+resources, project-native build/test, and Git.
+
+### Format boundaries
+
+The default core covers JSON, YAML/TOML, Android XML, Apple `.strings` and
+`.xcstrings`, PO/POT, and XLIFF. Markdown/HTML, CSV/TSV/XLSX, Word, SRT/WebVTT,
+and Wesnoth are five restricted compatibility Adapter directions. They require
+explicit invocation, provide only their declared mechanical parsing/rebuild
+capabilities, never auto-fallback, and do not imply complete product support.
+
 ## Install
 
 Python 3.11+ is required:
@@ -212,6 +241,8 @@ assert validate_adapter_tree(Path("adapters"))["status"] == "pass"
 - [Core Data Contracts](protocol/SPEC.md)
 - [Agent Skill](skills/localize-anything/SKILL.md)
 - [Phase 2 Real-Project Validation](docs/validation/phase2-live-dry-run.md)
+- [Agent-native core migration](docs/migration/agent-native-core-migration.md)
+- [0.5.0 release notes draft](docs/releases/0.5.0-release-notes.md)
 
 The v0.4 platform design remains only in the
 [Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) and Git

@@ -29,6 +29,16 @@ mechanical QA, independent review, and a concise set of human decisions.
 Recommend a depth from the request and project risk. Use Standard when the user
 does not specify and Release evidence is not clearly required.
 
+## Make The Skill Available
+
+- **Codex:** expose this `skills/localize-anything/` directory as an available
+  Skill, or copy it into the configured Codex skills directory.
+- **Claude Code:** place this directory under the project's
+  `.claude/skills/localize-anything/` and keep `SKILL.md` plus `references/`.
+
+The Skill is guidance for the host Coding Agent. It does not install a second
+CLI, replace project-native commands, or restore removed platform workflows.
+
 ## Default Path
 
 The default path uses only these five `localize` capability groups:

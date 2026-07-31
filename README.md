@@ -59,6 +59,31 @@ signoff、Knowledge Pack、generation/delivery orchestration 和对应协议已�
 Markdown/HTML、CSV/TSV/XLSX、Word OpenXML、字幕和 Wesnoth handler 作为有限的
 Python 兼容能力保留，但不是默认 CLI 回退路径。
 
+### Standard 和 Release
+
+- **Standard**：适合新增语言或更新文案，完成范围、Glossary、工程修改、确定性
+  检查、独立 Review 和高风险确认。
+- **Release**：在 Standard 之上增加页面截图、页面级审查、项目原生 build/test、
+  locale switch/persistence/detection/fallback 验证、干净 Git diff 和发布证据。
+
+### 让 Coding Agent 使用 Skill
+
+在 Codex 中，把仓库的 `skills/localize-anything/` 作为可用 Skill（或复制到你的
+Codex skills 目录），然后直接提出：
+
+> 使用 Localize Anything，为这个项目增加俄语支持。
+
+在 Claude Code 中，把同一目录放入项目的 `.claude/skills/localize-anything/`
+（保留 `SKILL.md` 和 `references/`），然后使用同样的自然语言请求。Skill 只指导
+Agent；代码、资源、build/test 和 Git 仍由 Agent 使用项目原生命令完成。
+
+### 格式边界
+
+默认核心覆盖 JSON、YAML/TOML、Android XML、Apple `.strings` / `.xcstrings`、
+PO/POT 和 XLIFF。Markdown/HTML、CSV/TSV/XLSX、Word、SRT/WebVTT 和 Wesnoth
+共有五个受限兼容 Adapter 方向；它们必须显式调用，只有声明的机械解析/重建能力，
+不会自动 fallback，也不等于完整产品支持。
+
 ## 安装
 
 需要 Python 3.11+：
@@ -201,6 +226,8 @@ assert validate_adapter_tree(Path("adapters"))["status"] == "pass"
 - [核心数据契约](protocol/SPEC.md)
 - [Agent Skill](skills/localize-anything/SKILL.md)
 - [Phase 2 真实项目验证](docs/validation/phase2-live-dry-run.md)
+- [Agent-native core 迁移说明](docs/migration/agent-native-core-migration.md)
+- [0.5.0 发布说明草案](docs/releases/0.5.0-release-notes.md)
 
 历史 v0.4 平台设计只保留在
 [Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) 和 Git 历史中。

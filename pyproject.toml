@@ -4,10 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "localize-anything"
-version = "0.4.1"
+version = "0.5.0"
+readme = "README.en.md"
 description = "Localization workflow and review layer for Coding Agents"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 dependencies = []
 
 [project.optional-dependencies]

@@ -1,0 +1,8 @@
+include LICENSE README.md README.en.md README.zh-CN.md
+recursive-include adapters *.json
+recursive-include protocol *.json *.md
+recursive-include skills *.md *.yaml
+recursive-include examples *
+recursive-include benchmarks *.json *.md
+recursive-include tests *.py
+recursive-include tests/fixtures *

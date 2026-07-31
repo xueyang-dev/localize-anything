@@ -33,6 +33,16 @@ localize review
 localize report
 ```
 
+## Stabilization and Release Preparation
+
+Phase 5 clean-install and multi-format evidence, followed by the Phase 6
+Documenso Russian release acceptance and Phase 6.1 blocker attribution, now
+support the first agent-native core release candidate. The remaining target
+application Google Vertex type error is pre-existing in Documenso; it is not a
+Localize Anything core dependency. Phase 7 is release preparation only:
+versioning, packaging, documentation, migration guidance, and clean wheel
+verification.
+
 ## Next Product Work
 
 Further work must improve a real Agent localization task, not recreate the
