@@ -1,0 +1,275 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-phase6-release-acceptance-v1",
+  "executed_at": "2026-07-31",
+  "phase": "6",
+  "verdict": "release_candidate",
+  "can_prepare_first_refactor_release": true,
+  "target": {
+    "name": "Documenso",
+    "repository": "official open-source Documenso clone",
+    "path": "/tmp/localize-anything-phase6-gwOiM6/documenso",
+    "branch": "codex/phase6-ru-acceptance",
+    "baseline_commit": "6ec67d1c4db67812c737a30e40f8e0bd6086f920",
+    "target_locale": "ru",
+    "source_locale": "en",
+    "stack": [
+      "TypeScript",
+      "React Router v7",
+      "Hono",
+      "Prisma",
+      "Tailwind",
+      "Lingui",
+      "tRPC",
+      "Playwright",
+      "Biome"
+    ],
+    "i18n": {
+      "framework": "Lingui",
+      "source_catalog": "packages/lib/translations/en/web.po",
+      "target_catalog": "packages/lib/translations/ru/web.po",
+      "compiled_target_catalog": "packages/lib/translations/ru/web.mjs",
+      "supported_locale_added": true
+    }
+  },
+  "scope": {
+    "included": [
+      "recipient completion route /sign/:token/complete",
+      "completed status and dynamic document/recipient card",
+      "share, download, and go-back-home actions",
+      "claim-account form labels and validation path",
+      "share dialog visible copy",
+      "locale cookie, Accept-Language detection, and source fallback",
+      "five-command Localize Anything workflow",
+      "independent review and human-confirmation gate"
+    ],
+    "excluded": [
+      "full authenticated workspace and admin/settings surfaces",
+      "email templates, APIs, audit logs, and other format ecosystems",
+      "complete translation of all 3127 catalog entries",
+      "dynamic document title, recipient identity, email, and other database content"
+    ]
+  },
+  "commands": {
+    "localize": [
+      {
+        "command": "localize scan /tmp/localize-anything-phase6-gwOiM6/documenso --source-locale en --target-locale ru --source packages/lib/translations/en/web.po",
+        "status": "pass",
+        "evidence": "117 supported resources detected; project-memory.json written; no legacy artifact"
+      },
+      {
+        "command": "localize glossary bootstrap /tmp/localize-anything-phase6-gwOiM6/documenso",
+        "status": "pass",
+        "evidence": "129 concepts discovered (120 candidates, 9 locked); high-impact terms remain locked for the controlled flow"
+      },
+      {
+        "command": "localize check /tmp/localize-anything-phase6-gwOiM6/documenso --target packages/lib/translations/ru/web.po",
+        "status": "pass_with_warnings",
+        "evidence": "0 blocking; 0 actionable; 3072 translation_coverage limitations"
+      },
+      {
+        "command": "localize review /tmp/localize-anything-phase6-gwOiM6/documenso --target packages/lib/translations/ru/web.po",
+        "status": "pass",
+        "evidence": "3127 aligned segments packet; independent review completed with 2 auto-cleared findings"
+      },
+      {
+        "command": "localize report /tmp/localize-anything-phase6-gwOiM6/documenso",
+        "status": "needs_attention",
+        "mapped_phase6_status": "release_candidate",
+        "evidence": "attention is from 3072 entries verified as excluded scope; no open human finding"
+      }
+    ],
+    "legacy_runtime_used": false
+  },
+  "glossary": {
+    "candidate_concepts": 129,
+    "remaining_candidates": 120,
+    "locked_high_impact_terms": 9,
+    "locked_terms": [
+      "Document completed -> Документ завершён",
+      "Document title -> Название документа",
+      "Email address -> Адрес электронной почты",
+      "Go back home -> Вернуться на главную",
+      "Sign document -> Подписать документ",
+      "Signed -> Подписан",
+      "Signer -> Подписант",
+      "Upload -> Загрузить",
+      "View document -> Просмотреть документ"
+    ],
+    "catalog_entries": 3127,
+    "translated_entries": 55,
+    "untranslated_entries_outside_scope": 3072,
+    "controlled_scope_empty_entries": 0
+  },
+  "check": {
+    "status": "pass_with_warnings",
+    "blocking": 0,
+    "actionable_warning": 0,
+    "coverage_limitation": 3072,
+    "known_or_expected": 0,
+    "informational": 0,
+    "finding_category": "translation_coverage",
+    "scope_interpretation": "All warnings are outside the controlled completion-flow scope and are disclosed rather than treated as hidden readiness failures"
+  },
+  "review": {
+    "packet_status": "ready_for_independent_review",
+    "review_context": "phase6-independent-review-context",
+    "aligned_segments": 3127,
+    "reviewed": 2,
+    "auto_cleared": 2,
+    "findings": 0,
+    "human_confirmation_required": 0,
+    "open_findings_final": 0
+  },
+  "human_confirmation_gate": {
+    "temporary_test_performed": true,
+    "open_finding_blocked_report": true,
+    "invalid_confirmation_rejected": true,
+    "valid_confirmation_accepted": true,
+    "test_finding_revoked": true,
+    "final_required": 0,
+    "final_confirmed": 0,
+    "final_pending": []
+  },
+  "blocker_attribution": {
+    "baseline_worktree": "/tmp/localize-anything-phase6-gwOiM6/documenso-baseline",
+    "baseline_commit": "6ec67d1c4db67812c737a30e40f8e0bd6086f920",
+    "google_ts": {
+      "classification": "pre_existing",
+      "baseline_reproduced": true,
+      "localized_reproduced": true,
+      "localization_diff_touches_file": false,
+      "detail": "Both checkouts fail on the same GoogleVertexProviderSettings apiKey type error"
+    },
+    "hydration": {
+      "classification": "unrelated_environmental",
+      "baseline_fresh_context_reproduced": false,
+      "localized_fresh_context_reproduced": false,
+      "stale_in_app_browser_observed": true,
+      "detail": "Only the previous persistent in-app browser context reported it; fresh Playwright contexts did not"
+    },
+    "coverage": {
+      "total_untranslated": 3072,
+      "controlled_scope_entries": 28,
+      "controlled_scope_empty": 0,
+      "classification": "excluded_scope",
+      "buckets": {
+        "authenticated_workspace_or_shared_components": 2349,
+        "server_or_library_or_audit": 237,
+        "other_remix_routes": 172,
+        "email_templates": 153,
+        "shared_ui_outside_scope": 142,
+        "other": 19
+      }
+    },
+    "localize_anything_product_blocker": false
+  },
+  "native_validation": {
+    "npm_ci": {
+      "status": "blocked_by_environment",
+      "detail": "lockfile resolves a missing typescript@5.9.3 and npm 10.9.8 does not satisfy the declared npm engine"
+    },
+    "npm_install_ignore_scripts": "pass",
+    "skia_canvas_rebuild": "pass",
+    "prisma_generate": "pass",
+    "prisma_migrate_status": "pass",
+    "translate_compile": "pass",
+    "lib_tests": {
+      "status": "pass",
+      "files": 9,
+      "tests": 190
+    },
+    "targeted_biome": {
+      "status": "pass_with_warnings",
+      "errors": 0,
+      "warnings": 338,
+      "infos": 26
+    },
+    "remix_typecheck": {
+      "status": "blocked_pre_existing",
+      "attribution": "pre_existing",
+      "baseline_status": "blocked",
+      "localized_status": "blocked",
+      "detail": "Both clean baseline and localized checkout report packages/lib/server-only/ai/google.ts:8 apiKey is not in GoogleVertexProviderSettings"
+    },
+    "remix_build": {
+      "status": "blocked_pre_existing",
+      "attribution": "pre_existing",
+      "baseline_status": "blocked",
+      "localized_status": "blocked",
+      "detail": "Both clean baseline and localized checkout stop at the same Google Vertex type error after translation extraction/compile"
+    },
+    "full_lint": {
+      "status": "environmental_artifact",
+      "baseline_status": "pass_with_warnings",
+      "localized_status": "blocked_by_generated_artifact",
+      "attribution": "unrelated_environmental",
+      "detail": "Baseline exits 0 with 857 warnings/30 infos; localized checkout adds untracked .localize-anything deterministic-check.json and review-packet.json over Biome's 1 MiB input limit"
+    },
+    "e2e": {
+      "status": "not_run",
+      "reason": "authentication and fixture setup are outside the controlled public completion route"
+    }
+  },
+  "runtime": {
+    "server": "npm run dev:remix",
+    "route": "/sign/evqzU3YQhyuq8d6TtEDf4/complete",
+    "http_status": 200,
+    "switch_to_ru": "pass",
+    "persistence_cookie": "pass",
+    "system_locale_detection_ru": "pass",
+    "unknown_locale_fallback_to_en": "pass",
+    "no_raw_key_or_empty_string_in_controlled_page": "pass",
+    "share_dialog_visible_copy": "pass",
+    "recipient_zero_regression": "not_found",
+    "dynamic_content_preserved": true,
+    "browser_console": {
+      "hydration_mismatch": false,
+      "stale_in_app_browser_observation": true,
+      "attribution": "unrelated_environmental",
+      "fresh_baseline_playwright_hydration_mismatch": false,
+      "fresh_localized_playwright_hydration_mismatch": false,
+      "page_interactive": true,
+      "body_error_text": false
+    },
+    "evidence": [
+      "docs/validation/phase6-documenso-ru.jpg",
+      "docs/validation/phase6-documenso-share-ru.jpg"
+    ]
+  },
+  "findings": {
+    "p0": [],
+    "p1": [
+      "Documenso baseline and localized checkout share the Google Vertex type error (pre_existing external blocker)",
+      "3072 untranslated entries are excluded scope and require a new declared scope before translation expansion"
+    ],
+    "p2": [
+      "Reveal password aria-label remains hardcoded",
+      "Document page metadata title remains English",
+      "External Tweet intent payload remains source-language protocol text"
+    ],
+    "false_ready": false,
+    "false_blocking": false
+  },
+  "product_changes": {
+    "localize_anything_product_code_modified": false,
+    "target_application_modified": true,
+    "files": [
+      "packages/lib/constants/locales.ts",
+      "packages/lib/constants/i18n.ts",
+      "packages/lib/translations/en/web.po",
+      "packages/lib/translations/ru/web.po",
+      "packages/lib/translations/ru/web.mjs",
+      "packages/ui/components/document/document-share-button.tsx"
+    ],
+    "old_runtime_or_compatibility_path_used": false
+  },
+  "release_recommendation": {
+    "status": "release_candidate",
+    "reason": "Clean baseline attribution proves the build/typecheck error is pre_existing, fresh contexts do not reproduce hydration mismatch, and all 3072 coverage warnings are explicitly excluded scope; the Localize Anything core has no release-blocking defect",
+    "next_actions": [
+      "Track the independent Documenso Google Vertex type error to its owner",
+      "Expand Russian catalog only when the product scope is intentionally expanded"
+    ]
+  }
+}
