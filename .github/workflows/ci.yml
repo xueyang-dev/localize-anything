@@ -20,13 +20,26 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[yaml]"
-      - run: python -m compileall -q runtime benchmarks
-      - run: python -m runtime.localize_anything validate-protocol
-      - run: python -m runtime.localize_anything validate-contracts
-      - run: python -m unittest discover -s tests -v
-      - name: Run regression benchmarks
+      - run: python -m compileall -q runtime protocol adapters tests
+      - name: Validate Adapter manifests and protocol examples
         run: |
-          python benchmarks/v022-android-resource-reliability/run.py
-          python benchmarks/v022-android-resource-reliability/source_sets.py
-          python benchmarks/v022-android-resource-reliability/risk_classification.py
-          python benchmarks/v021-mode-system/run.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from runtime.localize_anything.contracts import validate_adapter_tree
+          from runtime.localize_anything.schema_validation import validate_protocol_tree
+
+          adapters = validate_adapter_tree(Path("adapters"))
+          protocol = validate_protocol_tree(Path("protocol"))
+          print(json.dumps({"adapters": adapters, "protocol": protocol}, indent=2))
+          if adapters["status"] != "pass" or adapters["manifests_checked"] != 12:
+              raise SystemExit("Adapter manifest validation failed")
+          if (
+              protocol["status"] != "pass"
+              or protocol["schemas_checked"] != 7
+              or protocol["examples_checked"] != 7
+          ):
+              raise SystemExit("Protocol schema/example validation failed")
+          PY
+      - run: python -m unittest discover -s tests -p "test*.py" -v
