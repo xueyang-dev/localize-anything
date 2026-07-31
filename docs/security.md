@@ -9,7 +9,8 @@ Support `public`, `internal`, `confidential`, and `restricted` project classific
 - `confidential`: Use de-identified minimal queries only.
 - `restricted`: Do not send project content to external services.
 
-Never store credentials, tokens, private keys, or passwords in project memory or delivery packages.
+Never store credentials, tokens, private keys, or passwords in Project Memory
+or localization reports.
 
 ## Adapter Trust
 
@@ -23,9 +24,9 @@ user authorization.
 The Coding Agent owns project edits and Git delivery. Inspect existing changes,
 keep localization edits visible in the diff, run deterministic checks before
 completion, and do not delete or overwrite uncertain source or target artifacts.
-The current compatibility runtime must retain staged writes, dry-run output,
-explicit confirmation, original hashes, and post-apply validation where those
-paths remain in use.
+The five-command core writes only `.localize-anything/` state in the target
+project. Application and locale-resource edits remain visible Coding Agent
+changes guarded by project-native tests and Git.
 
 ## Commercial Game Data
 

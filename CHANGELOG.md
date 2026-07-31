@@ -2,8 +2,37 @@
 
 ## Unreleased
 
+### Removed
+
+- Complete Runtime convergence through Phase 4.7: remove readiness,
+  authorization, workflow/recovery, signoff, release/document governance,
+  Benchmark Lab, adapter-promotion, knowledge repair/audit, artifact-state,
+  generation, delivery, retrieval, segment-repair, and old term-governance
+  islands with their tests, fixtures, runners, docs, and public entrypoints.
+- Remove the old `localize-anything` CLI and package `__main__`; `localize` is
+  now the only public command and exposes only `scan`, `glossary bootstrap`,
+  `check`, `review`, and `report`.
+- Reduce the protocol from the legacy catalog to seven five-command contracts
+  and remove dead adapter CLI entrypoints.
+- Remove the legacy Workbench / Web UI platform, including four Runtime
+  modules, seven CLI commands, five protocol schema/example pairs, and
+  Workbench-only tests. Finding-linked confirmation remains in the five-command
+  core and does not depend on a platform queue or web server.
+- Remove the legacy `generate-chinese-draft` leaf and the old Provider platform,
+  including 12 Runtime modules, direct CLI commands, 58 protocol schema/example
+  pairs, Provider-only tests, UI routes, and active documentation. Generation
+  was retained until Phase 4.7 proved that its remaining Agent/delivery callers
+  formed a closed legacy island, then removed with that island.
+- Remove the legacy `sign-off`, `android-app-test`, `deepseek-generate`,
+  inspect-summary output, `compile-mo`, and `review-import` Runtime leaves,
+  including their CLI surfaces, dedicated tests, protocol pairs, and active
+  documentation. The five-command `localize` core is unchanged.
+
 ### Added
 
+- Add focused core modules for Glossary constraints, project preflight/resource
+  discovery, segment alignment/diff, confirmed legacy-memory import, and format
+  parsing/validation boundaries, with independent parity tests.
 - Add Provider Smoke Evidence Closure / Release Boundary Audit with five
   provider-free artifacts that record the two-segment manual smoke as narrow
   provider-path evidence, preserve raw-output locality and strong non-claims,

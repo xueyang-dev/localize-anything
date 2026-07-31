@@ -1,4 +1,4 @@
 interface:
   display_name: "Localize Anything"
   short_description: "Localization workflow and review for Coding Agents"
-  default_prompt: "Use $localize-anything to localize this project with scoped preflight, project memory, deterministic checks, independent review, and risk-ranked human confirmations."
+  default_prompt: "Use $localize-anything through localize scan, localize glossary bootstrap, localize check, localize review, and localize report; use project-native build, test, and Git commands for engineering work."

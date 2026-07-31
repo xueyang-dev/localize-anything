@@ -127,7 +127,7 @@ Localize Anything 提供方法、上下文、约束和机械 QA，不重新实�
 
 ### 辅助能力：轻量 CLI
 
-CLI 是 Agent 的确定性工具，不是主要用户界面。目标命令面保持精简：
+CLI 是 Agent 的确定性工具，不是主要用户界面。当前命令面保持精简：
 
 ```text
 scan
@@ -145,10 +145,10 @@ report
 Git 负责 diff、history、rollback、branch、worktree、commit、PR 和团队 review。
 Localize Anything 不建立一套平行的项目状态与审批系统。
 
-### 暂不建设独立 Workbench
+### 不建设独立 Workbench
 
-v1 使用 Agent 对话、Git diff 和最终 Review Report。现有 Workbench 代码属于旧架构
-兼容面，不再是产品主入口或路线图中心。
+v1 使用 Agent 对话、Git diff 和最终 Review Report。旧 Workbench 与 Web UI 已在
+Runtime 收敛中删除，不是兼容入口或路线图内容。
 
 ## 两种工作深度
 
@@ -198,9 +198,9 @@ Glossary 以产品概念为中心，而不是以单个语言对为中心。一�
 - `translate` 或 `preserve` 行为；
 - 状态、范围、上下文和产品含义。
 
-用户只维护一个 canonical Glossary。现有 `term-registry.csv`、
-`term-decisions.jsonl`、term review 和 Knowledge Pack term 等分散结构，应逐步
-合并到两个用户概念：
+用户只维护一个 canonical Glossary。旧 `term-registry.csv`、
+`term-decisions.jsonl`、term review 和 Knowledge Pack term 不再是运行时产品
+概念；迁移读取器只把其中已确认的数据导入两个用户概念：
 
 ```text
 Glossary
@@ -296,8 +296,8 @@ CLI 第一阶段优先支持 JSON、YAML、Android XML、Apple `.strings`、
 - Document Evidence 和领导审批流程；
 - Runtime 内产品化的 Benchmark Lab。
 
-已有实现可以暂时保留以维持兼容和提取可复用能力，但新工作应优先做合并、简化和
-迁移，而不是继续扩展这些子系统。
+这些平台实现、公开命令和协议已经删除。历史架构只保留为文档快照和 Git 历史；
+新工作不得以兼容为由恢复它们。
 
 ## 最终原则与承诺
 

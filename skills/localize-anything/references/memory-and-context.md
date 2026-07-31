@@ -16,6 +16,10 @@ files as competing sources of truth.
 Store durable project memory under `.localize-anything/` when appropriate. Ask
 before committing project memory if it may contain private product information.
 
+The default path creates Project Memory with `localize scan` and creates
+conservative Glossary candidates with `localize glossary bootstrap`. Do not
+substitute older memory files as a default input.
+
 ## Concept-Centered Glossary
 
 Model the product concept first, then its expressions across locales:
@@ -108,7 +112,10 @@ unreviewed model output as durable truth.
 
 ## Promotion
 
-Promote information only after its scope and review status are clear:
+The Phase 2 core records human decisions through `localize report --confirm`.
+It does not automatically promote them into a separate legacy memory store.
+Propose a small, reviewable Glossary or Project Memory edit only after scope and
+review status are clear:
 
 - confirmed concepts and translations -> Glossary;
 - reviewed complete targets -> Translation Memory;

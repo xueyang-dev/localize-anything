@@ -8,8 +8,8 @@ description: >-
   Release completion. Use when adding or updating locales, reviewing project
   localization, building a glossary or translation memory, finding localization
   gaps, or preparing a multilingual release. Do not trigger for ordinary
-  one-sentence translation, vocabulary lookup, language learning, Provider
-  management, or general i18n coding without a localization task.
+  one-sentence translation, vocabulary lookup, language learning, or general
+  i18n coding without a localization task.
 ---
 
 # Localize Anything
@@ -29,36 +29,60 @@ mechanical QA, independent review, and a concise set of human decisions.
 Recommend a depth from the request and project risk. Use Standard when the user
 does not specify and Release evidence is not clearly required.
 
-## Run The Workflow
+## Default Path
 
-1. Confirm the product, users, source locale, target locales, task intent, and
-   actual project material.
-2. Declare scope: pages, components, resource files, dynamic/external surfaces,
-   non-text assets, exclusions, and project-specific completion criteria.
-3. Classify candidates as `translate`, `preserve`, `locale_format`,
-   `developer_only`, `dynamic_external`, or `needs_context`.
-4. Load or bootstrap Project Memory. Establish the concept-centered Glossary,
-   style guidance, preserve rules, and relevant reviewed Translation Memory.
-5. Guide the Coding Agent through the required i18n architecture, resource and
-   source-code changes. Reuse the project's existing framework and conventions.
-6. Require the Coding Agent to run the real project build/tests appropriate to
-   the change. In Release depth, also verify locale switching, persistence,
-   system-language detection, fallback, and primary-page screenshots.
-7. Run deterministic checks for keys, placeholders, markup, escapes, preserve
-   rules, source/target structure, and declared-scope coverage.
-8. Start an independent review context that does not merely repeat generation.
-   Review at string, page/component, and product-concept levels.
-9. Auto-clear low-risk findings with reasons. Send only product terminology,
-   brand, high-risk ambiguity, meaning changes, and unresolvable context to the
-   user.
-10. Produce a Review Report that separates deterministic findings, Agent
-    review, and human confirmations. Include totals, auto-cleared items,
-    unresolved risks, build/test evidence, screenshots, and Git state as
-    applicable.
-11. Promote only confirmed terms, reviewed translations, style decisions, and
-    recurring defects into Project Memory within the accepted scope.
+The default path uses only these five `localize` capability groups:
 
-Read [workflow.md](references/workflow.md) for project work. Read only the
+```text
+localize scan
+-> localize glossary bootstrap
+-> Coding Agent localization with project-native tools
+-> localize check
+-> localize review
+-> human confirmation
+-> localize report
+```
+
+1. Confirm the product, users, source locale, target locale, task intent, and
+   project material. Declare in-scope files, surfaces, exclusions, and
+   completion criteria.
+2. Run `localize scan PROJECT --source-locale SOURCE --target-locale TARGET
+   --source PATH` for every source file in scope. It establishes Project Memory.
+3. Run `localize glossary bootstrap PROJECT`. Review only high-impact candidate
+   concepts; lock a term only after it is confirmed.
+4. Guide the Coding Agent to make i18n and resource changes using the project's
+   conventions. The Coding Agent runs its own build and test commands, such as
+   `npm test`, `npm run build`, `./gradlew test`, or `xcodebuild`, plus `git
+   diff` when relevant.
+5. Run `localize check PROJECT --target PATH` once per declared source, in the
+   same order as `scan`. Fix blocking structural findings before review.
+6. Run `localize review PROJECT --target PATH` to create the review packet.
+   Give that packet to a fresh review context that did not generate the draft.
+   Import its findings with the same command and `--findings REVIEW.json`.
+7. Send only high-risk, meaning-changing, terminology, or brand findings to the
+   user. Do not record a human confirmation while an open finding lacks a user
+   decision.
+8. Run `localize report PROJECT`. If the user has decided every open item, pass
+   those decisions with `--confirm CONFIRMATIONS.json`; otherwise report the
+   remaining confirmation-required risks.
+
+When a supported mechanical check is unavailable, let the Coding Agent make a
+scoped project-native edit and record the limitation. Continue the default path;
+do not substitute another platform workflow.
+
+## Explicit Compatibility
+
+Never select a compatibility path automatically. It is allowed only when the
+user explicitly requests a legacy command or asks to maintain existing legacy
+state. In that case, explain that the path is compatibility-only and keep its
+scope separate from the default workflow.
+
+Do not use compatibility mechanisms as a fallback for a missing adapter or an
+ordinary localization task. In particular, the default path must not invoke old
+run orchestration, work-packet construction, provider handoff, readiness
+reports, workbench queues, signoff records, or knowledge eligibility pipelines.
+
+Read [workflow.md](references/workflow.md) for the default command sequence. Read only the
 additional reference needed for the active stage:
 
 - [memory-and-context.md](references/memory-and-context.md) for Glossary,
@@ -88,9 +112,8 @@ dynamic content may correctly remain unchanged.
 - The user decides product meaning, official terminology, brands, high-risk
   wording, and final release acceptance.
 
-Do not build a parallel Workbench, Provider manager, multi-agent orchestration
-platform, enterprise approval system, CI system, or Git substitute as part of a
-localization task.
+Do not build a parallel orchestration, approval, CI, or Git substitute as part
+of a localization task.
 
 ## Be Honest About Completion
 
@@ -102,5 +125,5 @@ Deterministic checks do not prove semantic or professional translation quality.
 Agent review is not the same as human confirmation. Never promise perfect
 translation or silently decide a high-risk product question.
 
-When runtime support is missing, let the Coding Agent handle the format directly
-and record which mechanical checks could not be performed.
+When the five-command core lacks format support, let the Coding Agent handle the
+format directly and record which mechanical checks could not be performed.

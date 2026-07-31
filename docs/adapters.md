@@ -1,9 +1,8 @@
 # Deterministic Format Handlers
 
-> **Current implementation reference:** this document describes reusable format
-> handling in the v0.4 runtime. In the accepted product direction, these
-> handlers are lightweight mechanical tools used by the Agent Skill—not an
-> adapter marketplace or the center of the product architecture.
+> These handlers are lightweight mechanical tools used by the five-command
+> core or retained as focused Python compatibility code. They are not an
+> adapter marketplace or independent CLI surface.
 
 ## Role
 
@@ -26,9 +25,9 @@ detect -> inventory -> extract -> validate-source
        -> rebuild -> validate-output -> summarize-diff
 ```
 
-Current compatibility commands may still emit protocol artifacts and apply
-plans. Target v1 keeps only the parts needed for `scan`, `check`, `review`, and
-`report` workflows.
+The old adapter CLI commands and apply-plan surface have been removed. Core
+handlers are called internally by `scan`, `check`, and `review`; compatibility
+handlers are imported directly only when explicitly needed.
 
 ## Current Handlers
 
@@ -108,9 +107,9 @@ The first simplified CLI tier prioritizes:
 - PO/POT;
 - XLIFF.
 
-Other current handlers may remain available. Adding more formats is secondary
-to better scope discovery, Project Memory, independent review, and lower human
-review cost.
+Other listed handlers remain as tested Python compatibility code. Adding more
+formats is secondary to better scope discovery, Project Memory, independent
+review, and lower human review cost.
 
 ## Safety And Degradation
 

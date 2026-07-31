@@ -2,30 +2,10 @@
 
 Asset inventory for the Localize Anything documentation.
 
-## SVGs
-
-| File | Purpose | Used in | Maintained |
-|------|---------|---------|------------|
-| `workflow-dark.svg` | Legacy v0.4 workflow diagram | Historical documentation asset | hand-edited |
-| `architecture-layers.svg` | Legacy Protocol → Runtime → Agent → Adapter stack | Historical documentation asset | hand-edited |
-| `delivery-package.svg` | Legacy delivery package and evidence chain | Historical documentation asset | hand-edited |
-| `benchmark-antennapod.svg` | Historical AntennaPod DeepSeek benchmark summary | Benchmark documentation asset | hand-edited |
-
 ## Raster images
 
 | File | Purpose | Used in | Maintained |
 |------|---------|---------|------------|
 | `logo-localize-anything-transparent.png` | Project logo | README.md, README.en.md | generated asset |
 
-## Conventions
-
-- All SVGs are dark-theme compatible (`#0f172a` background)
-- Editable by hand — no build step, no external toolchain dependency
-- Keep file sizes under 10 KB
-- Do not commit raster images > 1 MB
-
-## Adding new diagrams
-
-1. Create the SVG in this directory
-2. Reference it from the relevant markdown file using `![alt](docs/assets/filename.svg)`
-3. Update this README
+Do not commit raster images larger than 1 MB.

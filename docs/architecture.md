@@ -1,229 +1,123 @@
 # Architecture
 
-## Product North Star
+Localize Anything is an Agent-native localization workflow and review layer.
+The active implementation has one public CLI and no platform fallback.
 
-Localize Anything is the localization expertise layer for Coding Agents:
+The canonical product boundary is [Product Direction](product-direction.md).
+The removed v0.4 platform remains documented only in the
+[legacy snapshot](architecture-v0.4-legacy.md) and Git history.
 
-> **An agent-native localization workflow and review layer.**
-
-It helps Codex, Claude Code, and similar agents understand localization scope,
-reuse project language decisions, apply terminology and style constraints, and
-independently review localized results. It does not replace the Coding Agent or
-rebuild the development stack around it.
-
-The canonical product direction is [Product Direction](product-direction.md).
-The previous platform-oriented design is preserved only as a
-[v0.4 legacy snapshot](architecture-v0.4-legacy.md).
-
-## Target System
+## Active Flow
 
 ```text
-User request
-    |
-    v
 Localize Anything Skill
-    |-- task depth and declared scope
-    |-- project memory, Glossary, style and preserve rules
-    |-- localization workflow and completion criteria
-    |-- independent review and risk summary
     |
-    +------------------------+
-    |                        |
-    v                        v
-Coding Agent            Lightweight CLI
-    |                        |
-    |-- i18n architecture    |-- scan and source/target comparison
-    |-- source edits         |-- placeholder/markup/key checks
-    |-- locale resources     |-- declared-scope coverage
-    |-- build and tests      |-- Glossary normalization
-    |-- screenshots          |-- review report data
-    |-- Git diff / PR        |
-    +-----------+------------+
-                |
-                v
-       Independent review context
-                |
-                v
-     Small set of human decisions
-                |
-                v
-        Git commit / pull request
+    +--> localize scan --------------------> Project Memory
+    +--> localize glossary bootstrap ------> canonical Glossary
+    |
+    +--> Coding Agent edits the project
+    |       +--> project-native build/test
+    |       +--> screenshots and Git diff
+    |
+    +--> localize check -------------------> deterministic findings
+    +--> localize review ------------------> independent review packet
+    |       +--> fresh Agent context
+    |       +--> normalized review findings
+    +--> human confirmation ---------------> open findings only
+    +--> localize report ------------------> concise completion state
 ```
 
-## Responsibility Boundaries
+## Runtime Boundary
 
-### Localize Anything Skill
+`core_cli.py` exposes exactly five command groups. `core.py` coordinates their
+small data flow and delegates reusable work to focused modules:
 
-The Skill owns the professional workflow:
+| Module | Responsibility |
+| --- | --- |
+| `core_preflight.py` | project boundary checks, resource detection and discovery |
+| `core_glossary.py` | candidate concepts, normalization and locked-term checks |
+| `core_memory.py` | confirmed legacy terminology, TM, style and decision import |
+| `core_segments.py` | review identity/alignment and deterministic diff/staleness |
+| `core_formats.py` | supported-format extraction and pair-validation boundary |
+| `io_utils.py` | atomic local writes and small serialization helpers |
 
-- understand the product, audience, target locales and task intent;
-- declare pages, components, files, dynamic surfaces and exclusions;
-- classify candidate content;
-- load or bootstrap project memory;
-- define product concepts, terminology, style and preserve rules;
-- guide the Coding Agent through implementation;
-- start a review context that does not simply repeat the generation context;
-- summarize risks, human decisions and completion evidence.
+The core does not import Provider, Workbench, workflow, readiness, signoff,
+Knowledge Pack, generation, delivery, retrieval, repair, or artifact-state
+modules. Those product surfaces and their CLI/protocol chains have been
+removed.
 
-### Coding Agent
+## State
 
-The host Coding Agent owns software engineering:
-
-- create or update the project's i18n architecture;
-- extract user-visible copy and create locale resources;
-- implement locale switching, detection, persistence and fallback;
-- edit source code;
-- run project-specific build and test commands;
-- capture target-locale screenshots;
-- prepare clean Git diffs, commits and pull requests.
-
-Localize Anything may require this work and verify its reported result, but it
-does not implement a parallel build, test, CI, source-control or project-
-management system.
-
-### Lightweight CLI
-
-The CLI owns mechanical work that benefits from deterministic behavior:
-
-- discover localization resources;
-- compare source and target structures;
-- check keys, placeholders, markup, escapes and preserve rules;
-- summarize declared-scope coverage and obvious residual source text;
-- import and normalize Glossary data;
-- emit machine-readable findings for the final Review Report.
-
-The CLI does not decide whether wording is natural or whether a product concept
-has the correct official translation.
-
-### Git
-
-Git is the durable change-management layer: diff, history, rollback, branch,
-worktree, commit, pull request and team review. Localize Anything must work with
-Git rather than duplicate it.
-
-### User
-
-The user should receive only decisions that genuinely require product
-ownership: official terminology, brands, high-risk ambiguity, changes in
-product meaning and final release judgment.
-
-## Workflow Depth
-
-### Standard
+The target project owns the state under `.localize-anything/`:
 
 ```text
-Preflight
--> Scope and completion criteria
--> Project Memory / Glossary / style
--> Coding Agent implementation
--> Deterministic checks
--> Independent Agent review
--> Human confirmation items
--> Review Report
+project-memory.json
+glossary.json
+deterministic-check.json
+review-packet.json
+independent-review.json
+human-confirmations.json
+report.json
+report.md
 ```
 
-### Release
+Project Memory holds source/target locale, declared resources, product context,
+style, preserve rules, confirmed decisions, and reviewed Translation Memory.
+The canonical Glossary is the only user-facing terminology truth.
 
-Release adds target-locale screenshots, page-level review, build/test evidence,
-locale-switching and fallback verification, a clean Git diff, commit or pull
-request preparation, and promotion of confirmed decisions into project memory.
+Git remains the state-management and collaboration layer. Localize Anything
+does not create a parallel branch, lock, approval, recovery, delivery, or
+release system.
 
-## Project Memory
+## Format Boundary
 
-The target user-facing model has two concepts:
+The five-command core directly supports:
 
-```text
-Glossary
-Project Memory
-```
+- JSON;
+- YAML/TOML;
+- Android string resources;
+- Apple `.strings` / `.stringsdict`;
+- Apple `.xcstrings`;
+- PO/POT;
+- XLIFF 1.2/2.x.
 
-Glossary entries model product concepts across locales, including preferred and
-forbidden translations, preserve behavior, scope, status and context.
+Focused Markdown/HTML, tabular, Word OpenXML, subtitle, and Wesnoth handlers
+remain as tested Python compatibility code. They have no standalone legacy CLI
+entrypoint and are never selected as an automatic platform fallback.
 
-Project Memory holds the Glossary, reviewed Translation Memory, style rules,
-preserve rules, product context, confirmed decisions and recurring defects
-under `.localize-anything/`. It can be committed with the project when the user
-wants shared team memory.
+The Coding Agent handles missing formats with project-native code and tools,
+then records the deterministic coverage limitation.
 
-Existing runtime files such as term registries, term decisions, review queues
-and Knowledge Pack terms are implementation inputs for migration. They are not
-separate product concepts that users should have to maintain.
+## Review Boundary
 
-## Translatability Model
+Quality evidence stays separated:
 
-Every candidate item should be classified as one of:
+1. deterministic checks cover structure, keys, placeholders, markup, escapes,
+   paths, and locked terminology;
+2. an independent Agent context reviews meaning, naturalness, tone, page
+   context, and product concepts;
+3. the user decides only open, high-risk product findings.
 
-```text
-translate
-preserve
-locale_format
-developer_only
-dynamic_external
-needs_context
-```
+A confirmation cannot be recorded for a finding that is not open with
+`needs_human_confirmation`.
 
-Coverage means that every candidate in the declared scope has a classification
-and every `translate` item has a target result. It does not mean that no source-
-language characters may remain anywhere in the project.
+## Responsibility Boundary
 
-## Review Model
+| Owner | Responsibility |
+| --- | --- |
+| Skill | scope, workflow, memory use, independent review and final explanation |
+| `localize` core | deterministic state and trust-boundary validation |
+| Coding Agent | i18n engineering, resources, locale behavior, build/test, screenshots and Git |
+| User | official terminology, brands, product meaning, high-risk ambiguity and release judgment |
 
-Review combines three levels:
+`report: ready` means the five-command evidence for the declared scope is
+complete. It does not certify translation quality or replace project-native
+build/test, screenshots, Git review, or human release approval.
 
-1. String-level review checks source/target mapping, placeholders, markup,
-   values, obvious omissions and forbidden terms.
-2. Page/component-level review checks actual UI meaning, neighboring copy,
-   control tone, cross-screen consistency and screenshots.
-3. Product-concept review checks whether the same concept remains consistent
-   across the product and across target locales.
+## Dependency Rule
 
-Quality output remains separated:
-
-- deterministic findings;
-- Agent review findings;
-- human confirmation items.
-
-No single synthetic score replaces these channels.
-
-## Trust Boundaries
-
-- Structural validation at file and repository boundaries must fail safely.
-- Agent judgment must not override keys, placeholders, markup, paths or
-  preserve rules.
-- Review must distinguish generated opinion from deterministic fact.
-- Low-risk findings may be auto-cleared; high-risk ambiguity must remain
-  visible to the user.
-- Build/test and screenshots must come from the actual project workflow.
-- Git changes remain reviewable and reversible.
-
-## Current Repository Versus Target Product
-
-The current repository contains a broad v0.4 reference runtime with provider
-execution evidence, workflow orchestration, Workbench, authorization matrices,
-enterprise-style signoff, release-claim governance and many protocol artifacts.
-Those implementations remain useful as compatibility code and as a source of
-reusable primitives, but they no longer define the product.
-
-New work should prefer:
-
-- consolidating terminology structures into one canonical Glossary;
-- simplifying persistent state into Project Memory;
-- exposing a small deterministic CLI surface;
-- strengthening independent review and risk compression;
-- integrating with the Coding Agent and Git.
-
-New work should not expand Provider management, a parallel Workbench, a multi-
-agent orchestration platform, enterprise approval workflows or protocol surface
-area unless a future product decision explicitly changes the direction.
-
-## Status Language
-
-Documentation must distinguish:
-
-- **current implementation**: behavior present in this repository today;
-- **target v1**: the accepted product direction being built;
-- **legacy compatibility**: existing behavior retained during simplification;
-- **non-goal**: behavior that is intentionally outside the product core.
-
-Historical releases and benchmarks remain valid evidence for the code they
-tested. They are not the current product positioning.
+New core modules may depend only on focused core modules, format handlers,
+`io_utils.py`, and the Python standard library. Compatibility handlers must not
+import removed platform concepts. No future capability should reintroduce an
+orchestrator, registry, state machine, readiness matrix, compatibility wrapper,
+or broad protocol inventory without a new accepted product decision.

@@ -1,5 +1,29 @@
 # Workflow
 
+## Default Command Sequence
+
+The Skill's default execution path is exactly:
+
+```text
+localize scan
+-> localize glossary bootstrap
+-> Coding Agent localization and project-native build/test
+-> localize check
+-> localize review
+-> human confirmation
+-> localize report
+```
+
+`scan` declares the source/target locales and files. Every later `--target`
+argument follows that source order. `review` first writes a packet for a fresh
+review context, then imports that context's findings. `report` records only
+user decisions that correspond to open review findings.
+
+For project engineering, use the project's own commands. A JavaScript project
+uses its package scripts, Android uses Gradle, Apple projects use Xcode tools,
+and Git remains the source of diff and history. The Skill does not replace
+those tools.
+
 ## Standard
 
 ```text
@@ -72,6 +96,10 @@ framework.
 Keep semantic batches coherent by screen, flow, component, document section, or
 feature namespace. Preserve source provenance and adjacent UI context.
 
+If the minimal core cannot safely check a format, make a scoped project-native
+edit, state the unavailable check in the final report, and continue the command
+sequence. Do not change to a different Localize Anything workflow.
+
 ## Independent Review
 
 Review from a context separate from generation. Provide source, target, relevant
@@ -97,4 +125,4 @@ Return:
 - build/test and screenshot evidence required by the chosen depth;
 - Git diff/commit/PR state;
 - unresolved risks and next actions;
-- confirmed Project Memory updates.
+- recorded human confirmations and proposed Project Memory updates.

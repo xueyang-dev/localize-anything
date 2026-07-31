@@ -4,6 +4,10 @@
 
 Keep these channels separate.
 
+In the default path, `localize check` owns deterministic findings, `localize
+review` creates and records the independent review, and `localize report`
+summarizes both channels plus explicit human confirmations.
+
 ### Deterministic Checks
 
 Mechanical tools may verify:
@@ -17,6 +21,9 @@ Mechanical tools may verify:
 - source mutation and unsafe overwrite conditions.
 
 Passing these checks does not prove semantic quality.
+Do not report `ready` while deterministic warnings remain. Classify each
+in-scope warning as blocking, actionable, a coverage limitation, or
+known/expected before making a release judgment.
 
 ### Agent Review
 
@@ -43,6 +50,10 @@ Route only decisions that genuinely need product ownership:
 - wording that may change product meaning;
 - decisions the Agent cannot infer from repository evidence;
 - final release judgment.
+
+`localize report --confirm` accepts only decisions for findings still marked
+`needs_human_confirmation`. Do not manufacture, auto-confirm, or silently
+close those findings.
 
 ## Risk Routing
 
@@ -95,7 +106,13 @@ worktree when the user already has unrelated changes.
 
 ## Memory Update
 
-After review, write back only confirmed and reusable knowledge:
+The Phase 2 default path records user confirmations through `localize report
+--confirm`. It does not create a parallel update path for older memory assets.
+When a confirmed Glossary or Project Memory change is needed, propose the
+smallest scoped change for the user to review; do not present an unreviewed
+draft as durable memory.
+
+Only confirmed and reusable knowledge is eligible for a later memory update:
 
 - approved product concepts and locale expressions;
 - reviewed Translation Memory;

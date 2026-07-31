@@ -32,14 +32,15 @@ claims must still match current implementation and tests.
 
 ## Current Implementation Boundary
 
-The repository still contains the broad v0.4 reference runtime, protocol,
-Workbench, Provider evidence, workflow orchestration and release-governance
-systems. They may be described as current or legacy implementation, but not as
-the active product north star.
+The repository implements the five-command `localize` core, canonical Glossary,
+Project Memory, deterministic checks, independent review packet, finding-linked
+confirmation, and report. The old platform CLI, Workbench, Provider, workflow,
+readiness, signoff, Knowledge Pack, generation/delivery orchestration, and broad
+protocol inventory have been removed.
 
-The target v1 Skill and small CLI surface are being consolidated from existing
-capabilities. Documentation must not imply that every target command or
-simplified memory format already exists.
+Documentation must still distinguish deterministic evidence from Agent review
+and human release judgment. Project-native build/test, screenshots, locale
+behavior, and Git evidence are not produced by `localize report`.
 
 ## Claims To Avoid
 
@@ -67,5 +68,5 @@ Coding Agent can do the engineering
 -> Git carries the final change
 ```
 
-Historical releases and benchmarks can remain linked as implementation
-evidence, but they should not dominate the first-screen product story.
+Historical platform evidence lives in the legacy architecture snapshot and Git
+history, not in current usage instructions.
