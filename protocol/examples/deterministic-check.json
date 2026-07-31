@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-deterministic-check-v1",
+  "status": "pass",
+  "source_locale": "en",
+  "target_locale": "ru",
+  "pairs": [
+    {
+      "source": "locales/en.json",
+      "target": "locales/ru.json",
+      "adapter": "json",
+      "validation": { "status": "pass", "summary": { "blocking_count": 0, "warning_count": 0 }, "items": [] }
+    }
+  ],
+  "summary": { "blocking_count": 0, "warning_count": 0 },
+  "findings": [],
+  "checked_at": "2026-07-31T00:00:00Z",
+  "limitations": ["Structural checks do not evaluate translation meaning or naturalness."]
+}

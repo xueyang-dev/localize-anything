@@ -10,10 +10,5 @@
   "capabilities": ["detect", "inventory", "extract", "validate_source", "rebuild", "validate_output", "plan_apply"],
   "round_trip_level": "full_round_trip",
   "permissions": ["read_project", "write_staging"],
-  "runtime": {"type": "python", "version": ">=3.11", "dependencies": []},
-  "entrypoints": {
-    "extract": ["python3", "-m", "runtime.localize_anything", "extract-subtitles"],
-    "rebuild": ["python3", "-m", "runtime.localize_anything", "rebuild-subtitles"],
-    "validate_output": ["python3", "-m", "runtime.localize_anything", "validate-subtitles"]
-  }
+  "runtime": {"type": "python", "version": ">=3.11", "dependencies": []}
 }

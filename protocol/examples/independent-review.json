@@ -1,0 +1,16 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-independent-review-v1",
+  "status": "complete",
+  "reviewer": "independent-agent-context",
+  "findings": [
+    {
+      "id": "finding-share-tone",
+      "severity": "medium",
+      "status": "needs_human_confirmation",
+      "note": "Confirm whether the action means sharing a link or assigning a recipient."
+    }
+  ],
+  "summary": { "reviewed_count": 1, "auto_cleared": 0, "human_confirmation_required": 1 },
+  "reviewed_at": "2026-07-31T00:00:00Z"
+}

@@ -11,9 +11,15 @@ from .ios_strings_adapter import locale_to_lproj
 from .json_adapter import extract_placeholders, source_hash
 
 
-def extract_segments(path: Path, source_locale: str, source_path: str | None = None) -> list[dict[str, Any]]:
+def extract_segments(
+    path: Path,
+    source_locale: str,
+    source_path: str | None = None,
+    *,
+    catalog_language: str | None = None,
+) -> list[dict[str, Any]]:
     logical_path = source_path or path.as_posix()
-    document = _read_document(path, source_language=None, fallback_to_key=True)
+    document = _read_document(path, source_language=catalog_language, fallback_to_key=catalog_language is None)
     return [_segment(logical_path, source_locale, document["source_language"], resource) for resource in document["resources"]]
 
 

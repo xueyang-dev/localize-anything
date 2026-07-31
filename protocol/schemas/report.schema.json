@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/report.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "status", "source_locale", "target_locale", "deterministic_check", "independent_review", "human_confirmation", "artifacts", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-report-v1" },
+    "status": { "enum": ["incomplete", "needs_human_confirmation", "needs_attention", "ready"] },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "deterministic_check": { "type": ["object", "null"] },
+    "independent_review": { "type": ["object", "null"] },
+    "human_confirmation": {
+      "type": "object",
+      "required": ["required", "confirmed", "pending"],
+      "properties": {
+        "required": { "type": "integer", "minimum": 0 },
+        "confirmed": { "type": "integer", "minimum": 0 },
+        "pending": { "type": "array" }
+      }
+    },
+    "artifacts": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  }
+}

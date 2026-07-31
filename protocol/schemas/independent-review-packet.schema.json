@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/independent-review-packet.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "status", "instruction", "project_memory", "glossary", "deterministic_check", "files", "review_result_format"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-independent-review-packet-v1" },
+    "status": { "const": "ready_for_independent_review" },
+    "instruction": { "type": "string", "minLength": 1 },
+    "project_memory": { "type": "object" },
+    "glossary": { "type": "object" },
+    "deterministic_check": { "type": ["object", "null"] },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "adapter", "segments"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "adapter": { "type": "string", "minLength": 1 },
+          "segments": { "type": "array" }
+        }
+      }
+    },
+    "review_result_format": { "type": "object" }
+  }
+}

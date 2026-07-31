@@ -1,0 +1,21 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-independent-review-packet-v1",
+  "status": "ready_for_independent_review",
+  "instruction": "Review in a fresh context for meaning, naturalness, tone, and product-concept consistency.",
+  "project_memory": { "source_locale": "en", "target_locale": "ru", "source_files": [{ "path": "locales/en.json", "adapter": "json" }] },
+  "glossary": { "concepts": [] },
+  "deterministic_check": { "status": "pass", "summary": { "blocking_count": 0, "warning_count": 0 } },
+  "files": [
+    {
+      "source": "locales/en.json",
+      "target": "locales/ru.json",
+      "adapter": "json",
+      "segments": [{ "segment_id": "navigation.share", "source": "Share", "target": "Поделиться", "context": {}, "constraints": {} }]
+    }
+  ],
+  "review_result_format": {
+    "reviewer": "independent reviewer identity or model",
+    "findings": [{ "id": "stable-id", "severity": "low|medium|high|critical", "status": "auto_cleared|resolved|needs_human_confirmation", "note": "concise evidence" }]
+  }
+}

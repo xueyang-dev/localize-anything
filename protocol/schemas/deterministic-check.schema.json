@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/deterministic-check.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "status", "source_locale", "target_locale", "pairs", "summary", "findings", "checked_at", "limitations"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-deterministic-check-v1" },
+    "status": { "enum": ["pass", "pass_with_warnings", "fail"] },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "pairs": { "type": "array" },
+    "summary": {
+      "type": "object",
+      "required": ["blocking_count", "warning_count"],
+      "properties": {
+        "blocking_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": { "type": "array" },
+    "checked_at": { "type": "string", "format": "date-time" },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-glossary-v1",
+  "source_locale": "en",
+  "target_locale": "ru",
+  "concepts": [
+    {
+      "id": "concept-document",
+      "source_terms": ["Document"],
+      "behavior": "translate",
+      "status": "locked",
+      "target": { "preferred": "Документ", "forbidden": [] },
+      "evidence": [{ "segment_id": "navigation.document", "source_path": "locales/en.json" }]
+    }
+  ],
+  "updated_at": "2026-07-31T00:00:00Z"
+}

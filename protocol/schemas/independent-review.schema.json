@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/independent-review.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "status", "reviewer", "findings", "summary", "reviewed_at"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-independent-review-v1" },
+    "status": { "const": "complete" },
+    "reviewer": { "type": "string", "minLength": 1 },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "status", "note"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["low", "medium", "high", "critical"] },
+          "status": { "enum": ["auto_cleared", "resolved", "needs_human_confirmation"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["reviewed_count", "auto_cleared", "human_confirmation_required"],
+      "properties": {
+        "reviewed_count": { "type": "integer", "minimum": 0 },
+        "auto_cleared": { "type": "integer", "minimum": 0 },
+        "human_confirmation_required": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reviewed_at": { "type": "string", "format": "date-time" }
+  }
+}

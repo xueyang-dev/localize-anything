@@ -14,7 +14,7 @@ dependencies = []
 yaml = ["PyYAML>=6.0,<7"]
 
 [project.scripts]
-localize-anything = "runtime.localize_anything.cli:main"
+localize = "runtime.localize_anything.core_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["runtime*"]

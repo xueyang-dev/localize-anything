@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/glossary.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "schema", "source_locale", "target_locale", "concepts", "updated_at"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "schema": { "const": "localize-anything-glossary-v1" },
+    "source_locale": { "type": "string", "minLength": 1 },
+    "target_locale": { "type": "string", "minLength": 1 },
+    "concepts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source_terms", "behavior", "status", "target"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "source_terms": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "behavior": { "enum": ["translate", "preserve"] },
+          "status": { "enum": ["candidate", "locked"] },
+          "target": {
+            "type": "object",
+            "required": ["preferred", "forbidden"],
+            "properties": {
+              "preferred": { "type": "string" },
+              "forbidden": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "evidence": { "type": "array" }
+        }
+      }
+    },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

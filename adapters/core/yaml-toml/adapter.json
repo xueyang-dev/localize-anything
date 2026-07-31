@@ -14,10 +14,5 @@
     "type": "python",
     "version": ">=3.11",
     "dependencies": [{"name": "PyYAML", "version": ">=6.0,<7"}]
-  },
-  "entrypoints": {
-    "extract": ["python3", "-m", "runtime.localize_anything", "extract-structured"],
-    "rebuild": ["python3", "-m", "runtime.localize_anything", "rebuild-structured"],
-    "validate_output": ["python3", "-m", "runtime.localize_anything", "validate-structured"]
   }
 }

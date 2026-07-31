@@ -1,0 +1,19 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-report-v1",
+  "status": "ready",
+  "source_locale": "en",
+  "target_locale": "ru",
+  "deterministic_check": { "status": "pass", "summary": { "blocking_count": 0, "warning_count": 0 } },
+  "independent_review": { "status": "complete", "summary": { "reviewed_count": 1, "auto_cleared": 0, "human_confirmation_required": 1 } },
+  "human_confirmation": { "required": 1, "confirmed": 1, "pending": [] },
+  "artifacts": {
+    "project_memory": "project-memory.json",
+    "glossary": "glossary.json",
+    "deterministic_check": "deterministic-check.json",
+    "review_packet": "review-packet.json",
+    "independent_review": "independent-review.json",
+    "human_confirmations": "human-confirmations.json"
+  },
+  "limitations": ["This report does not replace project build/tests, screenshots, Git review, or human release judgment."]
+}

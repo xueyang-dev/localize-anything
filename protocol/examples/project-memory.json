@@ -1,0 +1,16 @@
+{
+  "protocol_version": "0.1",
+  "schema": "localize-anything-project-memory-v1",
+  "source_locale": "en",
+  "target_locale": "ru",
+  "source_files": [
+    { "path": "locales/en.json", "adapter": "json" }
+  ],
+  "product_context": "A document-signing application.",
+  "style_rules": ["Use concise interface language."],
+  "preserve_rules": ["Documenso"],
+  "translation_memory": [],
+  "confirmed_decisions": [],
+  "created_at": "2026-07-31T00:00:00Z",
+  "updated_at": "2026-07-31T00:00:00Z"
+}

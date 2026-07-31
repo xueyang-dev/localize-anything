@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localize-anything.dev/schemas/human-confirmations.schema.json",
+  "type": "object",
+  "required": ["protocol_version", "confirmations", "confirmed_at"],
+  "properties": {
+    "protocol_version": { "const": "0.1" },
+    "confirmations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding_id", "decision", "note"],
+        "properties": {
+          "finding_id": { "type": "string", "minLength": 1 },
+          "decision": { "type": "string", "minLength": 1 },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "confirmed_at": { "type": "string", "format": "date-time" }
+  }
+}
