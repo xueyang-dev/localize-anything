@@ -196,6 +196,83 @@ class CoreCliTests(unittest.TestCase):
             self.assertEqual(exit_code, 1)
             self.assertEqual(result["status"], "fail")
             self.assertEqual(result["summary"]["blocking_count"], 1)
+            review_exit, review = self._run("review", project.as_posix(), "--target", "zh.json")
+            self.assertEqual(review_exit, 2)
+            self.assertIn("Deterministic check failed", review["error"])
+
+    def test_scan_blocks_swift_typed_catalog_without_adapter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            catalog = project / "Sources" / "Localization"
+            catalog.mkdir(parents=True)
+            (catalog / "Strings.swift").write_text(
+                "struct Strings {\n  let settingsTitle: String\n}\n\nenum AppLanguage { case english, zhHans }\n",
+                encoding="utf-8",
+            )
+            (catalog / "Strings+zhHans.swift").write_text(
+                "extension Strings {\n  static let zhHans = Strings(settingsTitle: \"设置\")\n}\n",
+                encoding="utf-8",
+            )
+
+            exit_code, result = self._run(
+                "scan",
+                project.as_posix(),
+                "--source-locale",
+                "en",
+                "--target-locale",
+                "zh-Hans",
+                "--source",
+                "Sources/Localization",
+            )
+            self.assertEqual(exit_code, 2)
+            self.assertIn("Capability gate failed", result["error"])
+            state = project / ".localize-anything"
+            self.assertFalse((state / "project-memory.json").exists())
+            capability = json.loads((state / "capability-report.json").read_text(encoding="utf-8"))
+            self.assertEqual(capability["status"], "blocked")
+            self.assertEqual(capability["blocked_sources"][0]["surface_type"], "code_embedded_catalog")
+            self.assertEqual(capability["blocked_sources"][0]["allowed_phases"], ["scan"])
+            inventory = json.loads((state / "source-surface-inventory.json").read_text(encoding="utf-8"))
+            self.assertEqual(inventory["summary"]["unsupported_selected_count"], 1)
+
+    def test_review_requires_current_check_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "en.json").write_text('{"title": "Title"}', encoding="utf-8")
+            target = project / "zh.json"
+            target.write_text('{"title": "标题"}', encoding="utf-8")
+            self._run("scan", project.as_posix(), "--source-locale", "en", "--target-locale", "zh-CN", "--source", "en.json")
+
+            missing_exit, missing = self._run("review", project.as_posix(), "--target", "zh.json")
+            self.assertEqual(missing_exit, 2)
+            self.assertIn("Deterministic check artifact is missing", missing["error"])
+
+            self.assertEqual(self._run("check", project.as_posix(), "--target", "zh.json")[0], 0)
+            target.write_text('{"title": "改过的标题"}', encoding="utf-8")
+            stale_exit, stale = self._run("review", project.as_posix(), "--target", "zh.json")
+            self.assertEqual(stale_exit, 2)
+            self.assertIn("changed since deterministic-check.json", stale["error"])
+
+            self.assertEqual(self._run("check", project.as_posix(), "--target", "zh.json")[0], 0)
+            review_exit, review = self._run("review", project.as_posix(), "--target", "zh.json")
+            self.assertEqual(review_exit, 0)
+            packet = json.loads(Path(review["review_packet"]).read_text(encoding="utf-8"))
+            self.assertEqual(packet["files"][0]["segments"][0]["target"], "改过的标题")
+
+            findings = project / "findings.json"
+            findings.write_text(json.dumps({"reviewer": "independent-agent", "findings": []}), encoding="utf-8")
+            target.write_text('{"title": "再次改动"}', encoding="utf-8")
+            self.assertEqual(self._run("check", project.as_posix(), "--target", "zh.json")[0], 0)
+            stale_packet_exit, stale_packet = self._run(
+                "review",
+                project.as_posix(),
+                "--target",
+                "zh.json",
+                "--findings",
+                findings.as_posix(),
+            )
+            self.assertEqual(stale_packet_exit, 2)
+            self.assertIn("changed since review-packet.json", stale_packet["error"])
 
     def test_report_is_not_ready_with_untranslated_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -268,6 +345,7 @@ class CoreCliTests(unittest.TestCase):
             )
             self._run("scan", project.as_posix(), "--source-locale", "en-US", "--target-locale", "zh-CN", "--source", "Localizable.xcstrings")
 
+            self.assertEqual(self._run("check", project.as_posix(), "--target", "Localizable.xcstrings")[0], 0)
             _exit_code, result = self._run("review", project.as_posix(), "--target", "Localizable.xcstrings")
             packet = json.loads(Path(result["review_packet"]).read_text(encoding="utf-8"))
             self.assertEqual(packet["files"][0]["segments"][0]["target"], "示例应用")
@@ -296,6 +374,7 @@ class CoreCliTests(unittest.TestCase):
                 "en.po",
             )
 
+            self.assertEqual(self._run("check", project.as_posix(), "--target", "ru.po")[0], 0)
             _exit_code, result = self._run("review", project.as_posix(), "--target", "ru.po")
             packet = json.loads(Path(result["review_packet"]).read_text(encoding="utf-8"))
             pairs = {

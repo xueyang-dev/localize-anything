@@ -22,6 +22,7 @@ ADAPTER_REQUIRED = {
 }
 ADAPTER_STATUSES = {"implemented", "experimental", "planned"}
 ADAPTER_TRUST = {"core", "project", "community", "verified"}
+ADAPTER_TYPES = {"scripted", "declarative"}
 ADAPTER_CAPABILITIES = {
     "detect",
     "inventory",
@@ -56,6 +57,8 @@ def validate_adapter_manifest(path: Path) -> list[str]:
     _check_enum(errors, path, manifest, "implementation_status", ADAPTER_STATUSES)
     if "trust" in manifest:
         _check_enum(errors, path, manifest, "trust", ADAPTER_TRUST)
+    if "adapter_type" in manifest:
+        _check_enum(errors, path, manifest, "adapter_type", ADAPTER_TYPES)
     if "round_trip_level" in manifest:
         _check_enum(errors, path, manifest, "round_trip_level", ROUND_TRIP_LEVELS)
     _check_nonempty_unique_list(errors, path, manifest, "formats")
@@ -80,6 +83,18 @@ def validate_adapter_manifest(path: Path) -> list[str]:
         for name, command in entrypoints.items():
             if not isinstance(name, str) or not isinstance(command, list) or not command or not all(isinstance(part, str) for part in command):
                 errors.append(f"{path}: entrypoint {name!r} must be a non-empty string array")
+    checksum = manifest.get("checksum")
+    if checksum is not None:
+        if not isinstance(checksum, dict) or checksum.get("type") != "sha256" or not isinstance(checksum.get("value"), str):
+            errors.append(f"{path}: checksum must contain type='sha256' and string value")
+        elif not re.fullmatch(r"[0-9a-f]{64}", checksum["value"]):
+            errors.append(f"{path}: checksum.value must be a lowercase SHA-256 hex digest")
+    source_scope = manifest.get("source_scope")
+    if source_scope is not None:
+        if not isinstance(source_scope, dict) or not isinstance(source_scope.get("paths"), list):
+            errors.append(f"{path}: source_scope.paths must be a list")
+        elif any(not isinstance(item, str) for item in source_scope["paths"]):
+            errors.append(f"{path}: source_scope.paths items must be strings")
     return errors
 
 

@@ -8,6 +8,21 @@ In the default path, `localize check` owns deterministic findings, `localize
 review` creates and records the independent review, and `localize report`
 summarizes both channels plus explicit human confirmations.
 
+The phase gate is artifact-first:
+
+```text
+Capability Scan
+-> Adapter Selection
+-> Capability Gate
+-> Artifact Preconditions
+-> Allowed Phase Execution
+```
+
+Unsupported declared sources stop at `capability-report.json`. Linguistic review
+requires current `deterministic-check.json`, `extracted-segments.json`, and a
+matching review packet; do not substitute ad hoc scripts or manual reasoning for
+those artifacts.
+
 ### Deterministic Checks
 
 Mechanical tools may verify:
@@ -21,6 +36,8 @@ Mechanical tools may verify:
 - source mutation and unsafe overwrite conditions.
 
 Passing these checks does not prove semantic quality.
+Build pass does not prove launch pass, and launch pass does not prove visible
+UI coverage pass.
 Do not report `ready` while deterministic attention items remain. Use only
 these severities: `blocking`, `actionable`, `coverage_limitation`, and
 `informational`.
@@ -74,6 +91,7 @@ Report at least:
 ```text
 Declared scope
 Excluded and external surfaces
+Detected-but-unsupported and unscanned surfaces
 Translated items
 Agent-reviewed items
 Review items
@@ -88,6 +106,17 @@ Project Memory updates
 ```
 
 Do not collapse deterministic, Agent, and human evidence into one quality score.
+Do not turn partial resource success into complete product, platform, document,
+runtime, or visual localization success.
+
+## Delivery And Enablement
+
+Delivery applies only to supported, declared surfaces with the requested
+evidence. Enablement applies when the project needs source-code mutation,
+project-structure changes, connector setup, build configuration, runtime
+workflow, or media tooling before localization can be safely delivered. Return
+the plan, risks, affected files, validation commands, staging/apply policy, and
+rollback requirements; do not call it a delivered localization for that surface.
 
 ## Git Delivery
 

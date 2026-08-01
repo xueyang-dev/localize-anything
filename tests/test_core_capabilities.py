@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from runtime.localize_anything.core_glossary import check_locked_concepts, extract_candidate_concepts
-from runtime.localize_anything.core_preflight import discover_resources, select_resources
+from runtime.localize_anything.core_preflight import discover_resources, discover_surfaces, select_resources
 from runtime.localize_anything.core_segments import align_review_segments, diff_segments
 from runtime.localize_anything.core import bootstrap_glossary, scan
 from runtime.localize_anything.core_formats import (
@@ -67,11 +67,26 @@ class CorePreflightParityTests(unittest.TestCase):
             (project / "locales" / "en.json").write_text('{"title": "Document"}', encoding="utf-8")
             (project / "build").mkdir()
             (project / "build" / "generated.json").write_text("{}", encoding="utf-8")
+            (project / ".venv").mkdir()
+            (project / ".venv" / "metadata.json").write_text("{}", encoding="utf-8")
 
             self.assertEqual(discover_resources(project), [{"path": "locales/en.json", "adapter": "json"}])
             self.assertEqual(select_resources(project, ["locales/en.json"]), [{"path": "locales/en.json", "adapter": "json"}])
             with self.assertRaisesRegex(ValueError, "inside the project root"):
                 select_resources(project, ["../outside.json"])
+
+    def test_surface_discovery_marks_swift_catalog_candidate_unsupported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            source = project / "Sources" / "Localization"
+            source.mkdir(parents=True)
+            (source / "Strings.swift").write_text("struct Strings { let title: String }\n", encoding="utf-8")
+
+            surfaces = discover_surfaces(project)
+            self.assertEqual(surfaces[0]["path"], "Sources/Localization/Strings.swift")
+            self.assertEqual(surfaces[0]["surface_type"], "code_embedded_catalog")
+            self.assertEqual(surfaces[0]["status"], "unsupported")
+            self.assertEqual(surfaces[0]["allowed_phases"], ["scan"])
 
 
 class CoreSegmentParityTests(unittest.TestCase):

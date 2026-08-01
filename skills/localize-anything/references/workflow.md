@@ -17,11 +17,16 @@ localize scan
 `scan` declares the source/target locales and files. In a zero-i18n project,
 the Coding Agent first creates the smallest project-native i18n setup and the
 source resource file; `scan` must not run until every declared `--source` exists.
-Every later `--target` argument follows that source order. `check` and `review`
-emit `source_target_mapping` and reject count mismatches, obvious locale/path
-contradictions, and adapter mismatches. `review` first writes a packet for a
-fresh review context, then imports that context's findings. `report` records
-only user decisions that correspond to open review findings.
+It writes `source-surface-inventory.json` and `capability-report.json`, then
+establishes Project Memory only when every declared source has a supported
+adapter. Every later `--target` argument follows that source order. `check` and
+`review` emit `source_target_mapping` and reject count mismatches, obvious
+locale/path contradictions, and adapter mismatches. `check` writes the current
+`deterministic-check.json` and `extracted-segments.json`; `review` may run only
+when those artifacts are present, non-failing, current, and mapped to the same
+targets. `review` first writes a packet for a fresh review context, then
+imports that context's findings. `report` records only user decisions that
+correspond to open review findings.
 
 For project engineering, use the project's own commands. A JavaScript project
 uses its package scripts, Android uses Gradle, Apple projects use Xcode tools,
@@ -66,6 +71,9 @@ Identify:
 - source and target locales;
 - pages, components, files, resource types, and dynamic surfaces in scope;
 - non-text and external surfaces that cannot be processed;
+- localization surface types: `resource_catalog`, `code_embedded_catalog`,
+  `inline_code_string`, `template_or_markup`, `runtime_external_content`,
+  `non_text_asset`, `binary_or_compiled_resource`, or unknown;
 - existing i18n architecture and locale behavior;
 - product concepts, style, preserve rules, and prior translations;
 - project-specific completion requirements.
@@ -94,6 +102,12 @@ Classify every discovered candidate in scope:
 Coverage is complete when every candidate in the declared scope is classified
 and every `translate` candidate has a target result.
 
+For source code, distinguish structured catalogs from inline literals. A typed
+catalog or locale object may be adapter-addressable. Scattered inline strings
+usually require enablement planning. Internal strings such as logs, paths,
+commands, API keys, identifiers, SQL, regexes, errors, and test fixtures are not
+automatic localization objects.
+
 ## Implementation
 
 Use the project's existing i18n library, resource conventions, routing, tests,
@@ -107,6 +121,10 @@ feature namespace. Preserve source provenance and adjacent UI context.
 If the minimal core cannot safely check a format, make a scoped project-native
 edit, state the unavailable check in the final report, and continue the command
 sequence. Do not change to a different Localize Anything workflow.
+
+If there is no supported adapter for a declared source, stop at the capability
+report. Do not hand-build extraction scripts, source-to-target character
+tables, or linguistic reviews for that surface under the default path.
 
 ## Independent Review
 
@@ -125,6 +143,7 @@ Review all three levels:
 Return:
 
 - declared and excluded scope;
+- scanned, partially scanned, unsupported, dynamic, and non-text surfaces;
 - translated, preserved, formatted, developer-only, external, and unresolved
   candidate counts;
 - deterministic check result;

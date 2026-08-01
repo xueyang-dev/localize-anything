@@ -1,0 +1,35 @@
+{
+  "protocol_version": "0.1",
+  "id": "sample.extract-only",
+  "name": "Synthetic Extract-only Project Adapter",
+  "version": "0.1.0",
+  "implementation_status": "experimental",
+  "trust": "project",
+  "adapter_type": "scripted",
+  "formats": ["sample-catalog"],
+  "extensions": [".samplecat"],
+  "capabilities": ["detect", "inventory", "extract", "validate_source"],
+  "round_trip_level": "extract_only",
+  "permissions": ["read_project", "execute"],
+  "runtime": {
+    "type": "python",
+    "version": ">=3.11",
+    "dependencies": []
+  },
+  "entrypoints": {
+    "detect": ["python3", "adapter.py"],
+    "inventory": ["python3", "adapter.py"],
+    "extract": ["python3", "adapter.py"],
+    "validate_source": ["python3", "adapter.py"]
+  },
+  "checksum": {
+    "type": "sha256",
+    "value": "582b1dd9a2027beb49ff791cc0315a3ca4e2bc773235893d33a44bc4d26ecfe6"
+  },
+  "source_scope": {
+    "paths": ["catalog.samplecat"]
+  },
+  "provenance": "Synthetic Localize Anything test fixture",
+  "notes": ["Stable fixture for project-local extract-only adapter infrastructure."],
+  "limitations": ["No rebuild, validate-output, plan-apply, apply, or editable delivery support."]
+}

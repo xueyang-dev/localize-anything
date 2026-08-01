@@ -19,6 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("--source-locale")
     scan_parser.add_argument("--target-locale")
     scan_parser.add_argument("--source", action="append", dest="source_files")
+    scan_parser.add_argument("--adapter", dest="adapter_id", help="Explicit project-local adapter ID for the declared source")
 
     glossary_parser = commands.add_parser("glossary", help="Manage the canonical Glossary")
     glossary_commands = glossary_parser.add_subparsers(dest="glossary_command", required=True)
@@ -44,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "scan":
-            result = scan(args.project, source_locale=args.source_locale, target_locale=args.target_locale, source_files=args.source_files)
+            result = scan(args.project, source_locale=args.source_locale, target_locale=args.target_locale, source_files=args.source_files, adapter_id=args.adapter_id)
         elif args.command == "glossary":
             result = bootstrap_glossary(args.project)
         elif args.command == "check":
