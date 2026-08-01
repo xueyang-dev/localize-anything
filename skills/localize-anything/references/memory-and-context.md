@@ -27,28 +27,34 @@ Model the product concept first, then its expressions across locales:
 ```yaml
 concepts:
   - id: workspace
-    source_terms:
-      en: [Workspace]
-    translations:
-      zh-CN:
-        preferred: 工作区
-        forbidden: [工作空间]
-      ru:
-        preferred: Рабочая область
+    source_terms: [Workspace]
+    behavior: translate
     status: locked
+    target:
+      preferred: Рабочая область
+      forbidden: []
     scope: product
     notes: Main space where users manage projects and runs.
 
   - id: cny
-    source_terms:
-      universal: [CNY]
-    action: preserve
+    source_terms: [CNY]
+    behavior: preserve
     status: locked
+    target:
+      preferred: CNY
+      forbidden: []
 ```
 
 Entries may include source terms, per-locale preferred/forbidden translations,
 `translate` or `preserve` behavior, status, scope, context, notes, provenance,
 and human confirmation.
+
+Agent-friendly canonical operations:
+
+- Lock a concept translation by setting `behavior: translate`,
+  `status: locked`, and `target.preferred` to the confirmed target expression.
+- Preserve a term by setting `behavior: preserve`, `status: locked`, and
+  `target.preferred` to the source form when useful for clarity.
 
 ## First-Run Glossary Flow
 

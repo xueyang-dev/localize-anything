@@ -42,6 +42,22 @@ class CoreGlossaryParityTests(unittest.TestCase):
         findings = check_locked_concepts(glossary, ["Document"], ["Док"])
         self.assertEqual({item["kind"] for item in findings}, {"locked_glossary", "forbidden_glossary"})
 
+    def test_locked_preserve_concept_requires_source_term_in_target(self) -> None:
+        glossary = {
+            "concepts": [
+                {
+                    "id": "open-atlas",
+                    "source_terms": ["Open Atlas"],
+                    "behavior": "preserve",
+                    "status": "locked",
+                    "target": {"preferred": "", "forbidden": []},
+                }
+            ]
+        }
+        findings = check_locked_concepts(glossary, ["Open Atlas"], ["Открыть Атлас"])
+        self.assertEqual(findings[0]["severity"], "blocking")
+        self.assertIn("Open Atlas", findings[0]["message"])
+
 
 class CorePreflightParityTests(unittest.TestCase):
     def test_discovery_is_scoped_and_selection_rejects_escape(self) -> None:

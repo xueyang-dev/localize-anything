@@ -55,23 +55,31 @@ localize scan
 
 1. Confirm the product, users, source locale, target locale, task intent, and
    project material. Declare in-scope files, surfaces, exclusions, and
-   completion criteria.
+   completion criteria. If the project has zero i18n, the Coding Agent must
+   first add the smallest project-native i18n setup and create the source
+   resource file.
 2. Run `localize scan PROJECT --source-locale SOURCE --target-locale TARGET
-   --source PATH` for every source file in scope. It establishes Project Memory.
+   --source PATH` for every source file in scope. Run it only after every
+   declared source file exists; `scan` records source resources, it does not
+   create them. It establishes Project Memory.
 3. Run `localize glossary bootstrap PROJECT`. Review only high-impact candidate
-   concepts; lock a term only after it is confirmed.
+   concepts; lock a translation by setting `status: "locked"` and
+   `target.preferred`, or preserve a term by setting `behavior: "preserve"` and
+   `status: "locked"`. Lock only after repository evidence or user
+   confirmation.
 4. Guide the Coding Agent to make i18n and resource changes using the project's
    conventions. The Coding Agent runs its own build and test commands, such as
    `npm test`, `npm run build`, `./gradlew test`, or `xcodebuild`, plus `git
    diff` when relevant.
 5. Run `localize check PROJECT --target PATH` once per declared source, in the
-   same order as `scan`. Fix blocking structural findings before review.
+   same order as `scan`. Read `source_target_mapping` and fix any pairing
+   error before reviewing. Fix blocking structural findings before review.
 6. Run `localize review PROJECT --target PATH` to create the review packet.
    Give that packet to a fresh review context that did not generate the draft.
    Import its findings with the same command and `--findings REVIEW.json`.
 7. Send only high-risk, meaning-changing, terminology, or brand findings to the
-   user. Do not record a human confirmation while an open finding lacks a user
-   decision.
+   user. Auto-cleared checks are `review_items`, not `findings`. Do not record
+   a human confirmation while an open finding lacks a user decision.
 8. Run `localize report PROJECT`. If the user has decided every open item, pass
    those decisions with `--confirm CONFIRMATIONS.json`; otherwise report the
    remaining confirmation-required risks.
@@ -79,6 +87,10 @@ localize scan
 When a supported mechanical check is unavailable, let the Coding Agent make a
 scoped project-native edit and record the limitation. Continue the default path;
 do not substitute another platform workflow.
+
+Use only these severities in check, review, report, and Skill notes:
+`blocking`, `actionable`, `coverage_limitation`, and `informational`. Do not
+use low/medium/high/critical or warning as severity values.
 
 ## Explicit Compatibility
 

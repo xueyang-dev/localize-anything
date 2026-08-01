@@ -11,6 +11,14 @@
       "status": "locked",
       "target": { "preferred": "Документ", "forbidden": [] },
       "evidence": [{ "segment_id": "navigation.document", "source_path": "locales/en.json" }]
+    },
+    {
+      "id": "concept-open-atlas",
+      "source_terms": ["Open Atlas"],
+      "behavior": "preserve",
+      "status": "locked",
+      "target": { "preferred": "Open Atlas", "forbidden": [] },
+      "evidence": [{ "source_path": "README.md", "confirmed": true }]
     }
   ],
   "updated_at": "2026-07-31T00:00:00Z"

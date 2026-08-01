@@ -2,23 +2,59 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localize-anything.dev/schemas/deterministic-check.schema.json",
   "type": "object",
-  "required": ["protocol_version", "schema", "status", "source_locale", "target_locale", "pairs", "summary", "findings", "checked_at", "limitations"],
+  "required": ["protocol_version", "schema", "status", "source_locale", "target_locale", "source_target_mapping", "pairs", "summary", "findings", "checked_at", "limitations"],
   "properties": {
     "protocol_version": { "const": "0.1" },
     "schema": { "const": "localize-anything-deterministic-check-v1" },
     "status": { "enum": ["pass", "pass_with_warnings", "fail"] },
     "source_locale": { "type": "string", "minLength": 1 },
     "target_locale": { "type": "string", "minLength": 1 },
+    "source_target_mapping": {
+      "description": "Explicit source-to-target pairing used for this check run, in declared scan order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "adapter"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "adapter": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "pairs": { "type": "array" },
     "summary": {
       "type": "object",
-      "required": ["blocking_count", "warning_count"],
+      "required": ["blocking_count", "warning_count", "actionable_count", "coverage_limitation_count", "informational_count", "severity_counts"],
       "properties": {
         "blocking_count": { "type": "integer", "minimum": 0 },
-        "warning_count": { "type": "integer", "minimum": 0 }
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "actionable_count": { "type": "integer", "minimum": 0 },
+        "coverage_limitation_count": { "type": "integer", "minimum": 0 },
+        "informational_count": { "type": "integer", "minimum": 0 },
+        "severity_counts": {
+          "type": "object",
+          "required": ["blocking", "actionable", "coverage_limitation", "informational"],
+          "properties": {
+            "blocking": { "type": "integer", "minimum": 0 },
+            "actionable": { "type": "integer", "minimum": 0 },
+            "coverage_limitation": { "type": "integer", "minimum": 0 },
+            "informational": { "type": "integer", "minimum": 0 }
+          }
+        }
       }
     },
-    "findings": { "type": "array" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message"],
+        "properties": {
+          "severity": { "enum": ["blocking", "actionable", "coverage_limitation", "informational"] },
+          "message": { "type": "string" }
+        }
+      }
+    },
     "checked_at": { "type": "string", "format": "date-time" },
     "limitations": { "type": "array", "items": { "type": "string" } }
   }

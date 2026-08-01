@@ -4,8 +4,18 @@
   "status": "ready",
   "source_locale": "en",
   "target_locale": "ru",
-  "deterministic_check": { "status": "pass", "summary": { "blocking_count": 0, "warning_count": 0 } },
-  "independent_review": { "status": "complete", "summary": { "reviewed_count": 1, "auto_cleared": 0, "human_confirmation_required": 1 } },
+  "deterministic_check": {
+    "status": "pass",
+    "summary": {
+      "blocking_count": 0,
+      "warning_count": 0,
+      "actionable_count": 0,
+      "coverage_limitation_count": 0,
+      "informational_count": 0,
+      "severity_counts": { "actionable": 0, "blocking": 0, "coverage_limitation": 0, "informational": 0 }
+    }
+  },
+  "independent_review": { "status": "complete", "summary": { "reviewed_count": 2, "review_item_count": 1, "finding_count": 1, "human_confirmation_required": 1 } },
   "human_confirmation": { "required": 1, "confirmed": 1, "pending": [] },
   "artifacts": {
     "project_memory": "project-memory.json",

@@ -110,7 +110,7 @@ class SkillDefaultPathTests(unittest.TestCase):
                         "findings": [
                             {
                                 "id": "game-tone",
-                                "severity": "high",
+                                "severity": "actionable",
                                 "status": "needs_human_confirmation",
                                 "note": "Confirm the preferred Russian imperative for the primary action.",
                             }

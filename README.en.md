@@ -44,6 +44,11 @@ python -m pip install -e ".[yaml]"
 
 Declare a localization task for the target project and establish Project Memory:
 
+For a project with no i18n yet, the Coding Agent must first add the smallest
+project-native i18n setup and create the source-locale resource file. Do not
+run `localize scan` until every declared `--source` file exists; `scan` records
+existing source resources, it does not create them.
+
 ```bash
 localize scan /path/to/project \
   --source-locale en \
@@ -64,11 +69,45 @@ localize check /path/to/project --target locales/ru.json
 localize review /path/to/project --target locales/ru.json
 ```
 
+When multiple sources are declared, pass one `--target` per source in the same
+order. `check` and `review` output `source_target_mapping` and reject count
+mismatches, obvious source-locale targets, adapter mismatches, and clear path
+shape contradictions.
+
 Hand `.localize-anything/review-packet.json` to a fresh Agent context that did not generate the translation, import its findings, and build the report:
 
 ```bash
 localize review /path/to/project --target locales/ru.json --findings review.json
 localize report /path/to/project
+```
+
+Use these severities everywhere in check, review, report, and Skill notes:
+`blocking`, `actionable`, `coverage_limitation`, and `informational`.
+Auto-cleared checks belong in `review_items`; only real issues belong in
+`findings`.
+
+Minimal `review.json`:
+
+```json
+{
+  "reviewer": "fresh-review-context",
+  "review_items": [
+    {
+      "id": "checked-placeholders",
+      "severity": "informational",
+      "status": "auto_cleared",
+      "note": "Placeholders were checked and no issue was found."
+    }
+  ],
+  "findings": [
+    {
+      "id": "brand-name",
+      "severity": "actionable",
+      "status": "needs_human_confirmation",
+      "note": "Confirm whether the product name remains untranslated."
+    }
+  ]
+}
 ```
 
 Only an open finding with status `needs_human_confirmation` can receive a human decision:
@@ -78,6 +117,23 @@ localize report /path/to/project --confirm confirmations.json
 ```
 
 All core state lives in the target project's `.localize-anything/` directory and can be committed and shared with Git.
+
+## Review Packet Fields
+
+`.localize-anything/review-packet.json` is self-contained for an independent
+review context:
+
+- `instruction`: reviewer task and independence rules.
+- `project_memory`: declared locales, source files, style, preserve rules,
+  translation memory, and confirmed decisions.
+- `glossary`: canonical concepts; lock a translation with
+  `status: "locked"` and `target.preferred`, or preserve a term with
+  `behavior: "preserve"` plus `status: "locked"`.
+- `deterministic_check`: latest structural check result, or `null`.
+- `source_target_mapping`: explicit source-to-target file mapping in scan
+  order.
+- `files`: aligned source and target segments to review.
+- `review_result_format`: JSON shape the fresh reviewer should return.
 
 ## Using it with your Coding Agent
 
@@ -134,7 +190,7 @@ assert validate_adapter_tree(Path("adapters"))["status"] == "pass"
 - [Core Data Contracts](protocol/SPEC.md)
 - [Agent Skill](skills/localize-anything/SKILL.md)
 - [Migration Guide](docs/migration/agent-native-core-migration.md) — moving from the legacy platform to the five-command core
-- [0.5.0 Release Notes](docs/releases/0.5.0-release-notes.md)
+- [0.5.1 Release Notes](docs/releases/0.5.1-release-notes.md)
 
 The v0.4 platform design survives only in the [Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) and Git history.
 

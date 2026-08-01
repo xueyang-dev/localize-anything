@@ -2,17 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localize-anything.dev/schemas/independent-review-packet.schema.json",
   "type": "object",
-  "required": ["protocol_version", "schema", "status", "instruction", "project_memory", "glossary", "deterministic_check", "files", "review_result_format"],
+  "required": ["protocol_version", "schema", "status", "instruction", "project_memory", "glossary", "deterministic_check", "source_target_mapping", "files", "review_result_format"],
   "properties": {
-    "protocol_version": { "const": "0.1" },
-    "schema": { "const": "localize-anything-independent-review-packet-v1" },
-    "status": { "const": "ready_for_independent_review" },
-    "instruction": { "type": "string", "minLength": 1 },
-    "project_memory": { "type": "object" },
-    "glossary": { "type": "object" },
-    "deterministic_check": { "type": ["object", "null"] },
+    "protocol_version": { "const": "0.1", "description": "Protocol version understood by the five-command core." },
+    "schema": { "const": "localize-anything-independent-review-packet-v1", "description": "Durable packet contract name." },
+    "status": { "const": "ready_for_independent_review", "description": "Packet is complete enough for a fresh review context." },
+    "instruction": { "type": "string", "minLength": 1, "description": "Reviewer instructions; review must not reuse generation rationale." },
+    "project_memory": { "type": "object", "description": "Source/target locale, declared sources, style, preserve rules, translation memory, and confirmed decisions." },
+    "glossary": { "type": "object", "description": "Canonical concept-centered Glossary supplied for terminology checks." },
+    "deterministic_check": { "type": ["object", "null"], "description": "Latest deterministic check result, or null when review is prepared before check evidence exists." },
+    "source_target_mapping": {
+      "type": "array",
+      "description": "Explicit source-to-target pairing in scan order; reviewers must use this mapping when reading files.",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "adapter"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "adapter": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "files": {
       "type": "array",
+      "description": "Per-file aligned source and target segments for independent language review.",
       "minItems": 1,
       "items": {
         "type": "object",
@@ -25,6 +39,9 @@
         }
       }
     },
-    "review_result_format": { "type": "object" }
+    "review_result_format": {
+      "type": "object",
+      "description": "Expected JSON shape from the independent reviewer: auto-cleared checks go in review_items; only real issues go in findings."
+    }
   }
 }

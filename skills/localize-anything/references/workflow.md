@@ -14,10 +14,14 @@ localize scan
 -> localize report
 ```
 
-`scan` declares the source/target locales and files. Every later `--target`
-argument follows that source order. `review` first writes a packet for a fresh
-review context, then imports that context's findings. `report` records only
-user decisions that correspond to open review findings.
+`scan` declares the source/target locales and files. In a zero-i18n project,
+the Coding Agent first creates the smallest project-native i18n setup and the
+source resource file; `scan` must not run until every declared `--source` exists.
+Every later `--target` argument follows that source order. `check` and `review`
+emit `source_target_mapping` and reject count mismatches, obvious locale/path
+contradictions, and adapter mismatches. `review` first writes a packet for a
+fresh review context, then imports that context's findings. `report` records
+only user decisions that correspond to open review findings.
 
 For project engineering, use the project's own commands. A JavaScript project
 uses its package scripts, Android uses Gradle, Apple projects use Xcode tools,
@@ -68,6 +72,10 @@ Identify:
 
 Bundle related blocking questions. Do not ask for information the repository
 already answers.
+
+If there is no existing i18n architecture, do not start with `localize scan`.
+First make the project-native source resource visible in Git, then scan that
+source file.
 
 ## Candidate Classification
 
@@ -121,7 +129,7 @@ Return:
   candidate counts;
 - deterministic check result;
 - Agent review result;
-- auto-cleared and human-confirmation counts;
+- review item, finding, and human-confirmation counts;
 - build/test and screenshot evidence required by the chosen depth;
 - Git diff/commit/PR state;
 - unresolved risks and next actions;

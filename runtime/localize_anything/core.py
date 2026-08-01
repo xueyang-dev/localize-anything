@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,7 @@ from . import PROTOCOL_VERSION
 from .core_formats import extract_source, extract_target, validate_resource_pair
 from .core_glossary import check_locked_concepts, extract_candidate_concepts, normalize_concept
 from .core_memory import import_confirmed_knowledge
-from .core_preflight import discover_resources, relative_path, resolve_project, resolve_project_file, select_resources
+from .core_preflight import detect_adapter, discover_resources, relative_path, resolve_project, resolve_project_file, select_resources
 from .core_segments import align_review_segments
 from .io_utils import write_text_atomic
 
@@ -25,6 +26,18 @@ REVIEW = "independent-review.json"
 CONFIRMATIONS = "human-confirmations.json"
 REPORT = "report.json"
 REPORT_MARKDOWN = "report.md"
+SEVERITIES = {"blocking", "actionable", "coverage_limitation", "informational"}
+LEGACY_REVIEW_SEVERITIES = {"low": "informational", "medium": "actionable", "high": "actionable", "critical": "blocking"}
+COVERAGE_CATEGORIES = {
+    "empty_translation",
+    "embedded_object_unchecked",
+    "source_context",
+    "translation_coverage",
+    "visual_text_unchecked",
+}
+INFORMATIONAL_CATEGORIES = {"non_translatable_resource", "translatable_false"}
+PATH_TOKEN_RE = re.compile(r"[a-z0-9]+")
+PATH_SPLIT_RE = re.compile(r"([/._-])")
 
 def scan(
     project_root: Path,
@@ -129,29 +142,27 @@ def bootstrap_glossary(project_root: Path) -> dict[str, Any]:
 def check(project_root: Path, target_files: list[str]) -> dict[str, Any]:
     project = resolve_project(project_root)
     memory = _read_memory(project)
-    sources = memory["source_files"]
-    if len(target_files) != len(sources):
-        raise ValueError(f"Expected {len(sources)} --target values, one for each declared source file")
+    paired = _pair_resources(project, memory, target_files)
+    mapping = _source_target_mapping(paired)
     pairs = []
     target_text: list[str] = []
     source_text: list[str] = []
-    errors: list[dict[str, Any]] = []
-    warnings: list[dict[str, Any]] = []
-    for source, target_name in zip(sources, target_files, strict=True):
-        source_path = resolve_project_file(project, str(source["path"]))
-        target_path = resolve_project_file(project, target_name)
-        adapter = str(source["adapter"])
+    findings: list[dict[str, Any]] = []
+    for pair_info in paired:
+        source_path = pair_info["source_path"]
+        target_path = pair_info["target_path"]
+        adapter = str(pair_info["adapter"])
         if target_path.is_file():
-            validation = validate_resource_pair(adapter, source_path, target_path, memory["target_locale"])
+            validation = _normalize_validation(validate_resource_pair(adapter, source_path, target_path, memory["target_locale"]))
         else:
-            validation = {
+            validation = _normalize_validation({
                 "status": "fail",
                 "summary": {"blocking_count": 1, "warning_count": 0},
-                "items": [{"severity": "blocking", "kind": "missing_target", "message": f"Target file does not exist: {target_name}"}],
-            }
+                "items": [{"severity": "blocking", "kind": "missing_target", "message": f"Target file does not exist: {pair_info['target']}"}],
+            })
         pair = {
-            "source": source["path"],
-            "target": relative_path(project, target_path),
+            "source": pair_info["source"],
+            "target": pair_info["target"],
             "adapter": adapter,
             "validation": validation,
         }
@@ -159,28 +170,28 @@ def check(project_root: Path, target_files: list[str]) -> dict[str, Any]:
         if validation["status"] != "fail":
             source_text.extend(
                 str(item.get("source", ""))
-                for item in extract_source(adapter, source_path, memory["source_locale"], source["path"])
+                for item in extract_source(adapter, source_path, memory["source_locale"], pair_info["source"])
             )
             target_text.extend(
                 str(item.get("source", ""))
-                for item in extract_target(adapter, target_path, memory["target_locale"], relative_path(project, target_path))
+                for item in extract_target(adapter, target_path, memory["target_locale"], pair_info["target"])
             )
         for item in validation.get("items", []):
-            issue = {"source": source["path"], "target": relative_path(project, target_path), **item}
-            (errors if item.get("severity") == "blocking" else warnings).append(issue)
+            findings.append({"source": pair_info["source"], "target": pair_info["target"], **item})
 
     glossary_findings = check_locked_concepts(_read_json_if_exists(_state_path(project, GLOSSARY)), source_text, target_text)
-    errors.extend(item for item in glossary_findings if item["severity"] == "blocking")
-    warnings.extend(item for item in glossary_findings if item["severity"] != "blocking")
+    findings.extend(_normalize_check_item(item) for item in glossary_findings)
+    summary = _severity_summary(findings)
     result = {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-deterministic-check-v1",
-        "status": "fail" if errors else ("pass_with_warnings" if warnings else "pass"),
+        "status": _check_status(summary),
         "source_locale": memory["source_locale"],
         "target_locale": memory["target_locale"],
+        "source_target_mapping": mapping,
         "pairs": pairs,
-        "summary": {"blocking_count": len(errors), "warning_count": len(warnings)},
-        "findings": [*errors, *warnings],
+        "summary": summary,
+        "findings": findings,
         "checked_at": _now(),
         "limitations": ["Structural checks and exact locked-term checks do not evaluate translation meaning or naturalness."],
     }
@@ -191,13 +202,11 @@ def check(project_root: Path, target_files: list[str]) -> dict[str, Any]:
 def prepare_review(project_root: Path, target_files: list[str], findings_path: Path | None = None) -> dict[str, Any]:
     project = resolve_project(project_root)
     memory = _read_memory(project)
-    sources = memory["source_files"]
-    if len(target_files) != len(sources):
-        raise ValueError(f"Expected {len(sources)} --target values, one for each declared source file")
-    target_paths = [resolve_project_file(project, value) for value in target_files]
-    for path in target_paths:
-        if not path.is_file():
-            raise ValueError(f"Target file does not exist: {relative_path(project, path)}")
+    paired = _pair_resources(project, memory, target_files)
+    mapping = _source_target_mapping(paired)
+    for pair_info in paired:
+        if not pair_info["target_path"].is_file():
+            raise ValueError(f"Target file does not exist: {pair_info['target']}")
     if findings_path is not None:
         findings = _read_json(findings_path)
         review = _record_review(project, findings)
@@ -206,19 +215,23 @@ def prepare_review(project_root: Path, target_files: list[str], findings_path: P
             "schema": "localize-anything-core-review-record-v1",
             "status": review["status"],
             "review": _state_path(project, REVIEW).as_posix(),
+            "source_target_mapping": mapping,
+            "finding_count": review["summary"]["finding_count"],
+            "review_item_count": review["summary"]["review_item_count"],
             "human_confirmation_required": review["summary"]["human_confirmation_required"],
         }
 
     packet_files = []
-    for source, target_path in zip(sources, target_paths, strict=True):
-        source_path = resolve_project_file(project, str(source["path"]))
-        adapter = str(source["adapter"])
-        source_segments = extract_source(adapter, source_path, memory["source_locale"], source["path"])
-        target_segments = extract_target(adapter, target_path, memory["target_locale"], relative_path(project, target_path))
+    for pair_info in paired:
+        source_path = pair_info["source_path"]
+        target_path = pair_info["target_path"]
+        adapter = str(pair_info["adapter"])
+        source_segments = extract_source(adapter, source_path, memory["source_locale"], pair_info["source"])
+        target_segments = extract_target(adapter, target_path, memory["target_locale"], pair_info["target"])
         packet_files.append(
             {
-                "source": source["path"],
-                "target": relative_path(project, target_path),
+                "source": pair_info["source"],
+                "target": pair_info["target"],
                 "adapter": adapter,
                 "segments": align_review_segments(source_segments, target_segments),
             }
@@ -231,10 +244,12 @@ def prepare_review(project_root: Path, target_files: list[str], findings_path: P
         "project_memory": _read_memory(project),
         "glossary": _read_json_if_exists(_state_path(project, GLOSSARY)) or {"concepts": []},
         "deterministic_check": _read_json_if_exists(_state_path(project, CHECK)),
+        "source_target_mapping": mapping,
         "files": packet_files,
         "review_result_format": {
             "reviewer": "independent reviewer identity or model",
-            "findings": [{"id": "stable-id", "severity": "low|medium|high|critical", "status": "auto_cleared|resolved|needs_human_confirmation", "note": "concise evidence"}],
+            "review_items": [{"id": "stable-id", "severity": "informational", "status": "auto_cleared", "note": "concise evidence for a checked item that is not a finding"}],
+            "findings": [{"id": "stable-id", "severity": "blocking|actionable|coverage_limitation|informational", "status": "resolved|needs_human_confirmation", "note": "concise evidence"}],
         },
     }
     _write_json(_state_path(project, REVIEW_PACKET), packet)
@@ -243,6 +258,7 @@ def prepare_review(project_root: Path, target_files: list[str], findings_path: P
         "schema": "localize-anything-core-review-packet-v1",
         "status": packet["status"],
         "review_packet": _state_path(project, REVIEW_PACKET).as_posix(),
+        "source_target_mapping": mapping,
         "next": "Give this packet to an independent Agent context, then run `localize review PROJECT --findings REVIEW.json`.",
     }
 
@@ -305,38 +321,193 @@ def _source_segments(project: Path, memory: dict[str, Any]) -> list[dict[str, An
     ]
 
 
+def _pair_resources(project: Path, memory: dict[str, Any], target_files: list[str]) -> list[dict[str, Any]]:
+    sources = memory["source_files"]
+    if len(target_files) != len(sources):
+        raise ValueError(
+            f"Expected {len(sources)} --target values, got {len(target_files)}; pass one target for each declared source file"
+        )
+    pairs = []
+    for index, (source, target_name) in enumerate(zip(sources, target_files, strict=True), start=1):
+        source_path = resolve_project_file(project, str(source["path"]))
+        target_path = resolve_project_file(project, target_name)
+        source_rel = str(source["path"])
+        target_rel = relative_path(project, target_path)
+        adapter = str(source["adapter"])
+        target_adapter = detect_adapter(project, target_path) if target_path.is_file() else None
+        if target_adapter and target_adapter != adapter:
+            raise ValueError(
+                f"Source/target adapter mismatch at pair {index}: {source_rel} ({adapter}) -> {target_rel} ({target_adapter})"
+            )
+        contradiction = _locale_path_contradiction(
+            source_rel,
+            target_rel,
+            str(memory["source_locale"]),
+            str(memory["target_locale"]),
+        )
+        if contradiction:
+            raise ValueError(f"Source/target locale path mismatch at pair {index}: {source_rel} -> {target_rel}: {contradiction}")
+        pairs.append(
+            {
+                "source": source_rel,
+                "target": target_rel,
+                "adapter": adapter,
+                "source_path": source_path,
+                "target_path": target_path,
+            }
+        )
+    return pairs
+
+
+def _source_target_mapping(pairs: list[dict[str, Any]]) -> list[dict[str, str]]:
+    return [
+        {"source": str(item["source"]), "target": str(item["target"]), "adapter": str(item["adapter"])}
+        for item in pairs
+    ]
+
+
+def _locale_path_contradiction(source: str, target: str, source_locale: str, target_locale: str) -> str:
+    source_tokens = set(PATH_TOKEN_RE.findall(source.casefold()))
+    target_tokens = set(PATH_TOKEN_RE.findall(target.casefold()))
+    source_locale_tokens = _locale_token_set(source_locale)
+    target_locale_tokens = _locale_token_set(target_locale)
+    source_has_source = bool(source_tokens & source_locale_tokens)
+    source_has_target = bool(source_tokens & target_locale_tokens)
+    target_has_source = bool(target_tokens & source_locale_tokens)
+    target_has_target = bool(target_tokens & target_locale_tokens)
+    if source_has_target and not source_has_source:
+        return f"source path contains target-locale token {target_locale!r}"
+    if target_has_source and not target_has_target:
+        return f"target path contains source-locale token {source_locale!r}"
+    if source_has_source and target_has_target:
+        source_shape = _locale_path_shape(source, source_locale)
+        target_shape = _locale_path_shape(target, target_locale)
+        if source_shape != target_shape:
+            return f"path shapes differ after locale replacement ({source_shape!r} vs {target_shape!r})"
+    return ""
+
+
+def _locale_token_set(locale: str) -> set[str]:
+    parts = [part for part in re.split(r"[-_]", locale.casefold()) if part]
+    return set(parts)
+
+
+def _locale_path_shape(path: str, locale: str) -> str:
+    locale_tokens = _locale_token_set(locale)
+    parts = [
+        "{locale}" if token in locale_tokens else token
+        for token in PATH_SPLIT_RE.split(path.casefold())
+    ]
+    shape = "".join(parts)
+    return re.sub(r"\{locale\}(?:[-_]\{locale\})+", "{locale}", shape)
+
+
+def _normalize_validation(validation: dict[str, Any]) -> dict[str, Any]:
+    items = [_normalize_check_item(item) for item in validation.get("items", [])]
+    summary = _severity_summary(items)
+    return {**validation, "status": _check_status(summary), "summary": summary, "items": items}
+
+
+def _normalize_check_item(item: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(item)
+    category = str(normalized.get("category") or normalized.get("kind") or "")
+    severity = str(normalized.get("severity", "")).strip()
+    if severity == "warning":
+        if category in INFORMATIONAL_CATEGORIES:
+            severity = "informational"
+        elif category in COVERAGE_CATEGORIES:
+            severity = "coverage_limitation"
+        else:
+            severity = "actionable"
+    elif severity == "info":
+        severity = "informational"
+    elif severity not in SEVERITIES:
+        severity = "informational" if category in INFORMATIONAL_CATEGORIES else "actionable"
+    normalized["severity"] = severity
+    return normalized
+
+
+def _severity_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {severity: 0 for severity in sorted(SEVERITIES)}
+    for item in items:
+        severity = str(item.get("severity", "informational"))
+        counts[severity if severity in counts else "informational"] += 1
+    return {
+        "blocking_count": counts["blocking"],
+        "warning_count": counts["actionable"] + counts["coverage_limitation"],
+        "actionable_count": counts["actionable"],
+        "coverage_limitation_count": counts["coverage_limitation"],
+        "informational_count": counts["informational"],
+        "severity_counts": counts,
+    }
+
+
+def _check_status(summary: dict[str, Any]) -> str:
+    if summary["blocking_count"]:
+        return "fail"
+    if summary["actionable_count"] or summary["coverage_limitation_count"]:
+        return "pass_with_warnings"
+    return "pass"
+
+
 def _record_review(project: Path, payload: dict[str, Any]) -> dict[str, Any]:
     if not _state_path(project, REVIEW_PACKET).is_file():
         raise ValueError("Independent review packet is missing. Run `localize review PROJECT --target ...` before importing findings.")
     reviewer = str(payload.get("reviewer", "")).strip()
     findings = payload.get("findings")
+    review_items = payload.get("review_items", [])
     if not reviewer or not isinstance(findings, list):
         raise ValueError("Independent review findings require reviewer and findings")
-    normalized = []
+    if not isinstance(review_items, list):
+        raise ValueError("Independent review review_items must be a list")
+    normalized_findings = []
+    normalized_review_items = []
+    for item in review_items:
+        normalized_review_items.append(_normalize_review_entry(item, allowed_statuses={"auto_cleared"}, default_status="auto_cleared"))
     for item in findings:
-        if not isinstance(item, dict):
-            raise ValueError("Each review finding must be an object")
-        finding_id = str(item.get("id", "")).strip()
-        severity = str(item.get("severity", "")).strip()
-        status = str(item.get("status", "")).strip()
-        if not finding_id or severity not in {"low", "medium", "high", "critical"} or status not in {"auto_cleared", "resolved", "needs_human_confirmation"}:
-            raise ValueError("Review findings need id, a valid severity, and a valid status")
-        normalized.append({"id": finding_id, "severity": severity, "status": status, "note": str(item.get("note", "")).strip()})
+        normalized = _normalize_review_entry(
+            item,
+            allowed_statuses={"auto_cleared", "resolved", "needs_human_confirmation"},
+            default_status="",
+        )
+        if normalized["status"] == "auto_cleared":
+            normalized_review_items.append(normalized)
+        else:
+            normalized_findings.append(normalized)
     result = {
         "protocol_version": PROTOCOL_VERSION,
         "schema": "localize-anything-independent-review-v1",
         "status": "complete",
         "reviewer": reviewer,
-        "findings": normalized,
+        "review_items": normalized_review_items,
+        "findings": normalized_findings,
         "summary": {
-            "reviewed_count": len(normalized),
-            "auto_cleared": sum(item["status"] == "auto_cleared" for item in normalized),
-            "human_confirmation_required": sum(item["status"] == "needs_human_confirmation" for item in normalized),
+            "reviewed_count": len(normalized_review_items) + len(normalized_findings),
+            "review_item_count": len(normalized_review_items),
+            "finding_count": len(normalized_findings),
+            "human_confirmation_required": sum(item["status"] == "needs_human_confirmation" for item in normalized_findings),
         },
         "reviewed_at": _now(),
     }
     _write_json(_state_path(project, REVIEW), result)
     return result
+
+
+def _normalize_review_entry(item: Any, *, allowed_statuses: set[str], default_status: str) -> dict[str, str]:
+    if not isinstance(item, dict):
+        raise ValueError("Each review item or finding must be an object")
+    entry_id = str(item.get("id", "")).strip()
+    severity = _normalize_review_severity(str(item.get("severity") or "").strip())
+    status = str(item.get("status") or default_status).strip()
+    if not entry_id or not severity or status not in allowed_statuses:
+        raise ValueError("Review items and findings need id, a valid severity, and a valid status")
+    return {"id": entry_id, "severity": severity, "status": status, "note": str(item.get("note", "")).strip()}
+
+
+def _normalize_review_severity(value: str) -> str:
+    if value in SEVERITIES:
+        return value
+    return LEGACY_REVIEW_SEVERITIES.get(value, "")
 
 
 def _record_confirmations(project: Path, payload: dict[str, Any]) -> None:

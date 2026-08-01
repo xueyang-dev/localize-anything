@@ -16,10 +16,11 @@
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "source_terms": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-          "behavior": { "enum": ["translate", "preserve"] },
-          "status": { "enum": ["candidate", "locked"] },
+          "behavior": { "enum": ["translate", "preserve"], "description": "Use translate for a concept with a target translation; use preserve when the source term must remain unchanged." },
+          "status": { "enum": ["candidate", "locked"], "description": "Set locked only after repository evidence or user confirmation; locked concepts are enforced by localize check." },
           "target": {
             "type": "object",
+            "description": "Agent operation: lock a translation by setting target.preferred; preserve a term by setting behavior=preserve and status=locked.",
             "required": ["preferred", "forbidden"],
             "properties": {
               "preferred": { "type": "string" },

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Release preparation: 0.5.1
+
+- Clarify first-run usability for zero-i18n projects: the Coding Agent creates
+  project-native i18n and source resources before `localize scan`.
+- Harden source/target pairing in `check` and `review` with count validation,
+  explicit `source_target_mapping`, adapter checks, and obvious locale/path
+  mismatch rejection.
+- Normalize core severity vocabulary to `blocking`, `actionable`,
+  `coverage_limitation`, and `informational`; auto-cleared checks are now
+  `review_items`, not findings.
+- Document canonical Glossary edits for locking a translation and preserving a
+  term, plus review-packet fields and a complete JSON quickstart.
+
 ### Release preparation: 0.5.0
 
 - Prepare the first agent-native core release: `localize` is the only public

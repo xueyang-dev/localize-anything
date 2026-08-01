@@ -63,19 +63,32 @@ class CoreCliTests(unittest.TestCase):
             check_exit, check_result = self._run("check", project.as_posix(), "--target", "locales/zh.json")
             self.assertEqual(check_exit, 0)
             self.assertEqual(check_result["status"], "pass")
+            self.assertEqual(
+                check_result["source_target_mapping"],
+                [{"source": "locales/en.json", "target": "locales/zh.json", "adapter": "json"}],
+            )
 
             packet_exit, packet = self._run("review", project.as_posix(), "--target", "locales/zh.json")
             self.assertEqual(packet_exit, 0)
             self.assertEqual(packet["status"], "ready_for_independent_review")
+            self.assertEqual(packet["source_target_mapping"][0]["source"], "locales/en.json")
             findings = project / "findings.json"
             findings.write_text(
                 json.dumps(
                     {
                         "reviewer": "independent-agent",
+                        "review_items": [
+                            {
+                                "id": "checked-tone",
+                                "severity": "informational",
+                                "status": "auto_cleared",
+                                "note": "Tone is acceptable for this low-risk label.",
+                            }
+                        ],
                         "findings": [
                             {
                                 "id": "brand-name",
-                                "severity": "high",
+                                "severity": "actionable",
                                 "status": "needs_human_confirmation",
                                 "note": "Confirm whether Atlas remains untranslated.",
                             }
@@ -88,6 +101,11 @@ class CoreCliTests(unittest.TestCase):
                 self._run("review", project.as_posix(), "--target", "locales/zh.json", "--findings", findings.as_posix())[0],
                 0,
             )
+            imported_review = json.loads((project / ".localize-anything" / "independent-review.json").read_text(encoding="utf-8"))
+            self.assertEqual(imported_review["summary"]["review_item_count"], 1)
+            self.assertEqual(imported_review["summary"]["finding_count"], 1)
+            self.assertEqual(len(imported_review["review_items"]), 1)
+            self.assertEqual(len(imported_review["findings"]), 1)
             self.assertEqual(self._run("report", project.as_posix())[1]["status"], "needs_human_confirmation")
 
             confirmations = project / "confirmations.json"
@@ -96,6 +114,76 @@ class CoreCliTests(unittest.TestCase):
             self.assertEqual(report_exit, 0)
             self.assertEqual(report["status"], "ready")
             self.assertTrue((project / ".localize-anything" / "report.md").is_file())
+
+    def test_pairing_rejects_target_count_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "locales" / "en").mkdir(parents=True)
+            (project / "locales" / "ru").mkdir(parents=True)
+            (project / "locales" / "en" / "common.json").write_text('{"title": "Title"}', encoding="utf-8")
+            (project / "locales" / "en" / "admin.json").write_text('{"save": "Save"}', encoding="utf-8")
+            (project / "locales" / "ru" / "common.json").write_text('{"title": "Заголовок"}', encoding="utf-8")
+            self._run(
+                "scan",
+                project.as_posix(),
+                "--source-locale",
+                "en",
+                "--target-locale",
+                "ru",
+                "--source",
+                "locales/en/common.json",
+                "--source",
+                "locales/en/admin.json",
+            )
+
+            exit_code, result = self._run("check", project.as_posix(), "--target", "locales/ru/common.json")
+            self.assertEqual(exit_code, 2)
+            self.assertIn("Expected 2 --target values, got 1", result["error"])
+
+    def test_pairing_rejects_wrong_target_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "locales" / "en").mkdir(parents=True)
+            (project / "locales" / "ru").mkdir(parents=True)
+            (project / "locales" / "en" / "common.json").write_text('{"title": "Title"}', encoding="utf-8")
+            (project / "locales" / "en" / "admin.json").write_text('{"save": "Save"}', encoding="utf-8")
+            (project / "locales" / "ru" / "common.json").write_text('{"title": "Заголовок"}', encoding="utf-8")
+            (project / "locales" / "ru" / "admin.json").write_text('{"save": "Сохранить"}', encoding="utf-8")
+            self._run(
+                "scan",
+                project.as_posix(),
+                "--source-locale",
+                "en",
+                "--target-locale",
+                "ru",
+                "--source",
+                "locales/en/common.json",
+                "--source",
+                "locales/en/admin.json",
+            )
+
+            exit_code, result = self._run(
+                "review",
+                project.as_posix(),
+                "--target",
+                "locales/ru/admin.json",
+                "--target",
+                "locales/ru/common.json",
+            )
+            self.assertEqual(exit_code, 2)
+            self.assertIn("Source/target locale path mismatch at pair 1", result["error"])
+            self.assertIn("locales/en/common.json -> locales/ru/admin.json", result["error"])
+
+    def test_pairing_rejects_target_path_with_source_locale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "locales").mkdir()
+            (project / "locales" / "en.json").write_text('{"title": "Title"}', encoding="utf-8")
+            self._run("scan", project.as_posix(), "--source-locale", "en", "--target-locale", "ru", "--source", "locales/en.json")
+
+            exit_code, result = self._run("check", project.as_posix(), "--target", "locales/en.json")
+            self.assertEqual(exit_code, 2)
+            self.assertIn("target path contains source-locale token", result["error"])
 
     def test_check_fails_when_a_placeholder_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -219,6 +307,9 @@ class CoreCliTests(unittest.TestCase):
 
     def _run(self, *argv: str) -> tuple[int, dict[str, object]]:
         stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             exit_code = main(list(argv))
+        if exit_code == 2:
+            return exit_code, {"error": stderr.getvalue()}
         return exit_code, json.loads(stdout.getvalue())

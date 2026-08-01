@@ -45,6 +45,8 @@ python -m pip install -e ".[yaml]"
 
 对目标项目声明一次本地化任务，建立 Project Memory：
 
+如果项目还没有任何 i18n，Coding Agent 必须先按项目原生方式建立最小 i18n，并创建源语言资源文件。不要在 `--source` 文件存在前运行 `localize scan`；`scan` 只记录已经存在的 source resource，不负责创建它。
+
 ```bash
 localize scan /path/to/project \
   --source-locale en \
@@ -65,11 +67,39 @@ localize check /path/to/project --target locales/ru.json
 localize review /path/to/project --target locales/ru.json
 ```
 
+如果声明了多个 source，必须按 scan 顺序为每个 source 传一个 `--target`。`check` 和 `review` 会输出 `source_target_mapping`，并拒绝数量不一致、明显把 source locale 当 target、adapter 不一致，以及清晰的路径形状矛盾。
+
 把 `.localize-anything/review-packet.json` 交给一个未参与生成译文的独立 Agent context 审查，导入审查结果并生成报告：
 
 ```bash
 localize review /path/to/project --target locales/ru.json --findings review.json
 localize report /path/to/project
+```
+
+check、review、report 和 Skill 统一使用这四个 severity：`blocking`、`actionable`、`coverage_limitation`、`informational`。自动放行的检查项写入 `review_items`；只有真实问题写入 `findings`。
+
+最小 `review.json`：
+
+```json
+{
+  "reviewer": "fresh-review-context",
+  "review_items": [
+    {
+      "id": "checked-placeholders",
+      "severity": "informational",
+      "status": "auto_cleared",
+      "note": "Placeholders were checked and no issue was found."
+    }
+  ],
+  "findings": [
+    {
+      "id": "brand-name",
+      "severity": "actionable",
+      "status": "needs_human_confirmation",
+      "note": "Confirm whether the product name remains untranslated."
+    }
+  ]
+}
 ```
 
 只有状态为 `needs_human_confirmation` 的开放 finding 可以接受人工确认：
@@ -79,6 +109,18 @@ localize report /path/to/project --confirm confirmations.json
 ```
 
 所有核心状态保存在目标项目的 `.localize-anything/` 目录，可随 Git 提交与共享。
+
+## Review Packet 字段
+
+`.localize-anything/review-packet.json` 是交给独立 review context 的自包含输入：
+
+- `instruction`：审查任务和独立性要求。
+- `project_memory`：声明的语言、source 文件、风格、保留规则、翻译记忆和已确认决策。
+- `glossary`：canonical concept；锁定译名用 `status: "locked"` 和 `target.preferred`，保留源词用 `behavior: "preserve"` 加 `status: "locked"`。
+- `deterministic_check`：最近一次结构检查结果，或 `null`。
+- `source_target_mapping`：按 scan 顺序列出的 source→target 文件映射。
+- `files`：已经对齐的 source/target segments。
+- `review_result_format`：独立 reviewer 应返回的 JSON 形状。
 
 ## 让 Coding Agent 使用
 
@@ -135,7 +177,7 @@ assert validate_adapter_tree(Path("adapters"))["status"] == "pass"
 - [核心数据契约](protocol/SPEC.md)
 - [Agent Skill](skills/localize-anything/SKILL.md)
 - [迁移说明](docs/migration/agent-native-core-migration.md) — 从旧平台迁移到五命令核心
-- [0.5.0 发布说明](docs/releases/0.5.0-release-notes.md)
+- [0.5.1 发布说明](docs/releases/0.5.1-release-notes.md)
 
 历史 v0.4 平台设计仅保留在 [Legacy Architecture Snapshot](docs/architecture-v0.4-legacy.md) 与 Git 历史中。
 

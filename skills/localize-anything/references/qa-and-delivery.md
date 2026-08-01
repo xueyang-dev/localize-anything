@@ -21,9 +21,9 @@ Mechanical tools may verify:
 - source mutation and unsafe overwrite conditions.
 
 Passing these checks does not prove semantic quality.
-Do not report `ready` while deterministic warnings remain. Classify each
-in-scope warning as blocking, actionable, a coverage limitation, or
-known/expected before making a release judgment.
+Do not report `ready` while deterministic attention items remain. Use only
+these severities: `blocking`, `actionable`, `coverage_limitation`, and
+`informational`.
 
 ### Agent Review
 
@@ -39,6 +39,7 @@ Use an independent context to assess:
 - cultural or locale adaptation.
 
 Record finding, location, reason, risk, confidence, and suggested action.
+Auto-cleared checks are review items, not findings.
 
 ### Human Confirmation
 
@@ -57,8 +58,8 @@ close those findings.
 
 ## Risk Routing
 
-Auto-clear low-risk items only when the reason is visible and no hard constraint
-failed. Never auto-clear:
+Put low-risk auto-cleared checks in `review_items` only when the reason is
+visible and no hard constraint failed. Never auto-clear:
 
 - placeholder, markup, key, or file-structure damage;
 - a conflict with a locked Glossary concept;
@@ -75,10 +76,10 @@ Declared scope
 Excluded and external surfaces
 Translated items
 Agent-reviewed items
-Auto-cleared items
+Review items
 Human confirmation required
 Human-edited after review
-Deterministic blockers and warnings
+Deterministic blocking, actionable, coverage limitation, and informational items
 Build/test results
 Screenshot/page review results
 Git diff / commit / PR state

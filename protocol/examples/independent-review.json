@@ -3,14 +3,22 @@
   "schema": "localize-anything-independent-review-v1",
   "status": "complete",
   "reviewer": "independent-agent-context",
+  "review_items": [
+    {
+      "id": "reviewed-placeholder-parity",
+      "severity": "informational",
+      "status": "auto_cleared",
+      "note": "Placeholder parity was checked and no issue was found."
+    }
+  ],
   "findings": [
     {
       "id": "finding-share-tone",
-      "severity": "medium",
+      "severity": "actionable",
       "status": "needs_human_confirmation",
       "note": "Confirm whether the action means sharing a link or assigning a recipient."
     }
   ],
-  "summary": { "reviewed_count": 1, "auto_cleared": 0, "human_confirmation_required": 1 },
+  "summary": { "reviewed_count": 2, "review_item_count": 1, "finding_count": 1, "human_confirmation_required": 1 },
   "reviewed_at": "2026-07-31T00:00:00Z"
 }

@@ -5,7 +5,20 @@
   "instruction": "Review in a fresh context for meaning, naturalness, tone, and product-concept consistency.",
   "project_memory": { "source_locale": "en", "target_locale": "ru", "source_files": [{ "path": "locales/en.json", "adapter": "json" }] },
   "glossary": { "concepts": [] },
-  "deterministic_check": { "status": "pass", "summary": { "blocking_count": 0, "warning_count": 0 } },
+  "deterministic_check": {
+    "status": "pass",
+    "summary": {
+      "blocking_count": 0,
+      "warning_count": 0,
+      "actionable_count": 0,
+      "coverage_limitation_count": 0,
+      "informational_count": 0,
+      "severity_counts": { "actionable": 0, "blocking": 0, "coverage_limitation": 0, "informational": 0 }
+    }
+  },
+  "source_target_mapping": [
+    { "source": "locales/en.json", "target": "locales/ru.json", "adapter": "json" }
+  ],
   "files": [
     {
       "source": "locales/en.json",
@@ -16,6 +29,7 @@
   ],
   "review_result_format": {
     "reviewer": "independent reviewer identity or model",
-    "findings": [{ "id": "stable-id", "severity": "low|medium|high|critical", "status": "auto_cleared|resolved|needs_human_confirmation", "note": "concise evidence" }]
+    "review_items": [{ "id": "stable-id", "severity": "informational", "status": "auto_cleared", "note": "checked item that is not a finding" }],
+    "findings": [{ "id": "stable-id", "severity": "blocking|actionable|coverage_limitation|informational", "status": "resolved|needs_human_confirmation", "note": "concise evidence" }]
   }
 }

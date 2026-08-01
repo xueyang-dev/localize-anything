@@ -4,15 +4,36 @@
   "status": "pass",
   "source_locale": "en",
   "target_locale": "ru",
+  "source_target_mapping": [
+    { "source": "locales/en.json", "target": "locales/ru.json", "adapter": "json" }
+  ],
   "pairs": [
     {
       "source": "locales/en.json",
       "target": "locales/ru.json",
       "adapter": "json",
-      "validation": { "status": "pass", "summary": { "blocking_count": 0, "warning_count": 0 }, "items": [] }
+      "validation": {
+        "status": "pass",
+        "summary": {
+          "blocking_count": 0,
+          "warning_count": 0,
+          "actionable_count": 0,
+          "coverage_limitation_count": 0,
+          "informational_count": 0,
+          "severity_counts": { "actionable": 0, "blocking": 0, "coverage_limitation": 0, "informational": 0 }
+        },
+        "items": []
+      }
     }
   ],
-  "summary": { "blocking_count": 0, "warning_count": 0 },
+  "summary": {
+    "blocking_count": 0,
+    "warning_count": 0,
+    "actionable_count": 0,
+    "coverage_limitation_count": 0,
+    "informational_count": 0,
+    "severity_counts": { "actionable": 0, "blocking": 0, "coverage_limitation": 0, "informational": 0 }
+  },
   "findings": [],
   "checked_at": "2026-07-31T00:00:00Z",
   "limitations": ["Structural checks do not evaluate translation meaning or naturalness."]
