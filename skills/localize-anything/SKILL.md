@@ -1,9 +1,9 @@
 ---
 name: localize-anything
 description: >-
-  Guide a Coding Agent through professional project localization: scope
-  discovery, translatability classification, concept-centered Glossary and
-  project memory, i18n implementation, deterministic structural checks,
+  Guide a Coding Agent through professional project localization: localization
+  surface discovery, translatability classification, concept-centered Glossary
+  and project memory, i18n implementation, deterministic structural checks,
   independent language review, risk-ranked human confirmation, and Standard or
   Release completion. Use when adding or updating locales, reviewing project
   localization, building a glossary or translation memory, finding localization
@@ -18,6 +18,11 @@ Act as the localization expertise layer for the host Coding Agent. The Agent
 still owns code edits, i18n architecture, project builds/tests, screenshots, and
 Git work. Supply the professional workflow, durable language decisions,
 mechanical QA, independent review, and a concise set of human decisions.
+
+"Anything" means surface-aware coverage: discover and explain resource
+catalogs, code-embedded catalogs, inline code strings, templates, dynamic
+external content, non-text assets, binary resources, and unknown surfaces. It
+does not mean automatically mutating every detected surface.
 
 ## Choose The Depth
 
@@ -54,14 +59,16 @@ localize scan
 ```
 
 1. Confirm the product, users, source locale, target locale, task intent, and
-   project material. Declare in-scope files, surfaces, exclusions, and
-   completion criteria. If the project has zero i18n, the Coding Agent must
-   first add the smallest project-native i18n setup and create the source
-   resource file.
+   project material. Declare in-scope files, localization surfaces, exclusions,
+   unsupported/dynamic/non-text surfaces, and completion criteria. If the
+   project has zero i18n, the Coding Agent must first add the smallest
+   project-native i18n setup and create the source resource file.
 2. Run `localize scan PROJECT --source-locale SOURCE --target-locale TARGET
    --source PATH` for every source file in scope. Run it only after every
    declared source file exists; `scan` records source resources, it does not
-   create them. It establishes Project Memory.
+   create them. It establishes Project Memory only after
+   `source-surface-inventory.json` and `capability-report.json` show every
+   declared source has a supported adapter.
 3. Run `localize glossary bootstrap PROJECT`. Review only high-impact candidate
    concepts; lock a translation by setting `status: "locked"` and
    `target.preferred`, or preserve a term by setting `behavior: "preserve"` and
@@ -74,8 +81,12 @@ localize scan
 5. Run `localize check PROJECT --target PATH` once per declared source, in the
    same order as `scan`. Read `source_target_mapping` and fix any pairing
    error before reviewing. Fix blocking structural findings before review.
+   `check` is also the source of the current `extracted-segments.json`
+   precondition for review.
 6. Run `localize review PROJECT --target PATH` to create the review packet.
-   Give that packet to a fresh review context that did not generate the draft.
+   Do not review when the deterministic check artifact is missing, failed,
+   stale, or mapped to different targets. Give the packet to a fresh review
+   context that did not generate the draft.
    Import its findings with the same command and `--findings REVIEW.json`.
 7. Send only high-risk, meaning-changing, terminology, or brand findings to the
    user. Auto-cleared checks are `review_items`, not `findings`. Do not record
@@ -124,6 +135,13 @@ Do not treat all source-language text as translatable. Brand names, codes,
 currency codes, developer-only text, locale-formatted values, and external
 dynamic content may correctly remain unchanged.
 
+Do not treat all source-code string literals as translatable. Structured
+code-embedded catalogs need explicit adapter evidence. Unstructured inline
+strings default to inventory, candidate classification, user-visible likelihood,
+and enablement planning. Logs, paths, commands, API keys, identifiers,
+notification names, SQL, regexes, internal errors, and test fixtures are not
+automatic localization objects.
+
 ## Keep Roles Clear
 
 - The Agent makes semantic and engineering judgments.
@@ -142,6 +160,11 @@ of a localization task.
 Coverage is complete only within the declared scope: every candidate is
 classified and every `translate` item has a target result. Do not redefine it
 as zero remaining source-language characters.
+
+Report detected-but-unsupported, unscanned, external runtime, and non-text
+surfaces as limitations or enablement work. Do not claim complete app,
+document, platform, Swift, Android, React, or visual coverage from a passing
+resource check.
 
 Deterministic checks do not prove semantic or professional translation quality.
 Agent review is not the same as human confirmation. Never promise perfect
