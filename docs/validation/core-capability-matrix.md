@@ -8,6 +8,13 @@ from a complete product-localization claim. `partially_covered` means a real
 boundary or optional dependency remains; `intentionally_unsupported` is used
 only when the product explicitly declines the capability.
 
+Claim boundary: these rows describe current resource handlers and five-command
+workflow evidence. They are not surface-complete claims for Swift, iOS,
+Android, React, documents, runtime content, non-text assets, launch behavior, or
+visual UI coverage. Future capability reports must express localization
+surface, round-trip level, verification dimensions, evidence, limitations,
+claim downgrades, and forbidden claims separately.
+
 ## Summary
 
 | Status | Count |
@@ -22,7 +29,7 @@ only when the product explicitly declines the capability.
 
 | Capability | Status | Evidence | Boundary / limitation |
 | --- | --- | --- | --- |
-| scan | covered | Core/Skill tests and all three fixed slices discovered declared resources. | Does not infer project-specific i18n architecture. |
+| scan | covered | Core/Skill tests and all three fixed slices discovered declared resources; scan generates source-surface-inventory.json and capability-report.json. | Does not infer project-specific i18n architecture. |
 | glossary bootstrap | partially_covered | Candidate and lock tests pass; each slice writes canonical `glossary.json`. | Conservative heuristics can produce zero candidates; semantic quality remains human-reviewed. |
 | check | covered | JSON and Apple passed; Android surfaced an expected informational skipped-resource finding. | Structural and placeholder checks do not judge meaning or naturalness. |
 | review packet | covered | All slices generated aligned independent-review packets. | Packet is not automatic semantic approval. |

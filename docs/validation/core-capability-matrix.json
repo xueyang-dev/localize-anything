@@ -2,6 +2,7 @@
   "schema": "localize-anything-phase5-capability-matrix-v1",
   "generated_on": "2026-07-31",
   "scope": "Phase 5 stabilization of the five-command core and bounded compatibility handlers",
+  "claim_boundary": "Rows describe current resource handlers and five-command workflow evidence, not surface-complete claims for Swift, iOS, Android, React, documents, runtime content, non-text assets, launch behavior, or visual UI coverage.",
   "statuses": [
     "covered",
     "partially_covered",
@@ -23,7 +24,7 @@
       "scope": "five-command core",
       "evidence": "Core unit test and all three Phase 5 fixed slices discovered the declared source resource.",
       "tests": ["tests/test_core_cli.py", "tests/test_skill_phase2.py"],
-      "limitations": "Discovery is format-aware but does not infer project-specific i18n architecture."
+      "limitations": "Discovery is format-aware but does not infer project-specific i18n architecture; scan also generates source-surface-inventory.json and capability-report.json, which do not imply project-specific architecture inference."
     },
     {
       "id": "glossary-bootstrap",

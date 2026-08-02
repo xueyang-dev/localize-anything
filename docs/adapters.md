@@ -18,6 +18,39 @@ Preferred order:
 3. let the Coding Agent make scoped edits and record missing mechanical checks
    when no handler fits safely.
 
+## Role Separation
+
+- Format handlers process a resource syntax, such as JSON, PO, XLIFF,
+  `.xcstrings`, or Android `strings.xml`.
+- Platform overlays describe project or platform conventions around resources,
+  such as Android qualifier routing or Apple locale bundles. They do not make a
+  whole app localized.
+- Scenario adapters add domain context for a specific project family, such as
+  Wesnoth campaign/speaker context. They do not become generic format support
+  unless that boundary is separately proven.
+
+Adapter selection is surface-aware. A handler target is a localization surface
+and its detected structure, not merely a filename extension or programming
+language.
+
+Preferred resolution:
+
+```text
+project
+-> surface discovery
+-> surface classification
+-> adapter candidate detection
+-> user/project lock
+-> core handler
+-> verified/community handler
+-> generic fallback
+-> inspect-only / enablement / unsupported report
+```
+
+The current implementation has core handlers and bounded compatibility
+handlers, not a marketplace. `verified/community` remains a future trust tier
+only if a later accepted decision reintroduces it.
+
 ## Mechanical Lifecycle
 
 ```text
@@ -28,6 +61,31 @@ detect -> inventory -> extract -> validate-source
 The old adapter CLI commands and apply-plan surface have been removed. Core
 handlers are called internally by `scan`, `check`, and `review`; compatibility
 handlers are imported directly only when explicitly needed.
+
+For source-code mutation, the lifecycle is stricter:
+
+```text
+detect -> inventory -> extract -> validate-source
+       -> rebuild to staging -> syntax-aware patch/diff
+       -> syntax/build validation -> apply plan -> user confirmation
+       -> backup/rollback evidence
+```
+
+Build pass does not imply launch pass, and launch pass does not imply visible UI
+coverage pass.
+
+## Capability Vocabulary
+
+Adapter manifests currently expose capability names and a `round_trip_level`:
+`full_round_trip`, `extract_and_rebuild`, `extract_only`, `inspect_only`, or
+`unsupported`. Documentation and future reports must add surface dimensions
+when they matter: surface detection, content extraction, staged rebuild,
+project enablement, source-code mutation, syntax validation, build
+verification, launch verification, runtime-surface verification, and visual
+verification.
+
+Do not use claims such as "Swift supported" or "JSON supported" as complete
+project-localization capability statements.
 
 ## Current Handlers
 
@@ -91,6 +149,111 @@ Current `.strings`, `.stringsdict`, and `.xcstrings` support does not edit Xcode
 project files, application code, storyboards, assets, build settings, or all
 locale variations. The Coding Agent owns those project-level changes.
 
+### Source-Code Catalogs And Inline Strings
+
+Source-code content has three classes:
+
+- structured code-embedded catalogs may be supported by an explicit,
+  syntax-aware adapter for that structure;
+- unstructured inline user-facing strings default to inventory, candidate
+  classification, user-visible likelihood assessment, and enablement planning;
+- internal strings such as logs, paths, commands, API keys, identifiers,
+  notification names, SQL, regexes, internal errors, and test fixtures are not
+  automatic localization objects.
+
+Do not choose a source-code adapter only because a file ends in `.swift`,
+`.kt`, `.ts`, `.py`, or another programming-language extension. The detector
+must record structural evidence, adapter version, capability, resolution
+reason, and any required tools. Scripted adapters must declare runtime,
+dependencies, permissions, and any source write capability. Project-local
+adapters do not receive hidden permissions.
+
+### Vorssaint Swift Catalog Slice
+
+Vorssaint is a planned experimental `code_embedded_catalog` vertical slice, not
+generic Swift support. The adapter target is a typed Swift catalog structure,
+currently expected to include:
+
+- `AppLanguage` enum and language display-name mapping;
+- system-locale matching and language selection switch;
+- `Strings` type definition;
+- `Strings+<Locale>.swift` implementations;
+- feature-specific `Strings` extensions;
+- `Info.plist` `CFBundleLocalizations`;
+- Swift package or project build validation.
+
+The runtime-validated slice is extract-only with report-only review: detect,
+inventory, extract, and validate-source, with no source mutation. It must find
+supported languages, fields, locale implementations, feature-specific files,
+`Info.plist` language declarations, per-locale field coverage,
+missing/duplicate/extra fields, stable segment IDs, source files, type names,
+parameter labels, and context without modifying source. Inspect-only scope and
+generic Swift support remain planned.
+
+A project-local adapter belongs under a path such as:
+
+```text
+.localize-anything/adapters/vorssaint.swift-catalog/
+```
+
+Do not promote this to `core.swift` or `format.swift-static-catalog` until the
+same structural model is verified across multiple independent Swift projects.
+
+### Project-local Extract-only Adapters
+
+Project-local adapters are discovered only from:
+
+```text
+.localize-anything/adapters/<adapter-id>/adapter.json
+```
+
+Discovery is read-only. A candidate is listed in `source-surface-inventory.json`
+and `capability-report.json`, but its script is not executed until selected
+explicitly with:
+
+```bash
+localize scan PROJECT --source-locale SOURCE --target-locale TARGET \
+  --source PATH --adapter ADAPTER_ID
+```
+
+The descriptor uses the existing adapter manifest vocabulary plus
+project-local fields:
+
+- `id`, `name`, `version`, `protocol_version`, `implementation_status`;
+- `adapter_type: "scripted"`;
+- `trust: "project"`;
+- `round_trip_level: "inspect_only"` or `"extract_only"`;
+- `capabilities`, limited to `detect`, `inventory`, `extract`, and
+  `validate_source`;
+- `permissions`, limited to `read_project` and `execute`;
+- `runtime.dependencies`, recorded but not installed by Localize Anything;
+- `entrypoints` as argv arrays;
+- `checksum.type: "sha256"` and `checksum.value` for the entrypoint script;
+- `source_scope.paths`;
+- `provenance` or `maintainer`;
+- `notes` and `limitations`.
+
+For `extract_only`, allowed evidence is detect, inventory, extraction,
+source validation, deterministic check, and report-only review packet
+generation. Blocked claims and phases are rebuild, validate-output as
+round-trip proof, plan-apply, apply, full-round-trip, editable delivery, and
+generic language/platform support.
+
+Adapter output is ingested into the same runtime artifacts as core handlers:
+`source-surface-inventory.json`, `capability-report.json`, `inventory.json`,
+`source-validation.json`, `deterministic-check.json`,
+`extracted-segments.json`, and `review-packet.json`. Descriptor, entrypoint,
+source, target, inventory, source-validation, and extraction hashes are recorded
+so downstream artifacts become stale when any dependency changes.
+
+Failure codes are blocking evidence, not warnings:
+`descriptor_invalid`, `capability_not_allowed`, `checksum_mismatch`,
+`entrypoint_missing`, `path_escape`, `adapter_timeout`,
+`adapter_nonzero_exit`, `adapter_invalid_json`,
+`adapter_schema_violation`, `adapter_output_too_large`, `adapter_phase_failed`,
+`adapter_payload_symlink`, `adapter_payload_special_file`, and
+`undeclared_dependency`.
+
 ### Subtitles
 
 Mechanical QA preserves cues, timestamps, tags, and placeholders. Reading
@@ -121,3 +284,4 @@ review, and lower human review cost.
 - When deterministic handling is unavailable, let the Coding Agent use project
   tooling and state which checks could not be performed.
 - Do not claim structural or coverage verification that did not run.
+- Do not wrap partial resource success as complete product localization.
