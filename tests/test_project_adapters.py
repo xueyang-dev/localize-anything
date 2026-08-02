@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import io
 import json
+import os
 import shutil
 import tempfile
 import textwrap
@@ -396,6 +397,175 @@ class ProjectLocalAdapterTests(unittest.TestCase):
             removed_exit, removed = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
             self.assertEqual(removed_exit, 2)
             self.assertIn("file set does not match", removed["error"])
+
+    def test_payload_symlinks_are_rejected_before_execution(self) -> None:
+        cases = [
+            ("root.symlink", "root"),
+            ("file.inside", "file_inside"),
+            ("file.project", "file_project"),
+            ("file.outside", "file_outside"),
+            ("dir.inside", "dir_inside"),
+            ("dir.project", "dir_project"),
+            ("dir.outside", "dir_outside"),
+            ("nested.file", "nested"),
+            ("broken.file", "broken"),
+        ]
+        for adapter_id, kind in cases:
+            with self.subTest(adapter_id=adapter_id, kind=kind):
+                with tempfile.TemporaryDirectory() as directory:
+                    base = Path(directory)
+                    project = _sample_project(base)
+                    adapters_root = project / ".localize-anything" / "adapters"
+                    if kind == "root":
+                        real_root = adapters_root / "real.payload"
+                        real_root.mkdir(parents=True)
+                        script = _sample_script()
+                        (real_root / "adapter.py").write_text(script, encoding="utf-8")
+                        (real_root / "adapter.json").write_text(
+                            json.dumps(_manifest("real.payload", hashlib.sha256(script.encode()).hexdigest())),
+                            encoding="utf-8",
+                        )
+                        (adapters_root / adapter_id).symlink_to(real_root, target_is_directory=True)
+                    else:
+                        adapter_root = adapters_root / adapter_id
+                        adapter_root.mkdir(parents=True)
+                        script = _sample_script()
+                        (adapter_root / "adapter.py").write_text(script, encoding="utf-8")
+                        (adapter_root / "adapter.json").write_text(
+                            json.dumps(_manifest(adapter_id, hashlib.sha256(script.encode()).hexdigest())),
+                            encoding="utf-8",
+                        )
+                        outside_file = base / "outside.py"
+                        outside_file.write_text("VALUE = 1\n", encoding="utf-8")
+                        if kind == "file_inside":
+                            (adapter_root / "helper.py").symlink_to(adapter_root / "adapter.py")
+                        elif kind == "file_project":
+                            shared = project / "shared.py"
+                            shared.write_text("VALUE = 1\n", encoding="utf-8")
+                            (adapter_root / "helper.py").symlink_to(shared)
+                        elif kind == "file_outside":
+                            (adapter_root / "helper.py").symlink_to(outside_file)
+                        elif kind == "dir_inside":
+                            real_dir = adapter_root / "real"
+                            real_dir.mkdir()
+                            (real_dir / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+                            (adapter_root / "pkg").symlink_to(real_dir, target_is_directory=True)
+                        elif kind == "dir_project":
+                            shared_dir = project / "shared"
+                            shared_dir.mkdir()
+                            (shared_dir / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+                            (adapter_root / "pkg").symlink_to(shared_dir, target_is_directory=True)
+                        elif kind == "dir_outside":
+                            outside_dir = base / "outside_dir"
+                            outside_dir.mkdir()
+                            (outside_dir / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+                            (adapter_root / "pkg").symlink_to(outside_dir, target_is_directory=True)
+                        elif kind == "nested":
+                            sub = adapter_root / "sub"
+                            sub.mkdir()
+                            (sub / "helper.py").symlink_to(outside_file)
+                        elif kind == "broken":
+                            (adapter_root / "helper.py").symlink_to(adapter_root / "missing.py")
+
+                    exit_code, result = _scan_selected(project, adapter_id)
+                    self.assertEqual(exit_code, 2)
+                    self.assertIn("adapter_payload_symlink", result["error"])
+                    capability = _read_state(project, "capability-report.json")
+                    self.assertEqual(capability["status"], "blocked")
+                    blocker = capability["blocked_sources"][0]["blocker"]
+                    self.assertEqual(blocker["kind"], "adapter_payload_symlink")
+                    self.assertEqual(blocker["evidence"]["entry_type"], "symlink")
+                    self.assertEqual(blocker["evidence"]["operation"], "fingerprint")
+                    self.assertIn("recommended_action", blocker["evidence"])
+                    self.assertIn("relative_path", blocker["evidence"])
+                    state_dir = project / ".localize-anything"
+                    self.assertFalse((state_dir / "project-memory.json").exists())
+                    self.assertFalse((state_dir / "adapter-runs").exists())
+                    self.assertFalse((state_dir / "extracted-segments.json").exists())
+                    self.assertEqual(
+                        (project / "catalog.samplecat").read_text(encoding="utf-8"),
+                        '{"messages": [{"id": "title", "text": "Hello"}]}',
+                    )
+
+    def test_payload_special_files_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _sample_project(Path(directory))
+            adapter_root = project / ".localize-anything" / "adapters" / "fifo.case"
+            adapter_root.mkdir(parents=True)
+            script = _sample_script()
+            (adapter_root / "adapter.py").write_text(script, encoding="utf-8")
+            (adapter_root / "adapter.json").write_text(
+                json.dumps(_manifest("fifo.case", hashlib.sha256(script.encode()).hexdigest())),
+                encoding="utf-8",
+            )
+            os.mkfifo(adapter_root / "pipe")
+            exit_code, result = _scan_selected(project, "fifo.case")
+            self.assertEqual(exit_code, 2)
+            self.assertIn("adapter_payload_special_file", result["error"])
+            capability = _read_state(project, "capability-report.json")
+            self.assertEqual(capability["blocked_sources"][0]["reason_code"], "adapter_payload_special_file")
+            self.assertFalse((project / ".localize-anything" / "adapter-runs").exists())
+
+    def test_check_blocks_when_payload_replaced_by_symlink_after_success(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            project = _sample_project(base)
+            adapter_root = _copy_sample_adapter(project)
+            pkg = adapter_root / "pkg"
+            pkg.mkdir()
+            (pkg / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+            self.assertEqual(_scan_selected(project)[0], 0)
+            self.assertEqual(_run("check", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+            self.assertEqual(_run("review", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+            run_dir = project / ".localize-anything" / "adapter-runs"
+            runs_before = len(list(run_dir.glob("*.json")))
+            outside_dir = base / "outside_dir"
+            outside_dir.mkdir()
+            (outside_dir / "__init__.py").write_text("VALUE = 2\n", encoding="utf-8")
+            shutil.rmtree(pkg)
+            pkg.symlink_to(outside_dir, target_is_directory=True)
+
+            check_exit, check = _run("check", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(check_exit, 1)
+            self.assertEqual(check["status"], "fail")
+            self.assertEqual(check["findings"][0]["kind"], "adapter_payload_symlink")
+            self.assertEqual(len(list(run_dir.glob("*.json"))), runs_before)
+            self.assertEqual(_read_state(project, "deterministic-check.json")["status"], "fail")
+            self.assertEqual(_read_state(project, "extracted-segments.json")["status"], "blocked")
+            review_exit, review = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(review_exit, 2)
+            self.assertIn("adapter_payload_symlink", review["error"])
+
+    def test_review_blocked_when_payload_symlink_appears_after_check(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            project = _sample_project(base)
+            adapter_root = _copy_sample_adapter(project)
+            helper = adapter_root / "helper.py"
+            helper.write_text("VALUE = 1\n", encoding="utf-8")
+            self.assertEqual(_scan_selected(project)[0], 0)
+            self.assertEqual(_run("check", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+            self.assertEqual(_run("review", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+            outside = base / "outside.py"
+            outside.write_text("VALUE = 2\n", encoding="utf-8")
+            helper.unlink()
+            helper.symlink_to(outside)
+
+            review_exit, review = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(review_exit, 2)
+            self.assertIn("adapter_payload_symlink", review["error"])
+            findings = project / "findings.json"
+            findings.write_text(json.dumps({"reviewer": "independent-agent", "findings": []}), encoding="utf-8")
+            import_exit, import_result = _run(
+                "review",
+                project.as_posix(),
+                "--target",
+                "catalog.fr.samplecat",
+                "--findings",
+                findings.as_posix(),
+            )
+            self.assertEqual(import_exit, 2)
+            self.assertIn("adapter_payload_symlink", import_result["error"])
 
 
 def _sample_project(root: Path) -> Path:

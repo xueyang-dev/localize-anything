@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -20,6 +21,8 @@ from .io_utils import write_text_atomic
 PROJECT_ADAPTER_DIRECTORY = ".localize-anything/adapters"
 ADAPTER_DESCRIPTOR = "adapter.json"
 PROJECT_ADAPTER_EXECUTION_MODE = "runtime_project_local_adapter"
+ADAPTER_PAYLOAD_SYMLINK_CODE = "adapter_payload_symlink"
+ADAPTER_PAYLOAD_SPECIAL_FILE_CODE = "adapter_payload_special_file"
 ALLOWED_PROJECT_CAPABILITIES = {"detect", "inventory", "extract", "validate_source"}
 ALLOWED_PROJECT_PERMISSIONS = {"read_project", "execute"}
 ALLOWED_PROJECT_ROUND_TRIP = {"inspect_only", "extract_only"}
@@ -89,12 +92,16 @@ def load_project_adapter(project: Path, adapter_id: str) -> dict[str, Any]:
     if not base_path.exists():
         raise ProjectAdapterError("descriptor_invalid", "Project-local adapter directory does not exist")
     base = _safe_resolve(base_path, project)
-    root = _safe_resolve(base / adapter_id, base)
+    entry_path = base / adapter_id
+    if entry_path.is_symlink():
+        raise _payload_symlink_error(adapter_id, "", f"{PROJECT_ADAPTER_DIRECTORY}/{adapter_id}")
+    root = _safe_resolve(entry_path, base)
     if not root.is_dir():
         raise ProjectAdapterError("descriptor_invalid", f"Project-local adapter does not exist: {adapter_id}")
     descriptor_path = _safe_resolve(root / ADAPTER_DESCRIPTOR, root)
     descriptor = _read_descriptor(descriptor_path)
     _validate_project_descriptor(project, root, descriptor_path, descriptor, adapter_id)
+    _adapter_payload_files(project, root, adapter_id)
     entrypoints = {
         phase: _validated_entrypoint(project, root, descriptor, phase)
         for phase in _required_phases(descriptor)
@@ -321,26 +328,18 @@ def adapter_fingerprints(adapter: dict[str, Any]) -> list[dict[str, Any]]:
     ]
     seen = {adapter["descriptor_path"]}
     entrypoint_paths = {entrypoint["script_path"] for entrypoint in adapter["entrypoints"].values()}
-    for current, directories, names in os.walk(adapter["adapter_root"]):
-        directories[:] = sorted(name for name in directories if name != "__pycache__")
-        for name in sorted(names):
-            if name == ".DS_Store" or name.endswith(".pyc"):
-                continue
-            path = Path(current) / name
-            if not path.is_file() or path in seen:
-                continue
-            resolved = path.resolve()
-            if not resolved.is_relative_to(project):
-                raise ProjectAdapterError("path_escape", f"Adapter payload escapes project root: {path}")
-            seen.add(path)
-            fingerprints.append(
-                {
-                    "role": "adapter_entrypoint" if path in entrypoint_paths else "adapter_file",
-                    "path": _relative(project, path),
-                    "size": path.stat().st_size,
-                    "sha256": _sha256(path),
-                }
-            )
+    for relative, path in _adapter_payload_files(project, adapter["adapter_root"], adapter["id"]):
+        if path in seen:
+            continue
+        seen.add(path)
+        fingerprints.append(
+            {
+                "role": "adapter_entrypoint" if path in entrypoint_paths else "adapter_file",
+                "path": _relative(project, path),
+                "size": path.stat().st_size,
+                "sha256": _sha256(path),
+            }
+        )
     return fingerprints
 
 
@@ -601,6 +600,72 @@ def _safe_resolve(path: Path, root: Path, *, must_exist: bool = True) -> Path:
 
 def _relative(project: Path, path: Path) -> str:
     return path.resolve().relative_to(project.resolve()).as_posix()
+
+
+def _adapter_payload_files(project: Path, adapter_root: Path, adapter_id: str) -> list[tuple[str, Path]]:
+    if adapter_root.is_symlink():
+        raise _payload_symlink_error(adapter_id, "", f"{PROJECT_ADAPTER_DIRECTORY}/{adapter_id}")
+    files: list[tuple[str, Path]] = []
+    _walk_adapter_payload(adapter_root, "", files, adapter_id, _relative(project, adapter_root))
+    return files
+
+
+def _walk_adapter_payload(
+    directory: Path,
+    relative: str,
+    files: list[tuple[str, Path]],
+    adapter_id: str,
+    adapter_root_relative: str,
+) -> None:
+    try:
+        entries = sorted(os.scandir(directory), key=lambda entry: entry.name.encode("utf-8"))
+    except OSError as exc:
+        raise ProjectAdapterError("adapter_payload_unreadable", f"Project-local adapter payload is not readable: {relative}") from exc
+    for entry in entries:
+        rel = f"{relative}/{entry.name}" if relative else entry.name
+        if entry.is_symlink():
+            raise _payload_symlink_error(adapter_id, rel, adapter_root_relative)
+        if entry.is_dir(follow_symlinks=False):
+            if entry.name == "__pycache__":
+                continue
+            _walk_adapter_payload(Path(entry.path), rel, files, adapter_id, adapter_root_relative)
+        elif entry.is_file(follow_symlinks=False):
+            if entry.name == ".DS_Store" or entry.name.endswith(".pyc"):
+                continue
+            files.append((rel, Path(entry.path)))
+        elif _is_special_file(entry):
+            raise ProjectAdapterError(
+                ADAPTER_PAYLOAD_SPECIAL_FILE_CODE,
+                f"adapter_payload_special_file: Project-local adapter payload contains a special file: {rel}",
+                evidence={
+                    "adapter_id": adapter_id,
+                    "relative_path": rel,
+                    "entry_type": "special_file",
+                    "adapter_root": adapter_root_relative,
+                    "operation": "fingerprint",
+                    "recommended_action": "remove the special file from the adapter payload",
+                },
+            )
+
+
+def _is_special_file(entry: os.DirEntry[str]) -> bool:
+    mode = entry.stat(follow_symlinks=False).st_mode
+    return stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode) or stat.S_ISBLK(mode) or stat.S_ISCHR(mode)
+
+
+def _payload_symlink_error(adapter_id: str, relative: str, adapter_root_relative: str) -> ProjectAdapterError:
+    return ProjectAdapterError(
+        ADAPTER_PAYLOAD_SYMLINK_CODE,
+        f"adapter_payload_symlink: Project-local adapter payload contains a symlink: {relative}",
+        evidence={
+            "adapter_id": adapter_id,
+            "relative_path": relative,
+            "entry_type": "symlink",
+            "adapter_root": adapter_root_relative,
+            "operation": "fingerprint",
+            "recommended_action": "replace the symlink with a regular vendored file or directory",
+        },
+    )
 
 
 def _sha256(path: Path) -> str:

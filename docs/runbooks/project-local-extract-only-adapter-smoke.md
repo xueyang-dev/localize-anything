@@ -76,6 +76,17 @@ removing any of them makes downstream artifacts stale. `__pycache__`, `*.pyc`,
 and `.DS_Store` are excluded as runtime-irrelevant noise. The descriptor
 `checksum` continues to cover the declared entrypoint script.
 
+## Adapter Payload Contract
+
+The adapter directory must be a vendored tree of regular files and
+directories. Every symlink is rejected before execution with the stable code
+`adapter_payload_symlink`, including file and directory symlinks, nested
+symlinks, symlinks inside the adapter root, symlinks elsewhere in the project,
+and broken symlinks. FIFOs, sockets, and device nodes are rejected with
+`adapter_payload_special_file`. The runtime never follows links. If the
+adapter needs shared helper code or data, vendor a regular copy into its own
+payload or provide it through a constrained dependency contract.
+
 ## Required Negative Checks
 
 - Run scan without `--adapter`; the adapter must be reported as a candidate but

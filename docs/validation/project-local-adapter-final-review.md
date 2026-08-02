@@ -183,3 +183,26 @@ If hunk splitting makes either commit non-testable because `core.py` interweaves
 the capability report, adapter resolution, canonical artifacts, and review
 preconditions, a single commit is acceptable:
 `runtime: add fail-closed project-local adapter execution`.
+
+## Post-Review Fix: Adapter Payload Symlink Policy
+
+An independent re-review found that the first payload fingerprint
+implementation only checked regular files: an adapter-root directory symlink
+could point outside the project, execute through `from pkg import ...`, and
+never enter the payload digest. The fix enforces a vendored-tree contract:
+
+- every symlink in the adapter payload is rejected before execution with the
+  stable code `adapter_payload_symlink` (file, directory, nested, inside-root,
+  in-project, out-of-project, and broken links);
+- FIFOs, sockets, and device nodes are rejected with
+  `adapter_payload_special_file`;
+- payload traversal uses `os.scandir` with `follow_symlinks=False`, never
+  follows links, sorts entries by byte order, and applies cache exclusions
+  only after the symlink check;
+- scan writes a blocked `capability-report.json` and
+  `source-surface-inventory.json`; check and review fail closed with the
+  machine-readable code, and no adapter execution record is fabricated.
+
+This is not an OS-level sandbox: the runtime rejects symlinks and special files
+inside the declared payload, while the adapter process itself still runs
+unsandboxed as the invoking user.
