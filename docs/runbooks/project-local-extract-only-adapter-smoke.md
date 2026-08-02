@@ -61,6 +61,21 @@ bytes, with stderr captured separately for evidence. Treat larger payloads as a
 scalability backlog item for a future streaming protocol, not as a successful
 smoke.
 
+## Failure Envelope And Payload Fingerprints
+
+Every phase result has an authoritative top-level `status`. `pass` continues
+to the phase payload; `fail` aborts the check with the stable runtime code
+`adapter_phase_failed` and never produces success artifacts. Adapters may add
+optional envelope fields `code` (short stable adapter error code) and `reason`
+(human-readable detail); the runtime records them as provenance and never uses
+adapter text as the runtime error code.
+
+The runtime fingerprints every regular file under the adapter directory:
+descriptor, entrypoint, helper modules, and data files. Changing, adding, or
+removing any of them makes downstream artifacts stale. `__pycache__`, `*.pyc`,
+and `.DS_Store` are excluded as runtime-irrelevant noise. The descriptor
+`checksum` continues to cover the declared entrypoint script.
+
 ## Required Negative Checks
 
 - Run scan without `--adapter`; the adapter must be reported as a candidate but

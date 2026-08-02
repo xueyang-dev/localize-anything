@@ -25,7 +25,10 @@ executed unless explicitly selected. Before execution, the runtime validates the
 adapter ID, descriptor, trust tier, read-only capability, source scope,
 entrypoint path, checksum, and canonicalized paths. Symlink or `..` escapes,
 shell metacharacter entrypoints, undeclared executables, missing entrypoints,
-and checksum mismatches are blocking failures.
+and checksum mismatches are blocking failures. Freshness covers the complete
+adapter runtime payload: every regular file under the adapter directory
+(entrypoint, helper modules, data files) is fingerprinted, so any adapter
+payload change invalidates downstream artifacts.
 
 The scripted runner uses argv arrays with `shell=False`, runs from the adapter
 root, sends a JSON stdin request, accepts only bounded JSON stdout, stores

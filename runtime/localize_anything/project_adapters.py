@@ -226,7 +226,7 @@ def run_project_adapter_phase(
                     stdout=stdout_handle,
                     stderr=stderr_handle,
                     timeout=DEFAULT_TIMEOUT_SECONDS,
-                    env={"PYTHONIOENCODING": "utf-8", "TMPDIR": tmp},
+                    env={"PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": tmp},
                 )
         except subprocess.TimeoutExpired as exc:
             run_info.update(_output_sizes(stdout_path, stderr_path))
@@ -270,13 +270,47 @@ def run_project_adapter_phase(
         run_info.update({"status": "fail", "error_code": "adapter_schema_violation", "schema_errors": errors})
         artifact = _write_run_artifact(state_dir, adapter, phase, run_info, stderr)
         raise ProjectAdapterError("adapter_schema_violation", f"Project-local adapter output schema failed during {phase}", evidence={"errors": errors, "run_artifacts": [artifact]})
-    run_info.update({"status": "pass"})
+    payload_sha256 = _json_sha256(value)
+    if value.get("status") == "fail":
+        adapter_code = _bounded_string(value.get("code"), 200)
+        adapter_reason = _bounded_string(value.get("reason") or value.get("error"), 4000)
+        run_info.update(
+            {
+                "status": "fail",
+                "error_code": "adapter_phase_failed",
+                "payload_sha256": payload_sha256,
+                "adapter_error_code": adapter_code,
+                "adapter_error_reason": adapter_reason,
+            }
+        )
+        artifact = _write_run_artifact(state_dir, adapter, phase, run_info, stderr)
+        message = f"Project-local adapter declared failure during {phase}"
+        if adapter_reason:
+            message = f"{message}: {adapter_reason}"
+        raise ProjectAdapterError(
+            "adapter_phase_failed",
+            message,
+            evidence={
+                "phase": phase,
+                "adapter_id": adapter["id"],
+                "adapter_version": adapter["version"],
+                "execution_mode": PROJECT_ADAPTER_EXECUTION_MODE,
+                "descriptor_sha256": adapter["descriptor_sha256"],
+                "payload_sha256": payload_sha256,
+                "exit_code": run_info["exit_code"],
+                "adapter_code": adapter_code,
+                "adapter_reason": adapter_reason,
+                "run_artifacts": [artifact],
+            },
+        )
+    run_info.update({"status": "pass", "payload_sha256": payload_sha256})
     artifact = _write_run_artifact(state_dir, adapter, phase, run_info, stderr)
     value["_run"] = artifact
     return value
 
 
 def adapter_fingerprints(adapter: dict[str, Any]) -> list[dict[str, Any]]:
+    project = adapter["project_root"]
     fingerprints = [
         {
             "role": "adapter_descriptor",
@@ -286,19 +320,27 @@ def adapter_fingerprints(adapter: dict[str, Any]) -> list[dict[str, Any]]:
         }
     ]
     seen = {adapter["descriptor_path"]}
-    for entrypoint in adapter["entrypoints"].values():
-        path = entrypoint["script_path"]
-        if path in seen:
-            continue
-        seen.add(path)
-        fingerprints.append(
-            {
-                "role": "adapter_entrypoint",
-                "path": entrypoint["script_path_relative"],
-                "size": path.stat().st_size,
-                "sha256": _sha256(path),
-            }
-        )
+    entrypoint_paths = {entrypoint["script_path"] for entrypoint in adapter["entrypoints"].values()}
+    for current, directories, names in os.walk(adapter["adapter_root"]):
+        directories[:] = sorted(name for name in directories if name != "__pycache__")
+        for name in sorted(names):
+            if name == ".DS_Store" or name.endswith(".pyc"):
+                continue
+            path = Path(current) / name
+            if not path.is_file() or path in seen:
+                continue
+            resolved = path.resolve()
+            if not resolved.is_relative_to(project):
+                raise ProjectAdapterError("path_escape", f"Adapter payload escapes project root: {path}")
+            seen.add(path)
+            fingerprints.append(
+                {
+                    "role": "adapter_entrypoint" if path in entrypoint_paths else "adapter_file",
+                    "path": _relative(project, path),
+                    "size": path.stat().st_size,
+                    "sha256": _sha256(path),
+                }
+            )
     return fingerprints
 
 
@@ -444,6 +486,16 @@ def _read_text_prefix(path: Path, max_bytes: int) -> str:
         return path.read_bytes()[:max_bytes].decode("utf-8", errors="replace")
     except OSError:
         return ""
+
+
+def _json_sha256(value: Any) -> str:
+    return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _bounded_string(value: Any, max_chars: int) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value[:max_chars]
 
 
 def _read_descriptor(path: Path) -> dict[str, Any]:
