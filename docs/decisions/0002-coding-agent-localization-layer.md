@@ -8,6 +8,10 @@ Supersedes [ADR 0001](0001-protocol-first-workflow.md) as the product and target
 architecture decision. ADR 0001 remains a historical record of the v0.4
 platform-oriented architecture.
 
+Refined by [ADR 0003](0003-localization-surface-boundary.md) for the
+surface-aware definition of "Anything", source-code boundaries, and capability
+claims.
+
 ## Context
 
 Coding Agents can already edit application code, create i18n infrastructure,
@@ -44,6 +48,22 @@ The workflow supports Standard and Release depths and reviews localization at
 string, page/component and product-concept levels. The core outcome is a
 complete review of all localized content with a small, risk-ranked set of human
 decisions.
+
+## Capability Gate Boundary
+
+Updated 2026-08-02. [ADR 0003](0003-localization-surface-boundary.md) further
+defines the localization surface boundary; this ADR remains the product and
+target-architecture decision and is not superseded.
+
+- Localization surface is the scope unit, and project-local adapters are a
+  constrained extension mechanism selected explicitly by the runtime.
+- The Coding Agent must not bypass the runtime capability gate. Unsupported
+  surfaces and adapters that have not been explicitly selected must not
+  proceed into free-form linguistic inference or hand-built extraction under
+  the default path.
+- Capability evidence, artifact preconditions, and report-only review limits
+  are runtime-owned; the Agent owns engineering, review, and delivery, not
+  gate override.
 
 ## Consequences
 

@@ -2,6 +2,7 @@
 
 状态：已定稿
 生效日期：2026-07-30
+更新日期：2026-08-02
 
 本文是 Localize Anything 的产品定位与范围基准。架构、路线图、README、
 Skill 和公开介绍都应与本文一致。仓库中已经存在但不再属于核心方向的能力，
@@ -14,6 +15,28 @@ Skill 和公开介绍都应与本文一致。仓库中已经存在但不再属�
 英文短定位：
 
 > **An agent-native localization workflow and review layer.**
+
+## Anything 的产品定义
+
+Localize Anything 的 "Anything" 不是自动翻译并修改任何文件、程序或资产。
+它的正式含义是：
+
+> 发现、分类并解释项目中的本地化表面；把已支持的表面路由给可靠 adapter；
+> 为需要结构改造的表面生成 enablement plan；并明确报告尚未支持、未扫描、
+> 动态生成或非文本的内容。
+
+因此，完整陈述必须回答：
+
+- 用户可见内容可能来自哪些表面；
+- 哪些表面已经扫描、哪些尚未扫描；
+- 哪些表面可以提取、哪些可以安全重建；
+- 哪些表面需要源码或项目结构改造；
+- 哪些表面需要 build、launch 或视觉验证；
+- 哪些内容仍然不支持，以及为什么不能宣称完整产品本地化。
+
+这一定义不推翻既有方向：Coding Agent 仍负责项目工程、build/test、截图和
+Git；Localize Anything 负责范围、Project Memory、Glossary、确定性检查、
+独立 review、人工确认和诚实的 coverage/limitation 表达。
 
 Localize Anything 通过 Agent Skill 和轻量 QA 工具，为 Codex、Claude Code
 等 Coding Agent 提供：
@@ -228,6 +251,17 @@ needs_context
 覆盖完整的定义是：在本次声明的范围内，所有候选内容都已分类，并且所有
 `translate` 内容都有目标语言结果。它不等于“项目中不存在任何源语言字符”。
 
+分类必须按 localization surface 解释。标准资源目录、源码内结构化目录、
+散落的源码字符串、模板/markup、运行时外部内容、非文本资产和二进制资源，
+不能被合并成同一种能力。结构化源码目录可以由显式、受约束的 adapter 支持；
+散落的用户可见源码字符串默认只做 inventory、候选分类和 enablement plan；
+内部日志、路径、命令、API key、identifier、SQL、正则、测试 fixture 等内容
+不得被自动当成本地化对象。
+
+能力由运行时 capability evidence 决定：project-local adapter 只有在显式
+选择后才执行；unsupported 或未选择 adapter 的表面在 Project Memory 和
+review 之前 fail closed（该边界已由 project-local adapter runtime 实现）。
+
 ## 质量输出
 
 质量结果分为三层，不用单一分数替代：
@@ -280,6 +314,22 @@ v1 必须覆盖：
 
 CLI 第一阶段优先支持 JSON、YAML、Android XML、Apple `.strings`、
 `.xcstrings`、PO 和 XLIFF。其他格式可以先由 Coding Agent 直接处理。
+这些是 resource_catalog 能力声明，不等于对应 Web、Android、iOS、Swift 或
+文档产品已经完整本地化。
+
+## 核心 Non-Claims
+
+Localize Anything 不承诺：
+
+- 自动修改每一个检测到的表面；
+- 因识别某种编程语言就支持该语言项目的本地化；
+- 把结构化源码目录和散落 inline strings 作为同一种能力；
+- 用 build 成功证明完整可见 UI 覆盖；
+- 用已提取字符串全部翻译证明完整产品本地化；
+- 在没有 connector、export/import 或 API workflow 时覆盖动态服务端内容；
+- 在没有 OCR、媒体处理、视觉审查或人工证据时覆盖非文本资产；
+- 在没有显式 adapter、staging、精确 diff、语法验证、build evidence 和 apply
+  approval 时稳定改写 Swift 或其他源码。
 
 ## 退出核心的旧方向
 
