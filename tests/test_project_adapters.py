@@ -243,6 +243,160 @@ class ProjectLocalAdapterTests(unittest.TestCase):
             self.assertEqual(exit_code, 2)
             self.assertIn("path_escape", result["error"])
 
+    def test_adapter_declared_failure_envelope_is_authoritative(self) -> None:
+        expected_run_counts = {"detect": 1, "inventory": 2, "extract": 3, "validate_source": 4}
+        for phase in expected_run_counts:
+            with self.subTest(phase=phase):
+                with tempfile.TemporaryDirectory() as directory:
+                    project = _sample_project(Path(directory))
+                    _install_scripted_adapter(project, "envelope.fail", _envelope_failure_script(phase))
+                    self.assertEqual(_scan_selected(project, "envelope.fail")[0], 0)
+                    check_exit, check = _run("check", project.as_posix(), "--target", "catalog.fr.samplecat")
+                    self.assertEqual(check_exit, 1)
+                    self.assertEqual(check["status"], "fail")
+                    finding = check["findings"][0]
+                    self.assertEqual(finding["kind"], "adapter_phase_failed")
+                    self.assertEqual(finding["severity"], "blocking")
+                    run_dir = project / ".localize-anything" / "adapter-runs"
+                    runs = [json.loads(path.read_text(encoding="utf-8")) for path in sorted(run_dir.glob("*.json"))]
+                    self.assertEqual(len(runs), expected_run_counts[phase])
+                    failed_run = runs[-1]
+                    self.assertEqual(failed_run["phase"], phase)
+                    self.assertEqual(failed_run["status"], "fail")
+                    self.assertEqual(failed_run["error_code"], "adapter_phase_failed")
+                    self.assertEqual(failed_run["execution_mode"], "runtime_project_local_adapter")
+                    self.assertEqual(failed_run["adapter_id"], "envelope.fail")
+                    self.assertEqual(failed_run["adapter_error_code"], "SOURCE-42")
+                    self.assertIn(f"declared failure for {phase}", failed_run["adapter_error_reason"])
+                    self.assertEqual(len(failed_run["payload_sha256"]), 64)
+                    self.assertEqual(failed_run["exit_code"], 0)
+                    extracted = _read_state(project, "extracted-segments.json")
+                    self.assertEqual(extracted["status"], "blocked")
+                    review_exit, review = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+                    self.assertEqual(review_exit, 2)
+                    self.assertIn("Deterministic check failed", review["error"])
+
+    def test_phase_failure_prevents_later_phase_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _sample_project(Path(directory))
+            adapter_root = project / ".localize-anything" / "adapters" / "stop.case"
+            adapter_root.mkdir(parents=True)
+            marker = adapter_root / "extract-ran-marker"
+            script = (
+                "from __future__ import annotations\n"
+                "import json\n"
+                "import sys\n"
+                "from pathlib import Path\n\n"
+                "request = json.loads(sys.stdin.read())\n"
+                "phase = request['phase']\n"
+                "schema = f\"localize-anything-project-adapter-{phase.replace('_', '-')}-result-v1\"\n"
+                'if phase == "detect":\n'
+                '    payload = {"detected": True}\n'
+                'elif phase == "inventory":\n'
+                '    payload = {"items": []}\n'
+                'elif phase == "extract":\n'
+                '    Path(__file__).parent.joinpath("extract-ran-marker").write_text("ran")\n'
+                '    payload = {"source_segments": [], "target_segments": []}\n'
+                'else:\n'
+                '    payload = {"validation": {"status": "pass", "items": []}}\n'
+                'print(json.dumps({"schema": schema, "status": "fail" if phase == "inventory" else "pass", **payload}))\n'
+            )
+            (adapter_root / "adapter.py").write_text(script, encoding="utf-8")
+            checksum = hashlib.sha256(script.encode("utf-8")).hexdigest()
+            (adapter_root / "adapter.json").write_text(json.dumps(_manifest("stop.case", checksum)), encoding="utf-8")
+            self.assertEqual(_scan_selected(project, "stop.case")[0], 0)
+            check_exit, check = _run("check", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(check_exit, 1)
+            self.assertEqual(check["status"], "fail")
+            self.assertFalse(marker.exists())
+
+    def test_inner_validation_failure_with_pass_envelope_blocks_success(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _sample_project(Path(directory))
+            script = (
+                "from __future__ import annotations\n"
+                "import json\n"
+                "import sys\n\n"
+                "request = json.loads(sys.stdin.read())\n"
+                "phase = request['phase']\n"
+                "schema = f\"localize-anything-project-adapter-{phase.replace('_', '-')}-result-v1\"\n"
+                'if phase == "detect":\n'
+                '    payload = {"detected": True}\n'
+                'elif phase == "inventory":\n'
+                '    payload = {"items": []}\n'
+                'elif phase == "extract":\n'
+                '    payload = {"source_segments": [], "target_segments": []}\n'
+                'else:\n'
+                '    payload = {"validation": {"status": "fail", "items": [{"severity": "blocking", "kind": "source_invalid", "message": "broken source"}]}}\n'
+                'print(json.dumps({"schema": schema, "status": "pass", **payload}))\n'
+            )
+            _install_scripted_adapter(project, "inner.fail", script)
+            self.assertEqual(_scan_selected(project, "inner.fail")[0], 0)
+            check_exit, check = _run("check", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(check_exit, 1)
+            self.assertEqual(check["status"], "fail")
+            self.assertEqual(check["findings"][0]["kind"], "source_invalid")
+            extracted = _read_state(project, "extracted-segments.json")
+            self.assertEqual(extracted["status"], "blocked")
+            review_exit, review = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(review_exit, 2)
+            self.assertIn("Deterministic check failed", review["error"])
+
+    def test_helper_file_changes_stale_adapter_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = _sample_project(Path(directory))
+            adapter_root = project / ".localize-anything" / "adapters" / "helper.case"
+            adapter_root.mkdir(parents=True)
+            helper = adapter_root / "helper.py"
+            helper.write_text("VALUE = 'Bonjour'\n", encoding="utf-8")
+            script = (
+                "from __future__ import annotations\n"
+                "import json\n"
+                "import sys\n"
+                "from helper import VALUE\n\n"
+                "request = json.loads(sys.stdin.read())\n"
+                "phase = request['phase']\n"
+                "schema = f\"localize-anything-project-adapter-{phase.replace('_', '-')}-result-v1\"\n"
+                'if phase == "detect":\n'
+                '    payload = {"detected": True}\n'
+                'elif phase == "inventory":\n'
+                '    payload = {"items": [{"id": "title"}]}\n'
+                'elif phase == "extract":\n'
+                '    payload = {"source_segments": [{"segment_id": "sample:title", "source": "Hello"}], "target_segments": [{"segment_id": "sample:title", "source": VALUE}]}\n'
+                'else:\n'
+                '    payload = {"validation": {"status": "pass", "items": []}}\n'
+                'print(json.dumps({"schema": schema, "status": "pass", **payload}))\n'
+            )
+            (adapter_root / "adapter.py").write_text(script, encoding="utf-8")
+            checksum = hashlib.sha256(script.encode("utf-8")).hexdigest()
+            (adapter_root / "adapter.json").write_text(json.dumps(_manifest("helper.case", checksum)), encoding="utf-8")
+
+            self.assertEqual(_scan_selected(project, "helper.case")[0], 0)
+            check_exit, check = _run("check", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(check_exit, 0, check)
+            roles = {item["role"] for item in check["file_fingerprints"]}
+            self.assertIn("adapter_file", roles)
+            self.assertEqual(_run("review", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+
+            helper.write_text("VALUE = 'Salut'\n", encoding="utf-8")
+            stale_exit, stale = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(stale_exit, 2)
+            self.assertIn("changed since deterministic-check.json", stale["error"])
+            self.assertEqual(_run("check", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+            self.assertEqual(_run("review", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+
+            (adapter_root / "data.json").write_text("{}", encoding="utf-8")
+            added_exit, added = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(added_exit, 2)
+            self.assertIn("file set does not match", added["error"])
+            self.assertEqual(_run("check", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+            self.assertEqual(_run("review", project.as_posix(), "--target", "catalog.fr.samplecat")[0], 0)
+
+            helper.unlink()
+            removed_exit, removed = _run("review", project.as_posix(), "--target", "catalog.fr.samplecat")
+            self.assertEqual(removed_exit, 2)
+            self.assertIn("file set does not match", removed["error"])
+
 
 def _sample_project(root: Path) -> Path:
     project = root / "project"
@@ -330,6 +484,31 @@ def _sample_script() -> str:
         print(json.dumps({"schema": schema, "status": "pass", **payload}))
         """
     ).lstrip()
+
+
+def _envelope_failure_script(fail_phase: str) -> str:
+    return (
+        "from __future__ import annotations\n"
+        "import json\n"
+        "import sys\n\n"
+        f"FAIL_PHASE = {fail_phase!r}\n"
+        "request = json.loads(sys.stdin.read())\n"
+        "phase = request['phase']\n"
+        "schema = f\"localize-anything-project-adapter-{phase.replace('_', '-')}-result-v1\"\n"
+        'if phase == "detect":\n'
+        '    payload = {"detected": True}\n'
+        'elif phase == "inventory":\n'
+        '    payload = {"items": [{"id": "title"}]}\n'
+        'elif phase == "extract":\n'
+        '    payload = {"source_segments": [{"segment_id": "sample:title", "source": "Hello"}], "target_segments": [{"segment_id": "sample:title", "source": "Bonjour"}]}\n'
+        'else:\n'
+        '    payload = {"validation": {"status": "pass", "items": []}}\n'
+        'envelope = {"schema": schema, "status": "fail" if phase == FAIL_PHASE else "pass", **payload}\n'
+        'if phase == FAIL_PHASE:\n'
+        '    envelope["code"] = "SOURCE-42"\n'
+        '    envelope["reason"] = "declared failure for " + phase\n'
+        'print(json.dumps(envelope))\n'
+    )
 
 
 def _scan_selected(project: Path, adapter_id: str = "sample.extract-only") -> tuple[int, dict[str, object]]:

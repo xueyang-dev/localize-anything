@@ -628,7 +628,7 @@ def _run_project_adapter_check(project: Path, pair_info: dict[str, Any], memory:
             "inventory": result.get("inventory", []),
             "source_segments": [],
             "target_segments": [],
-            "source_validation": {"status": "fail", "items": result.get("items", [])},
+            "source_validation": result.get("source_validation") or {"status": "fail", "items": result.get("items", [])},
         }
     return result
 
