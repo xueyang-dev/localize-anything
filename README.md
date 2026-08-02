@@ -31,6 +31,12 @@ localize scan
 
 Localize Anything 不替代 Coding Agent、项目构建系统、Git 或人工产品判断。它负责范围、Project Memory、Glossary、确定性检查、独立审查和少量高风险确认。
 
+## Anything 的边界
+
+这里的 "Anything" 不是自动翻译并改写任何文件。它表示：发现项目里的本地化表面，解释哪些已经扫描、哪些能由可靠 adapter 处理、哪些需要先改项目结构或源码、哪些属于动态内容/非文本资产/暂不支持范围，并把这些限制写进报告。
+
+比如 JSON locale 通过检查，不等于整个 React 应用已经完整本地化；`.strings` 或 `.xcstrings` 通过检查，不等于整个 iOS/Swift 项目已经覆盖；build 通过，也不等于所有可见 UI 都被启动和视觉验证。
+
 ## 快速上手
 
 需要 Python 3.11+：
@@ -190,6 +196,8 @@ Localize Anything 不是：
 - 通用多 Agent orchestration framework；
 - Workbench 或发布治理系统；
 - Git、CI 或项目构建系统的替代品；
+- 自动改写所有源码字符串或资产的工具；
+- 因检测到 Swift、Android、React、DOCX 等技术栈就宣称完整支持的工具；
 - 「零源语言字符」或专业翻译质量的自动认证。
 
 ## License

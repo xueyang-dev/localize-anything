@@ -30,6 +30,19 @@ localize scan
 
 Localize Anything does not replace the Coding Agent, the project build system, Git, or human product judgment. It owns scope, Project Memory, the Glossary, deterministic checks, independent review, and a small set of high-risk confirmations.
 
+## The "Anything" boundary
+
+"Anything" does not mean automatically translating and rewriting every file. It
+means discovering project localization surfaces, explaining which ones were
+scanned, which ones reliable adapters can process, which ones need project or
+source enablement first, and which dynamic, non-text, or unsupported surfaces
+remain outside the current run.
+
+For example, a passing JSON locale check does not prove a React application is
+fully localized; a passing `.strings` or `.xcstrings` check does not prove full
+iOS or Swift coverage; and a successful build does not prove launch-time or
+visible-UI coverage.
+
 ## Quick start
 
 Requires Python 3.11+:
@@ -203,6 +216,9 @@ Localize Anything is not:
 - a general multi-Agent orchestration framework;
 - a Workbench or release-governance system;
 - a replacement for Git, CI, or project build tools;
+- a tool that automatically rewrites every source-code string or asset;
+- a claim that detecting Swift, Android, React, DOCX, or another technology
+  means complete product support;
 - automated certification of "zero source-language characters" or professional translation quality.
 
 ## License

@@ -13,6 +13,13 @@ English:
 
 > **An agent-native localization workflow and review layer.**
 
+## Anything Boundary
+
+"Anything" means localization-surface discovery, supported-surface routing,
+enablement planning, and explicit unsupported-surface reporting. It does not
+mean automatically translating or mutating every file, program, runtime string,
+or asset in a project.
+
 ## Safe Product Claims
 
 Localize Anything may be described as a product that:
@@ -20,6 +27,10 @@ Localize Anything may be described as a product that:
 - guides a Coding Agent through professional localization preflight,
   implementation and independent review;
 - helps declare localization scope and classify candidate content;
+- discovers and explains localization surfaces in the declared project scope;
+- routes supported resource catalogs to deterministic handlers;
+- records unsupported, dynamic, non-text, or unscanned surfaces as limitations
+  instead of hiding them;
 - carries project concepts, terminology, style, preserve rules and reviewed
   Translation Memory across sessions;
 - uses deterministic tools for structural QA and declared-scope coverage;
@@ -46,6 +57,19 @@ behavior, and Git evidence are not produced by `localize report`.
 
 - Localize Anything is a translation model or is inherently better at writing
   i18n code than the host Coding Agent.
+- Localize Anything automatically mutates every detected surface.
+- Programming-language detection implies localization support.
+- Structured code catalogs and unstructured inline strings are the same
+  capability class.
+- Swift, iOS, Android, React, DOCX, or another platform is fully localized
+  because one resource format passed deterministic checks.
+- Swift source mutation is a stable core capability without an explicit
+  adapter, staged patch, syntax validation, build evidence, and apply approval.
+- Vorssaint proves generic Swift support.
+- Build success proves complete visible localization.
+- Extracted-string coverage proves full product coverage.
+- Dynamic content and non-text assets are covered by a file-only run.
+- Unsupported surfaces can be silently ignored.
 - Localize Anything replaces project builds, tests, CI, Git or pull requests.
 - Localize Anything is an enterprise TMS, Provider platform, approval system or
   general multi-agent framework.
