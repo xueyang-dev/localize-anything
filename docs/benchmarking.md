@@ -10,6 +10,33 @@ Evaluate existing human translations only after generation. Treat them as refere
 
 Disco Elysium may be used only as a local, user-owned stress test. Do not commit extracted dialogue, translations, memory assets, or other copyrighted game data. Publish only aggregate, non-reconstructive results.
 
+## Experimental Real-Project Slices
+
+Vorssaint may be used as a private experimental benchmark candidate for a
+`code_embedded_catalog` surface:
+
+```text
+Swift
+typed constructor catalog
+custom project localization architecture
+```
+
+Do not publish it as "Swift support." The benchmark target is the specific
+catalog structure and the project-local adapter contract.
+
+Benchmark claims must distinguish:
+
+- parser correctness: detection, inventory, extraction, and validation on the catalog structure;
+- runtime gate correctness: capability gate, artifact freshness, payload symlink rejection, and execution evidence;
+- linguistic quality: E1-E4 review evidence only;
+- end-to-end delivery: apply, build, launch, and visible-UI evidence.
+
+E0 inspect verifies surface detection, locale inventory, field coverage, stable IDs,
+source hashes, deterministic repeatability, and no source mutation. E0 rebuild, if
+later accepted, verifies staging only, syntax parse, interpolation and escape
+preservation, source diff scope, the project build script, and unchanged original
+source. A build pass is not a full macOS or iOS app localization pass.
+
 ## Tracks
 
 - `controlled`: Keep source, skill, adapter, context budget, workflow depth, and tools as consistent as possible.
