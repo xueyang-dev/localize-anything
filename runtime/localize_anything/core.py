@@ -602,6 +602,8 @@ def _scan_next(capability_report: dict[str, Any]) -> str:
 def _run_project_adapter_check(project: Path, pair_info: dict[str, Any], memory: dict[str, Any]) -> dict[str, Any]:
     try:
         adapter = load_project_adapter(project, str(pair_info["adapter"]))
+        pair_info["adapter_provenance"] = adapter_summary(adapter)
+        pair_info["adapter_fingerprints"] = adapter_fingerprints(adapter)
     except ProjectAdapterError as exc:
         return {
             "status": "fail",
@@ -611,8 +613,6 @@ def _run_project_adapter_check(project: Path, pair_info: dict[str, Any], memory:
             "source_validation": {"status": "fail", "items": [exc.blocker()]},
             "run_artifacts": list(exc.evidence.get("run_artifacts", [])),
         }
-    pair_info["adapter_provenance"] = adapter_summary(adapter)
-    pair_info["adapter_fingerprints"] = adapter_fingerprints(adapter)
     result = execute_extract_only_check(
         project,
         project / STATE_DIRECTORY,

@@ -30,14 +30,27 @@ adapter runtime payload: every regular file under the adapter directory
 (entrypoint, helper modules, data files) is fingerprinted, so any adapter
 payload change invalidates downstream artifacts.
 
+Project-local adapter payloads must be vendored trees of regular files and
+directories. Symlinks are unsupported anywhere in the payload: file symlinks,
+directory symlinks, nested symlinks, symlinks that stay inside the adapter
+root, symlinks elsewhere in the project, symlinks outside the project, and
+broken symlinks are all rejected with the stable code `adapter_payload_symlink`
+before the adapter can execute. FIFOs, sockets, and device nodes are rejected
+with `adapter_payload_special_file`. Adapters that need shared helper code or
+data must copy it into their own payload or use a constrained dependency
+contract; the runtime does not follow links.
+
 The scripted runner uses argv arrays with `shell=False`, runs from the adapter
 root, sends a JSON stdin request, accepts only bounded JSON stdout, stores
 stderr separately under `.localize-anything/adapter-runs/`, uses a timeout, and
 does not pass project credentials or user environment variables. The current
 stdout safety ceiling is 8,000,000 bytes, with a separate stderr evidence
-ceiling; larger adapter output is blocked rather than treated as partial
-success. This is a bounded extract-only bridge, not an unlimited streaming
-protocol. The first project-local tier is read-only: no rebuild, apply,
+ceiling; output size is validated after the process finishes, not enforced
+while it streams, and larger adapter output is blocked rather than treated as
+partial success. The timeout terminates the direct subprocess and does not
+guarantee cleanup of the entire process tree. This is a bounded extract-only
+bridge, not an unlimited streaming protocol, and it is not an OS-level
+sandbox. The first project-local tier is read-only: no rebuild, apply,
 network, or source-project write phase is authorized.
 
 ## Apply Safety
