@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -139,10 +138,6 @@ def target_resource_path(source_path: Path, project_root: Path | None = None) ->
 
 def locale_to_catalog_language(locale: str) -> str:
     return locale_to_lproj(locale)
-
-
-def is_xcstrings_path(project_root: Path, path: Path) -> bool:
-    return path.suffix.lower() == ".xcstrings"
 
 
 def _read_document(path: Path, source_language: str | None, fallback_to_key: bool) -> dict[str, Any]:

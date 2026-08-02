@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
-import json
 import re
 import zipfile
 from pathlib import Path
@@ -15,7 +14,6 @@ from .json_adapter import extract_placeholders, source_hash
 
 
 SHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
 
 def extract_segments(path: Path, source_locale: str, source_path: str | None = None) -> list[dict[str, Any]]:

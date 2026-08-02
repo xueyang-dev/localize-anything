@@ -631,7 +631,6 @@ class AndroidSafetyValidationTests(unittest.TestCase):
         markup_categories = {
             item["category"]
             for item in validate_markup_signatures(
-                "Tap <b>Learn more</b>",
                 "Tap Learn more",
                 [{"kind": "pair", "tag": "b"}],
             )

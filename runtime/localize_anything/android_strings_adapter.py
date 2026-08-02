@@ -370,10 +370,6 @@ def _is_android_locale_token(token: str) -> bool:
     return bool(re.fullmatch(r"[a-z]{2,3}", lower))
 
 
-def _is_known_android_non_locale_qualifier(token: str) -> bool:
-    return _android_qualifier_order_key(token) is not None
-
-
 def _android_qualifier_order_key(token: str) -> tuple[int, int] | None:
     """Return Android's canonical qualifier precedence for a non-locale token."""
     if re.fullmatch(r"mcc\d{3}", token):
@@ -1117,7 +1113,6 @@ def validate_escape_signatures(
 
 
 def validate_markup_signatures(
-    source_text: str,
     target_text: str,
     markup_signature: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -1148,7 +1143,6 @@ def validate_markup_signatures(
                 "token": token,
             }
         )
-    missing = False
     for tag in SUPPORTED_INLINE_TAGS:
         expected = expected_counts.get(tag, 0)
         if expected <= 0:
@@ -1156,7 +1150,6 @@ def validate_markup_signatures(
         actual = target["pair_counts"].get(tag, 0)
         if actual >= expected:
             continue
-        missing = True
         issues.append(
             {
                 "category": "markup_missing",
@@ -1328,7 +1321,6 @@ def _markup_qa_items(
         return []
     items: list[dict[str, Any]] = []
     for issue in validate_markup_signatures(
-        str(source_resource.get("value", "")),
         str(target_resource.get("value", "")),
         markup_signature,
     ):
@@ -1383,10 +1375,7 @@ def _analyze_inline_markup(text: str) -> dict[str, Any]:
         has_extra_attrs = bool(suffix.strip()) if tag in SUPPORTED_INLINE_TAGS else False
         if tag in ATTRIBUTE_TAGS:
             required = ATTRIBUTE_TAGS[tag]
-            if slash != "":
-                # Closing tag — skip attribute validation
-                pass
-            else:
+            if slash == "":
                 raw_attrs = suffix.strip()
                 parsed_attrs = _parse_tag_attributes(raw_attrs)
                 if set(parsed_attrs.keys()) != required:
@@ -1394,8 +1383,6 @@ def _analyze_inline_markup(text: str) -> dict[str, Any]:
                     position = match.end()
                     continue
             has_extra_attrs = False
-            if tag not in ATTRIBUTE_TAGS or slash == "":
-                pass  # attribute order/form — still supported
         if not supported or has_extra_attrs or (tag not in ATTRIBUTE_TAGS and suffix != ""):
             unsupported_tokens.append(token)
             position = match.end()

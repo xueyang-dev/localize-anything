@@ -62,7 +62,7 @@ def diff_segments(previous: list[dict[str, Any]], current: list[dict[str, Any]])
         previous_by_hash[str(old.get("source_hash", ""))].append(old)
 
     moved_previous_ids: set[str] = set()
-    for segment_id, new in sorted(unmatched_current.items()):
+    for _, new in sorted(unmatched_current.items()):
         candidates = previous_by_hash.get(str(new.get("source_hash", "")))
         if candidates:
             old = candidates.popleft()
