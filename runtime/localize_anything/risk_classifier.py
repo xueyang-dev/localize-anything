@@ -13,35 +13,6 @@ import re
 from typing import Any
 
 
-# ── Classification output types ─────────────────────────────────────────────
-
-UI_ROLES = {
-    "button",
-    "title",
-    "message",
-    "error",
-    "warning",
-    "permission",
-    "legal",
-    "privacy",
-    "auth",
-    "payment",
-    "destructive_action",
-    "unknown",
-}
-
-RISK_LEVELS = {"low", "medium", "high", "critical"}
-REVIEW_PRIORITIES = {"normal", "review_recommended", "owner_review_required"}
-EVIDENCE_KEYS = {
-    "resource_name_pattern",
-    "source_text_pattern",
-    "resource_comment_pattern",
-    "structural_constraint",
-    "unsupported_markup",
-    "placeholder_or_markup_protected",
-}
-
-
 # ── Rule definitions ────────────────────────────────────────────────────────
 # Each rule is (word_patterns, ui_roles, risk_level, review_priority).
 # Patterns are matched case-insensitively against resource name AND source text.
@@ -207,8 +178,6 @@ def classify_segment(resource: dict[str, Any]) -> dict[str, Any]:
             ui_roles.append("warning")
         if risk_level == "low":
             risk_level = "medium"
-        if risk_level in ("high", "critical"):
-            pass  # don't downgrade from destructive/auth/legal
         review_priority = _escalate_priority(review_priority, "review_recommended")
 
     # ── 7. UI role heuristics from resource name suffixes ─────────────────
