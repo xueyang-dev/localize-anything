@@ -1,0 +1,55 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "artifact": "e2-review-summary",
+  "reviewer_type": "AI-assisted bilingual review",
+  "human_review": false,
+  "target_locale": "fr",
+  "sample_size": 180,
+  "sample_size_requirement": ">= 100",
+  "sampling_method": "deterministic risk-weighted: all approval/destructive candidates (capped), errors, templates/terminology stride samples, general fill; seed documented in sheet",
+  "coverage": {
+    "surfaces": {
+      "desktop": 60,
+      "web": 60,
+      "yaml": 60
+    },
+    "risk_categories": {
+      "approval": 42,
+      "destructive": 87,
+      "errors": 46,
+      "general": 5,
+      "templates": 51,
+      "terminology": 58
+    }
+  },
+  "verdicts": {
+    "approved": 178,
+    "needs_revision": 2,
+    "blocked": 0
+  },
+  "blocking": 0,
+  "corrected_segments": [
+    {
+      "pointer": "/gateway/goal_cleared",
+      "segment_id": "yaml:locales/en.yaml#72940267019230cdfe7e",
+      "note": "Meaning drift: \"cleared\" rendered as \"terminé\" (completed). Corrected to « Objectif effacé. » in imports; YAML rerun passed."
+    },
+    {
+      "pointer": "/gateway/reasoning/choice_reset",
+      "segment_id": "yaml:locales/en.yaml#da5be433490cce2c3232",
+      "note": "Imprecise: \"override\" rendered as « réglage » (setting). Corrected to « remplacement de session » in imports; YAML rerun passed."
+    }
+  ],
+  "fixes_applied": true,
+  "rerun_after_fixes": {
+    "surface": "yaml",
+    "qa_status": "pass",
+    "semantic_flags": 0
+  },
+  "notes": [
+    "reviewer is the host agent (AI-assisted), not a native human linguist",
+    "verdicts cover omission, addition, mistranslation, negation, warning strength, unsafe command meaning, terminology drift, placeholder integrity, naturalness",
+    "placeholder/template expression integrity verified deterministically for all 3,683 segments (adapter-level check), not only the sample"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "artifact": "real-evidence-verification",
+  "gates": {
+    "committed_import_artifacts_present": true,
+    "committed_import_hashes_match": true,
+    "expected_segment_counts_match": true,
+    "no_unknown_segment_ids": true,
+    "no_missing_segment_ids": true,
+    "engineering_fixture_segments_zero": true,
+    "quality_claim_uniform": true,
+    "generation_metadata_complete_or_explicitly_unknown": true,
+    "unclassified_identity_segments_zero": true,
+    "retained_identity_segments_adjudicated": true,
+    "post_edit_QA_pass": true,
+    "build_validation_pass": true,
+    "E2_AI_review_recorded": true,
+    "E2_blocking_zero": true,
+    "runtime_DOM_smoke_recorded": true,
+    "visual_layout_review_completed": false,
+    "human_review": false,
+    "overall_pass": true
+  },
+  "identity_segments_total": 203,
+  "problems": []
+}

@@ -1,0 +1,26 @@
+# real-evidence-verification.md
+
+- protocol_version: 0.1
+- benchmark_id: hermes-agent
+- artifact: real-evidence-verification
+- gates:
+  - committed_import_artifacts_present: True
+  - committed_import_hashes_match: True
+  - expected_segment_counts_match: True
+  - no_unknown_segment_ids: True
+  - no_missing_segment_ids: True
+  - engineering_fixture_segments_zero: True
+  - quality_claim_uniform: True
+  - generation_metadata_complete_or_explicitly_unknown: True
+  - unclassified_identity_segments_zero: True
+  - retained_identity_segments_adjudicated: True
+  - post_edit_QA_pass: True
+  - build_validation_pass: True
+  - E2_AI_review_recorded: True
+  - E2_blocking_zero: True
+  - runtime_DOM_smoke_recorded: True
+  - visual_layout_review_completed: False
+  - human_review: False
+  - overall_pass: True
+- identity_segments_total: 203
+- problems:

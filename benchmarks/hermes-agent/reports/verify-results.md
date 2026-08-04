@@ -59,11 +59,22 @@
     - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
     - target_locale: fr
     - generation:
-      - mode: engineering_fixture_only
-      - quality_claim: engineering_fixture_only
+      - mode: imported
       - provider: None
-      - curated_slice_segments: 9
-      - identity_segments: 342
+      - accounting:
+        - total_segments: 351
+        - imported_segments: 351
+        - engineering_fixture_segments: 0
+        - target_identical_to_source_segments: 22
+        - classified_retained_segments: 22
+        - approved_retained_segments: 22
+        - unclassified_identity_segments: 0
+        - translated_non_identity_segments: 329
+        - quality_claim: host_agent_generated
+        - quality_claim_counts:
+          - host_agent_generated: 351
+        - generation_mode_counts:
+          - host_agent_import: 351
     - extraction:
       - segments: 351
       - deterministic: True
@@ -88,9 +99,9 @@
         - blocking_count: 0
         - warning_count: 0
     - semantic_review:
-      - flags: 342
+      - flags: 0
       - blocking: 0
-      - untranslated_english: 342
+      - untranslated_english: 0
     - staging:
       - path: <work>/staging/yaml/fr.yaml
       - source_unchanged: True
@@ -99,10 +110,18 @@
       - official_key_missing_vs_staged:
       - staged_key_missing_vs_official:
       - official_untranslated_english_stragglers: 58
-      - staged_untranslated_english_segments: 342
-      - identical_translated_values: 1
+      - staged_untranslated_english_segments: 22
+      - identical_translated_values: 217
       - identical_translated_sample:
-        - gateway.usage.header_session
+        - 10 items (sample):
+          - approval.allowed_always
+          - approval.allowed_once
+          - approval.allowed_session
+          - approval.cancelled
+          - approval.dangerous_header
+          - approval.denied
+          - approval.timeout
+          - gateway.agents.active_agents
   - typescript_web_benchmark:
     - protocol_version: 0.1
     - benchmark_id: hermes-agent
@@ -111,11 +130,22 @@
     - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
     - target_locale: fr
     - generation:
-      - mode: engineering_fixture_only
-      - quality_claim: engineering_fixture_only
+      - mode: imported
       - provider: None
-      - curated_slice_segments: 9
-      - identity_segments: 700
+      - accounting:
+        - total_segments: 709
+        - imported_segments: 709
+        - engineering_fixture_segments: 0
+        - target_identical_to_source_segments: 67
+        - classified_retained_segments: 67
+        - approved_retained_segments: 67
+        - unclassified_identity_segments: 0
+        - translated_non_identity_segments: 642
+        - quality_claim: host_agent_generated
+        - quality_claim_counts:
+          - host_agent_generated: 709
+        - generation_mode_counts:
+          - host_agent_import: 709
     - extraction:
       - segments: 709
       - deterministic: True
@@ -142,9 +172,9 @@
         - blocking_count: 0
         - warning_count: 0
     - semantic_review:
-      - flags: 701
+      - flags: 0
       - blocking: 0
-      - untranslated_english: 701
+      - untranslated_english: 0
     - staging:
       - path: <work>/staging/web/fr.ts
       - source_unchanged: True
@@ -162,15 +192,18 @@
           - /kanban/assigneeLabel
       - staged_key_missing_vs_official:
       - official_untranslated_english_stragglers: 62
-      - staged_untranslated_english_segments: 701
-      - identical_translated_values: 6
+      - staged_untranslated_english_segments: 67
+      - identical_translated_values: 377
       - identical_translated_sample:
-        - /common/cancel
-        - /common/delete
-        - /common/retry
-        - /common/save
-        - /language/switchTo
-        - /status/running
+        - 10 items (sample):
+          - /achievements/card/evidence_label
+          - /achievements/card/share_label
+          - /achievements/card/share_text
+          - /achievements/card/share_title
+          - /achievements/card/what_counts
+          - /achievements/filters/visibility_all
+          - /achievements/filters/visibility_discovered
+          - /achievements/filters/visibility_secret
     - apply_plan: None
   - typescript_desktop_benchmark:
     - protocol_version: 0.1
@@ -180,11 +213,22 @@
     - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
     - target_locale: fr
     - generation:
-      - mode: engineering_fixture_only
-      - quality_claim: engineering_fixture_only
+      - mode: imported
       - provider: None
-      - curated_slice_segments: 5
-      - identity_segments: 2618
+      - accounting:
+        - total_segments: 2623
+        - imported_segments: 2623
+        - engineering_fixture_segments: 0
+        - target_identical_to_source_segments: 114
+        - classified_retained_segments: 114
+        - approved_retained_segments: 114
+        - unclassified_identity_segments: 0
+        - translated_non_identity_segments: 2509
+        - quality_claim: host_agent_generated
+        - quality_claim_counts:
+          - host_agent_generated: 2623
+        - generation_mode_counts:
+          - host_agent_import: 2623
     - extraction:
       - segments: 2623
       - deterministic: True
@@ -211,9 +255,9 @@
         - blocking_count: 0
         - warning_count: 0
     - semantic_review:
-      - flags: 2618
+      - flags: 0
       - blocking: 0
-      - untranslated_english: 2618
+      - untranslated_english: 0
     - staging:
       - path: <work>/staging/desktop/fr.ts
       - source_unchanged: True
@@ -315,17 +359,17 @@
       - check: hermes_i18n_parity_tests
       - command: <hermes-copy>/.venv/bin/python -m pytest tests/agent/test_i18n.py -q
       - exit_code: 0
-      - duration_seconds: 1.38
+      - duration_seconds: 2.36
       - passed: True
       - status: passed
       - required: True
       - tail: ....................................                                     [100%]
-36 passed in 1.17s
+36 passed in 1.99s
 
       - check: hermes_python_compileall
       - command: python3 -m compileall -q agent hermes_cli gateway
       - exit_code: 0
-      - duration_seconds: 0.09
+      - duration_seconds: 0.86
       - passed: True
       - status: passed
       - required: True
@@ -333,7 +377,7 @@
       - check: web_typecheck
       - command: npm run typecheck
       - exit_code: 0
-      - duration_seconds: 0.37
+      - duration_seconds: 0.61
       - passed: True
       - status: passed
       - required: True
@@ -345,7 +389,7 @@
       - check: web_vitest
       - command: npm run test
       - exit_code: 0
-      - duration_seconds: 1.16
+      - duration_seconds: 2.48
       - passed: True
       - status: passed
       - required: True
@@ -359,8 +403,8 @@
 
  Test Files  22 passed (22)
       Tests  156 passed (156)
-   Start at  13:27:55
-   Duration  751ms (transform 928ms, setup 0ms, import 1.79s, tests 154ms, environment 1ms)
+   Start at  01:06:53
+   Duration  605ms (transform 775ms, setup 0ms, import 1.50s, tests 149ms, environment 1ms)
 
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead
@@ -369,25 +413,25 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
       - check: web_build
       - command: npm run build
       - exit_code: 0
-      - duration_seconds: 6.05
+      - duration_seconds: 5.37
       - passed: True
       - status: passed
       - required: True
       - tail: B
-../hermes_cli/web_dist/assets/EnvPage-C0YbBZqt.js                      29.97 kB │ gzip:   8.14 kB
-../hermes_cli/web_dist/assets/CronPage-C7itHUS_.js                     31.60 kB │ gzip:   8.86 kB
-../hermes_cli/web_dist/assets/ChatPage-Wp8EJaje.js                     38.70 kB │ gzip:  13.15 kB
-../hermes_cli/web_dist/assets/SkillsPage-F1QeC6Yk.js                   39.62 kB │ gzip:  10.57 kB
-../hermes_cli/web_dist/assets/SessionsPage-Csd1SGuI.js                 40.62 kB │ gzip:  11.87 kB
-../hermes_cli/web_dist/assets/SystemPage-CVRN8M78.js                   40.63 kB │ gzip:  10.90 kB
-../hermes_cli/web_dist/assets/index-DQwjY7jm.js                        42.41 kB │ gzip:  12.65 kB
+../hermes_cli/web_dist/assets/EnvPage-BW5Xocfk.js                      29.97 kB │ gzip:   8.13 kB
+../hermes_cli/web_dist/assets/CronPage-D-dGeE_B.js                     31.60 kB │ gzip:   8.86 kB
+../hermes_cli/web_dist/assets/ChatPage-Ct9Kh9WS.js                     38.70 kB │ gzip:  13.15 kB
+../hermes_cli/web_dist/assets/SkillsPage-DCRhxG5d.js                   39.62 kB │ gzip:  10.57 kB
+../hermes_cli/web_dist/assets/SessionsPage-BkKmXK7y.js                 40.62 kB │ gzip:  11.87 kB
+../hermes_cli/web_dist/assets/SystemPage-CoZ9Amhy.js                   40.63 kB │ gzip:  10.90 kB
+../hermes_cli/web_dist/assets/index-Bc9yJTuq.js                        42.41 kB │ gzip:  12.64 kB
 ../hermes_cli/web_dist/assets/vendor-BLReI8FQ.js                       50.06 kB │ gzip:  17.82 kB
 ../hermes_cli/web_dist/assets/react-vendor-B6GYCG81.js                226.82 kB │ gzip:  72.67 kB
 ../hermes_cli/web_dist/assets/ui-CGB0TYQ8.js                          289.93 kB │ gzip:  94.82 kB
-../hermes_cli/web_dist/assets/i18n-ORg-xQMU.js                        471.65 kB │ gzip: 139.58 kB
 ../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB
+../hermes_cli/web_dist/assets/i18n-CZKEeBi2.js                        476.54 kB │ gzip: 141.04 kB
 
-✓ built in 534ms
+✓ built in 355ms
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
@@ -395,7 +439,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
       - check: desktop_typecheck
       - command: npm run typecheck
       - exit_code: 0
-      - duration_seconds: 17.78
+      - duration_seconds: 11.86
       - passed: True
       - status: passed
       - required: True
@@ -407,7 +451,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
       - check: desktop_vitest
       - command: npm run test
       - exit_code: 0
-      - duration_seconds: 142.29
+      - duration_seconds: 66.37
       - passed: True
       - status: passed
       - required: True
@@ -421,8 +465,8 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
  Test Files  465 passed | 1 skipped (466)
       Tests  4295 passed | 2 skipped (4297)
-   Start at  13:28:21
-   Duration  141.45s (transform 24.05s, setup 85.27s, import 409.22s, tests 129.31s, environment 522.25s)
+   Start at  01:07:11
+   Duration  65.98s (transform 13.08s, setup 38.58s, import 198.58s, tests 80.59s, environment 214.19s)
 
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead
@@ -442,15 +486,15 @@ Not implemented: HTMLCanvasElement's getContext() method: without installing the
       - check: desktop_build
       - command: npm run build
       - exit_code: 0
-      - duration_seconds: 7.7
+      - duration_seconds: 3.65
       - passed: True
       - status: passed
       - required: True
-      - tail:                      2,126.91 kB │ gzip:   635.95 kB
+      - tail:          2,126.91 kB │ gzip:   635.95 kB
 dist/assets/mermaid-BVb1m2iz.js                        2,973.15 kB │ gzip:   783.39 kB
 dist/assets/shiki-6BOFvr6A.js                         18,983.25 kB │ gzip: 3,308.84 kB
 
-✓ built in 4.77s
+✓ built in 1.51s
 bundled <hermes-copy>/apps/desktop/dist/electron-main.mjs
 bundled <hermes-copy>/apps/desktop/dist/electron-preload.js
 [stage-native-deps] staged node-pty (darwin-arm64) -> <hermes-copy>/apps/desktop/dist/node_modules/node-pty
@@ -460,7 +504,7 @@ bundled <hermes-copy>/apps/desktop/dist/electron-preload.js
 
 ✓ assert-dist-built: dist/index.html + assets present
 [write-build-stamp] WARNING: working tree is dirty.
-  Pinning to 71b1f1b13ebc but the packaged code may differ from that commit.
+  Pinning to 1eef7cbd11a5 but the packaged code may differ from that commit.
   Commit your changes before publishing this build.
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead
@@ -471,7 +515,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
   dist/electron-main.mjs  680.5kb
 
-⚡ Done in 36ms
+⚡ Done in 28ms
 
   dist/electron-preload.js  21.8kb
 
@@ -482,9 +526,9 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
     - status: pass
     - steps:
       - check: localize_anything_unittest
-      - command: <repo>/.venv/bin/python -m unittest discover -s tests -v
+      - command: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m unittest discover -s tests -v
       - exit_code: 0
-      - duration_seconds: 8.24
+      - duration_seconds: 7.38
       - passed: True
       - tail: apterTests.test_identity_round_trip_is_byte_identical) ... ok
 test_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok
@@ -502,12 +546,12 @@ test_template_expression_order_preserved_passes (test_typescript_adapter.TypeScr
 test_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok
 
 ----------------------------------------------------------------------
-Ran 110 tests in 8.073s
+Ran 126 tests in 7.200s
 
 OK
 
       - check: adapter_tree_validation
-      - command: <repo>/.venv/bin/python -c import json
+      - command: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -c import json
 from pathlib import Path
 from runtime.localize_anything.contracts import validate_adapter_tree
 result = validate_adapter_tree(Path('adapters'))
@@ -527,7 +571,7 @@ if result['manifests_checked'] < 13:
 }
 
       - check: protocol_tree_validation
-      - command: <repo>/.venv/bin/python -c import json
+      - command: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -c import json
 from pathlib import Path
 from runtime.localize_anything.schema_validation import validate_protocol_tree
 result = validate_protocol_tree(Path('protocol'))
@@ -546,9 +590,9 @@ if result['status'] != 'pass':
 }
 
       - check: compileall
-      - command: <repo>/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
+      - command: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
       - exit_code: 0
-      - duration_seconds: 1.48
+      - duration_seconds: 1.21
       - passed: True
       - tail:
       - check: git_diff_check

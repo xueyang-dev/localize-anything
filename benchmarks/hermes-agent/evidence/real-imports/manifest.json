@@ -1,0 +1,51 @@
+{
+  "benchmark_id": "hermes-agent",
+  "artifact": "real-imports-manifest",
+  "upstream": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53",
+    "version": "v0.20.0",
+    "license": "MIT (upstream source; translated segments are derived from upstream English catalogs)",
+    "source_notice": "English source strings are from the pinned upstream commit; no substantial upstream source code is copied, only per-segment translation evidence."
+  },
+  "target_locale": "fr",
+  "surfaces": {
+    "yaml": {
+      "file": "evidence/real-imports/yaml.jsonl",
+      "segment_count": 351,
+      "sha256": "ee319bf4433fc7c181826001dd86a1e577ce8e51d92dbf16a351517e991e9de6"
+    },
+    "web": {
+      "file": "evidence/real-imports/web.jsonl",
+      "segment_count": 709,
+      "sha256": "484004931f850228f3f064c9e09dcb37887f89554be60dd904f677c604575ff1"
+    },
+    "desktop": {
+      "file": "evidence/real-imports/desktop.jsonl",
+      "segment_count": 2623,
+      "sha256": "316233f04ad087fe50a9b1a81a92d30c69c37df83065b1a295876824ad0f4dbe"
+    }
+  },
+  "total_segments": 3683,
+  "generation": {
+    "method": "host-agent translation imported through the provider-agnostic handoff flow",
+    "quality_claim": "host_agent_generated",
+    "generation_mode": "host_agent_import",
+    "producer_type": "host_agent",
+    "producer_product": "Codex host",
+    "producer_model": "unknown",
+    "producer_model_reason": "exact model identity was not exposed to the benchmark process",
+    "provider_api_called": false,
+    "credentials_used": false
+  },
+  "normalization_notes": [
+    "entries sorted deterministically by segment_id",
+    "JSON key order fixed to segment_id, target, target_locale, quality_claim, generation_mode, classification, classification_note",
+    "target_locale set to 'fr' for every entry (1 web entry previously omitted it)",
+    "critical data fix: web /kanban/slugHint target was the literal locale code 'fr'; corrected to '— minuscules, tirets, p. ex. atm10-server'",
+    "LF line endings, UTF-8",
+    "classification/classification_note are CANDIDATE classifications from the producer; they do not constitute approval (see reports/retained-string-adjudication.json)"
+  ],
+  "creation_date": "2026-08-05",
+  "created_from": "work/imports/{yaml,web,desktop}.jsonl (preserved before pipeline rerun)"
+}

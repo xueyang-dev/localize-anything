@@ -48,6 +48,15 @@ The tracks are never combined into one score.
   curated French slice that proves extraction, staging, QA, and build
   plumbing. **None of it counts as translation-quality evidence.**
 
+The real-translation iteration (separate PR) ran the import flow with
+host-agent-produced French for all 3,683 segments
+(`quality_claim: host_agent_generated`, `generation_mode: host_agent_import`;
+no provider API called). The final reports under `reports/` reflect that run:
+`real-generation-metadata.json`, `e2-review-summary.*`, `e2-review-sheet.csv`,
+`terminology-adjudication.*`, `official-reference-comparison.json`,
+`visual-smoke-report.*`, `real-evidence-verification.*`. E2 review is
+AI-assisted bilingual review, not native human review.
+
 ## Reproduce
 
 ```bash
@@ -59,25 +68,39 @@ cd benchmarks/hermes-agent
 ../../.venv/bin/python prepare.py blind
 ../../.venv/bin/python verify_source.py
 ../../.venv/bin/python audit.py
-../../.venv/bin/python run_yaml_benchmark.py        # --mode import --import-segments FILE
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
+../../.venv/bin/python run_yaml_benchmark.py \
+  --mode import \
+  --import-segments evidence/real-imports/yaml.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py \
+  --surface web \
+  --mode import \
+  --import-segments evidence/real-imports/web.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py \
+  --surface desktop \
+  --mode import \
+  --import-segments evidence/real-imports/desktop.jsonl
 ../../.venv/bin/python prepare.py reference
 # Re-run the surface scripts so reports attach the revealed reference comparison.
-../../.venv/bin/python run_yaml_benchmark.py
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
-../../.venv/bin/python run_agent_system_benchmark.py
+../../.venv/bin/python run_yaml_benchmark.py --mode import --import-segments evidence/real-imports/yaml.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web --mode import --import-segments evidence/real-imports/web.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop --mode import --import-segments evidence/real-imports/desktop.jsonl
+# Identity-target approval is already committed in
+# reports/retained-string-adjudication.json (separate from candidate
+# classifications) and is loaded automatically. Only a fresh review cycle
+# needs: run_retention_adjudication.py --collect --force, then fill the CSV
+# decision columns, then run_retention_adjudication.py --decisions FILE.
 ../../.venv/bin/python prepare.py copy
 ../../.venv/bin/python run_build_validation.py
 ../../.venv/bin/python incremental.py
 ../../.venv/bin/python run_coverage_audit.py
+../../.venv/bin/python run_real_evidence_verification.py
 ../../.venv/bin/python verify_results.py
 ```
 
 `work/` (source checkout, blind/staging/copy workspaces, test venvs) and
 `runs/` (segments, prompts, generated files, QA artifacts) are git-ignored;
-`reports/` holds compact aggregate evidence.
+`reports/` holds compact aggregate evidence and `evidence/real-imports/`
+holds the canonical committed import JSONL files plus their manifest.
 
 ## Adapter capability boundaries (`core.typescript-locale`)
 
@@ -94,7 +117,7 @@ cd benchmarks/hermes-agent
 
 ## Evidence levels
 
-Engineering-run evidence is E0 (structural) + E1 (automated linguistic
-diagnostics). No E2-E4 human review ran. Catalog parity is **not** full
-product localization: see `reports/coverage-audit.json` for the delivery
-decision and coverage gaps.
+Evidence levels: E0 (structural) + E1 (automated linguistic diagnostics) +
+E2 (AI-assisted bilingual review — not native human review). E3-E4 human
+review has not run. Catalog parity is **not** full product localization: see
+`reports/coverage-audit.json` for the delivery decision and coverage gaps.

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import sys
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "benchmarks" / "hermes-agent"))
 
 import common  # noqa: E402
+import run_retention_adjudication  # noqa: E402
 
 from runtime.localize_anything.core_segments import diff_segments  # noqa: E402
 from runtime.localize_anything.structured_adapter import extract_segments as extract_yaml  # noqa: E402
@@ -61,6 +64,226 @@ class HermesBenchmarkHelpersTests(unittest.TestCase):
             merged = common.import_translated_segments(extracted, path)
             self.assertEqual(merged[0]["target"], "Enregistrer")
             self.assertEqual(merged[0]["status"], "generated")
+
+    def test_import_stores_candidate_classification_not_approval(self) -> None:
+        extracted = [
+            {"segment_id": "x", "source": "Save", "context": {"pointer": "/common/save"}},
+            {"segment_id": "y", "source": "Cancel", "context": {"pointer": "/common/cancel"}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "import.jsonl"
+            path.write_text(
+                '{"segment_id": "x", "target": "Enregistrer"}\n'
+                '{"segment_id": "y", "target": "Cancel", "classification": '
+                '"technical_term_retained", "classification_note": "candidate"}\n',
+                encoding="utf-8",
+            )
+            merged = common.import_translated_segments(extracted, path)
+            by_id = {segment["segment_id"]: segment for segment in merged}
+            self.assertEqual(by_id["y"]["candidate_classification"], "technical_term_retained")
+            self.assertEqual(by_id["y"]["candidate_classification_note"], "candidate")
+            self.assertNotIn("classification", by_id["y"])
+            self.assertNotIn("approved_classification", by_id["y"])
+
+    @staticmethod
+    def _identity_segment(segment_id: str = "x", pointer: str = "/common/save") -> dict:
+        return {
+            "segment_id": segment_id,
+            "source": "Save",
+            "target": "Save",
+            "context": {"pointer": pointer},
+            "quality_claim": "host_agent_generated",
+            "generation_mode": "host_agent_import",
+        }
+
+    def test_candidate_classification_alone_does_not_suppress_e1(self) -> None:
+        segment = self._identity_segment()
+        segment["candidate_classification"] = "technical_term_retained"
+        review = common.segment_review_flags([segment])
+        self.assertEqual(review["summary"]["untranslated_english"], 1)
+        self.assertEqual(review["flags"][0]["category"], "untranslated_english")
+
+    def test_separate_retention_approval_resolves_e1_flag(self) -> None:
+        segment = self._identity_segment()
+        segment["candidate_classification"] = "technical_term_retained"
+        segment.update(
+            {
+                "approved_classification": "technical_term_retained",
+                "classification_note": "glossary term retained",
+                "review_status": "approved",
+                "reviewer_type": "AI-assisted bilingual review",
+            }
+        )
+        review = common.segment_review_flags([segment])
+        self.assertEqual(review["summary"]["untranslated_english"], 0)
+
+    def test_generation_accounting_uniform_host_agent_imports(self) -> None:
+        segments = [
+            {"segment_id": f"s{i}", "source": f"Source {i}", "target": f"Cible {i}",
+             "quality_claim": "host_agent_generated", "generation_mode": "host_agent_import"}
+            for i in range(3)
+        ]
+        accounting = common.generation_accounting(segments)
+        self.assertEqual(accounting["total_segments"], 3)
+        self.assertEqual(accounting["imported_segments"], 3)
+        self.assertEqual(accounting["engineering_fixture_segments"], 0)
+        self.assertEqual(accounting["target_identical_to_source_segments"], 0)
+        self.assertEqual(accounting["quality_claim"], "host_agent_generated")
+        self.assertEqual(common.validate_generation_metadata(segments, "import"), [])
+
+    def test_generation_accounting_mixed_claims_and_fail_closed(self) -> None:
+        segments = [
+            {"segment_id": "a", "source": "A", "target": "A'",
+             "quality_claim": "host_agent_generated", "generation_mode": "host_agent_import"},
+            {"segment_id": "b", "source": "B", "target": "B'",
+             "quality_claim": "engineering_fixture_only", "generation_mode": "synthetic_identity"},
+        ]
+        accounting = common.generation_accounting(segments)
+        self.assertEqual(accounting["quality_claim"], "mixed")
+        self.assertEqual(accounting["engineering_fixture_segments"], 1)
+        problems = common.validate_generation_metadata(segments, "import")
+        self.assertTrue(any("engineering fixture" in problem for problem in problems))
+        self.assertTrue(any("mixed" in problem for problem in problems))
+
+    def test_generation_accounting_missing_metadata_fails_closed(self) -> None:
+        segments = [{"segment_id": "a", "source": "A", "target": "A'"}]  # no claim/mode
+        problems = common.validate_generation_metadata(segments, "import")
+        self.assertTrue(any("missing quality_claim/generation_mode" in problem for problem in problems))
+
+    def test_generation_accounting_identity_counts(self) -> None:
+        identity = self._identity_segment()
+        identity["candidate_classification"] = "technical_term_retained"
+        approved = self._identity_segment("y", "/common/cancel")
+        approved["candidate_classification"] = "brand_or_product_name"
+        approved.update(
+            {
+                "approved_classification": "brand_or_product_name",
+                "classification_note": "product name",
+                "review_status": "approved",
+                "reviewer_type": "AI-assisted bilingual review",
+            }
+        )
+        translated = self._identity_segment("z", "/common/ok")
+        translated["target"] = "OK"
+        accounting = common.generation_accounting([identity, approved, translated])
+        self.assertEqual(accounting["target_identical_to_source_segments"], 2)
+        self.assertEqual(accounting["classified_retained_segments"], 2)
+        self.assertEqual(accounting["approved_retained_segments"], 1)
+        self.assertEqual(accounting["unclassified_identity_segments"], 1)
+        self.assertEqual(accounting["translated_non_identity_segments"], 1)
+
+    def test_retention_adjudication_validation_rules(self) -> None:
+        rows = [
+            {"segment_id": "x", "surface": "web", "source": "Save", "target": "Save",
+             "candidate_classification": "technical_term_retained"},
+        ]
+        decisions = {
+            "x": {"approved_classification": "not_a_real_class", "classification_note": "n",
+                  "review_status": "approved", "reviewer_type": "AI-assisted bilingual review"},
+        }
+        problems = run_retention_adjudication.validate_decisions(rows, decisions)
+        self.assertTrue(any("invalid approved_classification" in problem for problem in problems))
+
+        decisions["x"]["approved_classification"] = "technical_term_retained"
+        decisions["x"]["classification_note"] = ""
+        problems = run_retention_adjudication.validate_decisions(rows, decisions)
+        self.assertTrue(any("non-empty classification_note" in problem for problem in problems))
+
+        decisions["x"]["classification_note"] = "term retained"
+        decisions["x"]["review_status"] = "rejected"
+        problems = run_retention_adjudication.validate_decisions(rows, decisions)
+        self.assertEqual(problems, [])
+
+        decisions["x"]["review_status"] = "approved"
+        decisions["x"]["approved_classification"] = ""
+        problems = run_retention_adjudication.validate_decisions(rows, decisions)
+        self.assertTrue(any("allowed classification" in problem for problem in problems))
+
+    def test_rejected_retention_stays_actionable(self) -> None:
+        segment = self._identity_segment()
+        segment.update(
+            {
+                "approved_classification": "",
+                "review_status": "rejected",
+                "reviewer_type": "AI-assisted bilingual review",
+            }
+        )
+        review = common.segment_review_flags([segment])
+        self.assertEqual(review["summary"]["untranslated_english"], 1)
+
+    def test_collect_refuses_to_reset_existing_decisions_without_force(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports_dir = Path(directory) / "reports"
+            reports_dir.mkdir()
+            (reports_dir / "retained-string-adjudication.json").write_text(
+                json.dumps({"rows": [{"segment_id": "x", "review_status": "approved"}]}),
+                encoding="utf-8",
+            )
+            with mock.patch.object(run_retention_adjudication, "REPORTS", reports_dir), mock.patch(
+                "sys.argv", ["run_retention_adjudication.py", "--collect"]
+            ):
+                with self.assertRaises(SystemExit):
+                    run_retention_adjudication.main()
+            with mock.patch.object(run_retention_adjudication, "REPORTS", reports_dir), mock.patch(
+                "sys.argv", ["run_retention_adjudication.py", "--collect", "--force"]
+            ):
+                # --force proceeds past the guard into collect_rows().
+                with mock.patch.object(
+                    run_retention_adjudication,
+                    "collect_rows",
+                    side_effect=SystemExit("collect called"),
+                ):
+                    with self.assertRaises(SystemExit) as ctx:
+                        run_retention_adjudication.main()
+                    self.assertIn("collect called", str(ctx.exception))
+
+    def test_committed_import_manifest_verifies(self) -> None:
+        import hashlib
+        import json
+
+        manifest_path = common.REAL_IMPORTS / "manifest.json"
+        self.assertTrue(manifest_path.is_file(), "evidence/real-imports/manifest.json missing")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        expected_counts = {"yaml": 351, "web": 709, "desktop": 2623}
+        for surface, count in expected_counts.items():
+            path = common.REAL_IMPORTS / f"{surface}.jsonl"
+            self.assertTrue(path.is_file())
+            lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(len(lines), count)
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            self.assertEqual(manifest["surfaces"][surface]["sha256"], digest)
+            ids = [json.loads(line)["segment_id"] for line in lines]
+            self.assertEqual(len(ids), len(set(ids)))
+            self.assertEqual(ids, sorted(ids))
+
+    def test_evidence_reference_checker_flags_stale_and_missing_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports_dir = Path(directory) / "reports"
+            evidence_dir = Path(directory) / "evidence"
+            reports_dir.mkdir()
+            evidence_dir.mkdir()
+            (reports_dir / "example.json").write_text(
+                '{"evidence": "work/e2-review-sheet.csv", "link": "reports/does-not-exist.json"}',
+                encoding="utf-8",
+            )
+            with mock.patch.object(common, "REPORTS", reports_dir), mock.patch.object(
+                common, "EVIDENCE", evidence_dir
+            ):
+                problems = common.verify_evidence_references()
+            self.assertTrue(any("stale durable-evidence reference" in problem for problem in problems))
+            self.assertTrue(any("does not exist" in problem for problem in problems))
+
+    def test_visual_smoke_report_separates_runtime_from_visual_qa(self) -> None:
+        report_path = common.REPORTS / "visual-smoke-report.json"
+        self.assertTrue(report_path.is_file())
+        import json
+
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertIs(report["runtime_smoke_recorded"], True)
+        self.assertIs(report["dom_text_verified"], True)
+        self.assertIs(report["screenshots_reviewed"], False)
+        self.assertIs(report["visual_layout_review_completed"], False)
+        self.assertIn("visual layout quality not reviewed", report["delivery_claim"])
 
     def test_batch_assignment_is_semantic(self) -> None:
         segments = [

@@ -1,0 +1,42 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "artifact": "real-generation-metadata",
+  "target_locale": "fr",
+  "generation_mode": "host_agent_import",
+  "quality_claim": "host_agent_generated",
+  "provider": null,
+  "provider_note": "no external provider API was called",
+  "credentials_used": false,
+  "credential_locations_checked": [
+    "environment variables",
+    "~/.hermes/.env"
+  ],
+  "producer_type": "host_agent",
+  "producer_product": "Codex host",
+  "producer_model": "unknown",
+  "producer_model_reason": "exact model identity was not exposed to the benchmark process",
+  "temperature": null,
+  "batch_size": null,
+  "context_budget": null,
+  "retry_count": null,
+  "retry_count_tracked": false,
+  "generation_duration": null,
+  "import_files": "evidence/real-imports/{yaml,web,desktop}.jsonl (committed; see manifest.json for hashes)",
+  "segments": {
+    "yaml_cli_gateway": 351,
+    "web_dashboard": 709,
+    "desktop": 2623,
+    "total": 3683
+  },
+  "host_session_usage": {
+    "reported_total_tokens": 1247629,
+    "reported_total_minutes": 76,
+    "scope": "entire Codex goal execution, not translation generation alone"
+  },
+  "notes": [
+    "No real provider API execution was used; translations were produced by the host agent and imported through the provider-agnostic handoff flow.",
+    "All imported segments are labeled quality_claim=host_agent_generated, generation_mode=host_agent_import.",
+    "classification/classification_note in the committed imports are CANDIDATE classifications; final retention approval is recorded separately in reports/retained-string-adjudication.json."
+  ]
+}

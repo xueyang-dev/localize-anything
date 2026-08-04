@@ -18,12 +18,15 @@ from common import (
     REPORTS,
     RUNS,
     STAGING,
+    apply_retention_approvals,
     assign_batches,
     apply_engineering_draft,
     batch_plan_for,
+    generation_accounting,
     import_translated_segments,
     load_curated,
     segment_review_flags,
+    validate_generation_metadata,
     write_json,
     write_jsonl,
     write_prompts,
@@ -83,6 +86,11 @@ def main() -> int:
         generated = apply_engineering_draft(segments, load_curated(args.surface))
         generation_mode = "engineering_fixture_only"
     curated = sum(1 for s in generated if s.get("generation_mode") == "synthetic_curated_draft")
+    apply_retention_approvals(generated)
+    metadata_problems = validate_generation_metadata(generated, args.mode)
+    if metadata_problems:
+        raise RuntimeError("generation metadata validation failed: " + "; ".join(metadata_problems))
+    accounting = generation_accounting(generated)
     write_jsonl(generated, run_dir / "generated.jsonl")
 
     staging_dir = STAGING / args.surface
@@ -119,10 +127,8 @@ def main() -> int:
         "target_locale": CONFIG["target_locale"],
         "generation": {
             "mode": generation_mode,
-            "quality_claim": "engineering_fixture_only",
             "provider": CONFIG["generation"]["provider"],
-            "curated_slice_segments": curated,
-            "identity_segments": len(generated) - curated,
+            "accounting": accounting,
         },
         "extraction": extraction,
         "batch_plan": plan,

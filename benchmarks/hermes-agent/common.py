@@ -26,6 +26,8 @@ BLIND = WORK / "blind"
 REFERENCE = WORK / "reference"
 STAGING = WORK / "staging"
 COPY = WORK / "copy"
+EVIDENCE = BENCH_ROOT / "evidence"
+REAL_IMPORTS = EVIDENCE / "real-imports"
 
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
@@ -195,6 +197,10 @@ def import_translated_segments(extracted: list[dict[str, Any]], imported_path: P
         merged_segment["target_locale"] = imported_segment.get("target_locale", target_locale())
         merged_segment["quality_claim"] = imported_segment.get("quality_claim", "imported")
         merged_segment["generation_mode"] = imported_segment.get("generation_mode", "imported")
+        if "classification" in imported_segment:
+            merged_segment["candidate_classification"] = imported_segment["classification"]
+        if "classification_note" in imported_segment:
+            merged_segment["candidate_classification_note"] = imported_segment["classification_note"]
         merged_segment["status"] = "generated"
         merged.append(merged_segment)
     return merged
@@ -283,6 +289,193 @@ def assign_batches(segments: list[dict[str, Any]]) -> None:
         segment["context"]["batch"] = batch
 
 
+RETENTION_CLASSIFICATIONS = {
+    "intentional_identifier",
+    "brand_or_product_name",
+    "technical_term_retained",
+    "not_applicable",
+}
+
+REVIEW_STATUSES = {"approved", "rejected", "needs_revision"}
+RETENTION_ADJUDICATION_PATH = REPORTS / "retained-string-adjudication.json"
+
+ENGINEERING_FIXTURE_MODES = {"synthetic_identity", "synthetic_curated_draft", "engineering_fixture_only"}
+IMPORT_MODES = {"host_agent_import", "imported"}
+KNOWN_QUALITY_CLAIMS = {
+    "host_agent_generated",
+    "engineering_fixture_only",
+    "imported",
+    "synthetic_identity",
+    "synthetic_curated_draft",
+}
+
+
+def load_retention_approvals() -> dict[str, dict[str, Any]]:
+    """Load separately approved retention decisions (never imported candidates)."""
+    if not RETENTION_ADJUDICATION_PATH.is_file():
+        return {}
+    data = read_json(RETENTION_ADJUDICATION_PATH)
+    approvals: dict[str, dict[str, Any]] = {}
+    for row in data.get("rows", []):
+        if row.get("review_status") == "approved":
+            approvals[row["segment_id"]] = {
+                "approved_classification": row.get("approved_classification"),
+                "classification_note": row.get("classification_note"),
+                "review_status": "approved",
+                "reviewer_type": row.get("reviewer_type"),
+            }
+    return approvals
+
+
+def apply_retention_approvals(segments: list[dict[str, Any]]) -> int:
+    """Merge separately approved retention decisions into segments (in place)."""
+    approvals = load_retention_approvals()
+    applied = 0
+    for segment in segments:
+        approval = approvals.get(segment["segment_id"])
+        if approval:
+            segment.update(approval)
+            applied += 1
+    return applied
+
+
+STALE_DURABLE_EVIDENCE_REFS = [
+    "work/real-generation-metadata.json",
+    "work/real-generation-summary.md",
+    "work/e2-review-sheet.csv",
+    "work/e2-review-summary.json",
+    "work/e2-review-summary.md",
+    "work/terminology-adjudication.csv",
+    "work/terminology-adjudication.md",
+    "work/official-reference-comparison.json",
+    "work/visual-smoke-report.json",
+    "work/visual-smoke-report.md",
+    "work/real-evidence-verification.json",
+    "work/real-evidence-verification.md",
+]
+
+
+def verify_evidence_references() -> list[str]:
+    """Scan committed evidence files for stale or missing benchmark-relative refs."""
+    problems: list[str] = []
+    text_files: list[Path] = []
+    for root in (REPORTS, EVIDENCE):
+        if root.is_dir():
+            for pattern in ("*.json", "*.md", "*.csv"):
+                text_files.extend(sorted(root.glob(pattern)))
+    for extra in (BENCH_ROOT / "README.md", REPOSITORY_ROOT / "docs" / "benchmarking.md"):
+        if extra.is_file():
+            text_files.append(extra)
+    reference_re = re.compile(r"\b(?:reports|evidence)/[A-Za-z0-9_./-]+")
+    for path in sorted(set(text_files)):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for ref in STALE_DURABLE_EVIDENCE_REFS:
+            if ref in text:
+                problems.append(f"{path.name}: stale durable-evidence reference '{ref}'")
+        for ref in reference_re.findall(text):
+            ref = ref.rstrip(".,;:)]}")
+            candidate = BENCH_ROOT / ref
+            if candidate.is_file():
+                continue
+            if ref.endswith("/") and candidate.is_dir():
+                continue
+            if (
+                candidate.parent.is_dir()
+                and any(item.is_file() and item.stem == candidate.name for item in candidate.parent.iterdir())
+            ):
+                continue
+            if not candidate.exists():
+                problems.append(f"{path.name}: referenced evidence file does not exist '{ref}'")
+    return problems
+
+
+def retention_is_approved(segment: dict[str, Any]) -> bool:
+    """Separate retention approval: candidate classification is not approval."""
+    return (
+        segment.get("review_status") == "approved"
+        and segment.get("approved_classification") in RETENTION_CLASSIFICATIONS
+        and bool(segment.get("classification_note"))
+        and bool(segment.get("reviewer_type"))
+    )
+
+
+def generation_accounting(segments: list[dict[str, Any]]) -> dict[str, Any]:
+    """Independent counts for the generation summary (definitions in README)."""
+    from collections import Counter
+
+    total = len(segments)
+
+    def is_identity(segment: dict[str, Any]) -> bool:
+        source = str(segment.get("source", ""))
+        return bool(source) and str(segment.get("target", "")) == source
+
+    identity_ids = {segment["segment_id"] for segment in segments if is_identity(segment)}
+    imported_segments = sum(1 for s in segments if s.get("generation_mode") in IMPORT_MODES)
+    engineering_fixture_segments = sum(
+        1
+        for s in segments
+        if s.get("generation_mode") in ENGINEERING_FIXTURE_MODES
+        or s.get("quality_claim") == "engineering_fixture_only"
+    )
+    target_identical_to_source_segments = len(identity_ids)
+    classified_retained_segments = sum(
+        1
+        for s in segments
+        if s["segment_id"] in identity_ids and s.get("candidate_classification") in RETENTION_CLASSIFICATIONS
+    )
+    approved_retained_segments = sum(
+        1 for s in segments if s["segment_id"] in identity_ids and retention_is_approved(s)
+    )
+    unclassified_identity_segments = target_identical_to_source_segments - approved_retained_segments
+    translated_non_identity_segments = total - target_identical_to_source_segments
+    quality_claim_counts = dict(sorted(Counter(s.get("quality_claim", "<missing>") for s in segments).items()))
+    generation_mode_counts = dict(sorted(Counter(s.get("generation_mode", "<missing>") for s in segments).items()))
+    claims = [claim for claim in quality_claim_counts if claim != "<missing>"]
+    quality_claim = claims[0] if len(claims) == 1 else ("mixed" if len(claims) > 1 else "<missing>")
+    return {
+        "total_segments": total,
+        "imported_segments": imported_segments,
+        "engineering_fixture_segments": engineering_fixture_segments,
+        "target_identical_to_source_segments": target_identical_to_source_segments,
+        "classified_retained_segments": classified_retained_segments,
+        "approved_retained_segments": approved_retained_segments,
+        "unclassified_identity_segments": unclassified_identity_segments,
+        "translated_non_identity_segments": translated_non_identity_segments,
+        "quality_claim": quality_claim,
+        "quality_claim_counts": quality_claim_counts,
+        "generation_mode_counts": generation_mode_counts,
+    }
+
+
+def validate_generation_metadata(segments: list[dict[str, Any]], mode: str) -> list[str]:
+    """Fail-closed checks for a controlled real-evidence (import) run."""
+    if mode != "import":
+        return []
+    problems: list[str] = []
+    missing_metadata = [
+        segment["segment_id"]
+        for segment in segments
+        if not segment.get("quality_claim") or not segment.get("generation_mode")
+    ]
+    if missing_metadata:
+        problems.append(f"segments missing quality_claim/generation_mode: {sorted(missing_metadata)[:5]}")
+    claims = {str(segment.get("quality_claim")) for segment in segments if segment.get("quality_claim")}
+    unknown_claims = sorted(claims - KNOWN_QUALITY_CLAIMS)
+    if unknown_claims:
+        problems.append(f"unknown quality claims: {unknown_claims}")
+    accounting = generation_accounting(segments)
+    if accounting["engineering_fixture_segments"]:
+        problems.append(
+            f"engineering fixture segments present in import run: {accounting['engineering_fixture_segments']}"
+        )
+    if accounting["quality_claim"] == "mixed":
+        problems.append(f"unexpected mixed quality claims: {accounting['quality_claim_counts']}")
+    return problems
+
+
 def segment_review_flags(segments: list[dict[str, Any]]) -> dict[str, Any]:
     """Conservative automated review diagnostics (E1, not human review)."""
     flags: list[dict[str, Any]] = []
@@ -291,7 +484,7 @@ def segment_review_flags(segments: list[dict[str, Any]]) -> dict[str, Any]:
     for segment in segments:
         source = str(segment.get("source", ""))
         target = str(segment.get("target", ""))
-        if target == source:
+        if target == source and not retention_is_approved(segment):
             untranslated += 1
             flags.append(
                 {
@@ -299,7 +492,10 @@ def segment_review_flags(segments: list[dict[str, Any]]) -> dict[str, Any]:
                     "pointer": segment.get("context", {}).get("pointer"),
                     "category": "untranslated_english",
                     "severity": "actionable",
-                    "note": "target is identical to English source (engineering identity draft or genuine omission)",
+                    "note": (
+                        "identity target lacks separate retention approval "
+                        "(candidate classification is not approval)"
+                    ),
                 }
             )
         source_tokens = set(re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", source))
