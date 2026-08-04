@@ -42,7 +42,7 @@
   - blocking: 0
   - untranslated_english: 2618
 - staging:
-  - path: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/desktop/fr.ts
+  - path: <work>/staging/desktop/fr.ts
   - source_unchanged: True
 - reference_comparison:
   - official_reference_exists: False
@@ -51,7 +51,7 @@
   - files:
     - path: apps/desktop/src/i18n/fr.ts
     - action: copy_staged
-    - source: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/desktop/fr.ts
+    - source: <work>/staging/desktop/fr.ts
     - path: apps/desktop/src/i18n/types.ts
     - action: edit_locale_union
     - edit: add 'fr' to the `export type Locale` union

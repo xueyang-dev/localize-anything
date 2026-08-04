@@ -95,6 +95,90 @@ class HermesBenchmarkHelpersTests(unittest.TestCase):
             self.assertEqual(diff["summary"]["deleted"], 1)
             self.assertEqual(diff["summary"]["unchanged"], 1)
 
+    @staticmethod
+    def _build_report(steps: list[dict]) -> dict:
+        return {
+            "status": "pass",
+            "summary": {"total": len(steps), "passed": len(steps), "failed": 0, "skipped": 0},
+            "steps": steps,
+        }
+
+    def test_build_gate_all_required_steps_pass(self) -> None:
+        steps = [
+            {"check": "a", "status": "passed", "passed": True, "required": True},
+            {"check": "b", "status": "passed", "passed": True, "required": True},
+        ]
+        ok, problems = common.evaluate_build_gate(self._build_report(steps))
+        self.assertTrue(ok)
+        self.assertEqual(problems, [])
+
+    def test_build_gate_required_step_fails(self) -> None:
+        steps = [
+            {"check": "a", "status": "passed", "passed": True, "required": True},
+            {"check": "b", "status": "failed", "passed": False, "required": True},
+        ]
+        report = self._build_report(steps)
+        report["status"] = "fail"
+        ok, problems = common.evaluate_build_gate(report)
+        self.assertFalse(ok)
+        self.assertTrue(any("required build step 'b'" in problem for problem in problems))
+
+    def test_build_gate_missing_report_fails(self) -> None:
+        ok, problems = common.evaluate_build_gate(None)
+        self.assertFalse(ok)
+        self.assertTrue(any("missing" in problem for problem in problems))
+
+    def test_build_gate_required_step_absent_fails(self) -> None:
+        steps = [
+            {"check": "a", "status": "passed", "passed": True, "required": True},
+            {"check": "b", "required": True},  # absent status/passed fields
+        ]
+        ok, problems = common.evaluate_build_gate(self._build_report(steps))
+        self.assertFalse(ok)
+        self.assertTrue(any("required build step 'b'" in problem for problem in problems))
+
+    def test_build_gate_optional_step_skipped_passes(self) -> None:
+        steps = [
+            {"check": "a", "status": "passed", "passed": True, "required": True},
+            {"check": "optional", "status": "skipped", "passed": False, "required": False},
+        ]
+        ok, problems = common.evaluate_build_gate(self._build_report(steps))
+        self.assertTrue(ok)
+        self.assertEqual(problems, [])
+
+    def test_sanitize_text_replaces_machine_paths(self) -> None:
+        home = str(Path.home())
+        sample = (
+            f"{common.COPY / 'hermes' / '.venv/bin/python'} "
+            "-m pytest /var/folders/70/m56f428103j8mb2ssqj6zr4c0000gn/T/tmp.abc123/x.yaml "
+            f"{home}/.hermes/config.yaml"
+        )
+        cleaned = common.sanitize_text(sample)
+        self.assertNotIn(home, cleaned)
+        self.assertNotIn("/var/folders/", cleaned)
+        self.assertIn("<hermes-copy>/.venv/bin/python", cleaned)
+        self.assertIn("<temporary-directory>/x.yaml", cleaned)
+        self.assertIn("<home>/.hermes/config.yaml", cleaned)
+
+    def test_sanitize_report_is_recursive_and_deterministic(self) -> None:
+        report = {
+            "command": f"python {common.BENCH_ROOT / 'prepare.py'} source",
+            "items": [
+                {"tail": str(common.SOURCE)},
+            ],
+            "count": 3,
+        }
+        first = common.sanitize_report(report)
+        second = common.sanitize_report(report)
+        self.assertEqual(first, second)
+        self.assertEqual(first["command"], "python <benchmark>/prepare.py source")
+        self.assertEqual(first["items"][0]["tail"], "<hermes-source>")
+        self.assertEqual(first["count"], 3)
+
+    def test_sanitize_text_leaves_plain_text_unchanged(self) -> None:
+        text = "python prepare.py source && npm run typecheck"
+        self.assertEqual(common.sanitize_text(text), text)
+
 
 if __name__ == "__main__":
     unittest.main()

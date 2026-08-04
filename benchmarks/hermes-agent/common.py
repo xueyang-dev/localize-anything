@@ -36,13 +36,50 @@ from runtime.localize_anything.json_adapter import dump_json, load_json  # noqa:
 
 CONFIG = load_json(BENCH_ROOT / "benchmark.json")
 
+_PATH_PLACEHOLDERS = [
+    (str(COPY / "hermes"), "<hermes-copy>"),
+    (str(COPY), "<hermes-copy>"),
+    (str(SOURCE), "<hermes-source>"),
+    (str(BENCH_ROOT), "<benchmark>"),
+    (str(REPOSITORY_ROOT), "<repo>"),
+    (str(WORK), "<work>"),
+    (str(Path.home()), "<home>"),
+]
+_PATH_PLACEHOLDERS.sort(key=lambda item: len(item[0]), reverse=True)
+_TEMP_PATH_PATTERNS = [
+    re.compile(r"/private/var/folders/[A-Za-z0-9+/]+/T/[A-Za-z0-9._-]+"),
+    re.compile(r"/var/folders/[A-Za-z0-9+/]+/T/[A-Za-z0-9._-]+"),
+    re.compile(r"/tmp/[A-Za-z0-9._-]+"),
+]
+
+
+def sanitize_text(text: str) -> str:
+    """Replace machine-specific paths with stable placeholders (deterministic)."""
+    for path, placeholder in _PATH_PLACEHOLDERS:
+        if path:
+            text = text.replace(path, placeholder)
+    for pattern in _TEMP_PATH_PATTERNS:
+        text = pattern.sub("<temporary-directory>", text)
+    return text
+
+
+def sanitize_report(value: Any) -> Any:
+    """Recursively sanitize strings in a report structure."""
+    if isinstance(value, str):
+        return sanitize_text(value)
+    if isinstance(value, list):
+        return [sanitize_report(item) for item in value]
+    if isinstance(value, dict):
+        return {key: sanitize_report(child) for key, child in value.items()}
+    return value
+
 
 def write_json(value: Any, path: Path, raw: bool = False) -> None:
     if raw:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(value, encoding="utf-8", newline="\n")
+        path.write_text(sanitize_text(value), encoding="utf-8", newline="\n")
         return
-    dump_json(value, path)
+    dump_json(sanitize_report(value), path)
 
 
 def read_json(path: Path) -> Any:
@@ -337,4 +374,32 @@ def report_markdown(report: dict[str, Any], title: str) -> str:
             lines.append(f"{padding}- {value}")
 
     render(report)
-    return "\n".join(lines) + "\n"
+    return "\n".join(line.rstrip() for line in lines).rstrip() + "\n"
+
+
+def evaluate_build_gate(report: dict[str, Any] | None) -> tuple[bool, list[str]]:
+    """Strong final gate: a build-validation report must exist and every
+    required step must have passed. Optional steps may be skipped."""
+    problems: list[str] = []
+    if report is None:
+        return False, ["build-validation report is missing"]
+    if report.get("status") != "pass":
+        problems.append(f"build-validation top-level status is {report.get('status')!r}, expected 'pass'")
+    steps = report.get("steps")
+    if not isinstance(steps, list):
+        return False, problems + ["build-validation report has no steps list"]
+    if not steps:
+        return False, problems + ["build-validation report has no steps"]
+    required_steps = [step for step in steps if step.get("required", True)]
+    if not required_steps:
+        return False, problems + ["build-validation report has no required steps"]
+    for step in required_steps:
+        name = step.get("check", "<unnamed>")
+        status = step.get("status")
+        passed = step.get("passed")
+        if status == "passed" and passed is True:
+            continue
+        problems.append(
+            f"required build step {name!r} did not pass (status={status!r}, passed={passed!r})"
+        )
+    return not problems, problems

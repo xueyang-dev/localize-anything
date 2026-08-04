@@ -42,7 +42,7 @@
   - blocking: 0
   - untranslated_english: 701
 - staging:
-  - path: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/web/fr.ts
+  - path: <work>/staging/web/fr.ts
   - source_unchanged: True
 - reference_comparison:
   - official_is_reference_not_ground_truth: True

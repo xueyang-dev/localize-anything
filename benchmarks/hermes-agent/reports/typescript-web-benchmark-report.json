@@ -54,7 +54,7 @@
     "untranslated_english": 701
   },
   "staging": {
-    "path": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/web/fr.ts",
+    "path": "<work>/staging/web/fr.ts",
     "source_unchanged": true
   },
   "reference_comparison": {

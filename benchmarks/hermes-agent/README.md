@@ -52,20 +52,27 @@ The tracks are never combined into one score.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[yaml]"
+
 cd benchmarks/hermes-agent
-.venv/bin/python prepare.py source
-.venv/bin/python prepare.py blind
-.venv/bin/python verify_source.py
-.venv/bin/python audit.py
-.venv/bin/python run_yaml_benchmark.py            # --mode import --import-segments FILE
-.venv/bin/python run_typescript_catalog_benchmark.py --surface web
-.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
-.venv/bin/python prepare.py reference
-.venv/bin/python prepare.py copy
-.venv/bin/python run_build_validation.py
-.venv/bin/python incremental.py
-.venv/bin/python run_coverage_audit.py
-.venv/bin/python verify_results.py
+
+../../.venv/bin/python prepare.py source
+../../.venv/bin/python prepare.py blind
+../../.venv/bin/python verify_source.py
+../../.venv/bin/python audit.py
+../../.venv/bin/python run_yaml_benchmark.py        # --mode import --import-segments FILE
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
+../../.venv/bin/python prepare.py reference
+# Re-run the surface scripts so reports attach the revealed reference comparison.
+../../.venv/bin/python run_yaml_benchmark.py
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
+../../.venv/bin/python run_agent_system_benchmark.py
+../../.venv/bin/python prepare.py copy
+../../.venv/bin/python run_build_validation.py
+../../.venv/bin/python incremental.py
+../../.venv/bin/python run_coverage_audit.py
+../../.venv/bin/python verify_results.py
 ```
 
 `work/` (source checkout, blind/staging/copy workspaces, test venvs) and

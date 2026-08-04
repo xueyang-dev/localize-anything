@@ -11,8 +11,9 @@
   - semantic_no_blocking: True
   - incremental_classified: True
   - desktop_apply_plan: True
-  - build_validation_recorded: True
+  - build_validation_pass: True
   - regressions_pass: True
+- build_gate_problems:
 - checks:
   - source_verification:
     - protocol_version: 0.1
@@ -91,7 +92,7 @@
       - blocking: 0
       - untranslated_english: 342
     - staging:
-      - path: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/yaml/fr.yaml
+      - path: <work>/staging/yaml/fr.yaml
       - source_unchanged: True
     - reference_comparison:
       - official_is_reference_not_ground_truth: True
@@ -145,7 +146,7 @@
       - blocking: 0
       - untranslated_english: 701
     - staging:
-      - path: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/web/fr.ts
+      - path: <work>/staging/web/fr.ts
       - source_unchanged: True
     - reference_comparison:
       - official_is_reference_not_ground_truth: True
@@ -214,7 +215,7 @@
       - blocking: 0
       - untranslated_english: 2618
     - staging:
-      - path: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/desktop/fr.ts
+      - path: <work>/staging/desktop/fr.ts
       - source_unchanged: True
     - reference_comparison:
       - official_reference_exists: False
@@ -223,7 +224,7 @@
       - files:
         - path: apps/desktop/src/i18n/fr.ts
         - action: copy_staged
-        - source: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/desktop/fr.ts
+        - source: <work>/staging/desktop/fr.ts
         - path: apps/desktop/src/i18n/types.ts
         - action: edit_locale_union
         - edit: add 'fr' to the `export type Locale` union
@@ -253,7 +254,7 @@
     - regenerated_segments: 4
     - preserved_reviewed_segments: 2
     - preserved_translations_intact: True
-    - staged_output: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/incremental/fr-mutated.yaml
+    - staged_output: <work>/incremental/fr-mutated.yaml
   - coverage_audit:
     - protocol_version: 0.1
     - benchmark_id: hermes-agent
@@ -303,58 +304,71 @@
     - protocol_version: 0.1
     - benchmark_id: hermes-agent
     - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
+    - status: pass
+    - summary:
+      - total: 8
+      - passed: 8
+      - failed: 0
+      - skipped: 0
+      - not_run: 0
     - steps:
       - check: hermes_i18n_parity_tests
-      - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/copy/hermes/.venv/bin/python -m pytest tests/agent/test_i18n.py -q
+      - command: <hermes-copy>/.venv/bin/python -m pytest tests/agent/test_i18n.py -q
       - exit_code: 0
-      - duration_seconds: 2.5
+      - duration_seconds: 1.38
       - passed: True
+      - status: passed
+      - required: True
       - tail: ....................................                                     [100%]
-36 passed in 2.26s
-
+36 passed in 1.17s
       - check: hermes_python_compileall
       - command: python3 -m compileall -q agent hermes_cli gateway
       - exit_code: 0
-      - duration_seconds: 0.1
+      - duration_seconds: 0.09
       - passed: True
-      - tail: 
+      - status: passed
+      - required: True
+      - tail:
       - check: web_typecheck
       - command: npm run typecheck
       - exit_code: 0
-      - duration_seconds: 0.34
+      - duration_seconds: 0.37
       - passed: True
+      - status: passed
+      - required: True
       - tail: 
 > web@0.0.0 typecheck
 > tsc -p . --noEmit
-
-
       - check: web_vitest
       - command: npm run test
       - exit_code: 0
-      - duration_seconds: 1.15
+      - duration_seconds: 1.16
       - passed: True
+      - status: passed
+      - required: True
       - tail: 
 > web@0.0.0 test
 > vitest run
 
 
- RUN  v4.1.10 /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/copy/hermes/web
+ RUN  v4.1.10 <hermes-copy>/web
 
 
  Test Files  22 passed (22)
       Tests  156 passed (156)
-   Start at  12:41:34
-   Duration  717ms (transform 732ms, setup 0ms, import 1.53s, tests 163ms, environment 1ms)
+   Start at  13:27:55
+   Duration  751ms (transform 928ms, setup 0ms, import 1.79s, tests 154ms, environment 1ms)
 
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
-
       - check: web_build
       - command: npm run build
       - exit_code: 0
-      - duration_seconds: 4.19
+      - duration_seconds: 6.05
       - passed: True
+      - status: passed
+      - required: True
       - tail: B
 ../hermes_cli/web_dist/assets/EnvPage-C0YbBZqt.js                      29.97 kB │ gzip:   8.14 kB
 ../hermes_cli/web_dist/assets/CronPage-C7itHUS_.js                     31.60 kB │ gzip:   8.86 kB
@@ -369,38 +383,39 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 ../hermes_cli/web_dist/assets/i18n-ORg-xQMU.js                        471.65 kB │ gzip: 139.58 kB
 ../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB
 
-✓ built in 413ms
+✓ built in 534ms
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
-
       - check: desktop_typecheck
       - command: npm run typecheck
       - exit_code: 0
-      - duration_seconds: 12.55
+      - duration_seconds: 17.78
       - passed: True
+      - status: passed
+      - required: True
       - tail: 
 > hermes@0.17.0 typecheck
 > tsc -p . --noEmit && tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.e2e.json --noEmit
-
-
       - check: desktop_vitest
       - command: npm run test
       - exit_code: 0
-      - duration_seconds: 93.61
+      - duration_seconds: 142.29
       - passed: True
+      - status: passed
+      - required: True
       - tail: 
 > hermes@0.17.0 test
 > vitest run
 
 
- RUN  v4.1.10 /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/copy/hermes/apps/desktop
+ RUN  v4.1.10 <hermes-copy>/apps/desktop
 
 
  Test Files  465 passed | 1 skipped (466)
       Tests  4295 passed | 2 skipped (4297)
-   Start at  12:41:52
-   Duration  93.04s (transform 14.60s, setup 56.84s, import 265.38s, tests 86.79s, environment 341.11s)
+   Start at  13:28:21
+   Duration  141.45s (transform 24.05s, setup 85.27s, import 409.22s, tests 129.31s, environment 522.25s)
 
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead
@@ -408,7 +423,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 Preparing worktree (new branch 'wt')
 Switched to a new branch 'rawr'
 Switched to a new branch 'rawr'
-Cloning into '/var/folders/70/m56f428103j8mb2ssqj6zr4c0000gn/T/hermes-clone-t9DXY8'...
+Cloning into '<temporary-directory>'...
 done.
 fatal: no upstream configured for branch 'feature-branch'
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
@@ -416,27 +431,29 @@ Not implemented: HTMLCanvasElement's getContext() method: without installing the
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
-
       - check: desktop_build
       - command: npm run build
       - exit_code: 0
-      - duration_seconds: 4.97
+      - duration_seconds: 7.7
       - passed: True
-      - tail: idF.js                        349.01 kB │ gzip:   106.93 kB
-dist/assets/i18n-BPpNvoEX.js                             700.43 kB │ gzip:   225.89 kB
-dist/assets/index-CXHG8Pd7.js                          2,126.91 kB │ gzip:   635.95 kB
+      - status: passed
+      - required: True
+      - tail:                      2,126.91 kB │ gzip:   635.95 kB
 dist/assets/mermaid-BVb1m2iz.js                        2,973.15 kB │ gzip:   783.39 kB
 dist/assets/shiki-6BOFvr6A.js                         18,983.25 kB │ gzip: 3,308.84 kB
 
-✓ built in 3.48s
-bundled /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/copy/hermes/apps/desktop/dist/electron-main.mjs
-bundled /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/copy/hermes/apps/desktop/dist/electron-preload.js
-[stage-native-deps] staged node-pty (darwin-arm64) -> /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/copy/hermes/apps/desktop/dist/node_modules/node-pty
+✓ built in 4.77s
+bundled <hermes-copy>/apps/desktop/dist/electron-main.mjs
+bundled <hermes-copy>/apps/desktop/dist/electron-preload.js
+[stage-native-deps] staged node-pty (darwin-arm64) -> <hermes-copy>/apps/desktop/dist/node_modules/node-pty
 
 > hermes@0.17.0 postbuild
 > node scripts/assert-dist-built.mjs
 
 ✓ assert-dist-built: dist/index.html + assets present
+[write-build-stamp] WARNING: working tree is dirty.
+  Pinning to 71b1f1b13ebc but the packaged code may differ from that commit.
+  Commit your changes before publishing this build.
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
@@ -446,44 +463,41 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
   dist/electron-main.mjs  680.5kb
 
-⚡ Done in 50ms
+⚡ Done in 36ms
 
   dist/electron-preload.js  21.8kb
 
 ⚡ Done in 3ms
-
       - note: Full electron packaging (npm run dist) is environment-dependent and not part of this validation.
   - regression_evidence:
     - status: pass
     - steps:
       - check: localize_anything_unittest
-      - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -m unittest discover -s tests -v
+      - command: <repo>/.venv/bin/python -m unittest discover -s tests -v
       - exit_code: 0
-      - duration_seconds: 8.21
+      - duration_seconds: 7.95
       - passed: True
-      - tail: est_catalog_parse_duplicate_detection (test_typescript_adapter.TypeScriptAdapterTests.test_catalog_parse_duplicate_detection) ... ok
-test_duplicate_keys_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_duplicate_keys_fail_closed) ... ok
-test_extract_define_locale_wrapper (test_typescript_adapter.TypeScriptAdapterTests.test_extract_define_locale_wrapper) ... ok
-test_extract_strings_arrays_and_placeholders (test_typescript_adapter.TypeScriptAdapterTests.test_extract_strings_arrays_and_placeholders) ... ok
-test_extract_typed_catalog (test_typescript_adapter.TypeScriptAdapterTests.test_extract_typed_catalog) ... ok
-test_function_literals_and_expression_parity (test_typescript_adapter.TypeScriptAdapterTests.test_function_literals_and_expression_parity) ... ok
-test_identity_round_trip_is_byte_identical (test_typescript_adapter.TypeScriptAdapterTests.test_identity_round_trip_is_byte_identical) ... ok
+      - tail: apterTests.test_identity_round_trip_is_byte_identical) ... ok
+test_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok
 test_missing_and_unexpected_keys_fail (test_typescript_adapter.TypeScriptAdapterTests.test_missing_and_unexpected_keys_fail) ... ok
+test_overlapping_edits_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_overlapping_edits_fail_closed) ... ok
 test_placeholder_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_placeholder_mismatch_fails) ... ok
+test_rebuild_longer_export_name_keeps_literal_spans (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_longer_export_name_keeps_literal_spans) ... ok
 test_rebuild_preserves_function_signatures_and_expressions (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_preserves_function_signatures_and_expressions) ... ok
 test_rebuild_renames_export_to_target_locale (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_renames_export_to_target_locale) ... ok
+test_rebuild_shorter_export_name (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_shorter_export_name) ... ok
 test_rebuild_translated_strings_and_arrays (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_translated_strings_and_arrays) ... ok
 test_template_expression_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_mismatch_fails) ... ok
+test_template_expression_order_change_is_blocking (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_order_change_is_blocking) ... ok
+test_template_expression_order_preserved_passes (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_order_preserved_passes) ... ok
 test_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok
 
 ----------------------------------------------------------------------
-Ran 96 tests in 8.115s
+Ran 110 tests in 7.860s
 
 OK
-
       - check: adapter_tree_validation
-      - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -c 
-import json
+      - command: <repo>/.venv/bin/python -c import json
 from pathlib import Path
 from runtime.localize_anything.contracts import validate_adapter_tree
 result = validate_adapter_tree(Path('adapters'))
@@ -492,7 +506,6 @@ if result['status'] != 'pass':
     raise SystemExit(1)
 if result['manifests_checked'] < 13:
     raise SystemExit('expected >=13 adapter manifests, got ' + str(result['manifests_checked']))
-
       - exit_code: 0
       - duration_seconds: 0.02
       - passed: True
@@ -502,17 +515,14 @@ if result['manifests_checked'] < 13:
   "manifests_checked": 13,
   "errors": []
 }
-
       - check: protocol_tree_validation
-      - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -c 
-import json
+      - command: <repo>/.venv/bin/python -c import json
 from pathlib import Path
 from runtime.localize_anything.schema_validation import validate_protocol_tree
 result = validate_protocol_tree(Path('protocol'))
 print(json.dumps(result, indent=2))
 if result['status'] != 'pass':
     raise SystemExit(1)
-
       - exit_code: 0
       - duration_seconds: 0.02
       - passed: True
@@ -523,15 +533,14 @@ if result['status'] != 'pass':
   "examples_checked": 7,
   "errors": []
 }
-
       - check: compileall
-      - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
+      - command: <repo>/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
       - exit_code: 0
-      - duration_seconds: 2.93
+      - duration_seconds: 2.59
       - passed: True
-      - tail: 
+      - tail:
       - check: git_diff_check
       - command: git diff --check
       - exit_code: 0
       - passed: True
-      - tail: 
+      - tail:

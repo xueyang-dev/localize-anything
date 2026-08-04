@@ -40,7 +40,7 @@
   - blocking: 0
   - untranslated_english: 342
 - staging:
-  - path: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/yaml/fr.yaml
+  - path: <work>/staging/yaml/fr.yaml
   - source_unchanged: True
 - reference_comparison:
   - official_is_reference_not_ground_truth: True

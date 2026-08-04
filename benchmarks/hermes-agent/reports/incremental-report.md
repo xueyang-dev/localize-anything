@@ -17,4 +17,4 @@
 - regenerated_segments: 4
 - preserved_reviewed_segments: 2
 - preserved_translations_intact: True
-- staged_output: /Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/incremental/fr-mutated.yaml
+- staged_output: <work>/incremental/fr-mutated.yaml

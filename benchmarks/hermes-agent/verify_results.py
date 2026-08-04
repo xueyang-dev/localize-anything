@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 
-from common import BENCH_ROOT, CONFIG, REPOSITORY_ROOT, REPORTS, read_json, report_markdown, run, write_json
+from common import BENCH_ROOT, CONFIG, REPOSITORY_ROOT, REPORTS, evaluate_build_gate, read_json, report_markdown, run, write_json
 
 
 def main() -> int:
@@ -26,6 +26,7 @@ def main() -> int:
         "build_validation": _load_or_none("build-validation.json"),
         "regression_evidence": regression,
     }
+    build_gate_ok, build_gate_problems = evaluate_build_gate(checks["build_validation"])
     gates = {
         "source_verified": checks["source_verification"] is not None and checks["source_verification"]["status"] == "pass",
         "yaml_qa_pass": checks["yaml_benchmark"] is not None and checks["yaml_benchmark"]["qa"]["status"] == "pass",
@@ -39,7 +40,7 @@ def main() -> int:
         "incremental_classified": checks["incremental"] is not None
         and all(checks["incremental"]["classification"].get(k, 0) >= 1 for k in ("new", "changed", "moved", "deleted")),
         "desktop_apply_plan": checks["typescript_desktop_benchmark"] is not None and bool(checks["typescript_desktop_benchmark"]["apply_plan"]),
-        "build_validation_recorded": checks["build_validation"] is not None,
+        "build_validation_pass": build_gate_ok,
         "regressions_pass": regression["status"] == "pass",
     }
     all_pass = all(gates.values())
@@ -48,6 +49,7 @@ def main() -> int:
         "benchmark_id": CONFIG["id"],
         "status": "pass" if all_pass else "fail",
         "gates": gates,
+        "build_gate_problems": build_gate_problems,
         "checks": checks,
     }
     write_json(report, REPORTS / "verify-results.json")
@@ -74,7 +76,7 @@ def run_regressions() -> dict[str, object]:
         steps.append(
             {
                 "check": label,
-                "command": " ".join(command),
+                "command": " ".join(part.strip() for part in command),
                 "exit_code": result.returncode,
                 "duration_seconds": round(time.monotonic() - started, 2),
                 "passed": result.returncode == 0,

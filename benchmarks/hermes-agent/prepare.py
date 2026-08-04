@@ -56,19 +56,24 @@ def prepare_source() -> None:
     if SOURCE.exists():
         raise ValueError(f"source exists with unexpected commit {_commit(SOURCE)}; remove {SOURCE} manually")
     SOURCE.parent.mkdir(parents=True, exist_ok=True)
-    result = run(
-        [
-            "git",
-            "clone",
-            "--depth=1",
-            "--filter=blob:none",
-            "--no-tags",
-            UPSTREAM["repository"],
-            str(SOURCE),
-        ]
-    )
+    result = run(["git", "init", "--quiet", str(SOURCE)])
     if result.returncode != 0:
-        raise ValueError(f"clone failed: {result.stderr[-2000:]}")
+        raise ValueError(f"git init failed: {result.stderr[-2000:]}")
+    for argument in (
+        ["remote", "add", "origin", UPSTREAM["repository"]],
+        ["config", "core.autocrlf", "false"],
+        ["config", "remote.origin.promisor", "true"],
+        ["config", "remote.origin.partialclonefilter", "blob:none"],
+    ):
+        result = run(["git", "-C", str(SOURCE), *argument])
+        if result.returncode != 0:
+            raise ValueError(f"git {argument[0]} failed: {result.stderr[-2000:]}")
+    result = run(["git", "-C", str(SOURCE), "fetch", "--depth=1", "--filter=blob:none", "--no-tags", "origin", COMMIT])
+    if result.returncode != 0:
+        raise ValueError(f"pinned fetch failed: {result.stderr[-2000:]}")
+    result = run(["git", "-C", str(SOURCE), "checkout", "--quiet", "--detach", "FETCH_HEAD"])
+    if result.returncode != 0:
+        raise ValueError(f"pinned checkout failed: {result.stderr[-2000:]}")
     if _commit(SOURCE) != COMMIT:
         raise ValueError(f"unexpected HEAD {_commit(SOURCE)}; expected {COMMIT}")
     _verify_clean(SOURCE)

@@ -52,7 +52,7 @@
     "untranslated_english": 342
   },
   "staging": {
-    "path": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/yaml/fr.yaml",
+    "path": "<work>/staging/yaml/fr.yaml",
     "source_unchanged": true
   },
   "reference_comparison": {

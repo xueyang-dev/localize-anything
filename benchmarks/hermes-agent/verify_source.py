@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from common import BENCH_ROOT, BLIND, CONFIG, REPORTS, SOURCE, run, write_json
+from common import BENCH_ROOT, BLIND, CONFIG, REPORTS, SOURCE, WORK, run, write_json
 
 sys.path.insert(0, str(BENCH_ROOT))
 

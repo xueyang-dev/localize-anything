@@ -54,7 +54,7 @@
     "untranslated_english": 2618
   },
   "staging": {
-    "path": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/desktop/fr.ts",
+    "path": "<work>/staging/desktop/fr.ts",
     "source_unchanged": true
   },
   "reference_comparison": {
@@ -66,7 +66,7 @@
       {
         "path": "apps/desktop/src/i18n/fr.ts",
         "action": "copy_staged",
-        "source": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/desktop/fr.ts"
+        "source": "<work>/staging/desktop/fr.ts"
       },
       {
         "path": "apps/desktop/src/i18n/types.ts",

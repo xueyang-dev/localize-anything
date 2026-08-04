@@ -21,16 +21,35 @@ def main() -> int:
         "protocol_version": CONFIG["protocol_version"],
         "benchmark_id": CONFIG["id"],
         "commit": CONFIG["upstream"]["commit"],
+        "status": "pass",
+        "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "not_run": 0},
         "steps": [],
     }
     _python_checks(hermes, evidence)
     _web_checks(hermes, evidence)
     _desktop_checks(hermes, evidence)
+    _finalize(evidence)
     REPORTS.mkdir(exist_ok=True)
     write_json(evidence, REPORTS / "build-validation.json")
     write_json(report_markdown(evidence, "build-validation.md"), REPORTS / "build-validation.md", raw=True)
     print(json.dumps(evidence, ensure_ascii=False, indent=2))
     return 0
+
+
+def _finalize(evidence: dict[str, object]) -> None:
+    steps = evidence["steps"]
+    passed = sum(1 for step in steps if step.get("status") == "passed" and step.get("passed") is True)
+    failed = sum(1 for step in steps if step.get("status") == "failed")
+    skipped = sum(1 for step in steps if step.get("status") == "skipped")
+    not_run = sum(1 for step in steps if step.get("status") == "not_run")
+    evidence["summary"] = {
+        "total": len(steps),
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "not_run": not_run,
+    }
+    evidence["status"] = "pass" if failed == 0 and not_run == 0 else "fail"
 
 
 def _apply_staged(hermes: Path) -> None:
@@ -102,6 +121,8 @@ def _python_checks(hermes: Path, evidence: dict[str, object]) -> None:
                 "exit_code": result.returncode,
                 "duration_seconds": round(time.monotonic() - started, 2),
                 "passed": result.returncode == 0,
+                "status": "passed" if result.returncode == 0 else "failed",
+                "required": True,
                 "tail": (result.stdout + result.stderr)[-1500:],
             }
         )
@@ -123,6 +144,8 @@ def _web_checks(hermes: Path, evidence: dict[str, object]) -> None:
                 "exit_code": result.returncode,
                 "duration_seconds": round(time.monotonic() - started, 2),
                 "passed": result.returncode == 0,
+                "status": "passed" if result.returncode == 0 else "failed",
+                "required": True,
                 "tail": (result.stdout + result.stderr)[-1500:],
             }
         )
@@ -143,6 +166,8 @@ def _desktop_checks(hermes: Path, evidence: dict[str, object]) -> None:
                 "exit_code": result.returncode,
                 "duration_seconds": round(time.monotonic() - started, 2),
                 "passed": result.returncode == 0,
+                "status": "passed" if result.returncode == 0 else "failed",
+                "required": True,
                 "tail": (result.stdout + result.stderr)[-1500:],
             }
         )
@@ -155,6 +180,8 @@ def _desktop_checks(hermes: Path, evidence: dict[str, object]) -> None:
             "exit_code": result.returncode,
             "duration_seconds": round(time.monotonic() - started, 2),
             "passed": result.returncode == 0,
+            "status": "passed" if result.returncode == 0 else "failed",
+            "required": True,
             "tail": (result.stdout + result.stderr)[-1500:],
             "note": "Full electron packaging (npm run dist) is environment-dependent and not part of this validation.",
         }
