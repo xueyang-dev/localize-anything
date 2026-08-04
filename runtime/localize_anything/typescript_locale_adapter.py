@@ -220,6 +220,7 @@ class Catalog:
     export_name: str
     wrapper: str  # "plain" | "defineLocale"
     duplicates: list[str] = field(default_factory=list)
+    export_span: tuple[int, int] | None = None
 
 
 class _Parser:
@@ -259,19 +260,20 @@ class _Parser:
             name = self.take()
             if name.kind != "ident":
                 continue
+            export_span = (name.start, name.end)
             # Skip an optional `: Type` annotation.
             if self.peek().kind == "punct" and self.peek().value == ":":
                 self.take()
                 self._skip_type_annotation()
-            return self._finish_export(name.value)
+            return self._finish_export(name.value, export_span)
 
-    def _finish_export(self, export_name: str) -> Catalog:
+    def _finish_export(self, export_name: str, export_span: tuple[int, int]) -> Catalog:
         self.expect("=")
         value, wrapper = self._parse_export_value()
         if not isinstance(value, ObjectValue):
             raise TSParseError(f"export {export_name!r} is not an object literal catalog")
         duplicates = self._collect_duplicates(value)
-        return Catalog(value, export_name, wrapper, duplicates)
+        return Catalog(value, export_name, wrapper, duplicates, export_span)
 
     def _parse_export_value(self) -> tuple[Any, str]:
         token = self.peek()
@@ -611,9 +613,14 @@ def rebuild(
     """Rebuild a staged catalog by replacing translated literal spans only."""
     if format_name and format_name != ADAPTER_FORMAT:
         raise ValueError(f"Unsupported format for TypeScript adapter: {format_name}")
-    text = source_path.read_text(encoding="utf-8")
-    if export_name:
-        text = _rename_export(text, export_name)
+    original_text = source_path.read_text(encoding="utf-8")
+    catalog = parse_catalog(original_text) if export_name is not None else None
+    if export_name is not None:
+        if not _IDENT_RE.fullmatch(export_name):
+            raise ValueError(
+                f"invalid TypeScript export identifier {export_name!r}: "
+                "must match [A-Za-z_$][A-Za-z0-9_$]*"
+            )
     edits: list[tuple[int, int, str]] = []
     for segment in translated_segments:
         if "target" not in segment:
@@ -632,33 +639,49 @@ def rebuild(
             else str(segment["target"]) == context.get("cooked")
         )
         if unchanged and context.get("raw") is not None:
-            edits.append((start, end, text[start:end]))
+            edits.append((start, end, original_text[start:end]))
             continue
         encoded = _encode_target(str(segment["target"]), context)
         edits.append((start, end, encoded))
-    for start, end, encoded in sorted(edits, reverse=True):
-        if start < 0 or end > len(text) or start >= end:
-            raise ValueError(f"TypeScript literal span out of bounds: {start}:{end}")
-        text = text[:start] + encoded + text[end:]
+    if export_name is not None and catalog is not None and export_name != catalog.export_name:
+        edits.append(_export_rename_edit(original_text, export_name, catalog))
+    _validate_edits(edits, len(original_text))
+    text = original_text
+    for start, end, replacement in sorted(edits, reverse=True):
+        text = text[:start] + replacement + text[end:]
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8", newline="")
 
 
-def _rename_export(text: str, export_name: str) -> str:
-    """Rename the catalog export identifier (e.g. ``en`` -> ``fr``).
+def _export_rename_edit(text: str, export_name: str, catalog: Catalog) -> tuple[int, int, str]:
+    """Return a span edit renaming the parsed catalog export identifier.
 
-    ``parse_catalog`` already proved the file has exactly one catalog export
-    of the constrained shape, so the first ``export const <name>`` declaration
-    is unambiguous.  The ``: Translations`` type annotation, when present, is
-    preserved.
+    The span comes from the parser's token positions, so comments and imports
+    mentioning ``export const <name>`` can never be targeted by accident.
     """
-    catalog = parse_catalog(text)
-    pattern = re.compile(r"\bexport\s+const\s+" + re.escape(catalog.export_name) + r"\b")
-    match = pattern.search(text)
-    if not match:
+    span = catalog.export_span
+    if span is None:
         raise TSParseError(f"cannot locate export declaration for {catalog.export_name!r}")
-    start = match.end() - len(catalog.export_name)
-    return text[:start] + export_name + text[match.end() :]
+    start, end = span
+    if text[start:end] != catalog.export_name:
+        raise TSParseError(
+            f"export span mismatch: expected {catalog.export_name!r} at {start}:{end}, "
+            f"found {text[start:end]!r}"
+        )
+    return (start, end, export_name)
+
+
+def _validate_edits(edits: list[tuple[int, int, str]], length: int) -> None:
+    """Fail closed on out-of-bounds or overlapping edit ranges."""
+    for start, end, _replacement in edits:
+        if start < 0 or end > length or start >= end:
+            raise ValueError(f"TypeScript edit span out of bounds: {start}:{end} (file length {length})")
+    ordered = sorted(edits, key=lambda edit: (edit[0], edit[1]))
+    for (previous_start, previous_end, _previous), (start, end, _replacement) in zip(ordered, ordered[1:]):
+        if start < previous_end:
+            raise ValueError(
+                f"overlapping TypeScript edits: ({previous_start},{previous_end}) and ({start},{end})"
+            )
 
 
 def _encode_target(target: str, context: dict[str, Any]) -> str:
@@ -746,12 +769,13 @@ def validate_pair(source_path: Path, target_path: Path, format_name: str | None 
     for pointer in sorted(source.keys() & target.keys()):
         src = source[pointer]
         tgt = target[pointer]
-        if sorted(src["template_expressions"]) != sorted(tgt["template_expressions"]):
+        if src["template_expressions"] != tgt["template_expressions"]:
             items.append(
                 _qa_item(
                     "template_expression_parity",
                     "blocking",
-                    f"Template expression mismatch at {pointer}: source={src['template_expressions']}, target={tgt['template_expressions']}",
+                    f"Template expression order/count mismatch at {pointer}: "
+                    f"source={src['template_expressions']}, target={tgt['template_expressions']}",
                     target_path,
                     pointer,
                 )

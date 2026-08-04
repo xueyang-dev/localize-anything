@@ -123,6 +123,117 @@ class TypeScriptAdapterTests(unittest.TestCase):
             catalog = parse_catalog(text)
             self.assertEqual(catalog.export_name, "fr")
 
+    def test_rebuild_longer_export_name_keeps_literal_spans(self) -> None:
+        source = FIXTURE_ROOT / "basic.ts"
+        segments = extract_segments(source, "en", "i18n/basic.ts")
+        targets = {
+            "/common/save": "保存",
+            "/common/welcome": "你好，{name}！",
+            "/errors/retryCount": "再试 {count} 次",
+        }
+        for segment in segments:
+            pointer = segment["context"]["pointer"]
+            if pointer in targets:
+                segment["target"] = targets[pointer]
+                segment["target_locale"] = "zh-hant"
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "zh-hant.ts"
+            rebuild(source, segments, output, export_name="zhHant")
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("export const zhHant = {", text)
+            self.assertIn("save: '保存',", text)
+            self.assertIn('welcome: "你好，{name}！",', text)
+            self.assertIn("retryCount: '再试 {count} 次',", text)
+            self.assertIn("// Save button label", text)  # comments untouched
+            catalog = parse_catalog(text)
+            self.assertEqual(catalog.export_name, "zhHant")
+            self.assertEqual(catalog.duplicates, [])
+            result = validate_pair(source, output)
+            self.assertEqual(result["status"], "pass")
+
+    def test_rebuild_shorter_export_name(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "en.ts"
+            source.write_text(
+                "export const english: Translations = {\n"
+                "  common: {\n"
+                "    save: 'Save',\n"
+                "    welcome: 'Hello {name}',\n"
+                "  },\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            segments = extract_segments(source, "en", "i18n/english.ts")
+            for segment in segments:
+                if segment["context"]["pointer"] == "/common/save":
+                    segment["target"] = "Enregistrer"
+                elif segment["context"]["pointer"] == "/common/welcome":
+                    segment["target"] = "Bonjour {name}"
+            output = Path(directory) / "fr.ts"
+            rebuild(source, segments, output, export_name="fr")
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("export const fr: Translations = {", text)
+            self.assertIn("save: 'Enregistrer',", text)
+            self.assertIn("welcome: 'Bonjour {name}',", text)
+            self.assertEqual(parse_catalog(text).export_name, "fr")
+            result = validate_pair(source, output)
+            self.assertEqual(result["status"], "pass")
+
+    def test_invalid_export_identifiers_fail_closed(self) -> None:
+        source = FIXTURE_ROOT / "basic.ts"
+        segments = extract_segments(source, "en", "i18n/basic.ts")
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "fr.ts"
+            for invalid in ("pt-BR", "123fr", "fr locale", "fr.ts"):
+                with self.assertRaises(ValueError, msg=invalid):
+                    rebuild(source, segments, output, export_name=invalid)
+
+    def test_overlapping_edits_fail_closed(self) -> None:
+        source = FIXTURE_ROOT / "basic.ts"
+        segments = extract_segments(source, "en", "i18n/basic.ts")
+        for segment in segments[:2]:
+            segment["target"] = "Changed"
+        segments[0]["context"]["value_start"] = 20
+        segments[0]["context"]["value_end"] = 40
+        segments[1]["context"]["value_start"] = 30
+        segments[1]["context"]["value_end"] = 50
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "fr.ts"
+            with self.assertRaises(ValueError) as raised:
+                rebuild(source, segments, output)
+            self.assertIn("overlapping", str(raised.exception))
+
+    def test_template_expression_order_change_is_blocking(self) -> None:
+        source = FIXTURE_ROOT / "pager.ts"
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "fr.ts"
+            target.write_text(
+                source.read_text(encoding="utf-8").replace(
+                    "${current} of ${total}", "${total} sur ${current}"
+                ),
+                encoding="utf-8",
+            )
+            result = validate_pair(source, target)
+            self.assertEqual(result["status"], "fail")
+            matches = [item for item in result["items"] if item["category"] == "template_expression_parity"]
+            self.assertEqual(len(matches), 1)
+            self.assertEqual(matches[0]["severity"], "blocking")
+            self.assertIn("${current}", matches[0]["message"])
+            self.assertIn("${total}", matches[0]["message"])
+
+    def test_template_expression_order_preserved_passes(self) -> None:
+        source = FIXTURE_ROOT / "pager.ts"
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "fr.ts"
+            target.write_text(
+                source.read_text(encoding="utf-8").replace(
+                    "${current} of ${total}", "Page ${current} sur ${total}"
+                ),
+                encoding="utf-8",
+            )
+            result = validate_pair(source, target)
+            self.assertEqual(result["status"], "pass")
+
     def test_rebuild_preserves_function_signatures_and_expressions(self) -> None:
         source = FIXTURE_ROOT / "functions.ts"
         segments = extract_segments(source, "en", "i18n/functions.ts")
