@@ -1,0 +1,43 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "artifact": "real-generation-metadata",
+  "target_locale": "fr",
+  "generation_mode": "host_agent_import",
+  "quality_claim": "host_agent_generated",
+  "provider": "host agent (no external provider API called)",
+  "model": "host agent translation (DeepSeek-class assistant model in the Codex host)",
+  "temperature": null,
+  "batch_size": null,
+  "context_budget": null,
+  "retry_count": 0,
+  "generation_duration": null,
+  "credentials_used": false,
+  "credential_locations_checked": [
+    "environment variables",
+    "~/.hermes/.env"
+  ],
+  "import_file": "benchmarks/hermes-agent/work/imports/{yaml,web,desktop}.jsonl",
+  "segments": {
+    "yaml_cli_gateway": 351,
+    "web_dashboard": 709,
+    "desktop": 2623,
+    "total": 3683
+  },
+  "quality_claims_by_surface": {
+    "yaml_cli_gateway": {
+      "host_agent_generated": 351
+    },
+    "web_dashboard": {
+      "host_agent_generated": 709
+    },
+    "desktop": {
+      "host_agent_generated": 2623
+    }
+  },
+  "notes": [
+    "No real provider API execution was used; translations were produced by the host agent and imported through the provider-agnostic handoff flow.",
+    "All imported segments are labeled quality_claim=host_agent_generated, generation_mode=host_agent_import.",
+    "Retained terms (brands, product terms, identifiers) carry classification/classification_note in the import files."
+  ]
+}

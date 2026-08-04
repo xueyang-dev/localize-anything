@@ -7,11 +7,14 @@
 - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
 - target_locale: fr
 - generation:
-  - mode: engineering_fixture_only
-  - quality_claim: engineering_fixture_only
+  - mode: imported
+  - quality_claim: host_agent_generated
+  - quality_claims:
+    - host_agent_generated
   - provider: None
-  - curated_slice_segments: 9
-  - identity_segments: 700
+  - curated_slice_segments: 0
+  - identity_segments: 0
+  - imported_segments: 709
 - extraction:
   - segments: 709
   - deterministic: True
@@ -38,9 +41,9 @@
     - blocking_count: 0
     - warning_count: 0
 - semantic_review:
-  - flags: 701
+  - flags: 0
   - blocking: 0
-  - untranslated_english: 701
+  - untranslated_english: 0
 - staging:
   - path: <work>/staging/web/fr.ts
   - source_unchanged: True
@@ -58,13 +61,16 @@
       - /kanban/assigneeLabel
   - staged_key_missing_vs_official:
   - official_untranslated_english_stragglers: 62
-  - staged_untranslated_english_segments: 701
-  - identical_translated_values: 6
+  - staged_untranslated_english_segments: 67
+  - identical_translated_values: 377
   - identical_translated_sample:
-    - /common/cancel
-    - /common/delete
-    - /common/retry
-    - /common/save
-    - /language/switchTo
-    - /status/running
+    - 10 items (sample):
+      - /achievements/card/evidence_label
+      - /achievements/card/share_label
+      - /achievements/card/share_text
+      - /achievements/card/share_title
+      - /achievements/card/what_counts
+      - /achievements/filters/visibility_all
+      - /achievements/filters/visibility_discovered
+      - /achievements/filters/visibility_secret
 - apply_plan: None

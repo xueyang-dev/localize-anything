@@ -1,0 +1,59 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "artifact": "real-evidence-verification",
+  "generation": {
+    "real_generation_present": true,
+    "real_generation_kind": "host_agent_generated imports",
+    "engineering_fixture_absent": true,
+    "evidence": "all 3,683 segments carry quality_claim=host_agent_generated / generation_mode=host_agent_import; report generation.quality_claim=host_agent_generated"
+  },
+  "e2_review": {
+    "E2_review_completed": true,
+    "E2_blocking_zero": true,
+    "reviewer_type": "AI-assisted bilingual review",
+    "sample_size": 180,
+    "corrected_segments": 2,
+    "evidence": "work/e2-review-sheet.csv, work/e2-review-summary.json/md"
+  },
+  "terminology": {
+    "terminology_adjudicated": true,
+    "terms": 20,
+    "decisions": {
+      "intentional": 18,
+      "context_dependent": 2,
+      "unresolved": 0,
+      "error": 0
+    },
+    "evidence": "work/terminology-adjudication.csv/md"
+  },
+  "post_edit_deterministic_QA_pass": true,
+  "qa_evidence": {
+    "yaml": {
+      "status": "pass",
+      "blocking": 0,
+      "warnings": 0,
+      "semantic_flags": 0
+    },
+    "web": {
+      "status": "pass",
+      "blocking": 0,
+      "warnings": 0,
+      "semantic_flags": 0
+    },
+    "desktop": {
+      "status": "pass",
+      "blocking": 0,
+      "warnings": 0,
+      "semantic_flags": 0
+    }
+  },
+  "build_validation_pass": true,
+  "build_evidence": "reports/build-validation.json (8/8 checks passed: hermes i18n parity tests, compileall, web typecheck/vitest/build, desktop typecheck/vitest/build)",
+  "visual_smoke_recorded": true,
+  "visual_smoke_evidence": "work/visual-smoke-report.json/md + screenshots",
+  "human_review": false,
+  "human_review_note": "No native human linguist reviewed the translations; E0/E1 are automated, E2 is AI-assisted bilingual review by the host agent.",
+  "full_product_localization_claim": false,
+  "delivery_claim": "catalog localization proven (YAML + Web + Desktop catalogs); full-product localization not proven"
+}

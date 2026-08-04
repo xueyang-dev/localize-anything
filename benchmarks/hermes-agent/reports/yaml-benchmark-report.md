@@ -7,11 +7,14 @@
 - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
 - target_locale: fr
 - generation:
-  - mode: engineering_fixture_only
-  - quality_claim: engineering_fixture_only
+  - mode: imported
+  - quality_claim: host_agent_generated
+  - quality_claims:
+    - host_agent_generated
   - provider: None
-  - curated_slice_segments: 9
-  - identity_segments: 342
+  - curated_slice_segments: 0
+  - identity_segments: 0
+  - imported_segments: 351
 - extraction:
   - segments: 351
   - deterministic: True
@@ -36,9 +39,9 @@
     - blocking_count: 0
     - warning_count: 0
 - semantic_review:
-  - flags: 342
+  - flags: 0
   - blocking: 0
-  - untranslated_english: 342
+  - untranslated_english: 0
 - staging:
   - path: <work>/staging/yaml/fr.yaml
   - source_unchanged: True
@@ -47,7 +50,15 @@
   - official_key_missing_vs_staged:
   - staged_key_missing_vs_official:
   - official_untranslated_english_stragglers: 58
-  - staged_untranslated_english_segments: 342
-  - identical_translated_values: 1
+  - staged_untranslated_english_segments: 22
+  - identical_translated_values: 217
   - identical_translated_sample:
-    - gateway.usage.header_session
+    - 10 items (sample):
+      - approval.allowed_always
+      - approval.allowed_once
+      - approval.allowed_session
+      - approval.cancelled
+      - approval.dangerous_header
+      - approval.denied
+      - approval.timeout
+      - gateway.agents.active_agents

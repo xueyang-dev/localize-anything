@@ -1,0 +1,59 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "artifact": "visual-smoke-report",
+  "date": "2026-08-04",
+  "method": "ran `hermes dashboard` from the isolated copy (temp HOME, built web_dist with staged fr.ts) and drove the in-app browser against http://127.0.0.1:9123",
+  "surface": "web_dashboard",
+  "locale_verified": "fr",
+  "screens": [
+    {
+      "page": "/sessions",
+      "locale": "en",
+      "screenshot": "work/visual-smoke/dashboard-landing-en.png",
+      "notes": "baseline English render"
+    },
+    {
+      "page": "/sessions",
+      "locale": "fr",
+      "screenshot": "work/visual-smoke/dashboard-sessions-fr.png",
+      "notes": "nav: Discussion/Modèles/Journaux/Profils/Configuration/Clés; gateway status: « Statut du gateway : Désactivé », « Sessions actives : 0 »; buttons « Redémarrer le gateway », « Mettre à jour Hermes », « Changer de langue »; radios « Discussions/Automatisation/Tout »; « Aucune session pour l'instant »"
+    },
+    {
+      "page": "/config",
+      "locale": "fr",
+      "screenshot": "work/visual-smoke/dashboard-config-fr.png",
+      "notes": "« Configuration », « Rechercher… », « Exporter la configuration en JSON », « Importer la configuration depuis un JSON », « Rétablir Général aux valeurs par défaut », « Enregistrer », section labels Général/Agent/Terminal/Affichage/Délégation/Mémoire/Compression/Sécurité/Navigateur/Voix/Synthèse vocale/Reconnaissance vocale/Journaux/Auxiliaire"
+    },
+    {
+      "page": "/models",
+      "locale": "fr",
+      "screenshot": "work/visual-smoke/dashboard-models-fr.png",
+      "notes": "« Modèles », « Actualiser »; several component strings remain hardcoded English: 'Model Settings', 'applies to new sessions', 'Main model', 'Auxiliary tasks', 'Change'"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "info",
+      "finding": "Catalog-covered strings render in French at runtime; verified via DOM on /sessions, /config, /models."
+    },
+    {
+      "severity": "low",
+      "finding": "Hardcoded English strings visible: nav 'Sessions', 'Files', 'System', 'Achievements', 'Kanban' (group), 'Cron'/'Skills' (retained terms); /sessions 'Prune old sessions', 'Import exported sessions', 'Total', 'Active in store', 'Archived', 'Messages', 'Any chat source'; /models 'Model Settings', 'applies to new sessions', 'Main model', 'Auxiliary tasks', 'Change'."
+    },
+    {
+      "severity": "info",
+      "finding": "No console errors captured on the pages visited (dev logs empty)."
+    },
+    {
+      "severity": "info",
+      "finding": "Backend API auth: dashboard served with a fresh temp HOME; protected API calls were not exercised beyond page load."
+    }
+  ],
+  "limitations": [
+    "Desktop (Electron) app not launched: no interactive GUI smoke on apps/desktop; its fr catalog was validated by typecheck, vitest, and production build only.",
+    "Gateway not started (status Off), so session-dependent views (chat, gateway-driven metadata) were not visually exercised.",
+    "Screenshots captured but pixel-level review was not possible in this session (vision sidecar unavailable); DOM text evidence is authoritative."
+  ],
+  "delivery_claim": "web catalog localization visually verified; full-product localization not claimed"
+}

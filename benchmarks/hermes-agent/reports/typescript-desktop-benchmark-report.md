@@ -7,11 +7,14 @@
 - commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
 - target_locale: fr
 - generation:
-  - mode: engineering_fixture_only
-  - quality_claim: engineering_fixture_only
+  - mode: imported
+  - quality_claim: host_agent_generated
+  - quality_claims:
+    - host_agent_generated
   - provider: None
-  - curated_slice_segments: 5
-  - identity_segments: 2618
+  - curated_slice_segments: 0
+  - identity_segments: 0
+  - imported_segments: 2623
 - extraction:
   - segments: 2623
   - deterministic: True
@@ -38,9 +41,9 @@
     - blocking_count: 0
     - warning_count: 0
 - semantic_review:
-  - flags: 2618
+  - flags: 0
   - blocking: 0
-  - untranslated_english: 2618
+  - untranslated_english: 0
 - staging:
   - path: <work>/staging/desktop/fr.ts
   - source_unchanged: True

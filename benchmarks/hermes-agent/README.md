@@ -48,6 +48,15 @@ The tracks are never combined into one score.
   curated French slice that proves extraction, staging, QA, and build
   plumbing. **None of it counts as translation-quality evidence.**
 
+The real-translation iteration (separate PR) ran the import flow with
+host-agent-produced French for all 3,683 segments
+(`quality_claim: host_agent_generated`, `generation_mode: host_agent_import`;
+no provider API called). The final reports under `reports/` reflect that run:
+`real-generation-metadata.json`, `e2-review-summary.*`, `e2-review-sheet.csv`,
+`terminology-adjudication.*`, `official-reference-comparison.json`,
+`visual-smoke-report.*`, `real-evidence-verification.*`. E2 review is
+AI-assisted bilingual review, not native human review.
+
 ## Reproduce
 
 ```bash

@@ -65,6 +65,39 @@ Catalog parity is proven for the staged catalogs; full product localization
 is explicitly NOT claimed. See `benchmarks/hermes-agent/README.md` for
 reproduction commands.
 
+### Real-translation evidence iteration (separate PR)
+
+A second iteration adds genuine French translations through the same framework
+(`--mode import`, provider-agnostic handoff), so the engineering-fixture caveat
+above no longer applies to the final runs:
+
+- generation: host-agent-produced translations imported for all 3,683 segments
+  (YAML 351, Web 709, Desktop 2,623), labeled `quality_claim:
+  host_agent_generated` / `generation_mode: host_agent_import`; no provider API
+  was called and no credentials were used;
+- E1: 0 semantic flags after classifying intentional retentions
+  (`technical_term_retained`, `brand_or_product_name`, `not_applicable`);
+- E2: 180-segment risk-weighted bilingual review (`reviewer_type:
+  AI-assisted bilingual review` — not native human review), 2 corrections
+  applied and rerun, 0 blocking;
+- terminology adjudication for 20 cross-surface terms (18 intentional,
+  2 context-dependent, 0 unresolved/errors);
+- build validation on the isolated copy: Hermes i18n parity tests, Python
+  compileall, Web typecheck/vitest/build, Desktop typecheck/vitest/build —
+  8/8 pass;
+- visual smoke: the Web dashboard was served from the isolated copy and the
+  `fr` locale rendered live (/sessions, /config, /models; DOM-verified,
+  screenshots in the ignored `work/visual-smoke/`); Desktop Electron and
+  gateway-dependent views were not launched;
+- evidence artifacts live in `benchmarks/hermes-agent/reports/`
+  (`real-generation-*`, `e2-review-*`, `terminology-adjudication.*`,
+  `official-reference-comparison.json`, `visual-smoke-report.*`,
+  `real-evidence-verification.*`).
+
+Hardcoded frontend strings, dynamic gateway metadata, and generated content
+remain outside the catalog contract (see `hardcoded-string-findings.json` and
+the visual smoke findings); full-product localization is still NOT claimed.
+
 ## Tracks
 
 - `controlled`: Keep source, skill, adapter, context budget, workflow depth, and tools as consistent as possible.

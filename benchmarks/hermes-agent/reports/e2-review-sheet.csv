@@ -1,0 +1,227 @@
+surface,segment_id,pointer,risk,source,target,classification,verdict,note
+yaml,yaml:locales/en.yaml#13306b5a578978a86940,/gateway/debug/auto_delete,destructive,⏱ Pastes will auto-delete in 6 hours.,⏱ Les pastes seront supprimés automatiquement dans 6 heures.,,approved,
+yaml,yaml:locales/en.yaml#18c0d2a64c66fe357eac,/gateway/approval_expired,approval|terminology,⚠️ Approval expired (agent is no longer waiting). Ask the agent to try again.,⚠️ Approbation expirée (l'agent n'attend plus). Demandez à l'agent de réessayer.,,approved,
+yaml,yaml:locales/en.yaml#26426f021bd2ea28d474,/approval/prompt_smart_deny,approval,      Choice [o/D]: ,      Choix [o/D] : ,,approved,
+yaml,yaml:locales/en.yaml#2a29f1f5fb2a54ae737b,/approval/cancelled,approval,      ✗ Cancelled,      ✗ Annulé,,approved,
+yaml,yaml:locales/en.yaml#2be0d8b5482ebcb947d7,/gateway/undo/removed,destructive|templates|terminology,"↩️ Undid {turns} turn(s) ({count} message(s)).
+Backed up to: ""{preview}""
+Copy/edit the text above and send it to re-prompt from here.","↩️ {turns} tour(s) annulé(s) ({count} message(s)).
+Sauvegardé dans : « {preview} »
+Copiez/modifiez le texte ci-dessus et envoyez-le pour relancer à partir d'ici.",,approved,
+yaml,yaml:locales/en.yaml#2de33cf17dc1bf3234c5,/gateway/personality/cleared,destructive|terminology,"🎭 Personality cleared — using base agent behavior.
+_(takes effect on next message)_","🎭 Personnalité effacée — comportement de base de l'agent utilisé.
+_(prend effet au prochain message)_",,approved,
+yaml,yaml:locales/en.yaml#2f981c3c16cc9ded23c2,/gateway/yolo/enabled,approval|terminology,⚡ YOLO mode **ON** for this session — all commands auto-approved. Use with caution.,⚡ Mode YOLO **ACTIVÉ** pour cette session — toutes les commandes sont auto-approuvées. À utiliser avec prudence.,,approved,
+yaml,yaml:locales/en.yaml#38e3d193410edd5135e4,/gateway/reset/header_new,destructive|terminology,✨ New session started!,✨ Nouvelle session démarrée !,,approved,
+yaml,yaml:locales/en.yaml#4420628d8ecbb5a1c8e6,/approval/smart_deny_once_inputs,approval,"o,once","o,once",technical_term_retained,approved,
+yaml,yaml:locales/en.yaml#45b933f1df9610779e08,/gateway/topic/topics_user_disallowed,approval,"Telegram topics are enabled, but users are not allowed to create topics.
+
+Open @BotFather → choose your bot → Bot Settings → Threads Settings, then turn off 'Disallow users to create new threads'.
+
+Then send /topic again.","Les topics Telegram sont activés, mais les utilisateurs ne sont pas autorisés à créer des topics.
+
+Ouvrez @BotFather → choisissez votre bot → Bot Settings → Threads Settings, puis désactivez « Disallow users to create new threads ».
+
+Puis envoyez /topic à nouveau.",,approved,
+yaml,yaml:locales/en.yaml#46116a191fb160530efa,/approval/allowed_session,approval|terminology,      ✓ Allowed for this session,      ✓ Autorisé pour cette session,,approved,
+yaml,yaml:locales/en.yaml#4d0cb71bd42139dc060c,/gateway/usage/reset_wrong_provider,destructive|terminology,Banked usage resets are only available on the openai-codex provider. Switch with `/model` first.,Les réinitialisations d'utilisation bancarisée ne sont disponibles qu'avec le fournisseur openai-codex. Changez d'abord avec `/model`.,,approved,
+yaml,yaml:locales/en.yaml#4e152899d3053b2d4af7,/gateway/reload_skills/removed_header,destructive|terminology,➖ **Removed Skills:**,➖ **Skills supprimées :**,,approved,
+yaml,yaml:locales/en.yaml#51eba9259ab55dfd6571,/approval/prompt_long,approval,      Choice [o/s/a/D]: ,      Choix [o/s/a/D] : ,,approved,
+yaml,yaml:locales/en.yaml#5f4d8ea91a4e0b18e561,/approval/timeout,approval,      ⏱ Timeout - denying command,      ⏱ Délai dépassé — commande refusée,,approved,
+yaml,yaml:locales/en.yaml#60095147ce126ffb55ee,/gateway/reasoning/reset_global_unsupported,destructive|terminology,⚠️ `/reasoning reset --global` is not supported. Use `/reasoning <level> --global` to change the global default.,⚠️ `/reasoning reset --global` n'est pas pris en charge. Utilisez `/reasoning <level> --global` pour modifier la valeur globale par défaut.,,approved,
+yaml,yaml:locales/en.yaml#64d6c72b17f34148b8f0,/gateway/reset/header_default,destructive|terminology,✨ Session reset! Starting fresh.,✨ Session réinitialisée ! Nouveau départ.,,approved,
+yaml,yaml:locales/en.yaml#72940267019230cdfe7e,/gateway/goal_cleared,destructive,✓ Goal cleared.,✓ Objectif effacé.,,needs_revision,"Meaning drift: ""cleared"" rendered as ""terminé"" (completed). Corrected to « Objectif effacé. » in imports; YAML rerun passed."
+yaml,yaml:locales/en.yaml#78b08ff658a259ead29d,/approval/prompt_short,approval,      Choice [o/s/D]: ,      Choix [o/s/D] : ,,approved,
+yaml,yaml:locales/en.yaml#808efaeec242d08f33f8,/gateway/reload_mcp/removed,destructive|templates,➖ Removed: {names},➖ Supprimés : {names},,approved,
+yaml,yaml:locales/en.yaml#82050bfa8253f25efd8b,/approval/choose_smart_deny,approval,      [o]nce  |  [d]eny,      [o]nce  |  [d]eny,technical_term_retained,approved,
+yaml,yaml:locales/en.yaml#86dcd696cef2ea47158f,/gateway/compress/summary_failed,destructive|errors|templates|terminology,⚠️ Summary generation failed ({error}). {count} historical message(s) were removed and replaced with a placeholder; earlier context is no longer recoverable. Consider checking your auxiliary.compression model configuration.,⚠️ Échec de la génération du résumé ({error}). {count} message(s) historique(s) ont été supprimés et remplacés par un espace réservé ; le contexte antérieur n'est plus récupérable. Vérifiez la configuration de votre modèle auxiliary.compression.,,approved,
+yaml,yaml:locales/en.yaml#8c42b1dc51ecf5c92eaf,/approval/choose_short,approval,      [o]nce  |  [s]ession  |  [d]eny,      [o]nce  |  [s]ession  |  [d]eny,technical_term_retained,approved,
+yaml,yaml:locales/en.yaml#90f1283e3051c783a1c5,/approval/dangerous_header,approval|templates,⚠️  DANGEROUS COMMAND: {description},⚠️  COMMANDE DANGEREUSE : {description},,approved,
+yaml,yaml:locales/en.yaml#954606f3d338cb8f26c0,/approval/allowed_always,approval|terminology,      ✓ Added to permanent allowlist,      ✓ Ajouté à la liste d'autorisation permanente,,approved,
+yaml,yaml:locales/en.yaml#9c85d65a7da4e5046d9f,/gateway/reset/title_error_untitled,destructive|errors|templates|terminology,"
+⚠️ {error} — session started untitled.","
+⚠️ {error} — session démarrée sans titre.",,approved,
+yaml,yaml:locales/en.yaml#a1e80694208e6863d240,/gateway/rollback/restore_failed,destructive|errors|templates,❌ {error},❌ {error},not_applicable,approved,
+yaml,yaml:locales/en.yaml#a33422a375c33ef63d3f,/approval/blocklist_message,approval|terminology,This command is on the unconditional blocklist and cannot be approved.,Cette commande figure sur la liste de blocage inconditionnelle et ne peut pas être approuvée.,,approved,
+yaml,yaml:locales/en.yaml#a981e6bb67e15d4ec575,/gateway/goal/set,destructive|templates,"⊙ Goal set ({budget}-turn budget): {goal}
+I'll keep working until the goal is done, you pause/clear it, or the budget is exhausted.
+Controls: /goal status · /goal pause · /goal resume · /goal clear","⊙ Objectif défini (budget de {budget} tours) : {goal}
+Je continuerai jusqu'à ce que l'objectif soit terminé, que vous le mettiez en pause/l'effaciez, ou que le budget soit épuisé.
+Contrôles : /goal status · /goal pause · /goal resume · /goal clear",,approved,
+yaml,yaml:locales/en.yaml#acf51bd8ef153c3ba2bc,/gateway/reasoning/status,destructive|templates|terminology,"🧠 **Reasoning Settings**
+
+**Effort:** `{level}`
+**Scope:** {scope}
+**Display:** {display}
+
+_Usage:_ `/reasoning <none|minimal|low|medium|high|xhigh|max|ultra|reset|show|hide> [--global]`","🧠 **Paramètres de raisonnement**
+
+**Effort :** `{level}`
+**Portée :** {scope}
+**Affichage :** {display}
+
+_Usage :_ `/reasoning <none|minimal|low|medium|high|xhigh|max|ultra|reset|show|hide> [--global]`",,approved,
+yaml,yaml:locales/en.yaml#b5ef6391caebe2fd0ac7,/gateway/yolo/disabled,approval|terminology,⚠️ YOLO mode **OFF** for this session — dangerous commands will require approval.,⚠️ Mode YOLO **DÉSACTIVÉ** pour cette session — les commandes dangereuses nécessiteront une approbation.,,approved,
+yaml,yaml:locales/en.yaml#bc4fd6205425275e80f1,/gateway/compress/aborted,destructive|errors|templates|terminology,"⚠️ Compression aborted ({error}). No messages were dropped — conversation is unchanged. Run /compress to retry, /reset for a clean session, or check your auxiliary.compression model configuration.","⚠️ Compression interrompue ({error}). Aucun message n'a été supprimé — la conversation est inchangée. Lancez /compress pour réessayer, /reset pour une nouvelle session, ou vérifiez la configuration de votre modèle auxiliary.compression.",,approved,
+yaml,yaml:locales/en.yaml#c437bd468a88ff4ba0e2,/gateway/topic/restore_needs_topic,destructive|terminology,"To restore a session, first create or open a Telegram topic, then send /topic <session-id> inside that topic. To create a new topic, open All Messages and send any message there.","Pour restaurer une session, créez ou ouvrez d'abord un topic Telegram, puis envoyez /topic <session-id> dans ce topic. Pour créer un nouveau topic, ouvrez All Messages et envoyez-y n'importe quel message.",,approved,
+yaml,yaml:locales/en.yaml#c611afe73e9fbef7ec0a,/approval/choose_long,approval,      [o]nce  |  [s]ession  |  [a]lways  |  [d]eny,      [o]nce  |  [s]ession  |  [a]lways  |  [d]eny,technical_term_retained,approved,
+yaml,yaml:locales/en.yaml#c87955d17d71dbf32dca,/gateway/reset/title_empty_untitled,destructive|terminology,"
+⚠️ Title is empty after cleanup — session started untitled.","
+⚠️ Le titre est vide après nettoyage — session démarrée sans titre.",,approved,
+yaml,yaml:locales/en.yaml#c8f0371fd2747ca3556c,/approval/denied,approval,      ✗ Denied,      ✗ Refusé,,approved,
+yaml,yaml:locales/en.yaml#cd127123f045014eb0a5,/gateway/usage/unknown_subcommand,destructive|templates,Unknown /usage subcommand: `{args}`. Try `/usage` or `/usage reset [--force]`.,Sous-commande /usage inconnue : `{args}`. Essayez `/usage` ou `/usage reset [--force]`.,,approved,
+yaml,yaml:locales/en.yaml#cd9b76881e61cf5c6d53,/gateway/reasoning/reset_done,destructive|terminology,🧠 ✓ Session reasoning override cleared; falling back to global config.,🧠 ✓ Remplacement de raisonnement de la session effacé ; retour à la configuration globale.,,approved,
+yaml,yaml:locales/en.yaml#d5bfd92272ac6c30db91,/gateway/rollback/restored,destructive|templates,"✅ Restored to checkpoint {hash}: {reason}
+A pre-rollback snapshot was saved automatically.","✅ Restauré au point de contrôle {hash} : {reason}
+Un instantané pré-rollback a été enregistré automatiquement.",,approved,
+yaml,yaml:locales/en.yaml#d87e8646f1f61d7fa39a,/approval/smart_deny_deny_inputs,approval,"d,deny","d,deny",technical_term_retained,approved,
+yaml,yaml:locales/en.yaml#da5be433490cce2c3232,/gateway/reasoning/choice_reset,destructive|terminology,reset — clear session override,reset — effacer le remplacement de session,,needs_revision,"Imprecise: ""override"" rendered as « réglage » (setting). Corrected to « remplacement de session » in imports; YAML rerun passed."
+yaml,yaml:locales/en.yaml#dc30ec5f351a36c6cd4c,/gateway/reset/title_rejected,approval|destructive|errors|templates,"
+⚠️ Title rejected: {error}","
+⚠️ Titre refusé : {error}",,approved,
+yaml,yaml:locales/en.yaml#de7e36b156f24404767e,/gateway/reset/tip,destructive|templates,"
+✦ Tip: {tip}","
+✦ Astuce : {tip}",,approved,
+yaml,yaml:locales/en.yaml#f39216d8659de7e294ca,/approval/allowed_once,approval,      ✓ Allowed once,      ✓ Autorisé une fois,,approved,
+yaml,yaml:locales/en.yaml#fb2a1204561913073e79,/gateway/resume/matrix_cross_room_success,destructive|templates,"⚠️ Cross-room resume: resumed **{title}** inside Matrix room **{room}**.
+Future messages in this room will use that transcript until `/reset` or another `/resume`.{msg_part}","⚠️ Reprise inter-salle : session **{title}** reprise dans la salle Matrix **{room}**.
+Les futurs messages de cette salle utiliseront cette transcription jusqu'à `/reset` ou un autre `/resume`.{msg_part}",,approved,
+yaml,yaml:locales/en.yaml#fc8be8018de6198163b8,/gateway/reset/header_titled,destructive|templates|terminology,✨ New session started: {title},✨ Nouvelle session démarrée : {title},,approved,
+yaml,yaml:locales/en.yaml#01f361cc746b88d8c820,/gateway/reasoning/set_global_save_failed,errors|templates|terminology,"🧠 ✓ Reasoning effort set to `{effort}` (session only — config save failed)
+_(takes effect on next message)_","🧠 ✓ Effort de raisonnement défini sur `{effort}` (session uniquement — échec de l'enregistrement de la configuration)
+_(prend effet au prochain message)_",,approved,
+yaml,yaml:locales/en.yaml#1b8e61ee8852877651c3,/gateway/compress/aux_failed,errors|templates|terminology,ℹ️ Configured compression model `{model}` failed ({error}). Recovered using your main model — context is intact — but you may want to check `auxiliary.compression.model` in config.yaml.,ℹ️ Le modèle de compression configuré `{model}` a échoué ({error}). Récupéré avec votre modèle principal — le contexte est intact — mais vous pouvez vérifier `auxiliary.compression.model` dans config.yaml.,,approved,
+yaml,yaml:locales/en.yaml#32d1fac7ca585c7e191f,/gateway/shared/warn_passthrough,errors|templates,⚠️ {error},⚠️ {error},not_applicable,approved,
+yaml,yaml:locales/en.yaml#4d0f1f16dc63e4e1f8e0,/gateway/goal/invalid,errors|templates,Invalid goal: {error},Objectif invalide : {error},,approved,
+yaml,yaml:locales/en.yaml#7b5918fd90cade1c79b9,/gateway/title/warn_prefix,errors|templates,⚠️ {error},⚠️ {error},not_applicable,approved,
+yaml,yaml:locales/en.yaml#8c2f1682b080e7dc39ae,/gateway/update/hermes_cmd_not_found,errors,"✗ Could not locate the `hermes` command. Hermes is running, but the update command could not find the executable on PATH or via the current Python interpreter. Try running `hermes update` manually in your terminal.","✗ Impossible de localiser la commande `hermes`. Hermes est en cours d'exécution, mais la commande de mise à jour n'a pas pu trouver l'exécutable dans le PATH ni via l'interpréteur Python actuel. Essayez d'exécuter `hermes update` manuellement dans votre terminal.",,approved,
+yaml,yaml:locales/en.yaml#a25168e8863449d2f756,/gateway/resume/list_failed,errors|templates|terminology,Could not list sessions: {error},Impossible de lister les sessions : {error},,approved,
+yaml,yaml:locales/en.yaml#bf18e3d034fba5f0267d,/gateway/reload_mcp/failed,errors|templates,❌ MCP reload failed: {error},❌ Échec du rechargement MCP : {error},,approved,
+yaml,yaml:locales/en.yaml#da16aa511457cd9153e2,/gateway/resume/parse_error,errors|templates,"⚠️ Could not parse `/resume` arguments: {error}.
+Use quotes around titles with spaces, for example: `/resume ""Project A Plan""`.","⚠️ Impossible d'analyser les arguments de `/resume` : {error}.
+Utilisez des guillemets autour des titres contenant des espaces, par exemple : `/resume ""Project A Plan""`.",,approved,
+yaml,yaml:locales/en.yaml#e5e5735cd39a125c7d8a,/gateway/config_read_failed,errors|templates,⚠️ Could not read config.yaml: {error},⚠️ Impossible de lire config.yaml : {error},,approved,
+yaml,yaml:locales/en.yaml#02d1fb751a5c76681b4b,/gateway/reload_mcp/cancelled,terminology,🟡 /reload-mcp cancelled. MCP tools unchanged.,🟡 /reload-mcp annulé. Outils MCP inchangés.,,approved,
+yaml,yaml:locales/en.yaml#43eb7597b04c222c75e6,/gateway/resume/resumed_no_count,templates|terminology,↻ Resumed session **{title}**. Conversation restored.,↻ Session **{title}** reprise. Conversation restaurée.,,approved,
+yaml,yaml:locales/en.yaml#83bcd00f73da8eb50a45,/gateway/shared/session_db_unavailable_prefix,terminology,Session database not available,Base de données des sessions indisponible,,approved,
+yaml,yaml:locales/en.yaml#d11cd0bd64bc1c2a4837,/gateway/context/last_savings,templates,Last compression freed: {savings}% of context,Dernière compression libérée : {savings}% du contexte,,approved,
+web,typescript-locale:web/src/i18n/en.ts#01e3977097d278843734,/sessions/failedToDeleteEmpty,destructive|errors|terminology,Failed to delete empty sessions,Échec de la suppression des sessions vides,,approved,
+web,typescript-locale:web/src/i18n/en.ts#147d29f44010ca4c35f1,/env/confirmClearTitle,destructive,Clear this key?,Effacer cette clé ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#235a6131205249d3ccde,/kanban/columnLabels/archived,destructive,Archived,Archivé,,approved,
+web,typescript-locale:web/src/i18n/en.ts#2795605b5b3ad8d0d2ad,/config/resetScopeTooltip,destructive|templates,Reset {scope} to defaults,Rétablir {scope} aux valeurs par défaut,,approved,
+web,typescript-locale:web/src/i18n/en.ts#2d229742edb1a2310826,/sessions/deleteSelected,destructive|templates,Delete {count},Supprimer {count},,approved,
+web,typescript-locale:web/src/i18n/en.ts#2dc3734fce36ff7bfa3f,/pluginsPage/removeHint,destructive|terminology,Only user-installed plugins under ~/.hermes/plugins can be removed.,Seuls les plugins installés par l'utilisateur sous ~/.hermes/plugins peuvent être supprimés.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#2ec16f05e208a7ad2577,/cron/confirmDeleteMessage,destructive,This removes the job from the schedule. This cannot be undone.,Cela supprime la tâche du planning. Cette action est irréversible.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#387f3f48fbbcb9e9c929,/sessions/selectedSessionsDeleted,destructive|templates|terminology,{count} sessions deleted,{count} sessions supprimées,,approved,
+web,typescript-locale:web/src/i18n/en.ts#409e7a57dd95b8e8245b,/pluginsPage/removeConfirm,destructive|terminology,Remove this plugin from ~/.hermes/plugins/?,Supprimer ce plugin de ~/.hermes/plugins/ ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#41aef35bb1b4c5b22577,/sessions/confirmDeleteMessage,destructive,This permanently removes the conversation and all of its messages. This cannot be undone.,Cela supprime définitivement la conversation et tous ses messages. Cette action est irréversible.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#43baafd3a600b63a8c82,/config/confirmResetScope,destructive|templates,Reset all {scope} settings to their defaults? This only updates the form — changes aren't written to config.yaml until you press Save.,Rétablir tous les paramètres de {scope} à leurs valeurs par défaut ? Cela ne met à jour que le formulaire — les changements ne sont écrits dans config.yaml que lorsque vous appuyez sur Enregistrer.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#490e33aa823d9ee50213,/achievements/stats/secrets,approval,Secrets,Secrets,technical_term_retained,approved,
+web,typescript-locale:web/src/i18n/en.ts#518c286f35885baac1e1,/achievements/state/secret,approval,Secret,Secret,technical_term_retained,approved,
+web,typescript-locale:web/src/i18n/en.ts#51f7f7bcee7135ef1e01,/sessions/clearSelection,destructive,Clear selection,Effacer la sélection,,approved,
+web,typescript-locale:web/src/i18n/en.ts#52396e6e9f5169fb38d2,/kanban/confirmArchive,destructive,Archive this task? It disappears from the default board view.,Archiver cette tâche ? Elle disparaît de la vue par défaut du tableau.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#5a2745725e6a49ec74fb,/achievements/empty/no_secrets_body,approval,"Clue: secrets usually start from unusual failure or power-user patterns — port conflicts, permission walls, missing env vars, YAML mistakes, Docker collisions, rollback/checkpoint use, cache hits, or tiny fixes after lots of red text.","Indice : les secrets proviennent souvent de schémas inhabituels d'échec ou d'utilisation experte — conflits de ports, murs de permissions, variables d'environnement manquantes, erreurs YAML, collisions Docker, usage de rollback/checkpoint, hits de cache, ou petites corrections après beaucoup de texte rouge.",,approved,
+web,typescript-locale:web/src/i18n/en.ts#6420c86b9bd2bc9dcb93,/sessions/deleteSelectedConfirmTitle,destructive|templates|terminology,Delete {count} sessions?,Supprimer {count} sessions ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#66d0c6cd61d61fee8a3e,/common/removed,destructive,removed,supprimé,,approved,
+web,typescript-locale:web/src/i18n/en.ts#6780aa9f1f04beea25ef,/kanban/markArchived,destructive|templates,Archive {n} task(s)?,Archiver {n} tâche(s) ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#758630a320e2bb4563f0,/cron/confirmDeleteTitle,destructive,Delete scheduled job?,Supprimer la tâche planifiée ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#798a68a9d5848dd87f9b,/sessions/failedToDeleteSelected,destructive|errors|terminology,Failed to delete selected sessions,Échec de la suppression des sessions sélectionnées,,approved,
+web,typescript-locale:web/src/i18n/en.ts#7a59f653f54c6ddb7b14,/sessions/confirmDeleteTitle,destructive|terminology,Delete session?,Supprimer la session ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#7ba75fe0ca5a5a376f36,/profiles/confirmDeleteMessage,destructive|templates|terminology,"This permanently deletes profile '{name}' — config, keys, memories, sessions, skills, cron jobs. Cannot be undone.","Cela supprime définitivement le profil « {name} » — configuration, clés, mémoires, sessions, skills, tâches cron. Action irréversible.",,approved,
+web,typescript-locale:web/src/i18n/en.ts#7bdd531a4bca3cb69da4,/common/failedToRemove,destructive|errors,Failed to remove,Échec de la suppression,,approved,
+web,typescript-locale:web/src/i18n/en.ts#7be438478605c83467b0,/achievements/guide/secret_header,approval,Secret achievements,Succès secrets,,approved,
+web,typescript-locale:web/src/i18n/en.ts#7e5ce3a8f728f07fd822,/kanban/archiveBoardConfirm,destructive|templates,Archive board '{name}'? It will be moved to boards/_archived/ so you can recover it later. Tasks on this board will no longer appear anywhere in the UI.,Archiver le tableau « {name} » ? Il sera déplacé vers boards/_archived/ pour pouvoir le récupérer plus tard. Les tâches de ce tableau n'apparaîtront plus nulle part dans l'interface.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#89d0c67fcb56b3db1408,/achievements/stats/secrets_hint,approval,hidden until first signal,masqués jusqu'au premier signal,,approved,
+web,typescript-locale:web/src/i18n/en.ts#96315f26d473ac06d96a,/achievements/filters/visibility_secret,approval,secret,secrets,,approved,
+web,typescript-locale:web/src/i18n/en.ts#96fe3c28ba814144c950,/sessions/failedToDelete,destructive|errors|terminology,Failed to delete session,Échec de la suppression de la session,,approved,
+web,typescript-locale:web/src/i18n/en.ts#997a9ff593c32129ceee,/env/confirmClearMessage,destructive,The stored value for this variable will be removed from your .env file. This cannot be undone from the UI.,La valeur stockée pour cette variable sera supprimée de votre fichier .env. Cette action est irréversible depuis l'interface.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#9be2672144c7d63751d1,/sessions/deleteEmpty,destructive,Delete empty,Supprimer les vides,,approved,
+web,typescript-locale:web/src/i18n/en.ts#9d9d1b2c3495b5ee97bb,/kanban/showArchived,destructive,Show archived,Afficher les archivés,,approved,
+web,typescript-locale:web/src/i18n/en.ts#a30524b7c11423788807,/sessions/deleteEmptyConfirmTitle,destructive|terminology,Delete empty sessions?,Supprimer les sessions vides ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#ab84a3987b30c7715bea,/profiles/confirmDeleteTitle,destructive,Delete profile?,Supprimer le profil ?,,approved,
+web,typescript-locale:web/src/i18n/en.ts#acf5c3cf98805279f9ce,/kanban/removeDependency,destructive,Remove dependency,Retirer la dépendance,,approved,
+web,typescript-locale:web/src/i18n/en.ts#b15b9deecea1589e43d6,/pluginsPage/forceReinstall,destructive,Force reinstall (delete existing folder first),Forcer la réinstallation (supprimer d'abord le dossier existant),,approved,
+web,typescript-locale:web/src/i18n/en.ts#b24a9cb5c8c0b284f1ad,/sessions/deleteSelectedConfirmMessage,destructive|templates|terminology,This permanently removes {count} selected sessions and all their messages. This cannot be undone.,Cela supprime définitivement {count} sessions sélectionnées et tous leurs messages. Cette action est irréversible.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#c022c4d1a97745d8e166,/sessions/sessionDeleted,destructive|terminology,Session deleted,Session supprimée,,approved,
+web,typescript-locale:web/src/i18n/en.ts#d6ca5587f6f083884432,/sessions/emptySessionsDeleted,destructive|templates|terminology,{count} empty sessions deleted,{count} sessions vides supprimées,,approved,
+web,typescript-locale:web/src/i18n/en.ts#d7b7c765852a4ee97db2,/achievements/empty/no_secrets_header,approval,No hidden secrets left in this scan.,Plus aucun secret caché dans cette analyse.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#d8dc212f988f3b3d698a,/common/clear,destructive,Clear,Effacer,,approved,
+web,typescript-locale:web/src/i18n/en.ts#e04c4ff1be2a9075441a,/common/delete,destructive,Delete,Supprimer,,approved,
+web,typescript-locale:web/src/i18n/en.ts#e7c476689583c02a7145,/kanban/columnHelp/archived,destructive,Archived,Archivée,,approved,
+web,typescript-locale:web/src/i18n/en.ts#e84f81a8b73ed76429f1,/config/resetScopeToast,destructive|templates,{scope} reset to defaults — review and Save to persist,{scope} rétabli aux valeurs par défaut — vérifiez et enregistrez pour conserver,,approved,
+web,typescript-locale:web/src/i18n/en.ts#ea92d2b844b8fce5a0a7,/kanban/archive,destructive,Archive,Archiver,,approved,
+web,typescript-locale:web/src/i18n/en.ts#eedefb5f85cb730e4582,/sessions/deleteSession,destructive|terminology,Delete session,Supprimer la session,,approved,
+web,typescript-locale:web/src/i18n/en.ts#ef2221ae48341b1ffd5c,/sessions/deleteEmptyConfirmMessage,destructive|templates|terminology,This permanently removes {count} sessions that have no messages. Active and archived sessions are skipped. This cannot be undone.,Cela supprime définitivement {count} sessions sans message. Les sessions actives et archivées sont ignorées. Cette action est irréversible.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#f00decf4e42540fd3519,/kanban/clear,destructive,Clear,Effacer,,approved,
+web,typescript-locale:web/src/i18n/en.ts#f93cfa71c937b8018c75,/kanban/archiveBoardTitle,destructive,Archive this board,Archiver ce tableau,,approved,
+web,typescript-locale:web/src/i18n/en.ts#fc3e977e04841085f9bc,/profiles/deleted,destructive,Deleted,Supprimé,,approved,
+web,typescript-locale:web/src/i18n/en.ts#ff67327d54ae15e0e5ad,/achievements/guide/secret_body,approval,"Secrets hide their exact trigger. Once Hermes sees a related signal, the card becomes Discovered and shows its requirement.","Les secrets masquent leur déclencheur exact. Dès qu'Hermes voit un signal lié, la carte devient Découverte et affiche son exigence.",,approved,
+web,typescript-locale:web/src/i18n/en.ts#fffed2d9cb70d943f75b,/config/resetDefaults,destructive,Reset to defaults,Rétablir les valeurs par défaut,,approved,
+web,typescript-locale:web/src/i18n/en.ts#052b8e9ebfdf8b41ad63,/status/actionFailed,errors,Action failed,Action échouée,,approved,
+web,typescript-locale:web/src/i18n/en.ts#133d82ee999961fc720e,/kanban/loadFailed,errors,Failed to load Kanban board: ,Échec du chargement du tableau kanban : ,,approved,
+web,typescript-locale:web/src/i18n/en.ts#2098f96da46c63bfbf9a,/kanban/moveFailed,errors,Move failed: ,Échec du déplacement : ,,approved,
+web,typescript-locale:web/src/i18n/en.ts#341ee08e2d76aee44e46,/profiles/describeFailed,errors,Could not generate description,Impossible de générer la description,,approved,
+web,typescript-locale:web/src/i18n/en.ts#68ca29b7f264c80c8001,/config/failedToSaveYaml,errors,Failed to save YAML,Échec de l'enregistrement du YAML,,approved,
+web,typescript-locale:web/src/i18n/en.ts#872a381a9bc0feb2f431,/kanban/unblockFailed,errors,Unblock failed: ,Échec du déblocage : ,,approved,
+web,typescript-locale:web/src/i18n/en.ts#a06225a68de617370270,/oauth/copyFailed,errors,Could not copy automatically. Select the code and copy it manually.,Copie automatique impossible. Sélectionnez le code et copiez-le manuellement.,,approved,
+web,typescript-locale:web/src/i18n/en.ts#cf02eb13cb7575f18916,/common/failedToToggle,errors,Failed to toggle,Échec de l'activation/désactivation,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#0175dd47e4d57ba35a3b,/settings/notifications/kinds/approval/description,approval,A command is waiting for you to approve or reject it.,Une commande attend que vous l'approuviez ou la refusiez.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#0696c92a24ec64b061e5,/desktop/yoloSystem#fn0,approval|templates|terminology,YOLO ${active ? 'on' : 'off'} for this session,YOLO ${active ? 'on' : 'off'} pour cette session,brand_or_product_name,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#0f44dec1f2c68fe30dbf,/settings/notifications/kinds/approval/label,approval,Approval needed,Approbation requise,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#1be919003e99bc4cf275,/commandCenter/maintenance/debugShareDesc,destructive,"Upload a redacted report + logs, get shareable links (auto-deletes in 6h)","Envoyer un rapport expurgé + journaux, obtenir des liens partageables (auto-suppression en 6 h)",,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#2555d92932bc5475db73,/notifications/native/approvalTitle,approval,Approval needed,Approbation requise,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#308944e9fd9672180058,/messaging/fieldCopy/MATTERMOST_ALLOWED_USERS/label,approval,Allowed user IDs,IDs utilisateurs autorisés,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#3b311a1eb1713efb9522,/shell/statusbar/yoloOff,approval,YOLO off. Shift+click toggles globally.,YOLO désactivé. Maj-clic pour basculer globalement.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#48c3b386eb3159049614,/settings/providers/removeExternalGeneric#fn0,destructive|templates|terminology,${provider} is managed by its own CLI — remove it there.,${provider} est géré par sa propre CLI — retirez-le là-bas.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#512bf2f96f036d056dd0,/settings/mcp/removeFailed,destructive|errors,Remove failed,Échec de la suppression,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#5758dfad53d4a779723b,/settings/toolsets/removedMessage#fn0,destructive|templates,${key} removed.,${key} retiré.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#5cc6471d7bcee933361e,/boot/failure/remoteDescription,destructive|errors|terminology,Your remote gateway session has expired. Sign in again to reconnect. Nothing here deletes your chats or settings.,Votre session de gateway distant a expiré. Connectez-vous à nouveau pour vous reconnecter. Rien ici ne supprime vos discussions ou réglages.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#62d5784ca591a8039535,/messaging/fieldCopy/QQ_ALLOW_ALL_USERS/label,approval,Allow all QQ users,Autoriser tous les utilisateurs QQ,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#68a084ca6893394f2b5d,/sidebar/row/renameDesc,destructive,Leave empty to clear.,Laissez vide pour effacer.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#76430f6fa3de3f3c61dc,/settings/providers/removeTerminalConfirm#fn0,destructive|templates|terminology,"Disconnect ${provider}? This runs ""${command}"" in the terminal to clear the credential.",Déconnecter ${provider} ? Cela exécute « ${command} » dans le terminal pour effacer le justificatif.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#7af64a6db5feeef77179,/skills/hub/verdictDangerous,approval,Dangerous,Dangereuse,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#8587fdc2b86b880a7fbd,/notifications/errors/methodNotAllowed,approval|errors,The desktop backend rejected that request (405 Method Not Allowed). Try restarting Hermes Desktop.,Le backend du bureau a rejeté cette requête (405 Method Not Allowed). Essayez de redémarrer Hermes Desktop.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#8dd5009e5e3c741b6593,/assistant/approval/alwaysTitle,approval,Always allow this command?,Toujours autoriser cette commande ?,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#91e1cba9e20e002b2099,/webhooks/delete,destructive,Delete,Supprimer,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#97bfb7fe85673c7df0a7,/settings/gateway/cloudSignedOutMessage,destructive|terminology,Cleared the Hermes Cloud session.,Session Hermes Cloud effacée.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#a264442a1b6066677b88,/webhooks/deleteDescSuffix,destructive,. This cannot be undone.,. Cette action est irréversible.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#a6d578a5cf957f48f7dd,/desktop/archiveFailed,destructive|errors,Archive failed,Échec de l'archivage,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#b13eea489aff20d1b001,/shell/approvalMode/smart,approval,Smart,Intelligent,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#b90cb17957dfd4bd2871,/messaging/fieldCopy/BLUEBUBBLES_ALLOW_ALL_USERS/label,approval,Allow all iMessage users,Autoriser tous les utilisateurs iMessage,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#c5e334d75de5b7780931,/sidebar/projects/removeFolder,destructive,Remove,Retirer,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#cf54b6fa33170694acf7,/profiles/deleteDescPrefix,destructive,This will delete ,Cela supprimera ,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#d770e345343a01ad1b53,/assistant/thread/restoreConfirm,destructive,Restore & rerun,Restaurer et relancer,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#e026150b8851a3139c5d,/shell/approvalMode/offDescription,approval|terminology,Run without approval prompts,Exécuter sans invites d'approbation,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#e6d5007c1bc282ff6eca,/settings/sessions/deleteConfirm#fn0,destructive|templates,"Permanently delete ""${title}""? This cannot be undone.",Supprimer définitivement « ${title} » ? Cette action est irréversible.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#eab7d8aae0e373181d7a,/sidebar/projects/removeWorktree,destructive,Remove worktree,Retirer l'arbre de travail,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#f58d3eac9f3427a1d41c,/cron/deleteDescSuffix,destructive, permanently. It will stop firing immediately., définitivement. Il cessera de se déclencher immédiatement.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#01d871e8ebbbb81d8949,/desktop/branchFailed,errors,Branch failed,Échec du branchement,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#0bda9a40eaf7f2a80f18,/preview/web/unknownError,errors,unknown error,erreur inconnue,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#1bd0e2581c02ea164e3c,/settings/gateway/cloudDiscoverFailed,errors|terminology,Could not load your Hermes Cloud agents,Impossible de charger vos agents Hermes Cloud,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#2c7324a0a48baa6f93d7,/commandCenter/maintenance/debugShareFailed,errors,Debug share failed,Échec du partage de débogage,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#42d016f51982a7acd968,/boot/failure/signedInTitle,errors,Signed in,Connecté,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#59b3bfca8f9760245969,/profiles/failedRename,errors,Failed to rename profile,Échec du renommage du profil,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#6d9429ddedb7292c5bd7,/messaging/failedUpdate#fn0,errors|templates,Failed to update ${name},Échec de la mise à jour de ${name},,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#7b6ade0ad2c957a18516,/settings/mcp/catalogInstallFailed#fn0,errors|templates,Failed to install ${name},Échec de l'installation de ${name},,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#938497d145ea2b706771,/preview/web/startRestartFailed#fn0,errors|templates,Could not start server restart: ${message},Impossible de lancer le redémarrage du serveur : ${message},,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#a078f704facf6f36254a,/profiles/failedLoadSoul,errors,Failed to load SOUL.md,Échec du chargement de SOUL.md,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#b0924f80ef6ba66c636b,/settings/toolsets/failedSelect#fn0,errors|templates|terminology,Failed to select ${provider},Échec de la sélection de ${provider},,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#bcb54f26b3013a6d2eca,/notifications/voice/microphoneFailed,errors,Microphone failed,Échec du micro,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#cb85f9ca7d9d8c022e4f,/artifacts/openFailed,errors,Open failed,Échec de l'ouverture,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#df5d1a158d32049d1701,/settings/gateway/cloudConnectFailed,errors|terminology,Could not connect to that agent,Impossible de se connecter à cet agent,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#f0962e467143d89098cf,/shell/modelOptions/fastFailed,errors,Fast mode update failed,Échec de la mise à jour du mode rapide,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#002491710a2c14474d19,/desktop/noProfileNamed#fn0,templates,"No profile named ""${target}"". Available: ${available}",Aucun profil nommé « ${target} ». Disponibles : ${available},,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#16ce7a97e3e3f03f31ae,/shell/statusbar/gatewayTitle,terminology,Gateway,Gateway,technical_term_retained,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#2daeedd57325acf24de5,/shell/statusbar/contextUsagePanel/categories/system_prompt,terminology,System prompt,Prompt système,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#4b4d03e8b8e9d75ed10f,/shell/statusbar/connectionCloudTooltip#fn0,templates,Hermes Cloud · ${host},Hermes Cloud · ${host},brand_or_product_name,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#61f2a01524c4918134b3,/profiles/cloneFromDefaultDesc,terminology,"Copy config, skills, and SOUL.md from your default profile.","Copie la configuration, les skills et SOUL.md de votre profil par défaut.",,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#7aff3a92fc2c25d48034,/settings/gateway/envOverrideTitle,terminology,Environment variables are controlling this desktop session.,Des variables d'environnement contrôlent cette session de bureau.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#9221adaebabc81fdc883,/settings/toolsets/loadingModels,terminology,Loading model catalog...,Chargement du catalogue de modèles...,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#ab0b00de6ff9332c5929,/keybinds/actions/session.focusSearch,terminology,Search sessions,Rechercher des sessions,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#c4cb9ff004a5b09cf285,/webhooks/disabled#fn0,templates,"Disabled: ""${name}""",Désactivé : « ${name} »,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#e225d9208497b4ada483,/assistant/thread/thoughtFor#fn0,templates,Thought for ${duration},A réfléchi pendant ${duration},,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#000f7080d4916d33e2e8,/commandCenter/pets/staleBackend,general,Restart Hermes to use pets — the backend predates this feature.,Redémarrez Hermes pour utiliser les animaux — le backend est antérieur à cette fonctionnalité.,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#2f753aff7bddb52e1722,/statusStack/coding/revertAll,general,Revert all,Tout rétablir,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#650fdce12ac09d4c5a17,/sidebar/cronJobs,general,Cron jobs,Tâches cron,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#995fe36803827d95ae37,/keybinds/actions/workspace.openFolder,general,Open folder as project,Ouvrir le dossier comme projet,,approved,
+desktop,typescript-locale:apps/desktop/src/i18n/en.ts#cc500ed8edf6746e5138,/updates/applyStatus/pulling,general,Backend updating…,Mise à jour du backend…,,approved,
