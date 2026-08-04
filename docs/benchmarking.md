@@ -74,9 +74,14 @@ above no longer applies to the final runs:
 - generation: host-agent-produced translations imported for all 3,683 segments
   (YAML 351, Web 709, Desktop 2,623), labeled `quality_claim:
   host_agent_generated` / `generation_mode: host_agent_import`; no provider API
-  was called and no credentials were used;
-- E1: 0 semantic flags after classifying intentional retentions
-  (`technical_term_retained`, `brand_or_product_name`, `not_applicable`);
+  was called and no credentials were used; the exact import inputs are
+  committed under `benchmarks/hermes-agent/evidence/real-imports/` with a
+  SHA-256 manifest, so the run is reproducible without regenerating anything;
+- E1: 0 semantic flags; identity targets (target == source) are only cleared
+  through the separate retention adjudication
+  (`reports/retained-string-adjudication.*`, reviewer type
+  `AI-assisted bilingual review`) — an imported candidate classification
+  alone never suppresses the untranslated-English finding;
 - E2: 180-segment risk-weighted bilingual review (`reviewer_type:
   AI-assisted bilingual review` — not native human review), 2 corrections
   applied and rerun, 0 blocking;
@@ -85,14 +90,15 @@ above no longer applies to the final runs:
 - build validation on the isolated copy: Hermes i18n parity tests, Python
   compileall, Web typecheck/vitest/build, Desktop typecheck/vitest/build —
   8/8 pass;
-- visual smoke: the Web dashboard was served from the isolated copy and the
-  `fr` locale rendered live (/sessions, /config, /models; DOM-verified,
-  screenshots in the ignored `work/visual-smoke/`); Desktop Electron and
-  gateway-dependent views were not launched;
+- runtime DOM smoke: the Web dashboard was served from the isolated copy and
+  the `fr` locale rendered live (/sessions, /config, /models; DOM-verified).
+  Screenshots are non-durable local artifacts under the ignored
+  `work/visual-smoke/`; pixel-level visual layout review was **not**
+  completed. Desktop Electron and gateway-dependent views were not launched;
 - evidence artifacts live in `benchmarks/hermes-agent/reports/`
   (`real-generation-*`, `e2-review-*`, `terminology-adjudication.*`,
-  `official-reference-comparison.json`, `visual-smoke-report.*`,
-  `real-evidence-verification.*`).
+  `retained-string-adjudication.*`, `official-reference-comparison.json`,
+  `visual-smoke-report.*`, `real-evidence-verification.*`).
 
 Hardcoded frontend strings, dynamic gateway metadata, and generated content
 remain outside the catalog contract (see `hardcoded-string-findings.json` and

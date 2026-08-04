@@ -68,25 +68,38 @@ cd benchmarks/hermes-agent
 ../../.venv/bin/python prepare.py blind
 ../../.venv/bin/python verify_source.py
 ../../.venv/bin/python audit.py
-../../.venv/bin/python run_yaml_benchmark.py        # --mode import --import-segments FILE
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
+../../.venv/bin/python run_yaml_benchmark.py \
+  --mode import \
+  --import-segments evidence/real-imports/yaml.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py \
+  --surface web \
+  --mode import \
+  --import-segments evidence/real-imports/web.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py \
+  --surface desktop \
+  --mode import \
+  --import-segments evidence/real-imports/desktop.jsonl
 ../../.venv/bin/python prepare.py reference
 # Re-run the surface scripts so reports attach the revealed reference comparison.
-../../.venv/bin/python run_yaml_benchmark.py
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web
-../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop
-../../.venv/bin/python run_agent_system_benchmark.py
+../../.venv/bin/python run_yaml_benchmark.py --mode import --import-segments evidence/real-imports/yaml.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web --mode import --import-segments evidence/real-imports/web.jsonl
+../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop --mode import --import-segments evidence/real-imports/desktop.jsonl
+# Record separate approval for identity targets (candidate classifications are not approvals).
+../../.venv/bin/python run_retention_adjudication.py --collect
+# ... reviewer fills the decision columns in reports/retained-string-adjudication.csv ...
+../../.venv/bin/python run_retention_adjudication.py --decisions reports/retained-string-adjudication.csv
 ../../.venv/bin/python prepare.py copy
 ../../.venv/bin/python run_build_validation.py
 ../../.venv/bin/python incremental.py
 ../../.venv/bin/python run_coverage_audit.py
+../../.venv/bin/python run_real_evidence_verification.py
 ../../.venv/bin/python verify_results.py
 ```
 
 `work/` (source checkout, blind/staging/copy workspaces, test venvs) and
 `runs/` (segments, prompts, generated files, QA artifacts) are git-ignored;
-`reports/` holds compact aggregate evidence.
+`reports/` holds compact aggregate evidence and `evidence/real-imports/`
+holds the canonical committed import JSONL files plus their manifest.
 
 ## Adapter capability boundaries (`core.typescript-locale`)
 
@@ -103,7 +116,7 @@ cd benchmarks/hermes-agent
 
 ## Evidence levels
 
-Engineering-run evidence is E0 (structural) + E1 (automated linguistic
-diagnostics). No E2-E4 human review ran. Catalog parity is **not** full
-product localization: see `reports/coverage-audit.json` for the delivery
-decision and coverage gaps.
+Evidence levels: E0 (structural) + E1 (automated linguistic diagnostics) +
+E2 (AI-assisted bilingual review — not native human review). E3-E4 human
+review has not run. Catalog parity is **not** full product localization: see
+`reports/coverage-audit.json` for the delivery decision and coverage gaps.
