@@ -5,7 +5,7 @@
   - check: localize_anything_unittest
   - command: <repo>/.venv/bin/python -m unittest discover -s tests -v
   - exit_code: 0
-  - duration_seconds: 7.95
+  - duration_seconds: 8.24
   - passed: True
   - tail: apterTests.test_identity_round_trip_is_byte_identical) ... ok
 test_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok
@@ -23,9 +23,10 @@ test_template_expression_order_preserved_passes (test_typescript_adapter.TypeScr
 test_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok
 
 ----------------------------------------------------------------------
-Ran 110 tests in 7.860s
+Ran 110 tests in 8.073s
 
 OK
+
   - check: adapter_tree_validation
   - command: <repo>/.venv/bin/python -c import json
 from pathlib import Path
@@ -45,6 +46,7 @@ if result['manifests_checked'] < 13:
   "manifests_checked": 13,
   "errors": []
 }
+
   - check: protocol_tree_validation
   - command: <repo>/.venv/bin/python -c import json
 from pathlib import Path
@@ -63,10 +65,11 @@ if result['status'] != 'pass':
   "examples_checked": 7,
   "errors": []
 }
+
   - check: compileall
   - command: <repo>/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
   - exit_code: 0
-  - duration_seconds: 2.59
+  - duration_seconds: 1.48
   - passed: True
   - tail:
   - check: git_diff_check

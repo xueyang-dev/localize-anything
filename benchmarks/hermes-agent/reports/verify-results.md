@@ -321,6 +321,7 @@
       - required: True
       - tail: ....................................                                     [100%]
 36 passed in 1.17s
+
       - check: hermes_python_compileall
       - command: python3 -m compileall -q agent hermes_cli gateway
       - exit_code: 0
@@ -336,9 +337,11 @@
       - passed: True
       - status: passed
       - required: True
-      - tail: 
+      - tail:
 > web@0.0.0 typecheck
 > tsc -p . --noEmit
+
+
       - check: web_vitest
       - command: npm run test
       - exit_code: 0
@@ -346,7 +349,7 @@
       - passed: True
       - status: passed
       - required: True
-      - tail: 
+      - tail:
 > web@0.0.0 test
 > vitest run
 
@@ -362,6 +365,7 @@
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
       - check: web_build
       - command: npm run build
       - exit_code: 0
@@ -387,6 +391,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
   - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
       - check: desktop_typecheck
       - command: npm run typecheck
       - exit_code: 0
@@ -394,9 +399,11 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
       - passed: True
       - status: passed
       - required: True
-      - tail: 
+      - tail:
 > hermes@0.17.0 typecheck
 > tsc -p . --noEmit && tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.e2e.json --noEmit
+
+
       - check: desktop_vitest
       - command: npm run test
       - exit_code: 0
@@ -404,7 +411,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
       - passed: True
       - status: passed
       - required: True
-      - tail: 
+      - tail:
 > hermes@0.17.0 test
 > vitest run
 
@@ -431,6 +438,7 @@ Not implemented: HTMLCanvasElement's getContext() method: without installing the
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
 Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
       - check: desktop_build
       - command: npm run build
       - exit_code: 0
@@ -468,6 +476,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
   dist/electron-preload.js  21.8kb
 
 ⚡ Done in 3ms
+
       - note: Full electron packaging (npm run dist) is environment-dependent and not part of this validation.
   - regression_evidence:
     - status: pass
@@ -475,7 +484,7 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
       - check: localize_anything_unittest
       - command: <repo>/.venv/bin/python -m unittest discover -s tests -v
       - exit_code: 0
-      - duration_seconds: 7.95
+      - duration_seconds: 8.24
       - passed: True
       - tail: apterTests.test_identity_round_trip_is_byte_identical) ... ok
 test_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok
@@ -493,9 +502,10 @@ test_template_expression_order_preserved_passes (test_typescript_adapter.TypeScr
 test_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok
 
 ----------------------------------------------------------------------
-Ran 110 tests in 7.860s
+Ran 110 tests in 8.073s
 
 OK
+
       - check: adapter_tree_validation
       - command: <repo>/.venv/bin/python -c import json
 from pathlib import Path
@@ -515,6 +525,7 @@ if result['manifests_checked'] < 13:
   "manifests_checked": 13,
   "errors": []
 }
+
       - check: protocol_tree_validation
       - command: <repo>/.venv/bin/python -c import json
 from pathlib import Path
@@ -533,10 +544,11 @@ if result['status'] != 'pass':
   "examples_checked": 7,
   "errors": []
 }
+
       - check: compileall
       - command: <repo>/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
       - exit_code: 0
-      - duration_seconds: 2.59
+      - duration_seconds: 1.48
       - passed: True
       - tail:
       - check: git_diff_check

@@ -374,7 +374,9 @@ def report_markdown(report: dict[str, Any], title: str) -> str:
             lines.append(f"{padding}- {value}")
 
     render(report)
-    return "\n".join(line.rstrip() for line in lines).rstrip() + "\n"
+    joined = "\n".join(lines)
+    normalized = "\n".join(line.rstrip() for line in joined.split("\n"))
+    return normalized.rstrip() + "\n"
 
 
 def evaluate_build_gate(report: dict[str, Any] | None) -> tuple[bool, list[str]]:
