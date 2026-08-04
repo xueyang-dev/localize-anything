@@ -1,0 +1,59 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "status": "pass",
+  "pinned_commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53",
+  "source_hashes": {
+    "locales/en.yaml": "fe06b52df673b817691f761b6650bb7513cbc755eca7adef16303df1e4770c8c",
+    "locales/fr.yaml": "44a0a249621099dc7186a02293437c34cd8240378c08612d82955a3424577341",
+    "web/src/i18n/en.ts": "37d65853e79abedcbbe12f7fe8165c69e15b8401db4b8057229f02ee3597528c",
+    "apps/desktop/src/i18n/en.ts": "a357847504e26bba914ae35305d4e808a9dcc5dcf8eff0207b2393913b6d1605"
+  },
+  "items": [
+    {
+      "category": "pinned_commit",
+      "severity": "pass",
+      "message": "HEAD is 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53, expected 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53"
+    },
+    {
+      "category": "clean_checkout",
+      "severity": "pass",
+      "message": "source checkout has uncommitted changes"
+    },
+    {
+      "category": "expected_paths",
+      "severity": "pass",
+      "message": "expected catalog paths missing"
+    },
+    {
+      "category": "yaml_parse",
+      "severity": "pass",
+      "message": "one or more YAML catalogs fail to parse/extract"
+    },
+    {
+      "category": "ts_parse",
+      "severity": "pass",
+      "message": "one or more TypeScript catalogs fail to parse/extract"
+    },
+    {
+      "category": "blind_workspace",
+      "severity": "pass",
+      "message": "blind workspace present (run `python prepare.py blind`)"
+    },
+    {
+      "category": "blind_no_french",
+      "severity": "pass",
+      "message": "blind workspace contains no French resources"
+    },
+    {
+      "category": "blind_english_parity",
+      "severity": "pass",
+      "message": "blind English sources match the pinned checkout"
+    },
+    {
+      "category": "work_ignored",
+      "severity": "pass",
+      "message": "work/ is not ignored by git"
+    }
+  ]
+}

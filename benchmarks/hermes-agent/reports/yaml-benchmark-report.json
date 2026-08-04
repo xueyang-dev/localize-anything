@@ -1,0 +1,69 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "surface": "yaml_cli_gateway",
+  "track": "controlled",
+  "commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53",
+  "target_locale": "fr",
+  "generation": {
+    "mode": "engineering_fixture_only",
+    "quality_claim": "engineering_fixture_only",
+    "provider": null,
+    "curated_slice_segments": 9,
+    "identity_segments": 342
+  },
+  "extraction": {
+    "segments": 351,
+    "deterministic": true,
+    "duplicate_ids": false,
+    "source_hash": "fe06b52df673b817691f761b6650bb7513cbc755eca7adef16303df1e4770c8c"
+  },
+  "batch_plan": {
+    "surface": "yaml",
+    "target_locale": "fr",
+    "batches": [
+      "common",
+      "app_shell",
+      "status",
+      "sessions",
+      "analytics",
+      "models",
+      "logs",
+      "settings",
+      "gateway",
+      "plugins",
+      "skills",
+      "errors",
+      "approval",
+      "documentation",
+      "misc"
+    ]
+  },
+  "qa": {
+    "status": "pass",
+    "summary": {
+      "blocking_count": 0,
+      "warning_count": 0
+    }
+  },
+  "semantic_review": {
+    "flags": 342,
+    "blocking": 0,
+    "untranslated_english": 342
+  },
+  "staging": {
+    "path": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/benchmarks/hermes-agent/work/staging/yaml/fr.yaml",
+    "source_unchanged": true
+  },
+  "reference_comparison": {
+    "official_is_reference_not_ground_truth": true,
+    "official_key_missing_vs_staged": [],
+    "staged_key_missing_vs_official": [],
+    "official_untranslated_english_stragglers": 58,
+    "staged_untranslated_english_segments": 342,
+    "identical_translated_values": 1,
+    "identical_translated_sample": [
+      "gateway.usage.header_session"
+    ]
+  }
+}

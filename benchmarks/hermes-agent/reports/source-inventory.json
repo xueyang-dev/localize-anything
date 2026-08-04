@@ -1,0 +1,369 @@
+{
+  "benchmark_id": "hermes-agent",
+  "commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53",
+  "surfaces": {
+    "yaml_cli_gateway": {
+      "surface": "yaml_cli_gateway",
+      "adapter": "core.yaml-toml",
+      "catalog_files": 17,
+      "catalogs": [
+        {
+          "file": "locales/af.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/ar.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 0
+        },
+        {
+          "file": "locales/de.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/en.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 0
+        },
+        {
+          "file": "locales/es.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/fr.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/ga.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/hu.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/it.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/ja.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/ko.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/pt.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/ru.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/tr.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/uk.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/zh-hant.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        },
+        {
+          "file": "locales/zh.yaml",
+          "keys": 351,
+          "placeholder_bearing": 170,
+          "markdown_bearing": 125,
+          "escaped_newlines": 2
+        }
+      ],
+      "totals": {
+        "keys": 5967,
+        "placeholder_bearing": 2890,
+        "markdown_bearing": 2125
+      }
+    },
+    "web_dashboard": {
+      "surface": "web",
+      "adapter": "core.typescript-locale",
+      "catalog_files": 17,
+      "catalogs": [
+        {
+          "file": "web/src/i18n/af.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/ar.ts",
+          "leaves": 571,
+          "string_leaves": 571,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 35
+        },
+        {
+          "file": "web/src/i18n/de.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/en.ts",
+          "leaves": 709,
+          "string_leaves": 709,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 56
+        },
+        {
+          "file": "web/src/i18n/es.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/fr.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/ga.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/hu.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/it.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/ja.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/ko.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 49
+        },
+        {
+          "file": "web/src/i18n/pt.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/ru.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/tr.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 50
+        },
+        {
+          "file": "web/src/i18n/uk.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 49
+        },
+        {
+          "file": "web/src/i18n/zh-hant.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 49
+        },
+        {
+          "file": "web/src/i18n/zh.ts",
+          "leaves": 638,
+          "string_leaves": 638,
+          "template_leaves": 0,
+          "function_valued": 0,
+          "template_expression_bearing": 0,
+          "placeholder_bearing": 49
+        }
+      ],
+      "totals": {
+        "leaves": 10850,
+        "function_valued": 0,
+        "template_expression_bearing": 0
+      }
+    },
+    "desktop": {
+      "surface": "desktop",
+      "adapter": "core.typescript-locale",
+      "catalog_files": 5,
+      "catalogs": [
+        {
+          "file": "apps/desktop/src/i18n/ar.ts",
+          "leaves": 2177,
+          "string_leaves": 1949,
+          "template_leaves": 228,
+          "function_valued": 231,
+          "template_expression_bearing": 228,
+          "placeholder_bearing": 0
+        },
+        {
+          "file": "apps/desktop/src/i18n/en.ts",
+          "leaves": 2623,
+          "string_leaves": 2308,
+          "template_leaves": 315,
+          "function_valued": 319,
+          "template_expression_bearing": 315,
+          "placeholder_bearing": 1
+        },
+        {
+          "file": "apps/desktop/src/i18n/ja.ts",
+          "leaves": 2337,
+          "string_leaves": 2076,
+          "template_leaves": 261,
+          "function_valued": 263,
+          "template_expression_bearing": 261,
+          "placeholder_bearing": 0
+        },
+        {
+          "file": "apps/desktop/src/i18n/zh-hant.ts",
+          "leaves": 2338,
+          "string_leaves": 2077,
+          "template_leaves": 261,
+          "function_valued": 264,
+          "template_expression_bearing": 261,
+          "placeholder_bearing": 0
+        },
+        {
+          "file": "apps/desktop/src/i18n/zh.ts",
+          "leaves": 2760,
+          "string_leaves": 2445,
+          "template_leaves": 315,
+          "function_valued": 319,
+          "template_expression_bearing": 315,
+          "placeholder_bearing": 0
+        }
+      ],
+      "totals": {
+        "leaves": 12235,
+        "function_valued": 1396,
+        "template_expression_bearing": 1380
+      }
+    },
+    "documentation": {
+      "surface": "documentation",
+      "files": 375,
+      "translated_docs": 315,
+      "locales": [
+        "en",
+        "zh-Hans"
+      ],
+      "docusaurus_config": true
+    }
+  }
+}

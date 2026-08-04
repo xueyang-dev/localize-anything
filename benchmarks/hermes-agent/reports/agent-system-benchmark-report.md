@@ -1,0 +1,92 @@
+# agent-system-benchmark-report.md
+
+- protocol_version: 0.1
+- benchmark_id: hermes-agent
+- track: agent_system
+- reference_policy: style_only
+- tm_assisted: not_exercised_engineering_run
+- source_truth: en
+- style_evidence_surfaces:
+  - yaml_cli_gateway: official YAML French term samples (lexicon, see terminology-consistency-report.json)
+  - web_dashboard: official Web French values used as cross-surface style evidence for the Desktop slice
+- quality_claim: engineering_fixture_only
+- note: Terminology/style evidence from the official YAML French catalog is applied as a QA constraint to the curated Web/Desktop slice; it is not generation input for Track 1.
+- surfaces:
+  - web:
+    - curated_segments: 9
+    - cross_surface_checks: 9
+    - consistent_with_official_web_style: 6
+    - official_web_fr_translated: 7
+    - samples:
+      - pointer: /common/save
+      - english_source: Save
+      - staged_target: Enregistrer
+      - official_web_fr: Enregistrer
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/cancel
+      - english_source: Cancel
+      - staged_target: Annuler
+      - official_web_fr: Annuler
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/delete
+      - english_source: Delete
+      - staged_target: Supprimer
+      - official_web_fr: Supprimer
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/retry
+      - english_source: Retry
+      - staged_target: Réessayer
+      - official_web_fr: Réessayer
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/search
+      - english_source: Search...
+      - staged_target: Rechercher
+      - official_web_fr: Rechercher...
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: False
+      - pointer: /app/nav/chat
+      - english_source: Chat
+      - staged_target: Discussion
+      - official_web_fr: Chat
+      - official_web_fr_translated: False
+      - consistent_with_official_web_style: False
+  - desktop:
+    - curated_segments: 5
+    - cross_surface_checks: 5
+    - consistent_with_official_web_style: 4
+    - official_web_fr_translated: 4
+    - samples:
+      - pointer: /common/save
+      - english_source: Save
+      - staged_target: Enregistrer
+      - official_web_fr: Enregistrer
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/cancel
+      - english_source: Cancel
+      - staged_target: Annuler
+      - official_web_fr: Annuler
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/close
+      - english_source: Close
+      - staged_target: Fermer
+      - official_web_fr: Fermer
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /common/delete
+      - english_source: Delete
+      - staged_target: Supprimer
+      - official_web_fr: Supprimer
+      - official_web_fr_translated: True
+      - consistent_with_official_web_style: True
+      - pointer: /notifications/more#fn0
+      - english_source: ${count} more ${count === 1 ? 'notification' : 'notifications'}
+      - staged_target: ${count} autres (${count === 1 ? 'notification' : 'notifications'})
+      - official_web_fr: None
+      - official_web_fr_translated: False
+      - consistent_with_official_web_style: False

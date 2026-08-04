@@ -1,0 +1,7 @@
+{
+  "/common/save": "Enregistrer",
+  "/common/cancel": "Annuler",
+  "/common/delete": "Supprimer",
+  "/common/close": "Fermer",
+  "/notifications/more#fn0": "${count} autres (${count === 1 ? 'notification' : 'notifications'})"
+}

@@ -1,0 +1,44 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "check": "localize_anything_unittest",
+      "command": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "duration_seconds": 8.21,
+      "passed": true,
+      "tail": "est_catalog_parse_duplicate_detection (test_typescript_adapter.TypeScriptAdapterTests.test_catalog_parse_duplicate_detection) ... ok\ntest_duplicate_keys_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_duplicate_keys_fail_closed) ... ok\ntest_extract_define_locale_wrapper (test_typescript_adapter.TypeScriptAdapterTests.test_extract_define_locale_wrapper) ... ok\ntest_extract_strings_arrays_and_placeholders (test_typescript_adapter.TypeScriptAdapterTests.test_extract_strings_arrays_and_placeholders) ... ok\ntest_extract_typed_catalog (test_typescript_adapter.TypeScriptAdapterTests.test_extract_typed_catalog) ... ok\ntest_function_literals_and_expression_parity (test_typescript_adapter.TypeScriptAdapterTests.test_function_literals_and_expression_parity) ... ok\ntest_identity_round_trip_is_byte_identical (test_typescript_adapter.TypeScriptAdapterTests.test_identity_round_trip_is_byte_identical) ... ok\ntest_missing_and_unexpected_keys_fail (test_typescript_adapter.TypeScriptAdapterTests.test_missing_and_unexpected_keys_fail) ... ok\ntest_placeholder_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_placeholder_mismatch_fails) ... ok\ntest_rebuild_preserves_function_signatures_and_expressions (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_preserves_function_signatures_and_expressions) ... ok\ntest_rebuild_renames_export_to_target_locale (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_renames_export_to_target_locale) ... ok\ntest_rebuild_translated_strings_and_arrays (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_translated_strings_and_arrays) ... ok\ntest_template_expression_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_mismatch_fails) ... ok\ntest_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok\n\n----------------------------------------------------------------------\nRan 96 tests in 8.115s\n\nOK\n"
+    },
+    {
+      "check": "adapter_tree_validation",
+      "command": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -c \nimport json\nfrom pathlib import Path\nfrom runtime.localize_anything.contracts import validate_adapter_tree\nresult = validate_adapter_tree(Path('adapters'))\nprint(json.dumps(result, indent=2))\nif result['status'] != 'pass':\n    raise SystemExit(1)\nif result['manifests_checked'] < 13:\n    raise SystemExit('expected >=13 adapter manifests, got ' + str(result['manifests_checked']))\n",
+      "exit_code": 0,
+      "duration_seconds": 0.02,
+      "passed": true,
+      "tail": "{\n  \"protocol_version\": \"0.1\",\n  \"status\": \"pass\",\n  \"manifests_checked\": 13,\n  \"errors\": []\n}\n"
+    },
+    {
+      "check": "protocol_tree_validation",
+      "command": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -c \nimport json\nfrom pathlib import Path\nfrom runtime.localize_anything.schema_validation import validate_protocol_tree\nresult = validate_protocol_tree(Path('protocol'))\nprint(json.dumps(result, indent=2))\nif result['status'] != 'pass':\n    raise SystemExit(1)\n",
+      "exit_code": 0,
+      "duration_seconds": 0.02,
+      "passed": true,
+      "tail": "{\n  \"protocol_version\": \"0.1\",\n  \"status\": \"pass\",\n  \"schemas_checked\": 7,\n  \"examples_checked\": 7,\n  \"errors\": []\n}\n"
+    },
+    {
+      "check": "compileall",
+      "command": "/Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/",
+      "exit_code": 0,
+      "duration_seconds": 2.93,
+      "passed": true,
+      "tail": ""
+    },
+    {
+      "check": "git_diff_check",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "passed": true,
+      "tail": ""
+    }
+  ]
+}

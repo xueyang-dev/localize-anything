@@ -1,0 +1,34 @@
+{
+  "generated_model_output": {
+    "classification": "generated_content",
+    "evidence": "model replies are never catalog-routed (agent/i18n.py scope note)"
+  },
+  "log_lines_and_tracebacks": {
+    "classification": "generated_content",
+    "evidence": "hermes_logging.py and tracebacks remain English by design"
+  },
+  "tool_outputs_and_tool_results": {
+    "classification": "generated_content",
+    "evidence": "tool result text rendered verbatim in chat"
+  },
+  "plugin_manifests": {
+    "classification": "dynamic_metadata",
+    "evidence": "plugins/ manifests register English display metadata at runtime"
+  },
+  "skill_frontmatter_and_descriptions": {
+    "classification": "dynamic_metadata",
+    "evidence": "skills/SKILL.md frontmatter/descriptions; generated per-skill docs are excluded from search"
+  },
+  "gateway_server_metadata": {
+    "classification": "dynamic_metadata",
+    "evidence": "session ids, model names, provider slugs, timestamps, costs rendered as values"
+  },
+  "billing_and_provider_responses": {
+    "classification": "intentionally_out_of_scope",
+    "evidence": "external English content"
+  },
+  "images_audio_video_binary": {
+    "classification": "non_text_asset",
+    "evidence": "assets/ contains images and media; no OCR/visual QA in engineering run"
+  }
+}

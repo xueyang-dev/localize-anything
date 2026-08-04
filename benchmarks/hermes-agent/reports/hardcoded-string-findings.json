@@ -1,0 +1,136 @@
+{
+  "web": {
+    "classification": "hardcoded_detected",
+    "candidate_count_tsx_text_attributes": 17,
+    "note": "Conservative heuristic over .tsx JSX text nodes and title/placeholder/aria-label attributes; not a complete inventory.",
+    "samples": [
+      {
+        "file": "web/src/App.tsx",
+        "line": 607,
+        "sample": "Hermes"
+      },
+      {
+        "file": "web/src/App.tsx",
+        "line": 609,
+        "sample": "Agent"
+      },
+      {
+        "file": "web/src/components/ModelReloadConfirm.tsx",
+        "line": 30,
+        "sample": "Switch model?"
+      },
+      {
+        "file": "web/src/components/ModelInfoCard.tsx",
+        "line": 56,
+        "sample": "Context Window"
+      },
+      {
+        "file": "web/src/components/ModelInfoCard.tsx",
+        "line": 67,
+        "sample": "auto-detected"
+      },
+      {
+        "file": "web/src/components/HermesConsoleModal.tsx",
+        "line": 505,
+        "sample": "Hermes Console"
+      },
+      {
+        "file": "web/src/components/HermesConsoleModal.tsx",
+        "line": 518,
+        "sample": "Close console"
+      },
+      {
+        "file": "web/src/components/AutomationBlueprints.tsx",
+        "line": 156,
+        "sample": "Schedule it"
+      },
+      {
+        "file": "web/src/components/AutomationBlueprints.tsx",
+        "line": 204,
+        "sample": "No automation blueprints available."
+      },
+      {
+        "file": "web/src/components/Markdown.tsx",
+        "line": 372,
+        "sample": "regex.test(part) ? ("
+      },
+      {
+        "file": "web/src/components/AuthWidget.tsx",
+        "line": 153,
+        "sample": "Log out"
+      },
+      {
+        "file": "web/src/components/AuthWidget.tsx",
+        "line": 154,
+        "sample": "Log out"
+      }
+    ]
+  },
+  "desktop": {
+    "classification": "hardcoded_detected",
+    "candidate_count_tsx_text_attributes": 42,
+    "note": "Conservative heuristic over .tsx JSX text nodes and title/placeholder/aria-label attributes; not a complete inventory.",
+    "samples": [
+      {
+        "file": "apps/desktop/src/app/command-center/index.tsx",
+        "line": 60,
+        "sample": "Promise"
+      },
+      {
+        "file": "apps/desktop/src/app/command-center/maintenance.tsx",
+        "line": 121,
+        "sample": "Promise"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/toolset-config-panel.test.tsx",
+        "line": 22,
+        "sample": "rtlRender("
+      },
+      {
+        "file": "apps/desktop/src/app/settings/appearance-settings.tsx",
+        "line": 163,
+        "sample": "From the VS Code Marketplace"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/fallback-models-field.test.tsx",
+        "line": 56,
+        "sample": "view.rerender("
+      },
+      {
+        "file": "apps/desktop/src/app/settings/combobox-input.tsx",
+        "line": 69,
+        "sample": "Show options"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/model-settings.tsx",
+        "line": 173,
+        "sample": "Reset all to main"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/model-settings.tsx",
+        "line": 408,
+        "sample": "NonNullable"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/gateway-settings.tsx",
+        "line": 1260,
+        "sample": "https://gateway.example.com/hermes"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/custom-endpoints-settings.tsx",
+        "line": 249,
+        "sample": "Active"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/custom-endpoints-settings.tsx",
+        "line": 253,
+        "sample": "config.yaml"
+      },
+      {
+        "file": "apps/desktop/src/app/settings/computer-use-panel.tsx",
+        "line": 183,
+        "sample": "Recheck"
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "/approval/dangerous_header": "⚠️ COMMANDE DANGEREUSE DÉTECTÉE : {description}",
+  "/approval/timeout": "      ⏱ Délai écoulé — commande refusée",
+  "/gateway/draining": "⏳ Arrêt progressif de {count} agent(s) avant redémarrage…",
+  "/gateway/goal_cleared": "✓ Objectif terminé.",
+  "/gateway/model/switched": "Modèle basculé vers `{model}`",
+  "/gateway/approve/no_pending": "Aucune commande à approuver.",
+  "/gateway/restart/restarting": "♻ Redémarrage de la passerelle. Si aucune notification sous 60 secondes, redémarrez depuis la console avec `hermes gateway restart`.",
+  "/gateway/usage/header_session": "📊 **Utilisation des jetons de session**",
+  "/gateway/context/header": "🧠 **Fenêtre de contexte**"
+}

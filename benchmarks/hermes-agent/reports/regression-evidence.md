@@ -1,0 +1,83 @@
+# regression-evidence.md
+
+- status: pass
+- steps:
+  - check: localize_anything_unittest
+  - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -m unittest discover -s tests -v
+  - exit_code: 0
+  - duration_seconds: 8.21
+  - passed: True
+  - tail: est_catalog_parse_duplicate_detection (test_typescript_adapter.TypeScriptAdapterTests.test_catalog_parse_duplicate_detection) ... ok
+test_duplicate_keys_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_duplicate_keys_fail_closed) ... ok
+test_extract_define_locale_wrapper (test_typescript_adapter.TypeScriptAdapterTests.test_extract_define_locale_wrapper) ... ok
+test_extract_strings_arrays_and_placeholders (test_typescript_adapter.TypeScriptAdapterTests.test_extract_strings_arrays_and_placeholders) ... ok
+test_extract_typed_catalog (test_typescript_adapter.TypeScriptAdapterTests.test_extract_typed_catalog) ... ok
+test_function_literals_and_expression_parity (test_typescript_adapter.TypeScriptAdapterTests.test_function_literals_and_expression_parity) ... ok
+test_identity_round_trip_is_byte_identical (test_typescript_adapter.TypeScriptAdapterTests.test_identity_round_trip_is_byte_identical) ... ok
+test_missing_and_unexpected_keys_fail (test_typescript_adapter.TypeScriptAdapterTests.test_missing_and_unexpected_keys_fail) ... ok
+test_placeholder_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_placeholder_mismatch_fails) ... ok
+test_rebuild_preserves_function_signatures_and_expressions (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_preserves_function_signatures_and_expressions) ... ok
+test_rebuild_renames_export_to_target_locale (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_renames_export_to_target_locale) ... ok
+test_rebuild_translated_strings_and_arrays (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_translated_strings_and_arrays) ... ok
+test_template_expression_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_mismatch_fails) ... ok
+test_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 96 tests in 8.115s
+
+OK
+
+  - check: adapter_tree_validation
+  - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -c 
+import json
+from pathlib import Path
+from runtime.localize_anything.contracts import validate_adapter_tree
+result = validate_adapter_tree(Path('adapters'))
+print(json.dumps(result, indent=2))
+if result['status'] != 'pass':
+    raise SystemExit(1)
+if result['manifests_checked'] < 13:
+    raise SystemExit('expected >=13 adapter manifests, got ' + str(result['manifests_checked']))
+
+  - exit_code: 0
+  - duration_seconds: 0.02
+  - passed: True
+  - tail: {
+  "protocol_version": "0.1",
+  "status": "pass",
+  "manifests_checked": 13,
+  "errors": []
+}
+
+  - check: protocol_tree_validation
+  - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -c 
+import json
+from pathlib import Path
+from runtime.localize_anything.schema_validation import validate_protocol_tree
+result = validate_protocol_tree(Path('protocol'))
+print(json.dumps(result, indent=2))
+if result['status'] != 'pass':
+    raise SystemExit(1)
+
+  - exit_code: 0
+  - duration_seconds: 0.02
+  - passed: True
+  - tail: {
+  "protocol_version": "0.1",
+  "status": "pass",
+  "schemas_checked": 7,
+  "examples_checked": 7,
+  "errors": []
+}
+
+  - check: compileall
+  - command: /Users/xueyang/Dev/localize-anything-hermes-benchmark/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
+  - exit_code: 0
+  - duration_seconds: 2.93
+  - passed: True
+  - tail: 
+  - check: git_diff_check
+  - command: git diff --check
+  - exit_code: 0
+  - passed: True
+  - tail: 
