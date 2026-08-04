@@ -319,7 +319,7 @@
           "template_leaves": 315,
           "function_valued": 319,
           "template_expression_bearing": 315,
-          "placeholder_bearing": 1
+          "placeholder_bearing": 0
         },
         {
           "file": "apps/desktop/src/i18n/ja.ts",

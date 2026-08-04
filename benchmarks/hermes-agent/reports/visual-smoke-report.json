@@ -2,8 +2,8 @@
   "protocol_version": "0.1",
   "benchmark_id": "hermes-agent",
   "artifact": "visual-smoke-report",
-  "date": "2026-08-04",
-  "method": "ran `hermes dashboard` from the isolated copy (temp HOME, built web_dist with staged fr.ts) and drove the in-app browser against http://127.0.0.1:9123",
+  "date": "2026-08-05",
+  "method": "re-verified on 2026-08-05 after the repaired pipeline rerun: `hermes dashboard` served from the fresh isolated copy (temp HOME, web_dist rebuilt with the staged fr.ts), driven in the in-app browser at http://127.0.0.1:9124",
   "surface": "web_dashboard",
   "locale_verified": "fr",
   "screens": [
@@ -53,7 +53,15 @@
   "limitations": [
     "Desktop (Electron) app not launched: no interactive GUI smoke on apps/desktop; its fr catalog was validated by typecheck, vitest, and production build only.",
     "Gateway not started (status Off), so session-dependent views (chat, gateway-driven metadata) were not visually exercised.",
-    "Screenshots captured but pixel-level review was not possible in this session (vision sidecar unavailable); DOM text evidence is authoritative."
+    "Screenshots are non-durable local artifacts (ignored work/visual-smoke/); pixel-level visual layout QA was NOT completed (screenshots_reviewed=false, visual_layout_review_completed=false). DOM text evidence is authoritative."
   ],
-  "delivery_claim": "web catalog localization visually verified; full-product localization not claimed"
+  "delivery_claim": "Web runtime DOM localization verified; visual layout quality not reviewed; full-product localization not claimed.",
+  "runtime_smoke_recorded": true,
+  "dom_text_verified": true,
+  "screenshots_captured": true,
+  "screenshots_reviewed": false,
+  "visual_layout_review_completed": false,
+  "screenshots_durable": false,
+  "screenshots_note": "screenshots are non-durable local artifacts under ignored work/visual-smoke/; not committed",
+  "rerun_notes": "Fresh smoke after evidence-integrity repair: /sessions French markers verified (Discussion, Modèles, Journaux, Statut du gateway, Redémarrer le gateway, Changer de langue, Aucune session pour l'instant); /config French markers verified (Configuration, Rechercher, Exporter la configuration en JSON, Rétablir Général aux valeurs par défaut, Enregistrer, Filtres, Sécurité, Reconnaissance vocale); known hardcoded English strings still present (Prune old sessions, Import exported sessions, Active in store)."
 }

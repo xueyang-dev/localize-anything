@@ -15,17 +15,17 @@
       "check": "hermes_i18n_parity_tests",
       "command": "<hermes-copy>/.venv/bin/python -m pytest tests/agent/test_i18n.py -q",
       "exit_code": 0,
-      "duration_seconds": 2.33,
+      "duration_seconds": 2.36,
       "passed": true,
       "status": "passed",
       "required": true,
-      "tail": "....................................                                     [100%]\n36 passed in 2.05s\n"
+      "tail": "....................................                                     [100%]\n36 passed in 1.99s\n"
     },
     {
       "check": "hermes_python_compileall",
       "command": "python3 -m compileall -q agent hermes_cli gateway",
       "exit_code": 0,
-      "duration_seconds": 0.08,
+      "duration_seconds": 0.86,
       "passed": true,
       "status": "passed",
       "required": true,
@@ -35,7 +35,7 @@
       "check": "web_typecheck",
       "command": "npm run typecheck",
       "exit_code": 0,
-      "duration_seconds": 0.14,
+      "duration_seconds": 0.61,
       "passed": true,
       "status": "passed",
       "required": true,
@@ -45,27 +45,27 @@
       "check": "web_vitest",
       "command": "npm run test",
       "exit_code": 0,
-      "duration_seconds": 0.87,
+      "duration_seconds": 2.48,
       "passed": true,
       "status": "passed",
       "required": true,
-      "tail": "\n> web@0.0.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/web\n\n\n Test Files  22 passed (22)\n      Tests  156 passed (156)\n   Start at  00:30:19\n   Duration  588ms (transform 744ms, setup 0ms, import 1.36s, tests 144ms, environment 1ms)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
+      "tail": "\n> web@0.0.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/web\n\n\n Test Files  22 passed (22)\n      Tests  156 passed (156)\n   Start at  01:06:53\n   Duration  605ms (transform 775ms, setup 0ms, import 1.50s, tests 149ms, environment 1ms)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
     },
     {
       "check": "web_build",
       "command": "npm run build",
       "exit_code": 0,
-      "duration_seconds": 3.87,
+      "duration_seconds": 5.37,
       "passed": true,
       "status": "passed",
       "required": true,
-      "tail": "B\n../hermes_cli/web_dist/assets/EnvPage-BGk7g1NM.js                      29.97 kB │ gzip:   8.13 kB\n../hermes_cli/web_dist/assets/CronPage-C8r2hEJS.js                     31.60 kB │ gzip:   8.85 kB\n../hermes_cli/web_dist/assets/ChatPage-CWu6_a7l.js                     38.70 kB │ gzip:  13.15 kB\n../hermes_cli/web_dist/assets/SkillsPage-Dit8XSPe.js                   39.62 kB │ gzip:  10.57 kB\n../hermes_cli/web_dist/assets/SessionsPage-_SVBmx0V.js                 40.62 kB │ gzip:  11.87 kB\n../hermes_cli/web_dist/assets/SystemPage-ksfaTdR9.js                   40.63 kB │ gzip:  10.90 kB\n../hermes_cli/web_dist/assets/index-DO_c7ocW.js                        42.41 kB │ gzip:  12.64 kB\n../hermes_cli/web_dist/assets/vendor-BLReI8FQ.js                       50.06 kB │ gzip:  17.82 kB\n../hermes_cli/web_dist/assets/react-vendor-B6GYCG81.js                226.82 kB │ gzip:  72.67 kB\n../hermes_cli/web_dist/assets/ui-CGB0TYQ8.js                          289.93 kB │ gzip:  94.82 kB\n../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB\n../hermes_cli/web_dist/assets/i18n-BN7ezwWN.js                        476.50 kB │ gzip: 141.04 kB\n\n✓ built in 281ms\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
+      "tail": "B\n../hermes_cli/web_dist/assets/EnvPage-BW5Xocfk.js                      29.97 kB │ gzip:   8.13 kB\n../hermes_cli/web_dist/assets/CronPage-D-dGeE_B.js                     31.60 kB │ gzip:   8.86 kB\n../hermes_cli/web_dist/assets/ChatPage-Ct9Kh9WS.js                     38.70 kB │ gzip:  13.15 kB\n../hermes_cli/web_dist/assets/SkillsPage-DCRhxG5d.js                   39.62 kB │ gzip:  10.57 kB\n../hermes_cli/web_dist/assets/SessionsPage-BkKmXK7y.js                 40.62 kB │ gzip:  11.87 kB\n../hermes_cli/web_dist/assets/SystemPage-CoZ9Amhy.js                   40.63 kB │ gzip:  10.90 kB\n../hermes_cli/web_dist/assets/index-Bc9yJTuq.js                        42.41 kB │ gzip:  12.64 kB\n../hermes_cli/web_dist/assets/vendor-BLReI8FQ.js                       50.06 kB │ gzip:  17.82 kB\n../hermes_cli/web_dist/assets/react-vendor-B6GYCG81.js                226.82 kB │ gzip:  72.67 kB\n../hermes_cli/web_dist/assets/ui-CGB0TYQ8.js                          289.93 kB │ gzip:  94.82 kB\n../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB\n../hermes_cli/web_dist/assets/i18n-CZKEeBi2.js                        476.54 kB │ gzip: 141.04 kB\n\n✓ built in 355ms\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
     },
     {
       "check": "desktop_typecheck",
       "command": "npm run typecheck",
       "exit_code": 0,
-      "duration_seconds": 11.8,
+      "duration_seconds": 11.86,
       "passed": true,
       "status": "passed",
       "required": true,
@@ -75,21 +75,21 @@
       "check": "desktop_vitest",
       "command": "npm run test",
       "exit_code": 0,
-      "duration_seconds": 83.39,
+      "duration_seconds": 66.37,
       "passed": true,
       "status": "passed",
       "required": true,
-      "tail": "\n> hermes@0.17.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/apps/desktop\n\n\n Test Files  465 passed | 1 skipped (466)\n      Tests  4295 passed | 2 skipped (4297)\n   Start at  00:30:35\n   Duration  82.88s (transform 14.38s, setup 50.02s, import 237.53s, tests 83.70s, environment 294.26s)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\nPreparing worktree (new branch 'wt')\nSwitched to a new branch 'rawr'\nSwitched to a new branch 'rawr'\nCloning into '<temporary-directory>'...\ndone.\nfatal: no upstream configured for branch 'feature-branch'\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\n"
+      "tail": "\n> hermes@0.17.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/apps/desktop\n\n\n Test Files  465 passed | 1 skipped (466)\n      Tests  4295 passed | 2 skipped (4297)\n   Start at  01:07:11\n   Duration  65.98s (transform 13.08s, setup 38.58s, import 198.58s, tests 80.59s, environment 214.19s)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\nPreparing worktree (new branch 'wt')\nSwitched to a new branch 'rawr'\nSwitched to a new branch 'rawr'\nCloning into '<temporary-directory>'...\ndone.\nfatal: no upstream configured for branch 'feature-branch'\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\n"
     },
     {
       "check": "desktop_build",
       "command": "npm run build",
       "exit_code": 0,
-      "duration_seconds": 5.11,
+      "duration_seconds": 3.65,
       "passed": true,
       "status": "passed",
       "required": true,
-      "tail": "         2,126.91 kB │ gzip:   635.95 kB\ndist/assets/mermaid-BVb1m2iz.js                        2,973.15 kB │ gzip:   783.39 kB\ndist/assets/shiki-6BOFvr6A.js                         18,983.25 kB │ gzip: 3,308.84 kB\n\n✓ built in 3.17s\nbundled <hermes-copy>/apps/desktop/dist/electron-main.mjs\nbundled <hermes-copy>/apps/desktop/dist/electron-preload.js\n[stage-native-deps] staged node-pty (darwin-arm64) -> <hermes-copy>/apps/desktop/dist/node_modules/node-pty\n\n> hermes@0.17.0 postbuild\n> node scripts/assert-dist-built.mjs\n\n✓ assert-dist-built: dist/index.html + assets present\n[write-build-stamp] WARNING: working tree is dirty.\n  Pinning to 6c45aaae16d7 but the packaged code may differ from that commit.\n  Commit your changes before publishing this build.\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n\n WARN  advancedChunks option is deprecated, please use codeSplitting instead.\n\n\n  dist/electron-main.mjs  680.5kb\n\n⚡ Done in 29ms\n\n  dist/electron-preload.js  21.8kb\n\n⚡ Done in 2ms\n",
+      "tail": "         2,126.91 kB │ gzip:   635.95 kB\ndist/assets/mermaid-BVb1m2iz.js                        2,973.15 kB │ gzip:   783.39 kB\ndist/assets/shiki-6BOFvr6A.js                         18,983.25 kB │ gzip: 3,308.84 kB\n\n✓ built in 1.51s\nbundled <hermes-copy>/apps/desktop/dist/electron-main.mjs\nbundled <hermes-copy>/apps/desktop/dist/electron-preload.js\n[stage-native-deps] staged node-pty (darwin-arm64) -> <hermes-copy>/apps/desktop/dist/node_modules/node-pty\n\n> hermes@0.17.0 postbuild\n> node scripts/assert-dist-built.mjs\n\n✓ assert-dist-built: dist/index.html + assets present\n[write-build-stamp] WARNING: working tree is dirty.\n  Pinning to 1eef7cbd11a5 but the packaged code may differ from that commit.\n  Commit your changes before publishing this build.\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n\n WARN  advancedChunks option is deprecated, please use codeSplitting instead.\n\n\n  dist/electron-main.mjs  680.5kb\n\n⚡ Done in 28ms\n\n  dist/electron-preload.js  21.8kb\n\n⚡ Done in 3ms\n",
       "note": "Full electron packaging (npm run dist) is environment-dependent and not part of this validation."
     }
   ]

@@ -8,13 +8,21 @@
 - target_locale: fr
 - generation:
   - mode: imported
-  - quality_claim: host_agent_generated
-  - quality_claims:
-    - host_agent_generated
   - provider: None
-  - curated_slice_segments: 0
-  - identity_segments: 0
-  - imported_segments: 709
+  - accounting:
+    - total_segments: 709
+    - imported_segments: 709
+    - engineering_fixture_segments: 0
+    - target_identical_to_source_segments: 67
+    - classified_retained_segments: 67
+    - approved_retained_segments: 67
+    - unclassified_identity_segments: 0
+    - translated_non_identity_segments: 642
+    - quality_claim: host_agent_generated
+    - quality_claim_counts:
+      - host_agent_generated: 709
+    - generation_mode_counts:
+      - host_agent_import: 709
 - extraction:
   - segments: 709
   - deterministic: True

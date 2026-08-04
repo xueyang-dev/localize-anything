@@ -7,14 +7,24 @@
   "target_locale": "fr",
   "generation": {
     "mode": "imported",
-    "quality_claim": "host_agent_generated",
-    "quality_claims": [
-      "host_agent_generated"
-    ],
     "provider": null,
-    "curated_slice_segments": 0,
-    "identity_segments": 0,
-    "imported_segments": 351
+    "accounting": {
+      "total_segments": 351,
+      "imported_segments": 351,
+      "engineering_fixture_segments": 0,
+      "target_identical_to_source_segments": 22,
+      "classified_retained_segments": 22,
+      "approved_retained_segments": 22,
+      "unclassified_identity_segments": 0,
+      "translated_non_identity_segments": 329,
+      "quality_claim": "host_agent_generated",
+      "quality_claim_counts": {
+        "host_agent_generated": 351
+      },
+      "generation_mode_counts": {
+        "host_agent_import": 351
+      }
+    }
   },
   "extraction": {
     "segments": 351,

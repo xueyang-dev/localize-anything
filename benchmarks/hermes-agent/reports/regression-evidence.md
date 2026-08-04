@@ -5,7 +5,7 @@
   - check: localize_anything_unittest
   - command: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m unittest discover -s tests -v
   - exit_code: 0
-  - duration_seconds: 7.85
+  - duration_seconds: 7.38
   - passed: True
   - tail: apterTests.test_identity_round_trip_is_byte_identical) ... ok
 test_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok
@@ -23,7 +23,7 @@ test_template_expression_order_preserved_passes (test_typescript_adapter.TypeScr
 test_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok
 
 ----------------------------------------------------------------------
-Ran 111 tests in 7.726s
+Ran 126 tests in 7.200s
 
 OK
 
@@ -69,7 +69,7 @@ if result['status'] != 'pass':
   - check: compileall
   - command: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/
   - exit_code: 0
-  - duration_seconds: 2.76
+  - duration_seconds: 1.21
   - passed: True
   - tail:
   - check: git_diff_check
