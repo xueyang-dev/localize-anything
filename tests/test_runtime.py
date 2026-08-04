@@ -29,6 +29,7 @@ from runtime.localize_anything.ios_strings_adapter import stage_rebuild as stage
 from runtime.localize_anything.ios_strings_adapter import target_resource_path as target_ios_resource_path
 from runtime.localize_anything.ios_strings_adapter import validate_pair as validate_ios_strings
 from runtime.localize_anything.json_adapter import extract_segments
+from runtime.localize_anything.json_adapter import extract_placeholders
 from runtime.localize_anything.json_adapter import rebuild
 from runtime.localize_anything.json_adapter import validate_pair
 from runtime.localize_anything.markup_adapter import extract_segments as extract_markup_segments
@@ -69,6 +70,20 @@ REPOSITORY_ROOT = Path(__file__).parents[1]
 
 
 class JsonAdapterTests(unittest.TestCase):
+
+    def test_percent_in_natural_language_is_not_printf_placeholder(self) -> None:
+        # Real-translation blocker: "% of context" / "% du contexte" must not be
+        # treated as printf-style placeholders, or faithful French renders like
+        # "{savings}% du contexte" can never pass placeholder parity.
+        self.assertEqual(
+            extract_placeholders("Last compression freed: {savings}% of context"),
+            ["{savings}"],
+        )
+        self.assertEqual(
+            extract_placeholders("Dernière compression libérée : {savings}% du contexte"),
+            ["{savings}"],
+        )
+        self.assertEqual(extract_placeholders("Progress: %d%% complete"), ["%d"])
 
     def test_extract_rebuild_and_validate(self) -> None:
         source = FIXTURE_ROOT / 'locales' / 'en-US.json'
