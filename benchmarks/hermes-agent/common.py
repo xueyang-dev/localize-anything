@@ -195,6 +195,10 @@ def import_translated_segments(extracted: list[dict[str, Any]], imported_path: P
         merged_segment["target_locale"] = imported_segment.get("target_locale", target_locale())
         merged_segment["quality_claim"] = imported_segment.get("quality_claim", "imported")
         merged_segment["generation_mode"] = imported_segment.get("generation_mode", "imported")
+        if "classification" in imported_segment:
+            merged_segment["classification"] = imported_segment["classification"]
+        if "classification_note" in imported_segment:
+            merged_segment["classification_note"] = imported_segment["classification_note"]
         merged_segment["status"] = "generated"
         merged.append(merged_segment)
     return merged
@@ -291,7 +295,13 @@ def segment_review_flags(segments: list[dict[str, Any]]) -> dict[str, Any]:
     for segment in segments:
         source = str(segment.get("source", ""))
         target = str(segment.get("target", ""))
-        if target == source:
+        retained_classification = segment.get("classification") in {
+            "intentional_identifier",
+            "brand_or_product_name",
+            "technical_term_retained",
+            "not_applicable",
+        }
+        if target == source and not retained_classification:
             untranslated += 1
             flags.append(
                 {

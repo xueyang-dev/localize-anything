@@ -80,6 +80,8 @@ def main() -> int:
         generated = apply_engineering_draft(segments, load_curated(SURFACE))
         generation_mode = "engineering_fixture_only"
     curated = sum(1 for s in generated if s.get("generation_mode") == "synthetic_curated_draft")
+    quality_claims = sorted({str(s.get("quality_claim", "unknown")) for s in generated})
+    preferred_claims = [c for c in quality_claims if c != "engineering_fixture_only"]
     write_jsonl(generated, run_dir / "generated.jsonl")
 
     # Phase 6: staging (rebuild only).
@@ -113,10 +115,12 @@ def main() -> int:
         "target_locale": CONFIG["target_locale"],
         "generation": {
             "mode": generation_mode,
-            "quality_claim": "engineering_fixture_only",
+            "quality_claim": preferred_claims[0] if preferred_claims else quality_claims[0],
+            "quality_claims": quality_claims,
             "provider": CONFIG["generation"]["provider"],
             "curated_slice_segments": curated,
-            "identity_segments": len(generated) - curated,
+            "identity_segments": len(generated) - curated if generation_mode == "engineering_fixture_only" else 0,
+            "imported_segments": len(generated) if generation_mode == "imported" else 0,
         },
         "extraction": extraction,
         "batch_plan": plan,
