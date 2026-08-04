@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -209,6 +210,29 @@ class HermesBenchmarkHelpersTests(unittest.TestCase):
         )
         review = common.segment_review_flags([segment])
         self.assertEqual(review["summary"]["untranslated_english"], 1)
+
+    def test_collect_refuses_to_reset_existing_decisions_without_force(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports_dir = Path(directory) / "reports"
+            reports_dir.mkdir()
+            (reports_dir / "retained-string-adjudication.json").write_text(
+                json.dumps({"rows": [{"segment_id": "x", "review_status": "approved"}]}),
+                encoding="utf-8",
+            )
+            with mock.patch.object(run_retention_adjudication, "REPORTS", reports_dir), mock.patch(
+                "sys.argv", ["run_retention_adjudication.py", "--collect"]
+            ):
+                with self.assertRaises(SystemExit):
+                    run_retention_adjudication.main()
+            with mock.patch.object(run_retention_adjudication, "REPORTS", reports_dir), mock.patch(
+                "sys.argv", ["run_retention_adjudication.py", "--collect", "--force"]
+            ):
+                # --force proceeds past the guard and fails later only if runs are absent;
+                # reaching collect_rows() proves the guard was bypassed.
+                try:
+                    run_retention_adjudication.main()
+                except SystemExit as exc:
+                    self.assertNotIn("already contains decisions", str(exc))
 
     def test_committed_import_manifest_verifies(self) -> None:
         import hashlib

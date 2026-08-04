@@ -22,6 +22,7 @@ from common import (
     RUNS,
     RETENTION_CLASSIFICATIONS,
     REVIEW_STATUSES,
+    read_json,
     read_jsonl,
     write_json,
 )
@@ -151,10 +152,22 @@ def write_adjudication(rows: list[dict[str, Any]]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect or apply retained-string adjudication")
     parser.add_argument("--collect", action="store_true", help="collect identity targets into the review sheet")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="reset an adjudication file that already contains decisions (fresh review cycle only)",
+    )
     parser.add_argument("--decisions", type=Path, help="CSV with filled decision columns to validate and apply")
     args = parser.parse_args()
 
     if args.collect:
+        adjudication_path = REPORTS / "retained-string-adjudication.json"
+        if adjudication_path.is_file() and not args.force:
+            existing = read_json(adjudication_path)
+            if any(row.get("review_status") for row in existing.get("rows", [])):
+                raise SystemExit(
+                    "adjudication already contains decisions; use --force to start a fresh review cycle"
+                )
         rows = collect_rows()
         write_review_sheet(rows)
         write_adjudication(rows)

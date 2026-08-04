@@ -84,10 +84,11 @@ cd benchmarks/hermes-agent
 ../../.venv/bin/python run_yaml_benchmark.py --mode import --import-segments evidence/real-imports/yaml.jsonl
 ../../.venv/bin/python run_typescript_catalog_benchmark.py --surface web --mode import --import-segments evidence/real-imports/web.jsonl
 ../../.venv/bin/python run_typescript_catalog_benchmark.py --surface desktop --mode import --import-segments evidence/real-imports/desktop.jsonl
-# Record separate approval for identity targets (candidate classifications are not approvals).
-../../.venv/bin/python run_retention_adjudication.py --collect
-# ... reviewer fills the decision columns in reports/retained-string-adjudication.csv ...
-../../.venv/bin/python run_retention_adjudication.py --decisions reports/retained-string-adjudication.csv
+# Identity-target approval is already committed in
+# reports/retained-string-adjudication.json (separate from candidate
+# classifications) and is loaded automatically. Only a fresh review cycle
+# needs: run_retention_adjudication.py --collect --force, then fill the CSV
+# decision columns, then run_retention_adjudication.py --decisions FILE.
 ../../.venv/bin/python prepare.py copy
 ../../.venv/bin/python run_build_validation.py
 ../../.venv/bin/python incremental.py
