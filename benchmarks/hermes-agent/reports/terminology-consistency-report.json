@@ -1,0 +1,783 @@
+{
+  "note": "Official French catalogs are references for terminology evidence, not ground truth.",
+  "rows": [
+    {
+      "term": "session",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "      ✓ Autorisé pour cette session",
+        "✅ Commandes approuvées (modèle approuvé pour cette session) ({count} commandes). L'agent reprend...",
+        "✅ Commande approuvée (modèle approuvé pour cette session). L'agent reprend..."
+      ],
+      "keys": [
+        "/approval/allowed_session",
+        "/gateway/approve/session_plural",
+        "/gateway/approve/session_singular",
+        "/gateway/fast/session_only",
+        "/gateway/model/session_only_hint",
+        "/gateway/reasoning/scope_session",
+        "/gateway/reasoning/set_session"
+      ]
+    },
+    {
+      "term": "prompt",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "      Choix [o/s/t/R] : ",
+        "      Choix [o/s/R] : ",
+        "      Choix [o/R] : "
+      ],
+      "keys": [
+        "/approval/prompt_long",
+        "/approval/prompt_short",
+        "/approval/prompt_smart_deny",
+        "/gateway/model/prompt_caching_enabled",
+        "/gateway/reload_mcp/confirm_prompt"
+      ]
+    },
+    {
+      "term": "skill",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "⚡ **Commandes de skill** :",
+        "\n⚡ **Commandes de skill** ({count} actives) :",
+        "➕ **Skills ajoutées :**"
+      ],
+      "keys": [
+        "/gateway/commands/skill_header",
+        "/gateway/help/skill_header",
+        "/gateway/reload_skills/added_header",
+        "/gateway/reload_skills/failed",
+        "/gateway/reload_skills/header",
+        "/gateway/reload_skills/item_with_desc",
+        "/gateway/reload_skills/no_new",
+        "/gateway/reload_skills/removed_header",
+        "/gateway/reload_skills/total"
+      ]
+    },
+    {
+      "term": "provider",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "Aucun fournisseur configuré — compression impossible.",
+        "Fournisseur : {provider}",
+        "`/model <name> --provider <slug>` — changer de fournisseur"
+      ],
+      "keys": [
+        "/gateway/compress/no_provider",
+        "/gateway/model/provider_label",
+        "/gateway/model/usage_switch_provider"
+      ]
+    },
+    {
+      "term": "gateway",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "**Agents actifs :** {count}",
+        "**Tâches asynchrones du gateway :** {count}",
+        "**Délégations en arrière-plan :** {count}"
+      ],
+      "keys": [
+        "/gateway/agents/active_agents",
+        "/gateway/agents/async_jobs",
+        "/gateway/agents/background_delegations",
+        "/gateway/agents/header",
+        "/gateway/agents/more",
+        "/gateway/agents/none",
+        "/gateway/agents/running_processes",
+        "/gateway/agents/state_running",
+        "/gateway/agents/state_starting",
+        "/gateway/agents/this_chat",
+        "/gateway/approval_expired",
+        "/gateway/approve/always_plural",
+        "/gateway/approve/always_singular",
+        "/gateway/approve/no_pending",
+        "/gateway/approve/once_plural",
+        "/gateway/approve/once_singular",
+        "/gateway/approve/session_plural",
+        "/gateway/approve/session_singular",
+        "/gateway/background/started",
+        "/gateway/background/usage",
+        "/gateway/branch/branched_many",
+        "/gateway/branch/branched_one",
+        "/gateway/branch/create_failed",
+        "/gateway/branch/db_unavailable",
+        "/gateway/branch/no_conversation",
+        "/gateway/branch/switch_failed",
+        "/gateway/commands/default_desc",
+        "/gateway/commands/header",
+        "/gateway/commands/nav_next",
+        "/gateway/commands/nav_prev",
+        "/gateway/commands/none",
+        "/gateway/commands/out_of_range",
+        "/gateway/commands/skill_header",
+        "/gateway/commands/usage",
+        "/gateway/compress/aborted",
+        "/gateway/compress/aggressive_unsupported",
+        "/gateway/compress/aux_failed",
+        "/gateway/compress/failed",
+        "/gateway/compress/focus_line",
+        "/gateway/compress/no_provider",
+        "/gateway/compress/not_enough",
+        "/gateway/compress/nothing_to_do",
+        "/gateway/compress/summary_failed",
+        "/gateway/config_read_failed",
+        "/gateway/config_save_failed",
+        "/gateway/debug/auto_delete",
+        "/gateway/debug/full_logs_hint",
+        "/gateway/debug/header",
+        "/gateway/debug/share_hint",
+        "/gateway/debug/upload_failed",
+        "/gateway/deny/denied_plural",
+        "/gateway/deny/denied_reason_plural",
+        "/gateway/deny/denied_reason_singular",
+        "/gateway/deny/denied_singular",
+        "/gateway/deny/no_pending",
+        "/gateway/deny/stale",
+        "/gateway/draining",
+        "/gateway/fast/choice_fast",
+        "/gateway/fast/choice_normal",
+        "/gateway/fast/not_supported",
+        "/gateway/fast/picker_title",
+        "/gateway/fast/saved",
+        "/gateway/fast/session_only",
+        "/gateway/fast/status",
+        "/gateway/fast/unknown_arg",
+        "/gateway/footer/example_line",
+        "/gateway/footer/saved",
+        "/gateway/footer/status",
+        "/gateway/footer/usage",
+        "/gateway/goal/invalid",
+        "/gateway/goal/no_goal_set",
+        "/gateway/goal/no_resume",
+        "/gateway/goal/paused",
+        "/gateway/goal/resumed",
+        "/gateway/goal/set",
+        "/gateway/goal/unavailable",
+        "/gateway/goal_cleared",
+        "/gateway/help/header",
+        "/gateway/help/more_use_commands",
+        "/gateway/help/skill_header",
+        "/gateway/insights/error",
+        "/gateway/insights/invalid_days",
+        "/gateway/kanban/error_prefix",
+        "/gateway/kanban/no_output",
+        "/gateway/kanban/subscribed_suffix",
+        "/gateway/kanban/truncated_suffix",
+        "/gateway/model/capabilities_label",
+        "/gateway/model/context_label",
+        "/gateway/model/cost_label",
+        "/gateway/model/current_label",
+        "/gateway/model/current_tag",
+        "/gateway/model/error_prefix",
+        "/gateway/model/max_output_label",
+        "/gateway/model/more_models_suffix",
+        "/gateway/model/prompt_caching_enabled",
+        "/gateway/model/provider_label",
+        "/gateway/model/saved_global",
+        "/gateway/model/session_only_hint",
+        "/gateway/model/switched",
+        "/gateway/model/usage_persist",
+        "/gateway/model/usage_switch_model",
+        "/gateway/model/usage_switch_provider",
+        "/gateway/model/warning_prefix",
+        "/gateway/no_active_goal",
+        "/gateway/personality/cleared",
+        "/gateway/personality/header",
+        "/gateway/personality/none_configured",
+        "/gateway/personality/none_option",
+        "/gateway/personality/save_failed",
+        "/gateway/personality/set_to",
+        "/gateway/personality/unknown",
+        "/gateway/personality/usage",
+        "/gateway/profile/header",
+        "/gateway/profile/home",
+        "/gateway/reasoning/choice_hide",
+        "/gateway/reasoning/choice_none",
+        "/gateway/reasoning/choice_reset",
+        "/gateway/reasoning/choice_show",
+        "/gateway/reasoning/display_off",
+        "/gateway/reasoning/display_on",
+        "/gateway/reasoning/display_set_off",
+        "/gateway/reasoning/display_set_on",
+        "/gateway/reasoning/level_default",
+        "/gateway/reasoning/level_disabled",
+        "/gateway/reasoning/picker_title",
+        "/gateway/reasoning/reset_done",
+        "/gateway/reasoning/reset_global_unsupported",
+        "/gateway/reasoning/scope_global",
+        "/gateway/reasoning/scope_session",
+        "/gateway/reasoning/set_global",
+        "/gateway/reasoning/set_global_save_failed",
+        "/gateway/reasoning/set_session",
+        "/gateway/reasoning/status",
+        "/gateway/reasoning/unknown_arg",
+        "/gateway/reload_mcp/added",
+        "/gateway/reload_mcp/always_followup",
+        "/gateway/reload_mcp/cancelled",
+        "/gateway/reload_mcp/confirm_prompt",
+        "/gateway/reload_mcp/failed",
+        "/gateway/reload_mcp/header",
+        "/gateway/reload_mcp/none_connected",
+        "/gateway/reload_mcp/reconnected",
+        "/gateway/reload_mcp/removed",
+        "/gateway/reload_mcp/tools_available",
+        "/gateway/reload_skills/added_header",
+        "/gateway/reload_skills/failed",
+        "/gateway/reload_skills/header",
+        "/gateway/reload_skills/item_with_desc",
+        "/gateway/reload_skills/no_new",
+        "/gateway/reload_skills/removed_header",
+        "/gateway/reload_skills/total",
+        "/gateway/reset/header_default",
+        "/gateway/reset/header_new",
+        "/gateway/reset/header_titled",
+        "/gateway/reset/tip",
+        "/gateway/reset/title_empty_untitled",
+        "/gateway/reset/title_error_untitled",
+        "/gateway/reset/title_rejected",
+        "/gateway/restart/in_progress",
+        "/gateway/restart/restarting",
+        "/gateway/resume/db_unavailable",
+        "/gateway/resume/parse_error"
+      ]
+    },
+    {
+      "term": "agent",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "**Agents actifs :** {count}",
+        "**Tâches asynchrones du gateway :** {count}",
+        "**Délégations en arrière-plan :** {count}"
+      ],
+      "keys": [
+        "/gateway/agents/active_agents",
+        "/gateway/agents/async_jobs",
+        "/gateway/agents/background_delegations",
+        "/gateway/agents/header",
+        "/gateway/agents/more",
+        "/gateway/agents/none",
+        "/gateway/agents/running_processes",
+        "/gateway/agents/state_running",
+        "/gateway/agents/state_starting",
+        "/gateway/agents/this_chat"
+      ]
+    },
+    {
+      "term": "model",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "Capacités : {capabilities}",
+        "Contexte : {tokens} tokens",
+        "Coût : {cost}"
+      ],
+      "keys": [
+        "/gateway/model/capabilities_label",
+        "/gateway/model/context_label",
+        "/gateway/model/cost_label",
+        "/gateway/model/current_label",
+        "/gateway/model/current_tag",
+        "/gateway/model/error_prefix",
+        "/gateway/model/max_output_label",
+        "/gateway/model/more_models_suffix",
+        "/gateway/model/prompt_caching_enabled",
+        "/gateway/model/provider_label",
+        "/gateway/model/saved_global",
+        "/gateway/model/session_only_hint",
+        "/gateway/model/switched",
+        "/gateway/model/usage_persist",
+        "/gateway/model/usage_switch_model",
+        "/gateway/model/usage_switch_provider",
+        "/gateway/model/warning_prefix"
+      ]
+    },
+    {
+      "term": "tool",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "\n🔧 {tools} outil(s) disponible(s) sur {servers} serveur(s)"
+      ],
+      "keys": [
+        "/gateway/reload_mcp/tools_available"
+      ]
+    },
+    {
+      "term": "reasoning",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "masquer le raisonnement dans les réponses",
+        "none — désactiver le raisonnement",
+        "reset — effacer le réglage de session"
+      ],
+      "keys": [
+        "/gateway/reasoning/choice_hide",
+        "/gateway/reasoning/choice_none",
+        "/gateway/reasoning/choice_reset",
+        "/gateway/reasoning/choice_show",
+        "/gateway/reasoning/display_off",
+        "/gateway/reasoning/display_on",
+        "/gateway/reasoning/display_set_off",
+        "/gateway/reasoning/display_set_on",
+        "/gateway/reasoning/level_default",
+        "/gateway/reasoning/level_disabled",
+        "/gateway/reasoning/picker_title",
+        "/gateway/reasoning/reset_done",
+        "/gateway/reasoning/reset_global_unsupported",
+        "/gateway/reasoning/scope_global",
+        "/gateway/reasoning/scope_session",
+        "/gateway/reasoning/set_global",
+        "/gateway/reasoning/set_global_save_failed",
+        "/gateway/reasoning/set_session",
+        "/gateway/reasoning/status",
+        "/gateway/reasoning/unknown_arg"
+      ]
+    },
+    {
+      "term": "approval",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "      ✓ Ajouté à la liste d'autorisation permanente",
+        "      ✓ Autorisé une fois",
+        "      ✓ Autorisé pour cette session"
+      ],
+      "keys": [
+        "/approval/allowed_always",
+        "/approval/allowed_once",
+        "/approval/allowed_session",
+        "/approval/blocklist_message",
+        "/approval/cancelled",
+        "/approval/choose_long",
+        "/approval/choose_short",
+        "/approval/choose_smart_deny",
+        "/approval/dangerous_header",
+        "/approval/denied",
+        "/approval/prompt_long",
+        "/approval/prompt_short",
+        "/approval/prompt_smart_deny",
+        "/approval/smart_deny_deny_inputs",
+        "/approval/timeout",
+        "/gateway/approval_expired"
+      ]
+    },
+    {
+      "term": "blocklist",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "Cette commande est sur la liste de blocage inconditionnel et ne peut pas être approuvée."
+      ],
+      "keys": [
+        "/approval/blocklist_message"
+      ]
+    },
+    {
+      "term": "background",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "**Délégations en arrière-plan :** {count}",
+        "🔄 Tâche d'arrière-plan démarrée : « {preview} »\nID de tâche : {task_id}\nVous pouvez continuer à discuter — les résultats apparaîtront ici une fois terminés.",
+        "Usage : /background <prompt>\nExemple : /background Résume les meilleures histoires HN d'aujourd'hui\n\nExécute le prompt dans une session séparée. Vous pouvez continuer à discuter — le résultat apparaîtra ici une fois terminé."
+      ],
+      "keys": [
+        "/gateway/agents/background_delegations",
+        "/gateway/background/started",
+        "/gateway/background/usage"
+      ]
+    },
+    {
+      "term": "restart",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "⏳ Redémarrage du gateway déjà en cours...",
+        "♻ Redémarrage du gateway. Si vous n'êtes pas notifié dans les 60 secondes, redémarrez depuis la console avec `hermes gateway restart`."
+      ],
+      "keys": [
+        "/gateway/restart/in_progress",
+        "/gateway/restart/restarting"
+      ]
+    },
+    {
+      "term": "delete",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "⏱ Les pastes s'effaceront automatiquement dans 6 heures."
+      ],
+      "keys": [
+        "/gateway/debug/auto_delete"
+      ]
+    },
+    {
+      "term": "clear",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "✓ Objectif effacé.",
+        "🎭 Personnalité effacée — comportement de base de l'agent utilisé.\n_(prend effet au prochain message)_"
+      ],
+      "keys": [
+        "/gateway/goal_cleared",
+        "/gateway/personality/cleared"
+      ]
+    },
+    {
+      "term": "reset",
+      "surface": "yaml_cli_gateway",
+      "official_fr_samples": [
+        "reset — effacer le réglage de session",
+        "🧠 ✓ Remplacement de raisonnement de la session effacé ; retour à la configuration globale.",
+        "⚠️ `/reasoning reset --global` n'est pas pris en charge. Utilisez `/reasoning <level> --global` pour modifier la valeur globale par défaut."
+      ],
+      "keys": [
+        "/gateway/reasoning/choice_reset",
+        "/gateway/reasoning/reset_done",
+        "/gateway/reasoning/reset_global_unsupported",
+        "/gateway/reset/header_default",
+        "/gateway/reset/header_new",
+        "/gateway/reset/header_titled",
+        "/gateway/reset/tip",
+        "/gateway/reset/title_empty_untitled",
+        "/gateway/reset/title_error_untitled",
+        "/gateway/reset/title_rejected"
+      ]
+    },
+    {
+      "term": "session",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Démarrez une session pour voir les analyses ici",
+        "Sessions totales",
+        "Sessions actives:"
+      ],
+      "keys": [
+        "/analytics/startSession",
+        "/analytics/totalSessions",
+        "/app/activeSessionsLabel",
+        "/app/sessionsActiveCount",
+        "/models/avgPerSession",
+        "/models/startSession",
+        "/oauth/sessionExpired",
+        "/oauth/sessionExpires",
+        "/sessions/anySource",
+        "/sessions/clearSelection",
+        "/sessions/confirmDeleteMessage",
+        "/sessions/confirmDeleteTitle",
+        "/sessions/deleteEmpty",
+        "/sessions/deleteEmptyConfirmMessage",
+        "/sessions/deleteEmptyConfirmTitle",
+        "/sessions/deleteSelected",
+        "/sessions/deleteSelectedConfirmMessage",
+        "/sessions/deleteSelectedConfirmTitle",
+        "/sessions/deleteSession",
+        "/sessions/emptySessionsDeleted",
+        "/sessions/failedToDelete",
+        "/sessions/failedToDeleteEmpty",
+        "/sessions/failedToDeleteSelected",
+        "/sessions/filterAll",
+        "/sessions/filterAutomation",
+        "/sessions/filterChats",
+        "/sessions/history",
+        "/sessions/newChat",
+        "/sessions/nextPage",
+        "/sessions/noMatch",
+        "/sessions/noMessages",
+        "/sessions/noSessions",
+        "/sessions/noSessionsInFilter",
+        "/sessions/overview",
+        "/sessions/previousPage",
+        "/sessions/resumeInChat",
+        "/sessions/roles/system",
+        "/sessions/roles/tool",
+        "/sessions/roles/user",
+        "/sessions/searchPlaceholder",
+        "/sessions/selectAllOnPage",
+        "/sessions/selectSession",
+        "/sessions/selectedCount",
+        "/sessions/selectedSessionsDeleted",
+        "/sessions/sessionDeleted",
+        "/sessions/sourceFilter",
+        "/sessions/startConversation",
+        "/sessions/untitledSession",
+        "/status/activeSessions",
+        "/status/recentSessions"
+      ]
+    },
+    {
+      "term": "token",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Utilisation quotidienne des tokens",
+        "Tokens totaux"
+      ],
+      "keys": [
+        "/analytics/dailyTokenUsage",
+        "/analytics/totalTokens"
+      ]
+    },
+    {
+      "term": "prompt",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Invite",
+        "Que doit faire l'agent à chaque exécution ?",
+        "Un nouvel onglet s'est ouvert. Saisissez ce code si demandé:"
+      ],
+      "keys": [
+        "/cron/prompt",
+        "/cron/promptPlaceholder",
+        "/oauth/enterCodePrompt"
+      ]
+    },
+    {
+      "term": "skill",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Compétence",
+        "Compétences les plus utilisées",
+        "Compétences"
+      ],
+      "keys": [
+        "/analytics/skill",
+        "/analytics/topSkills",
+        "/app/nav/skills",
+        "/kanban/skills",
+        "/kanban/skillsPlaceholder",
+        "/profiles/skills",
+        "/skills/all",
+        "/skills/categories",
+        "/skills/disabledForCli",
+        "/skills/enabledOf",
+        "/skills/filters",
+        "/skills/more",
+        "/skills/noDescription",
+        "/skills/noSkills",
+        "/skills/noSkillsMatch",
+        "/skills/noToolsetsMatch",
+        "/skills/resultCount",
+        "/skills/searchPlaceholder",
+        "/skills/setupNeeded",
+        "/skills/skillCount",
+        "/skills/title",
+        "/skills/toolsetLabel",
+        "/skills/toolsets"
+      ]
+    },
+    {
+      "term": "plugin",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Impossible de charger le script de ce plugin. Vérifiez l'onglet Réseau (dashboard-plugins/…) et le chemin des plugins du serveur.",
+        "Le script du plugin n'a pas appelé register(), ou le script a échoué. Ouvrez la console du navigateur pour plus de détails.",
+        "Authentification requise"
+      ],
+      "keys": [
+        "/common/pluginLoadFailed",
+        "/common/pluginNotRegistered",
+        "/pluginsPage/authRequired",
+        "/pluginsPage/authRequiredHint",
+        "/pluginsPage/contextEngineLabel",
+        "/pluginsPage/dashboardSlots",
+        "/pluginsPage/disableRuntime",
+        "/pluginsPage/enableAfterInstall",
+        "/pluginsPage/enableRuntime",
+        "/pluginsPage/forceReinstall",
+        "/pluginsPage/headline",
+        "/pluginsPage/hideFromSidebar",
+        "/pluginsPage/identifierLabel",
+        "/pluginsPage/inactive",
+        "/pluginsPage/installBtn",
+        "/pluginsPage/installHeading",
+        "/pluginsPage/installHint",
+        "/pluginsPage/memoryProviderLabel",
+        "/pluginsPage/missingEnvWarn",
+        "/pluginsPage/noDashboardTab",
+        "/pluginsPage/openTab",
+        "/pluginsPage/orphanHeading",
+        "/pluginsPage/pluginListHeading",
+        "/pluginsPage/providerDefaults",
+        "/pluginsPage/providersHeading",
+        "/pluginsPage/providersHint",
+        "/pluginsPage/refreshDashboard",
+        "/pluginsPage/removeConfirm",
+        "/pluginsPage/removeHint",
+        "/pluginsPage/rescanHeading",
+        "/pluginsPage/rescanHint",
+        "/pluginsPage/runtimeHeading",
+        "/pluginsPage/saveProviders",
+        "/pluginsPage/savedProviders",
+        "/pluginsPage/showInSidebar"
+      ]
+    },
+    {
+      "term": "provider",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Fournisseurs LLM",
+        "{configured} sur {total} fournisseurs configurés",
+        "Aucun fournisseur compatible OAuth détecté."
+      ],
+      "keys": [
+        "/env/llmProviders",
+        "/env/providersConfigured",
+        "/oauth/noProviders",
+        "/oauth/providerLogins",
+        "/pluginsPage/memoryProviderLabel",
+        "/pluginsPage/providerDefaults",
+        "/pluginsPage/providersHeading",
+        "/pluginsPage/providersHint",
+        "/pluginsPage/saveProviders",
+        "/pluginsPage/savedProviders"
+      ]
+    },
+    {
+      "term": "gateway",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "État de la passerelle:",
+        "Échec du démarrage",
+        "Désactivé"
+      ],
+      "keys": [
+        "/app/gatewayStatusLabel",
+        "/app/gatewayStrip/failed",
+        "/app/gatewayStrip/off",
+        "/app/gatewayStrip/running",
+        "/app/gatewayStrip/starting",
+        "/app/gatewayStrip/stopped",
+        "/status/gateway",
+        "/status/gatewayFailedToStart",
+        "/status/restartGateway",
+        "/status/restartingGateway"
+      ]
+    },
+    {
+      "term": "model",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "sur {count} modèles",
+        "Modèle",
+        "Détail par modèle"
+      ],
+      "keys": [
+        "/analytics/acrossModels",
+        "/analytics/model",
+        "/analytics/perModelBreakdown",
+        "/app/closeModelTools",
+        "/app/modelToolsSheetSubtitle",
+        "/app/modelToolsSheetTitle",
+        "/app/nav/models",
+        "/models/apiCalls",
+        "/models/avgPerSession",
+        "/models/estimatedCost",
+        "/models/modelsUsed",
+        "/models/noModelsData",
+        "/models/startSession",
+        "/models/toolCalls",
+        "/profiles/model"
+      ]
+    },
+    {
+      "term": "tool",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Fermer modèle et outils",
+        "& outils",
+        "Modèle"
+      ],
+      "keys": [
+        "/app/closeModelTools",
+        "/app/modelToolsSheetSubtitle",
+        "/app/modelToolsSheetTitle",
+        "/common/tools",
+        "/config/resetScopeTooltip",
+        "/models/toolCalls",
+        "/sessions/roles/tool",
+        "/skills/noToolsetsMatch",
+        "/skills/toolsetLabel",
+        "/skills/toolsets"
+      ]
+    },
+    {
+      "term": "background",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Démarré en arrière-plan — consultez les journaux pour la progression"
+      ],
+      "keys": [
+        "/status/startedInBackground"
+      ]
+    },
+    {
+      "term": "restart",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Redémarrer la passerelle",
+        "Redémarrage de la passerelle…"
+      ],
+      "keys": [
+        "/status/restartGateway",
+        "/status/restartingGateway"
+      ]
+    },
+    {
+      "term": "delete",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Supprimer",
+        "Cela supprime la tâche du planning. Cette action est irréversible.",
+        "Supprimer la tâche planifiée ?"
+      ],
+      "keys": [
+        "/common/delete",
+        "/cron/confirmDeleteMessage",
+        "/cron/confirmDeleteTitle",
+        "/profiles/confirmDeleteMessage",
+        "/profiles/confirmDeleteTitle",
+        "/profiles/deleted",
+        "/sessions/confirmDeleteMessage",
+        "/sessions/confirmDeleteTitle",
+        "/sessions/deleteEmpty",
+        "/sessions/deleteEmptyConfirmMessage",
+        "/sessions/deleteEmptyConfirmTitle",
+        "/sessions/deleteSelected",
+        "/sessions/deleteSelectedConfirmMessage",
+        "/sessions/deleteSelectedConfirmTitle",
+        "/sessions/deleteSession",
+        "/sessions/emptySessionsDeleted",
+        "/sessions/failedToDelete",
+        "/sessions/failedToDeleteEmpty",
+        "/sessions/failedToDeleteSelected",
+        "/sessions/selectedSessionsDeleted",
+        "/sessions/sessionDeleted"
+      ]
+    },
+    {
+      "term": "clear",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Effacer",
+        "La valeur stockée pour cette variable sera supprimée de votre fichier .env. Cette action ne peut pas être annulée depuis l'interface.",
+        "Effacer cette clé ?"
+      ],
+      "keys": [
+        "/common/clear",
+        "/env/confirmClearMessage",
+        "/env/confirmClearTitle",
+        "/kanban/clear",
+        "/sessions/clearSelection"
+      ]
+    },
+    {
+      "term": "reset",
+      "surface": "web_dashboard",
+      "official_fr_samples": [
+        "Réinitialiser tous les paramètres de {scope} aux valeurs par défaut ? Cela ne met à jour que le formulaire — les modifications ne sont écrites dans config.yaml qu'après avoir appuyé sur Enregistrer.",
+        "Réinitialiser aux valeurs par défaut",
+        "{scope} réinitialisé aux valeurs par défaut — vérifiez et enregistrez pour conserver"
+      ],
+      "keys": [
+        "/config/confirmResetScope",
+        "/config/resetDefaults",
+        "/config/resetScopeToast",
+        "/config/resetScopeTooltip"
+      ]
+    }
+  ]
+}

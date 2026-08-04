@@ -1,0 +1,21 @@
+{
+  "evidence_level": "E1_automated_only",
+  "human_review": false,
+  "surfaces": {
+    "yaml": {
+      "flags": 342,
+      "blocking": 0,
+      "untranslated_english": 342
+    },
+    "web": {
+      "flags": 701,
+      "blocking": 0,
+      "untranslated_english": 701
+    },
+    "desktop": {
+      "flags": 2618,
+      "blocking": 0,
+      "untranslated_english": 2618
+    }
+  }
+}

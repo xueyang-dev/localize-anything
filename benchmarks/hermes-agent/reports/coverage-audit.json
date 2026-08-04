@@ -1,0 +1,59 @@
+{
+  "protocol_version": "0.1",
+  "benchmark_id": "hermes-agent",
+  "categories": {
+    "resource_catalog_coverage": {
+      "status": "verified_for_staged_catalogs",
+      "evidence": "YAML + Web + Desktop staged fr catalogs rebuild and pass deterministic QA"
+    },
+    "static_frontend_coverage": {
+      "status": "partial",
+      "evidence": "catalogs covered; hardcoded JSX strings inventoried but not translated"
+    },
+    "backend_metadata_coverage": {
+      "status": "partial",
+      "evidence": "gateway labels routed through YAML catalog; dynamic values stay English"
+    },
+    "plugin_metadata_coverage": {
+      "status": "not_translated",
+      "evidence": "plugin manifests inventory only"
+    },
+    "skill_metadata_coverage": {
+      "status": "not_translated",
+      "evidence": "skill frontmatter/descriptions inventory only"
+    },
+    "documentation_coverage": {
+      "status": "analyzed_not_generated",
+      "evidence": "378 English docs, 317 zh-Hans translations; no fr docs generated in engineering run"
+    },
+    "dynamic_server_content_coverage": {
+      "status": "partial",
+      "evidence": "agent replies/logs/tool output intentionally English per agent/i18n.py"
+    },
+    "runtime_generated_content": {
+      "status": "intentionally_out_of_scope",
+      "evidence": "model output is never catalog-routed"
+    },
+    "non_text_asset_coverage": {
+      "status": "not_run",
+      "evidence": "images/audio/video assets inventoried; no OCR/visual QA"
+    },
+    "visual_qa": {
+      "status": "not_run",
+      "evidence": "no UI screenshots or runtime smoke tests in engineering run"
+    }
+  },
+  "delivery_decision": {
+    "catalog_localization_proven": true,
+    "full_product_localization_proven": false,
+    "statement": "Catalog localization is proven for the staged fr catalogs; full product localization is NOT proven.",
+    "incremental_classification": {
+      "new": 1,
+      "unchanged": 347,
+      "changed": 2,
+      "moved": 1,
+      "deleted": 1
+    },
+    "desktop_official_french_missing": true
+  }
+}

@@ -1,0 +1,70 @@
+# typescript-web-benchmark-report.md
+
+- protocol_version: 0.1
+- benchmark_id: hermes-agent
+- surface: web_dashboard
+- track: controlled
+- commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
+- target_locale: fr
+- generation:
+  - mode: engineering_fixture_only
+  - quality_claim: engineering_fixture_only
+  - provider: None
+  - curated_slice_segments: 9
+  - identity_segments: 700
+- extraction:
+  - segments: 709
+  - deterministic: True
+  - duplicate_ids: False
+  - source_hash: 37d65853e79abedcbbe12f7fe8165c69e15b8401db4b8057229f02ee3597528c
+  - function_valued: 0
+  - template_expression_bearing: 0
+- batch_plan:
+  - surface: web
+  - target_locale: fr
+  - batches:
+    - 15 items (sample):
+      - common
+      - app_shell
+      - status
+      - sessions
+      - analytics
+      - models
+      - logs
+      - settings
+- qa:
+  - status: pass
+  - summary:
+    - blocking_count: 0
+    - warning_count: 0
+- semantic_review:
+  - flags: 701
+  - blocking: 0
+  - untranslated_english: 701
+- staging:
+  - path: <work>/staging/web/fr.ts
+  - source_unchanged: True
+- reference_comparison:
+  - official_is_reference_not_ground_truth: True
+  - official_key_missing_vs_staged:
+    - 71 items (sample):
+      - /app/currentProfileOption
+      - /app/managingProfile
+      - /app/managingProfileBanner
+      - /common/gateway
+      - /common/gatewayHint
+      - /cron/delivery/needsHomeChannel
+      - /cron/delivery/noneConfigured
+      - /kanban/assigneeLabel
+  - staged_key_missing_vs_official:
+  - official_untranslated_english_stragglers: 62
+  - staged_untranslated_english_segments: 701
+  - identical_translated_values: 6
+  - identical_translated_sample:
+    - /common/cancel
+    - /common/delete
+    - /common/retry
+    - /common/save
+    - /language/switchTo
+    - /status/running
+- apply_plan: None

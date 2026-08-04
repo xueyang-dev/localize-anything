@@ -1,0 +1,62 @@
+{
+  "protocol_version": "0.1",
+  "id": "hermes-agent",
+  "name": "Hermes Agent mixed-surface localization pressure test",
+  "description": "Mixed-surface Web/Desktop/CLI localization pressure test: YAML catalogs, TypeScript web/desktop catalogs, and Docusaurus documentation, pinned to a single upstream commit.",
+  "status": "experimental",
+  "upstream": {
+    "repository": "https://github.com/NousResearch/hermes-agent.git",
+    "commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53",
+    "commit_date": "2026-08-03T17:19:49-07:00",
+    "version": "0.20.0"
+  },
+  "source_locale": "en",
+  "target_locale": "fr",
+  "surfaces": {
+    "yaml_cli_gateway": {
+      "path": "locales",
+      "adapter": "core.yaml-toml",
+      "source": ["locales/en.yaml"],
+      "reference": ["locales/fr.yaml"],
+      "notes": "Nested YAML catalogs flattened to dotted keys at runtime by agent/i18n.py; str.format {placeholders}; official French catalog is partial."
+    },
+    "web_dashboard": {
+      "path": "web/src/i18n",
+      "adapter": "core.typescript-locale",
+      "source": ["web/src/i18n/en.ts"],
+      "reference": ["web/src/i18n/fr.ts"],
+      "notes": "Typed nested object catalogs (string leaves and weekday tuples); partial override catalogs via defineLocale; official French catalog is partial."
+    },
+    "desktop": {
+      "path": "apps/desktop/src/i18n",
+      "adapter": "core.typescript-locale",
+      "source": ["apps/desktop/src/i18n/en.ts"],
+      "reference": [],
+      "notes": "Largest surface: 318 function-valued messages with template literals and ${expressions}; no official French catalog exists; enablement requires types.ts/catalog.ts/languages.ts registration."
+    },
+    "documentation": {
+      "path": "website",
+      "adapter": null,
+      "source": [],
+      "reference": [],
+      "notes": "Docusaurus site with en + zh-Hans locales; inventoried for coverage analysis only in the engineering run."
+    }
+  },
+  "tracks": {
+    "controlled": {
+      "reference_policy": "blind",
+      "description": "English source is canonical; official French resources are hidden during generation and revealed only afterward as comparison references."
+    },
+    "agent_system": {
+      "reference_policy": "style_only",
+      "description": "Reviewed French resources from one Hermes surface supply glossary/style evidence to another surface while English remains source truth; tm_assisted not exercised in the engineering run."
+    }
+  },
+  "generation": {
+    "mode": "engineering_fixture_only",
+    "quality_claim": "engineering_fixture_only",
+    "provider": null,
+    "import_flow": true,
+    "description": "No provider credentials were available in the approved environment; the run uses a conservative local draft (identity copy plus a small curated French slice) to prove extraction, staging, QA, and build plumbing. A provider-agnostic import flow is provided for real generation."
+  }
+}

@@ -260,6 +260,35 @@ Mechanical QA preserves cues, timestamps, tags, and placeholders. Reading
 speed, line breaks, cultural context, and rendered results belong in Agent or
 human review.
 
+### TypeScript locale catalogs (`core.typescript-locale`)
+
+Parses the constrained shape of TypeScript locale catalogs -- object literals
+whose leaves are strings, template literals, string arrays, and arrow
+functions -- with a real tokenizer/parser and fails closed on anything else.
+It is not a regex rewriter and not a general TypeScript parser.
+
+- Extraction covers typed catalogs (`export const fr: Translations = { ... }`),
+  partial `defineLocale({ ... })` catalogs, wrapper calls such as
+  `defineFieldCopy({ ... })`, weekday-style string tuples, and function-valued
+  messages (each translatable literal inside a function is a segment).
+- Rebuild replaces only translated literal spans, so imports, exports, keys,
+  comments, function signatures, `${...}` expressions, identifiers and all
+  non-text syntax are byte-preserved unless a literal changes. The catalog
+  export identifier is renamed when `export_name` is supplied (e.g. `en` ->
+  `fr`) so a staged target file registers under the target locale.
+- Template `${{...}}` expressions are protected: targets must keep the same
+  expressions in the same order; deterministic QA blocks drift. Changing
+  plural logic or expression structure requires editing the function body
+  outside the adapter contract.
+- Deterministic validation covers parsing, key identity and coverage,
+  duplicate/missing/unexpected keys, function-signature parity, template
+  expression parity, placeholder parity, quote-style drift warnings, and
+  syntax integrity (reparse).
+
+Verified against the 22 real Hermes Agent locale catalogs (byte-identical
+identity round-trip) and the contract fixtures in
+`tests/fixtures/typescript-locale/`.
+
 ## v1 Priority
 
 The first simplified CLI tier prioritizes:

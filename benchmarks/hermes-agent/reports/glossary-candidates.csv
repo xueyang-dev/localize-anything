@@ -1,0 +1,58 @@
+term,surface,official_fr_sample,key
+session,yaml_cli_gateway,      ✓ Autorisé pour cette session,/approval/allowed_session
+session,yaml_cli_gateway,      ✓ Autorisé pour cette session,/gateway/approve/session_plural
+prompt,yaml_cli_gateway,      Choix [o/s/t/R] : ,/approval/prompt_long
+prompt,yaml_cli_gateway,      Choix [o/s/t/R] : ,/approval/prompt_short
+skill,yaml_cli_gateway,⚡ **Commandes de skill** :,/gateway/commands/skill_header
+skill,yaml_cli_gateway,⚡ **Commandes de skill** :,/gateway/help/skill_header
+provider,yaml_cli_gateway,Aucun fournisseur configuré — compression impossible.,/gateway/compress/no_provider
+provider,yaml_cli_gateway,Aucun fournisseur configuré — compression impossible.,/gateway/model/provider_label
+gateway,yaml_cli_gateway,**Agents actifs :** {count},/gateway/agents/active_agents
+gateway,yaml_cli_gateway,**Agents actifs :** {count},/gateway/agents/async_jobs
+agent,yaml_cli_gateway,**Agents actifs :** {count},/gateway/agents/active_agents
+agent,yaml_cli_gateway,**Agents actifs :** {count},/gateway/agents/async_jobs
+model,yaml_cli_gateway,Capacités : {capabilities},/gateway/model/capabilities_label
+model,yaml_cli_gateway,Capacités : {capabilities},/gateway/model/context_label
+tool,yaml_cli_gateway,"
+🔧 {tools} outil(s) disponible(s) sur {servers} serveur(s)",/gateway/reload_mcp/tools_available
+reasoning,yaml_cli_gateway,masquer le raisonnement dans les réponses,/gateway/reasoning/choice_hide
+reasoning,yaml_cli_gateway,masquer le raisonnement dans les réponses,/gateway/reasoning/choice_none
+approval,yaml_cli_gateway,      ✓ Ajouté à la liste d'autorisation permanente,/approval/allowed_always
+approval,yaml_cli_gateway,      ✓ Ajouté à la liste d'autorisation permanente,/approval/allowed_once
+blocklist,yaml_cli_gateway,Cette commande est sur la liste de blocage inconditionnel et ne peut pas être approuvée.,/approval/blocklist_message
+background,yaml_cli_gateway,**Délégations en arrière-plan :** {count},/gateway/agents/background_delegations
+background,yaml_cli_gateway,**Délégations en arrière-plan :** {count},/gateway/background/started
+restart,yaml_cli_gateway,⏳ Redémarrage du gateway déjà en cours...,/gateway/restart/in_progress
+restart,yaml_cli_gateway,⏳ Redémarrage du gateway déjà en cours...,/gateway/restart/restarting
+delete,yaml_cli_gateway,⏱ Les pastes s'effaceront automatiquement dans 6 heures.,/gateway/debug/auto_delete
+clear,yaml_cli_gateway,✓ Objectif effacé.,/gateway/goal_cleared
+clear,yaml_cli_gateway,✓ Objectif effacé.,/gateway/personality/cleared
+reset,yaml_cli_gateway,reset — effacer le réglage de session,/gateway/reasoning/choice_reset
+reset,yaml_cli_gateway,reset — effacer le réglage de session,/gateway/reasoning/reset_done
+session,web_dashboard,Démarrez une session pour voir les analyses ici,/analytics/startSession
+session,web_dashboard,Démarrez une session pour voir les analyses ici,/analytics/totalSessions
+token,web_dashboard,Utilisation quotidienne des tokens,/analytics/dailyTokenUsage
+token,web_dashboard,Utilisation quotidienne des tokens,/analytics/totalTokens
+prompt,web_dashboard,Invite,/cron/prompt
+prompt,web_dashboard,Invite,/cron/promptPlaceholder
+skill,web_dashboard,Compétence,/analytics/skill
+skill,web_dashboard,Compétence,/analytics/topSkills
+plugin,web_dashboard,Impossible de charger le script de ce plugin. Vérifiez l'onglet Réseau (dashboard-plugins/…) et le chemin des plugins du serveur.,/common/pluginLoadFailed
+plugin,web_dashboard,Impossible de charger le script de ce plugin. Vérifiez l'onglet Réseau (dashboard-plugins/…) et le chemin des plugins du serveur.,/common/pluginNotRegistered
+provider,web_dashboard,Fournisseurs LLM,/env/llmProviders
+provider,web_dashboard,Fournisseurs LLM,/env/providersConfigured
+gateway,web_dashboard,État de la passerelle:,/app/gatewayStatusLabel
+gateway,web_dashboard,État de la passerelle:,/app/gatewayStrip/failed
+model,web_dashboard,sur {count} modèles,/analytics/acrossModels
+model,web_dashboard,sur {count} modèles,/analytics/model
+tool,web_dashboard,Fermer modèle et outils,/app/closeModelTools
+tool,web_dashboard,Fermer modèle et outils,/app/modelToolsSheetSubtitle
+background,web_dashboard,Démarré en arrière-plan — consultez les journaux pour la progression,/status/startedInBackground
+restart,web_dashboard,Redémarrer la passerelle,/status/restartGateway
+restart,web_dashboard,Redémarrer la passerelle,/status/restartingGateway
+delete,web_dashboard,Supprimer,/common/delete
+delete,web_dashboard,Supprimer,/cron/confirmDeleteMessage
+clear,web_dashboard,Effacer,/common/clear
+clear,web_dashboard,Effacer,/env/confirmClearMessage
+reset,web_dashboard,Réinitialiser tous les paramètres de {scope} aux valeurs par défaut ? Cela ne met à jour que le formulaire — les modifications ne sont écrites dans config.yaml qu'après avoir appuyé sur Enregistrer.,/config/confirmResetScope
+reset,web_dashboard,Réinitialiser tous les paramètres de {scope} aux valeurs par défaut ? Cela ne met à jour que le formulaire — les modifications ne sont écrites dans config.yaml qu'après avoir appuyé sur Enregistrer.,/config/resetDefaults

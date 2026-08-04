@@ -1,0 +1,262 @@
+{
+  "yaml_cli_gateway": {
+    "locales": 17,
+    "rows": [
+      {
+        "locale": "af",
+        "file": "locales/af.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "ar",
+        "file": "locales/ar.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "de",
+        "file": "locales/de.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "en",
+        "file": "locales/en.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "es",
+        "file": "locales/es.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "fr",
+        "file": "locales/fr.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "ga",
+        "file": "locales/ga.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "hu",
+        "file": "locales/hu.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "it",
+        "file": "locales/it.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "ja",
+        "file": "locales/ja.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "ko",
+        "file": "locales/ko.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "pt",
+        "file": "locales/pt.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "ru",
+        "file": "locales/ru.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "tr",
+        "file": "locales/tr.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "uk",
+        "file": "locales/uk.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "zh-hant",
+        "file": "locales/zh-hant.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "zh",
+        "file": "locales/zh.yaml",
+        "keys": 351,
+        "coverage_vs_english": 1.0
+      }
+    ],
+    "coverage_classification": "full"
+  },
+  "web_dashboard": {
+    "locales": 17,
+    "rows": [
+      {
+        "locale": "af",
+        "file": "web/src/i18n/af.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "ar",
+        "file": "web/src/i18n/ar.ts",
+        "keys": 571,
+        "coverage_vs_english": 0.8054
+      },
+      {
+        "locale": "de",
+        "file": "web/src/i18n/de.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "en",
+        "file": "web/src/i18n/en.ts",
+        "keys": 709,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "es",
+        "file": "web/src/i18n/es.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "fr",
+        "file": "web/src/i18n/fr.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "ga",
+        "file": "web/src/i18n/ga.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "hu",
+        "file": "web/src/i18n/hu.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "it",
+        "file": "web/src/i18n/it.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "ja",
+        "file": "web/src/i18n/ja.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "ko",
+        "file": "web/src/i18n/ko.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "pt",
+        "file": "web/src/i18n/pt.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "ru",
+        "file": "web/src/i18n/ru.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "tr",
+        "file": "web/src/i18n/tr.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "uk",
+        "file": "web/src/i18n/uk.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "zh-hant",
+        "file": "web/src/i18n/zh-hant.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      },
+      {
+        "locale": "zh",
+        "file": "web/src/i18n/zh.ts",
+        "keys": 638,
+        "coverage_vs_english": 0.8999
+      }
+    ],
+    "coverage_classification": "partial"
+  },
+  "desktop": {
+    "locales": 5,
+    "rows": [
+      {
+        "locale": "ar",
+        "file": "apps/desktop/src/i18n/ar.ts",
+        "keys": 2177,
+        "coverage_vs_english": 0.83
+      },
+      {
+        "locale": "en",
+        "file": "apps/desktop/src/i18n/en.ts",
+        "keys": 2623,
+        "coverage_vs_english": 1.0
+      },
+      {
+        "locale": "ja",
+        "file": "apps/desktop/src/i18n/ja.ts",
+        "keys": 2337,
+        "coverage_vs_english": 0.891
+      },
+      {
+        "locale": "zh-hant",
+        "file": "apps/desktop/src/i18n/zh-hant.ts",
+        "keys": 2338,
+        "coverage_vs_english": 0.8913
+      },
+      {
+        "locale": "zh",
+        "file": "apps/desktop/src/i18n/zh.ts",
+        "keys": 2760,
+        "coverage_vs_english": 1.0522
+      }
+    ],
+    "coverage_classification": "partial"
+  },
+  "documentation": {
+    "locales": [
+      "en",
+      "zh-Hans"
+    ],
+    "english_docs": 375,
+    "zh_hans_docs": 315
+  }
+}

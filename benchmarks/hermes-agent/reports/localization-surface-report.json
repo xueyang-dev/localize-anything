@@ -1,0 +1,60 @@
+{
+  "benchmark_id": "hermes-agent",
+  "commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53",
+  "surfaces": {
+    "yaml_cli_gateway": {
+      "classification": "catalog_covered",
+      "evidence": "agent/i18n.py dotted-key runtime, English fallback, parity tests in tests/agent/test_i18n.py"
+    },
+    "web_dashboard": {
+      "classification": "catalog_covered",
+      "evidence": "web/src/i18n typed object catalogs, defineLocale partial overrides, RTL for ar"
+    },
+    "desktop": {
+      "classification": "catalog_covered",
+      "evidence": "apps/desktop/src/i18n full typed catalogs with function-valued messages"
+    },
+    "documentation": {
+      "classification": "catalog_covered",
+      "evidence": "Docusaurus i18n (en + zh-Hans), translated docs under website/i18n"
+    },
+    "tui_ui_tui": {
+      "classification": "unknown",
+      "evidence": "ui-tui package exists; no locale catalog detected in engineering audit"
+    },
+    "plugins": {
+      "classification": "dynamic_metadata",
+      "evidence": "plugins/ manifests and dashboard slots provide English metadata at runtime"
+    },
+    "skills": {
+      "classification": "generated_content",
+      "evidence": "skills/ and optional-skills/ frontmatter and descriptions; generated skill docs excluded from search index by design"
+    },
+    "gateway_server_output": {
+      "classification": "dynamic_metadata",
+      "evidence": "agent-generated replies, tool outputs, log lines, tracebacks intentionally stay in English per agent/i18n.py"
+    },
+    "billing_provider_responses": {
+      "classification": "intentionally_out_of_scope",
+      "evidence": "provider/billing responses are external English content"
+    }
+  },
+  "counts": {
+    "yaml_cli_gateway": {
+      "files": 17,
+      "keys": 5967
+    },
+    "web_dashboard": {
+      "files": 17,
+      "keys": null
+    },
+    "desktop": {
+      "files": 5,
+      "keys": null
+    },
+    "documentation": {
+      "files": 375,
+      "keys": 375
+    }
+  }
+}

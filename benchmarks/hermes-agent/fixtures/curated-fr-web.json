@@ -1,0 +1,11 @@
+{
+  "/common/save": "Enregistrer",
+  "/common/cancel": "Annuler",
+  "/common/delete": "Supprimer",
+  "/common/retry": "Réessayer",
+  "/app/nav/chat": "Discussion",
+  "/status/running": "En cours",
+  "/sessions/title": "Sessions",
+  "/language/switchTo": "Changer de langue",
+  "/common/search": "Rechercher"
+}

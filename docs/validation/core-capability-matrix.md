@@ -19,11 +19,11 @@ claim downgrades, and forbidden claims separately.
 
 | Status | Count |
 | --- | ---: |
-| covered | 19 |
-| partially_covered | 4 |
+| covered | 20 |
+| partially_covered | 5 |
 | uncovered | 0 |
 | intentionally_unsupported | 0 |
-| **total** | **23** |
+| **total** | **25** |
 
 ## Matrix
 
@@ -50,6 +50,8 @@ claim downgrades, and forbidden claims separately.
 | subtitles compatibility | covered | SRT/WebVTT cue/timing/tag round-trip tests pass. | Playback and reading-speed review remain external. |
 | tabular compatibility | covered | CSV/TSV/XLSX preservation tests pass. | Targets a locale-table convention. |
 | Wesnoth compatibility | partially_covered | WML extraction and pinned fixture tests pass. | Extract-only scenario handler, not a general five-command path. |
+| TypeScript locale catalogs | covered | Contract tests plus byte-identical identity round-trip on 22 real Hermes Agent locale catalogs; Hermes web/desktop typecheck, vitest, and build pass with staged fr applied to an isolated copy. | Constrained catalog shape only and fail-closed; `${...}` expressions protected; not a general TypeScript parser. |
+| Hermes mixed-surface benchmark | partially_covered | Pinned commit, blind-fr controlled and style_only agent-system tracks, deterministic QA pass, incremental classification, apply-to-copy builds, full regression gates. | Engineering-fixture generation only; E0/E1 evidence; no human review, visual QA, UI smoke tests, or packaging; catalog parity is not full product localization. |
 | Word compatibility | covered | DOCX/DOTX/DOCM/DOTM round-trip tests pass. | Layout, images, embedded objects, legacy/encrypted files need separate handling. |
 | clean package installation | covered | Fresh clone/venv wheel install exposed one `localize` entrypoint and ran all five commands; deleted modules were absent. | Repository protocol/adapter catalogs are validation assets, not runtime package data. |
 

@@ -1,0 +1,65 @@
+# typescript-desktop-benchmark-report.md
+
+- protocol_version: 0.1
+- benchmark_id: hermes-agent
+- surface: desktop
+- track: controlled
+- commit: 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53
+- target_locale: fr
+- generation:
+  - mode: engineering_fixture_only
+  - quality_claim: engineering_fixture_only
+  - provider: None
+  - curated_slice_segments: 5
+  - identity_segments: 2618
+- extraction:
+  - segments: 2623
+  - deterministic: True
+  - duplicate_ids: False
+  - source_hash: a357847504e26bba914ae35305d4e808a9dcc5dcf8eff0207b2393913b6d1605
+  - function_valued: 319
+  - template_expression_bearing: 315
+- batch_plan:
+  - surface: desktop
+  - target_locale: fr
+  - batches:
+    - 15 items (sample):
+      - common
+      - app_shell
+      - status
+      - sessions
+      - analytics
+      - models
+      - logs
+      - settings
+- qa:
+  - status: pass
+  - summary:
+    - blocking_count: 0
+    - warning_count: 0
+- semantic_review:
+  - flags: 2618
+  - blocking: 0
+  - untranslated_english: 2618
+- staging:
+  - path: <work>/staging/desktop/fr.ts
+  - source_unchanged: True
+- reference_comparison:
+  - official_reference_exists: False
+- apply_plan:
+  - description: Desktop fr enablement requires registering the staged catalog in the locale contract.
+  - files:
+    - path: apps/desktop/src/i18n/fr.ts
+    - action: copy_staged
+    - source: <work>/staging/desktop/fr.ts
+    - path: apps/desktop/src/i18n/types.ts
+    - action: edit_locale_union
+    - edit: add 'fr' to the `export type Locale` union
+    - path: apps/desktop/src/i18n/catalog.ts
+    - action: edit_translations_record
+    - edit: import fr and register it in TRANSLATIONS
+    - path: apps/desktop/src/i18n/languages.ts
+    - action: edit_locale_options
+    - edit: add the Français LOCALE_OPTIONS entry and fr aliases
+  - staged_only: True
+  - original_checkout_mutation: False

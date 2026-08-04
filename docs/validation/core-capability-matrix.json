@@ -10,11 +10,11 @@
     "intentionally_unsupported"
   ],
   "summary": {
-    "covered": 19,
-    "partially_covered": 4,
-    "uncovered": 0,
-    "intentionally_unsupported": 0,
-    "total": 23
+  "covered": 20,
+  "partially_covered": 5,
+  "uncovered": 0,
+  "intentionally_unsupported": 0,
+  "total": 25
   },
   "items": [
     {
@@ -205,6 +205,24 @@
       "evidence": "WML context extraction and pinned public fixture checks pass.",
       "tests": ["tests/test_runtime.py"],
       "limitations": "The retained scenario adapter is extract-only; it is not a general five-command translation path."
+    },
+    {
+      "id": "typescript-locale",
+      "capability": "TypeScript locale catalogs",
+      "status": "covered",
+      "scope": "core parser-based TypeScript locale catalog adapter",
+      "evidence": "Contract tests plus byte-identical identity round-trip on the 22 real Hermes Agent locale catalogs; Hermes web/desktop typecheck, vitest, and build pass with staged fr catalogs applied to an isolated copy.",
+      "tests": ["tests/test_typescript_adapter.py"],
+      "limitations": "Constrained catalog shape only (string/template/array/function leaves) and fail-closed on anything else; ${...} expressions are protected and cannot be reordered or removed; not a general TypeScript parser."
+    },
+    {
+      "id": "hermes-mixed-surface-benchmark",
+      "capability": "Hermes mixed-surface benchmark",
+      "status": "partially_covered",
+      "scope": "experimental registered benchmark (benchmarks/hermes-agent)",
+      "evidence": "Pinned upstream commit, blind-fr controlled and style_only agent-system tracks, deterministic QA pass, incremental classification, apply-to-copy build validation, and full Localize Anything regression gates.",
+      "tests": ["tests/test_hermes_benchmark.py", "benchmarks/hermes-agent/verify_results.py"],
+      "limitations": "Engineering-fixture generation only (quality_claim: engineering_fixture_only); E0/E1 evidence; no human review, visual QA, runtime UI smoke tests, or packaging; catalog parity is not full product localization."
     },
     {
       "id": "word-compatibility",

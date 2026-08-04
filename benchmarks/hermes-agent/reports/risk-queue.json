@@ -1,0 +1,4 @@
+{
+  "note": "Blocking risk items (placeholder/expression drift). Empty means deterministic QA caught nothing blocking.",
+  "items": []
+}

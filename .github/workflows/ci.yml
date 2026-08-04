@@ -33,7 +33,7 @@ jobs:
           adapters = validate_adapter_tree(Path("adapters"))
           protocol = validate_protocol_tree(Path("protocol"))
           print(json.dumps({"adapters": adapters, "protocol": protocol}, indent=2))
-          if adapters["status"] != "pass" or adapters["manifests_checked"] != 12:
+          if adapters["status"] != "pass" or adapters["manifests_checked"] != 13:
               raise SystemExit("Adapter manifest validation failed")
           if (
               protocol["status"] != "pass"
