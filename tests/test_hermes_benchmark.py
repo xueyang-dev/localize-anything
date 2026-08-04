@@ -227,12 +227,15 @@ class HermesBenchmarkHelpersTests(unittest.TestCase):
             with mock.patch.object(run_retention_adjudication, "REPORTS", reports_dir), mock.patch(
                 "sys.argv", ["run_retention_adjudication.py", "--collect", "--force"]
             ):
-                # --force proceeds past the guard and fails later only if runs are absent;
-                # reaching collect_rows() proves the guard was bypassed.
-                try:
-                    run_retention_adjudication.main()
-                except SystemExit as exc:
-                    self.assertNotIn("already contains decisions", str(exc))
+                # --force proceeds past the guard into collect_rows().
+                with mock.patch.object(
+                    run_retention_adjudication,
+                    "collect_rows",
+                    side_effect=SystemExit("collect called"),
+                ):
+                    with self.assertRaises(SystemExit) as ctx:
+                        run_retention_adjudication.main()
+                    self.assertIn("collect called", str(ctx.exception))
 
     def test_committed_import_manifest_verifies(self) -> None:
         import hashlib
