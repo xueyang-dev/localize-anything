@@ -11,15 +11,61 @@ from typing import Any
 from . import PROTOCOL_VERSION
 
 
-PLACEHOLDER_RE = re.compile(
+_PLACEHOLDER_RE = re.compile(
     r"{{[^{}]+}}"
     r"|{[A-Za-z_][^{}]*}"
-    r"|%%"  # literal %% — consume first, never treat as placeholder
-    r"|%\d+\$[#0+\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]"
-    r"|%\([^)]+\)[#0+\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]"
-    r"|%[#0+\-]*\d*(?:\.\d+)?(?:hh|h|ll|l|L|z|j|t)?[A-Za-z@]"
-    r"|\$[A-Za-z_][A-Za-z0-9_.]*"
+    r"|(?<![%\d])\$[A-Za-z_][A-Za-z0-9_.]*"
 )
+
+_PRINTF_CANDIDATE_RE = re.compile(
+    r"%"
+    r"(?P<mapping>\([^)]+\))?"
+    r"(?P<argnum>\d+\$)?"
+    r"(?P<flags>[#0+\- ]*)"
+    r"(?P<width>\d+)?"
+    r"(?:\.(?P<precision>\d+))?"
+    r"(?P<length>hh|h|ll|l|L|z|j|t)?"
+    r"(?P<conversion>[A-Za-z@])"
+)
+
+
+def _iter_printf_placeholders(text: str) -> Iterator[str]:
+    """Yield complete printf-style conversion specs from *text*.
+
+    ``%%`` is a literal percent and is never a placeholder.  A legal space
+    flag (``% d``, ``% 10d``, ``%+ d``, ``%1$ d``, ``%(count) d``) is kept,
+    but ``%`` + space + the first letter of a longer natural-language word
+    (``% of context``, ``% du contexte``, ``100% savings``) is rejected: a
+    bare conversion letter that is immediately followed by another word
+    character is the start of a word, not a printf conversion.
+    """
+    index = 0
+    length = len(text)
+    while index < length:
+        if text[index] != "%":
+            index += 1
+            continue
+        if index + 1 < length and text[index + 1] == "%":
+            index += 2  # literal "%%"
+            continue
+        match = _PRINTF_CANDIDATE_RE.match(text, index)
+        if match is None:
+            index += 1
+            continue
+        end = match.end()
+        conversion = match.group("conversion")
+        if (
+            conversion.isalpha()
+            and end < length
+            and (text[end].isalnum() or text[end] == "_")
+        ):
+            # The conversion letter starts a longer word ("% of", "% du",
+            # "100% savings", "10% left"), not a complete printf expression.
+            index += 1
+            continue
+        yield match.group(0)
+        index = end
+
 
 
 def load_json(path: Path) -> Any:
@@ -39,7 +85,9 @@ def source_hash(text: str) -> str:
 
 
 def extract_placeholders(text: str) -> list[str]:
-    return sorted(set(p for p in PLACEHOLDER_RE.findall(text) if p != "%%"))
+    found = list(_PLACEHOLDER_RE.findall(text))
+    found.extend(_iter_printf_placeholders(text))
+    return sorted(set(found))
 
 
 def escape_pointer_part(part: str) -> str:

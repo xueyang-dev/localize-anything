@@ -85,6 +85,59 @@ class JsonAdapterTests(unittest.TestCase):
         )
         self.assertEqual(extract_placeholders("Progress: %d%% complete"), ["%d"])
 
+    def test_printf_legal_space_flag_is_preserved(self) -> None:
+        # Standard printf allows a space flag; these must remain protected.
+        legal = {
+            "%d": ["%d"],
+            "% d": ["% d"],
+            "% 10d": ["% 10d"],
+            "%+ d": ["%+ d"],
+            "%05d": ["%05d"],
+            "%.2f": ["%.2f"],
+            "%1$d": ["%1$d"],
+            "%1$ d": ["%1$ d"],
+            "%(count)d": ["%(count)d"],
+            "%(count) d": ["%(count) d"],
+            "%lld": ["%lld"],
+            "%zu": ["%zu"],
+            "%@": ["%@"],
+        }
+        for text, expected in legal.items():
+            self.assertEqual(extract_placeholders(text), expected, text)
+
+    def test_percent_word_phrases_are_not_printf_placeholders(self) -> None:
+        # "%" + space + the first letter of a longer word is natural language,
+        # even when the letter itself is a valid conversion character.
+        natural = {
+            "100% savings": [],
+            "50% available": [],
+            "% of context": [],
+            "% du contexte": [],
+            "%(count) done": [],
+            "% saved": [],
+            "Only 10% left": [],
+        }
+        for text, expected in natural.items():
+            self.assertEqual(extract_placeholders(text), expected, text)
+
+    def test_printf_space_flag_loss_fails_placeholder_parity(self) -> None:
+        source = {"messages": {"progress": "Progress: % d of % 10d items"}}
+        target_dropped_flag = {"messages": {"progress": "Progression : %d des % 10d éléments"}}
+        source_path = FIXTURE_ROOT / "locales" / "en-US.json"
+        self.assertTrue(source_path.is_file())
+        with tempfile.TemporaryDirectory() as directory:
+            src = Path(directory) / "en.json"
+            tgt = Path(directory) / "fr.json"
+            src.write_text(json.dumps(source), encoding="utf-8")
+            tgt.write_text(json.dumps(target_dropped_flag), encoding="utf-8")
+            result = validate_pair(src, tgt)
+            self.assertEqual(result["status"], "fail")
+            self.assertTrue(
+                any(item["category"] == "placeholder_parity" and item["severity"] == "blocking"
+                    for item in result["items"]),
+                result,
+            )
+
     def test_extract_rebuild_and_validate(self) -> None:
         source = FIXTURE_ROOT / 'locales' / 'en-US.json'
         expected = FIXTURE_ROOT / 'locales' / 'zh-CN.json'
