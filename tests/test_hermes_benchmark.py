@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import sys
 import json
+import csv
+import hashlib
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,7 +13,9 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).parents[1] / "benchmarks" / "hermes-agent"))
 
 import common  # noqa: E402
+import build_e3_review  # noqa: E402
 import run_retention_adjudication  # noqa: E402
+import validate_e3_review  # noqa: E402
 
 from runtime.localize_anything.core_segments import diff_segments  # noqa: E402
 from runtime.localize_anything.structured_adapter import extract_segments as extract_yaml  # noqa: E402
@@ -284,6 +289,126 @@ class HermesBenchmarkHelpersTests(unittest.TestCase):
         self.assertIs(report["screenshots_reviewed"], False)
         self.assertIs(report["visual_layout_review_completed"], False)
         self.assertIn("visual layout quality not reviewed", report["delivery_claim"])
+
+    # ------------------------------------------------------------------
+    # E3 review package validation
+    # ------------------------------------------------------------------
+
+    def _temp_e3_package(self, mutate, *, fix_hash: bool = True) -> tuple[Path, list[str]]:
+        """Copy the real E3 package into a temp dir and apply a CSV mutation."""
+        rows = list(
+            csv.DictReader(
+                (build_e3_review.E3_DIR / "e3-review-sheet.csv").open(encoding="utf-8", newline="")
+            )
+        )
+        mutate(rows)
+        fieldnames = list(rows[0].keys())
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            package = tmp / "package"
+            shutil.copytree(build_e3_review.E3_DIR, package)
+            with (package / "e3-review-sheet.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(row)
+            if fix_hash:
+                digest = hashlib.sha256((package / "e3-review-sheet.csv").read_bytes()).hexdigest()
+                manifest = json.loads((package / "e3-review-manifest.json").read_text(encoding="utf-8"))
+                manifest["review_sheet_sha256"] = digest
+                (package / "e3-review-manifest.json").write_text(
+                    json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+                )
+                summary = json.loads((package / "e3-review-package-summary.json").read_text(encoding="utf-8"))
+                summary["rows"] = len(rows)
+                (package / "e3-review-package-summary.json").write_text(
+                    json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+                )
+            with mock.patch.object(validate_e3_review, "E3_DIR", package):
+                problems = validate_e3_review.validate_package()
+            return package, problems
+
+    def test_e3_valid_package_passes(self) -> None:
+        _, problems = self._temp_e3_package(lambda rows: None)
+        self.assertEqual(problems, [])
+
+    def test_e3_missing_mandatory_row_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            # drop one e2_sample row
+            for index, row in enumerate(rows):
+                if "e2_sample" in row["selection_reasons"].split("|"):
+                    del rows[index]
+                    break
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("mandatory E2 set incomplete" in problem for problem in problems))
+
+    def test_e3_missing_identity_row_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            for index, row in enumerate(rows):
+                if "identity_retention" in row["selection_reasons"].split("|"):
+                    del rows[index]
+                    break
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("mandatory identity set incomplete" in problem for problem in problems))
+
+    def test_e3_duplicate_row_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows.append(dict(rows[0]))
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("duplicate segment ids" in problem for problem in problems))
+
+    def test_e3_altered_target_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["current_target_fr"] = "Une modification détectée."
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("target mismatch" in problem for problem in problems))
+
+    def test_e3_unknown_segment_id_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["segment_id"] = "unknown:fake#00000000000000000000"
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("unknown segment ids" in problem for problem in problems))
+
+    def test_e3_missing_context_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["context"] = ""
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("missing context" in problem for problem in problems))
+
+    def test_e3_prefilled_reviewer_decision_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["review_status"] = "approved"
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("prefilled review_status" in problem for problem in problems))
+
+    def test_e3_broken_manifest_hash_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(build_e3_review.E3_DIR, package)
+            manifest = json.loads((package / "e3-review-manifest.json").read_text(encoding="utf-8"))
+            manifest["review_sheet_sha256"] = "0" * 64  # corrupt -> mismatch
+            (package / "e3-review-manifest.json").write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+            with mock.patch.object(validate_e3_review, "E3_DIR", package):
+                problems = validate_e3_review.validate_package()
+        self.assertTrue(any("sha256 does not match" in problem for problem in problems))
+
+    def test_e3_malformed_metadata_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            metadata = Path(directory) / "reviewer-metadata.json"
+            metadata.write_text(json.dumps({"reviewer_id": "fr-native-01"}), encoding="utf-8")
+            problems = validate_e3_review.validate_decisions(
+                build_e3_review.E3_DIR / "e3-review-sheet.csv", metadata
+            )
+        self.assertTrue(any("native-language attestation missing" in problem for problem in problems))
 
     def test_batch_assignment_is_semantic(self) -> None:
         segments = [
