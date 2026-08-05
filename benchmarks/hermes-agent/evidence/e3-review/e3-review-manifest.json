@@ -1,0 +1,46 @@
+{
+  "benchmark_id": "hermes-agent",
+  "artifact": "e3-review-manifest",
+  "target_locale": "fr",
+  "upstream": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "commit": "91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53"
+  },
+  "review_round": "E3-native-speaker-r1",
+  "sample": {
+    "e2_sample_rows": 180,
+    "identity_retention_rows": 203,
+    "terminology_rows": 20,
+    "additional_naturalness_rows": 120,
+    "additional_naturalness_needed": 120,
+    "rows_before_dedup": 523,
+    "rows_after_dedup": 508,
+    "counts_by_surface": {
+      "desktop": 229,
+      "web": 165,
+      "yaml": 114
+    },
+    "counts_by_reason": {
+      "e2_sample": 180,
+      "high_risk": 62,
+      "identity_retention": 203,
+      "native_naturalness_sample": 120,
+      "previously_corrected": 2,
+      "runtime_visible": 10,
+      "terminology": 20
+    },
+    "counts_by_risk": {
+      "high": 280,
+      "low": 191,
+      "medium": 37
+    }
+  },
+  "review_sheet_sha256": "baed5675b9235ef6987aaf314713832b000625d2bdc45969d669c633703cf8b5",
+  "selection_method": "Set A: committed E2 sheet (180); Set B: committed retained-string adjudication (203); Set C: committed terminology adjudication (20, anchored to representative segments); Set D: >= 40 additional translated non-identity rows per surface, tiered by risk/length then sorted by segment_id with stride sampling (deterministic, no RNG)",
+  "reviewer_columns_empty_by_design": true,
+  "user_columns_empty_by_design": true,
+  "notes": [
+    "Reviewer/user decision columns are deliberately empty in the shipped package.",
+    "All segment_ids are canonical import ids; terminology rows anchor to a representative segment."
+  ]
+}
