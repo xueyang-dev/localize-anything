@@ -86,11 +86,15 @@ above no longer applies to the final runs:
   AI-assisted bilingual review` — not native human review), 2 corrections
   applied and rerun, 0 blocking;
 - E3: native-language human review (a real native French speaker) is the next
-  round; a deterministic review package
-  (`benchmarks/hermes-agent/evidence/e3-review/`) is prepared and validated,
-  but **human review is pending** (`human_review_present = false`). E4
-  (professional localization review) has not run, and `user_accepted` is not
-  claimed for any reviewed segment until explicit user sign-off.
+  round and has now **completed**: a deterministic package
+  (`benchmarks/hermes-agent/evidence/e3-review/`) was reviewed by a native
+  French speaker (anonymized `fr-native-01`) covering all 508 rows (180 E2 +
+  203 identity + 20 terminology + 120 naturalness); 5 human revisions were
+  applied to the canonical imports; 203/203 identity retentions were
+  independently confirmed; 6 strings remain flagged
+  `needs_bilingual_check` (status `reviewed_with_pending_bilingual_checks`).
+  E4 (professional localization review) has not run, and `user_accepted` is
+  not claimed for any reviewed segment until explicit user sign-off.
 - terminology adjudication for 20 cross-surface terms (18 intentional,
   2 context-dependent, 0 unresolved/errors);
 - build validation on the isolated copy: Hermes i18n parity tests, Python

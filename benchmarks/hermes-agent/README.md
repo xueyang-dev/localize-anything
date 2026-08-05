@@ -81,11 +81,26 @@ Reproduce the package with:
 ../../.venv/bin/python validate_e3_review.py
 ```
 
-Status: **E3 review package prepared; human review pending.** The package
-contains no fabricated reviewer decisions (`human_review_present = false`).
-When a qualifying native French speaker returns the completed CSV plus filled
-metadata, import it with `import_e3_review.py` and follow the Mode B workflow
-in `evidence/e3-review/COORDINATOR-INSTRUCTIONS.md`.
+Status: **E3 native-language review completed** (`human_review = true`).
+
+- Reviewer: native French speaker (anonymized `fr-native-01`, `fr-FR`),
+  `reviewer_type: native-language reviewer`, `professional_localization_review:
+  false` (E4 not claimed), `user_accepted: false`.
+- Coverage: all 508 rows reviewed (180 E2 + 203 identity + 20 terminology +
+  120 naturalness): 456 approved, 41 approved with note, 5 needs revision, 6
+  needs bilingual check; 0 rejected/deferred.
+- Human revisions: 5 applied to the canonical imports (credential → identifiant,
+  worker claim rewording, "tous les jours à", compression wording fix) — see
+  `reports/e3-applied-changes.csv`; manifest hashes updated.
+- Retention: 203/203 identity strings independently confirmed by the native
+  reviewer (0 translated, 0 unresolved).
+- Terminology: all 20 decisions reviewed (see
+  `reports/e3-terminology-decisions.csv`).
+- 6 strings remain flagged `needs_bilingual_check` (see
+  `reports/e3-review-findings.json`), so the overall status is
+  `reviewed_with_pending_bilingual_checks`, not full completion.
+- Post-edit: deterministic QA pass on all three surfaces, build validation
+  8/8, real-evidence verification pass, 137 tests pass.
 
 ## Reproduce
 
@@ -151,7 +166,8 @@ Evidence levels: E0 (structural) + E1 (automated linguistic diagnostics) +
 E2 (AI-assisted bilingual review — not native human review). **E3** is a
 native-language human review (a real native French speaker judging
 naturalness, fluency, register, terminology suitability, and retained-English
-acceptability); the E3 review package is prepared but human review is
-pending. **E4** is professional localization review and has not run. Catalog
-parity is **not** full product localization: see `reports/coverage-audit.json`
-for the delivery decision and coverage gaps.
+acceptability); the E3 round has completed with 508/508 rows reviewed and 5
+human revisions applied, with 6 strings still flagged for bilingual follow-up.
+**E4** is professional localization review and has not run. Catalog parity is
+**not** full product localization: see `reports/coverage-audit.json` for the
+delivery decision and coverage gaps.
