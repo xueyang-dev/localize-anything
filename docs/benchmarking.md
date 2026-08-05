@@ -85,6 +85,12 @@ above no longer applies to the final runs:
 - E2: 180-segment risk-weighted bilingual review (`reviewer_type:
   AI-assisted bilingual review` — not native human review), 2 corrections
   applied and rerun, 0 blocking;
+- E3: native-language human review (a real native French speaker) is the next
+  round; a deterministic review package
+  (`benchmarks/hermes-agent/evidence/e3-review/`) is prepared and validated,
+  but **human review is pending** (`human_review_present = false`). E4
+  (professional localization review) has not run, and `user_accepted` is not
+  claimed for any reviewed segment until explicit user sign-off.
 - terminology adjudication for 20 cross-surface terms (18 intentional,
   2 context-dependent, 0 unresolved/errors);
 - build validation on the isolated copy: Hermes i18n parity tests, Python

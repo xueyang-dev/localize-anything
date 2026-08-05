@@ -57,6 +57,36 @@ no provider API called). The final reports under `reports/` reflect that run:
 `visual-smoke-report.*`, `real-evidence-verification.*`. E2 review is
 AI-assisted bilingual review, not native human review.
 
+### E3 native-speaker review package
+
+An E3 (native-language human review) round is prepared under
+`evidence/e3-review/`:
+
+- `e3-review-sheet.csv` / `e3-review-sheet.md` — deterministic review sheet
+  (508 rows): all 180 E2 rows, all 203 retained identity strings, all 20
+  terminology decisions, and 120 additional translated non-identity rows
+  (40 per surface), deduplicated by `segment_id` with selection reasons.
+- `e3-review-schema.json` — row schema; `e3-review-manifest.json` — counts,
+  hashes, sampling method (tiered, segment-id-sorted stride; no RNG).
+- `REVIEWER-INSTRUCTIONS-FR.md` — French instructions for the native reviewer.
+- `COORDINATOR-INSTRUCTIONS.md` — handoff/import workflow.
+- `reviewer-metadata-template.json` — attestation (native language, region,
+  date, domain, AI assistance, conflict of interest, consent). No personal
+  identifying information is collected.
+
+Reproduce the package with:
+
+```bash
+../../.venv/bin/python build_e3_review.py
+../../.venv/bin/python validate_e3_review.py
+```
+
+Status: **E3 review package prepared; human review pending.** The package
+contains no fabricated reviewer decisions (`human_review_present = false`).
+When a qualifying native French speaker returns the completed CSV plus filled
+metadata, import it with `import_e3_review.py` and follow the Mode B workflow
+in `evidence/e3-review/COORDINATOR-INSTRUCTIONS.md`.
+
 ## Reproduce
 
 ```bash
@@ -118,6 +148,10 @@ holds the canonical committed import JSONL files plus their manifest.
 ## Evidence levels
 
 Evidence levels: E0 (structural) + E1 (automated linguistic diagnostics) +
-E2 (AI-assisted bilingual review — not native human review). E3-E4 human
-review has not run. Catalog parity is **not** full product localization: see
-`reports/coverage-audit.json` for the delivery decision and coverage gaps.
+E2 (AI-assisted bilingual review — not native human review). **E3** is a
+native-language human review (a real native French speaker judging
+naturalness, fluency, register, terminology suitability, and retained-English
+acceptability); the E3 review package is prepared but human review is
+pending. **E4** is professional localization review and has not run. Catalog
+parity is **not** full product localization: see `reports/coverage-audit.json`
+for the delivery decision and coverage gaps.
