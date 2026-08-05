@@ -1,0 +1,21 @@
+segment_id,surface,pointer,terminology_decision,reviewer_note
+typescript-locale:apps/desktop/src/i18n/en.ts#000f7080d4916d33e2e8,desktop,/commandCenter/pets/staleBackend,,« les animaux » est correct mais « les mascottes » serait plus naturel pour les pets de l'interface.
+typescript-locale:apps/desktop/src/i18n/en.ts#01da10f32743bcc41a34,desktop,/desktop/modelSwitchFailed,,
+typescript-locale:apps/desktop/src/i18n/en.ts#0240c81f8e5c8a566734,desktop,/zones/pluginDisabled#fn0,,
+typescript-locale:apps/desktop/src/i18n/en.ts#038f14c933506fc055c6,desktop,/fileMenu/delete,,
+typescript-locale:apps/desktop/src/i18n/en.ts#04e415eec2211427642a,desktop,/settings/gateway/savedTitle,gateway : conserver le terme anglais (cohérent dans le desktop) ; l'officiel web utilise « passerelle ».,« Gateway » conservé en anglais : acceptable pour un utilisateur francophone ; à harmoniser avec « passerelle » si souhaité.
+typescript-locale:apps/desktop/src/i18n/en.ts#0568580521b262e578ff,desktop,/statusStack/background#fn0,,
+typescript-locale:apps/desktop/src/i18n/en.ts#066d20efd99a80eb68c0,desktop,/desktop/createSessionFailed,,
+typescript-locale:apps/desktop/src/i18n/en.ts#0813c7353b1af0d301f2,desktop,/desktop/skillCommandsAvailable#fn0,,
+typescript-locale:apps/desktop/src/i18n/en.ts#090353793e9d09d01ea2,desktop,/composer/snippetsDesc,composer : conserver le terme anglais ou le traduire de façon cohérente.,« composer » est un nom d'élément d'interface ; envisager de le conserver en anglais. « À déposer » → « à placer ».
+typescript-locale:apps/desktop/src/i18n/en.ts#0d04f61c3ea43be93010,desktop,/install/connectExistingDesc,,
+typescript-locale:apps/desktop/src/i18n/en.ts#0f44dec1f2c68fe30dbf,desktop,/settings/notifications/kinds/approval/label,,
+typescript-locale:apps/desktop/src/i18n/en.ts#13de2f9f88cfa0b27ed8,desktop,/desktop/providerCredentialRequired,,"« Justificatif » est un faux sens pour « credential » ; en interface, « identifiants » est plus naturel."
+typescript-locale:apps/desktop/src/i18n/en.ts#1ba2fe1278d612cf1d3f,desktop,/sidebar/groupAriaUngrouped,,
+typescript-locale:apps/desktop/src/i18n/en.ts#1bbefc6b6e4e793a7614,desktop,/settings/gateway/sshErrAuth,,
+typescript-locale:apps/desktop/src/i18n/en.ts#20f072d704bd20c2d2b9,desktop,/commandCenter/maintenance/resetAll,,
+typescript-locale:apps/desktop/src/i18n/en.ts#21f9400c1123a47b8bc8,desktop,/settings/mcp/enableTool#fn0,,
+typescript-locale:apps/desktop/src/i18n/en.ts#22ade2640480bf030ee6,desktop,/ui/search/clear,,
+typescript-locale:apps/desktop/src/i18n/en.ts#964b5f575dc52170f397,desktop,/messaging/fieldCopy/DISCORD_ALLOW_ALL_USERS/help,,« Quand c'est vrai » est littéral ; « Lorsque activé » serait plus naturel.
+typescript-locale:apps/desktop/src/i18n/en.ts#ac26b7cae82ce174764f,desktop,/settings/model/reasoning,,
+yaml:locales/en.yaml#a33422a375c33ef63d3f,yaml,/approval/blocklist_message,,
