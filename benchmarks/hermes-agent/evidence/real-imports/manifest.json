@@ -13,17 +13,17 @@
     "yaml": {
       "file": "evidence/real-imports/yaml.jsonl",
       "segment_count": 351,
-      "sha256": "ee319bf4433fc7c181826001dd86a1e577ce8e51d92dbf16a351517e991e9de6"
+      "sha256": "c560f364f5c73d555d07c86a88b471b3c3e8592532639fcd4b84b4439033d96b"
     },
     "web": {
       "file": "evidence/real-imports/web.jsonl",
       "segment_count": 709,
-      "sha256": "484004931f850228f3f064c9e09dcb37887f89554be60dd904f677c604575ff1"
+      "sha256": "7a45bb28dabefdc6f4f505403cd2cc2bb633691a19b8db2777b7db976b27c641"
     },
     "desktop": {
       "file": "evidence/real-imports/desktop.jsonl",
       "segment_count": 2623,
-      "sha256": "316233f04ad087fe50a9b1a81a92d30c69c37df83065b1a295876824ad0f4dbe"
+      "sha256": "9886a4e5441234afde39ef655633a48859f75456b8b514da8b1d2732d8028b9c"
     }
   },
   "total_segments": 3683,
@@ -47,5 +47,15 @@
     "classification/classification_note are CANDIDATE classifications from the producer; they do not constitute approval (see reports/retained-string-adjudication.json)"
   ],
   "creation_date": "2026-08-05",
-  "created_from": "work/imports/{yaml,web,desktop}.jsonl (preserved before pipeline rerun)"
+  "created_from": "work/imports/{yaml,web,desktop}.jsonl (preserved before pipeline rerun)",
+  "e3_revision": {
+    "round": "E3-native-speaker-r1",
+    "reviewer_id": "fr-native-01",
+    "revisions_applied": 5,
+    "changed_surface_ids": {
+      "yaml": 1,
+      "web": 2,
+      "desktop": 2
+    }
+  }
 }
