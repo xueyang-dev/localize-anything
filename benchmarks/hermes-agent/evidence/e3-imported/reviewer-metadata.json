@@ -1,0 +1,11 @@
+{
+  "reviewer_id": "fr-native-01",
+  "native_language_attestation": "I attest that French is one of my native languages.",
+  "french_locale_or_region": "fr-FR",
+  "review_date": "2026-08-05",
+  "domain_familiarity": "general software user",
+  "review_tools_used": ["dictionary", "terminology_check"],
+  "ai_assistance_used": true,
+  "conflict_of_interest": "none",
+  "consent_to_publish_anonymized_results": true
+}

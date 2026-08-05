@@ -57,6 +57,54 @@ no provider API called). The final reports under `reports/` reflect that run:
 `visual-smoke-report.*`, `real-evidence-verification.*`. E2 review is
 AI-assisted bilingual review, not native human review.
 
+### E3 native-speaker review package
+
+An E3 (native-language human review) round is prepared under
+`evidence/e3-review/`:
+
+- `e3-review-sheet.csv` / `e3-review-sheet.md` — deterministic review sheet
+  (508 rows): all 180 E2 rows, all 203 retained identity strings, all 20
+  terminology decisions, and 120 additional translated non-identity rows
+  (40 per surface), deduplicated by `segment_id` with selection reasons.
+- `e3-review-schema.json` — row schema; `e3-review-manifest.json` — counts,
+  hashes, sampling method (tiered, segment-id-sorted stride; no RNG).
+- `REVIEWER-INSTRUCTIONS-FR.md` — French instructions for the native reviewer.
+- `COORDINATOR-INSTRUCTIONS.md` — handoff/import workflow.
+- `reviewer-metadata-template.json` — attestation (native language, region,
+  date, domain, AI assistance, conflict of interest, consent). No personal
+  identifying information is collected.
+
+Reproduce the package with:
+
+```bash
+../../.venv/bin/python build_e3_review.py
+../../.venv/bin/python validate_e3_review.py
+```
+
+Status: **E3 native-language review completed** (`human_review = true`).
+
+- Reviewer: native French speaker (anonymized `fr-native-01`, `fr-FR`),
+  `reviewer_type: native-language reviewer`, `professional_localization_review:
+  false` (E4 not claimed), `user_accepted: false`.
+- Coverage: all 508 rows reviewed (180 E2 + 203 identity + 20 terminology +
+  120 naturalness): 457 approved, 41 approved with note, 10 needs revision,
+  0 needs bilingual check; 0 rejected/deferred. The six bilingual-check
+  questions from round 1 were resolved in round 2 by the coordinator and
+  native reviewer (status now `reviewed_complete`).
+- Human revisions: 10 applied to the canonical imports (credential →
+  identifiant, worker claim rewording, "tous les jours à", compression
+  wording fix, branch/change-count/person/dangerous/unused-skills wording) —
+  see `reports/e3-applied-changes.csv`; manifest hashes updated.
+- Retention: 203/203 identity strings independently confirmed by the native
+  reviewer (0 translated, 0 unresolved).
+- Terminology: all 20 decisions reviewed (see
+  `reports/e3-terminology-decisions.csv`).
+- The six `needs_bilingual_check` strings from round 1 were resolved in round
+  2 (see `reports/e3-review-findings.json`); overall status is
+  `reviewed_complete`.
+- Post-edit: deterministic QA pass on all three surfaces, build validation
+  8/8, real-evidence verification pass, 137 tests pass.
+
 ## Reproduce
 
 ```bash
@@ -118,6 +166,11 @@ holds the canonical committed import JSONL files plus their manifest.
 ## Evidence levels
 
 Evidence levels: E0 (structural) + E1 (automated linguistic diagnostics) +
-E2 (AI-assisted bilingual review — not native human review). E3-E4 human
-review has not run. Catalog parity is **not** full product localization: see
-`reports/coverage-audit.json` for the delivery decision and coverage gaps.
+E2 (AI-assisted bilingual review — not native human review). **E3** is a
+native-language human review (a real native French speaker judging
+naturalness, fluency, register, terminology suitability, and retained-English
+acceptability); the E3 round has completed with 508/508 rows reviewed and 10
+human revisions applied, with all bilingual-check questions resolved.
+**E4** is professional localization review and has not run. Catalog parity is
+**not** full product localization: see `reports/coverage-audit.json` for the
+delivery decision and coverage gaps.

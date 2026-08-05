@@ -535,17 +535,17 @@
           "check": "hermes_i18n_parity_tests",
           "command": "<hermes-copy>/.venv/bin/python -m pytest tests/agent/test_i18n.py -q",
           "exit_code": 0,
-          "duration_seconds": 2.36,
+          "duration_seconds": 1.36,
           "passed": true,
           "status": "passed",
           "required": true,
-          "tail": "....................................                                     [100%]\n36 passed in 1.99s\n"
+          "tail": "....................................                                     [100%]\n36 passed in 1.16s\n"
         },
         {
           "check": "hermes_python_compileall",
           "command": "python3 -m compileall -q agent hermes_cli gateway",
           "exit_code": 0,
-          "duration_seconds": 0.86,
+          "duration_seconds": 0.1,
           "passed": true,
           "status": "passed",
           "required": true,
@@ -555,7 +555,7 @@
           "check": "web_typecheck",
           "command": "npm run typecheck",
           "exit_code": 0,
-          "duration_seconds": 0.61,
+          "duration_seconds": 0.37,
           "passed": true,
           "status": "passed",
           "required": true,
@@ -565,27 +565,27 @@
           "check": "web_vitest",
           "command": "npm run test",
           "exit_code": 0,
-          "duration_seconds": 2.48,
+          "duration_seconds": 1.13,
           "passed": true,
           "status": "passed",
           "required": true,
-          "tail": "\n> web@0.0.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/web\n\n\n Test Files  22 passed (22)\n      Tests  156 passed (156)\n   Start at  01:06:53\n   Duration  605ms (transform 775ms, setup 0ms, import 1.50s, tests 149ms, environment 1ms)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
+          "tail": "\n> web@0.0.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/web\n\n\n Test Files  22 passed (22)\n      Tests  156 passed (156)\n   Start at  15:09:41\n   Duration  698ms (transform 799ms, setup 0ms, import 1.56s, tests 139ms, environment 2ms)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vitest.config.ts:9:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
         },
         {
           "check": "web_build",
           "command": "npm run build",
           "exit_code": 0,
-          "duration_seconds": 5.37,
+          "duration_seconds": 4.17,
           "passed": true,
           "status": "passed",
           "required": true,
-          "tail": "B\n../hermes_cli/web_dist/assets/EnvPage-BW5Xocfk.js                      29.97 kB │ gzip:   8.13 kB\n../hermes_cli/web_dist/assets/CronPage-D-dGeE_B.js                     31.60 kB │ gzip:   8.86 kB\n../hermes_cli/web_dist/assets/ChatPage-Ct9Kh9WS.js                     38.70 kB │ gzip:  13.15 kB\n../hermes_cli/web_dist/assets/SkillsPage-DCRhxG5d.js                   39.62 kB │ gzip:  10.57 kB\n../hermes_cli/web_dist/assets/SessionsPage-BkKmXK7y.js                 40.62 kB │ gzip:  11.87 kB\n../hermes_cli/web_dist/assets/SystemPage-CoZ9Amhy.js                   40.63 kB │ gzip:  10.90 kB\n../hermes_cli/web_dist/assets/index-Bc9yJTuq.js                        42.41 kB │ gzip:  12.64 kB\n../hermes_cli/web_dist/assets/vendor-BLReI8FQ.js                       50.06 kB │ gzip:  17.82 kB\n../hermes_cli/web_dist/assets/react-vendor-B6GYCG81.js                226.82 kB │ gzip:  72.67 kB\n../hermes_cli/web_dist/assets/ui-CGB0TYQ8.js                          289.93 kB │ gzip:  94.82 kB\n../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB\n../hermes_cli/web_dist/assets/i18n-CZKEeBi2.js                        476.54 kB │ gzip: 141.04 kB\n\n✓ built in 355ms\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
+          "tail": "B\n../hermes_cli/web_dist/assets/EnvPage-cYkcXTXN.js                      29.97 kB │ gzip:   8.13 kB\n../hermes_cli/web_dist/assets/CronPage-BWM_t59l.js                     31.60 kB │ gzip:   8.86 kB\n../hermes_cli/web_dist/assets/ChatPage-DdJSH7F2.js                     38.70 kB │ gzip:  13.15 kB\n../hermes_cli/web_dist/assets/SkillsPage-CbT3KPb_.js                   39.62 kB │ gzip:  10.57 kB\n../hermes_cli/web_dist/assets/SessionsPage-f8gkmFC9.js                 40.62 kB │ gzip:  11.87 kB\n../hermes_cli/web_dist/assets/SystemPage-BGAKUzUV.js                   40.63 kB │ gzip:  10.90 kB\n../hermes_cli/web_dist/assets/index-ChVli4_g.js                        42.41 kB │ gzip:  12.64 kB\n../hermes_cli/web_dist/assets/vendor-BLReI8FQ.js                       50.06 kB │ gzip:  17.82 kB\n../hermes_cli/web_dist/assets/react-vendor-B6GYCG81.js                226.82 kB │ gzip:  72.67 kB\n../hermes_cli/web_dist/assets/ui-CGB0TYQ8.js                          289.93 kB │ gzip:  94.82 kB\n../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB\n../hermes_cli/web_dist/assets/i18n-WOnQlfa9.js                        476.54 kB │ gzip: 141.05 kB\n\n✓ built in 374ms\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:64:25). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n"
         },
         {
           "check": "desktop_typecheck",
           "command": "npm run typecheck",
           "exit_code": 0,
-          "duration_seconds": 11.86,
+          "duration_seconds": 11.98,
           "passed": true,
           "status": "passed",
           "required": true,
@@ -595,21 +595,21 @@
           "check": "desktop_vitest",
           "command": "npm run test",
           "exit_code": 0,
-          "duration_seconds": 66.37,
+          "duration_seconds": 76.65,
           "passed": true,
           "status": "passed",
           "required": true,
-          "tail": "\n> hermes@0.17.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/apps/desktop\n\n\n Test Files  465 passed | 1 skipped (466)\n      Tests  4295 passed | 2 skipped (4297)\n   Start at  01:07:11\n   Duration  65.98s (transform 13.08s, setup 38.58s, import 198.58s, tests 80.59s, environment 214.19s)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\nPreparing worktree (new branch 'wt')\nSwitched to a new branch 'rawr'\nSwitched to a new branch 'rawr'\nCloning into '<temporary-directory>'...\ndone.\nfatal: no upstream configured for branch 'feature-branch'\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\n"
+          "tail": "\n> hermes@0.17.0 test\n> vitest run\n\n\n RUN  v4.1.10 <hermes-copy>/apps/desktop\n\n\n Test Files  465 passed | 1 skipped (466)\n      Tests  4295 passed | 2 skipped (4297)\n   Start at  15:09:59\n   Duration  76.18s (transform 14.23s, setup 44.21s, import 232.88s, tests 81.94s, environment 256.10s)\n\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\nPreparing worktree (new branch 'wt')\nSwitched to a new branch 'rawr'\nSwitched to a new branch 'rawr'\nCloning into '<temporary-directory>'...\ndone.\nfatal: no upstream configured for branch 'feature-branch'\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\nNot implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package\n"
         },
         {
           "check": "desktop_build",
           "command": "npm run build",
           "exit_code": 0,
-          "duration_seconds": 3.65,
+          "duration_seconds": 4.45,
           "passed": true,
           "status": "passed",
           "required": true,
-          "tail": "         2,126.91 kB │ gzip:   635.95 kB\ndist/assets/mermaid-BVb1m2iz.js                        2,973.15 kB │ gzip:   783.39 kB\ndist/assets/shiki-6BOFvr6A.js                         18,983.25 kB │ gzip: 3,308.84 kB\n\n✓ built in 1.51s\nbundled <hermes-copy>/apps/desktop/dist/electron-main.mjs\nbundled <hermes-copy>/apps/desktop/dist/electron-preload.js\n[stage-native-deps] staged node-pty (darwin-arm64) -> <hermes-copy>/apps/desktop/dist/node_modules/node-pty\n\n> hermes@0.17.0 postbuild\n> node scripts/assert-dist-built.mjs\n\n✓ assert-dist-built: dist/index.html + assets present\n[write-build-stamp] WARNING: working tree is dirty.\n  Pinning to 1eef7cbd11a5 but the packaged code may differ from that commit.\n  Commit your changes before publishing this build.\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n\n WARN  advancedChunks option is deprecated, please use codeSplitting instead.\n\n\n  dist/electron-main.mjs  680.5kb\n\n⚡ Done in 28ms\n\n  dist/electron-preload.js  21.8kb\n\n⚡ Done in 3ms\n",
+          "tail": "                     2,126.91 kB │ gzip:   635.94 kB\ndist/assets/mermaid-BVb1m2iz.js                        2,973.15 kB │ gzip:   783.39 kB\ndist/assets/shiki-6BOFvr6A.js                         18,983.25 kB │ gzip: 3,308.84 kB\n\n✓ built in 2.27s\nbundled <hermes-copy>/apps/desktop/dist/electron-main.mjs\nbundled <hermes-copy>/apps/desktop/dist/electron-preload.js\n[stage-native-deps] staged node-pty (darwin-arm64) -> <hermes-copy>/apps/desktop/dist/node_modules/node-pty\n\n> hermes@0.17.0 postbuild\n> node scripts/assert-dist-built.mjs\n\n✓ assert-dist-built: dist/index.html + assets present\n[write-build-stamp] WARNING: working tree is dirty.\n  Pinning to feff20863e59 but the packaged code may differ from that commit.\n  Commit your changes before publishing this build.\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vite.config.ts:21:20). Use `import.meta.dirname` instead\nSet `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.\n\n WARN  advancedChunks option is deprecated, please use codeSplitting instead.\n\n\n  dist/electron-main.mjs  680.5kb\n\n⚡ Done in 30ms\n\n  dist/electron-preload.js  21.8kb\n\n⚡ Done in 2ms\n",
           "note": "Full electron packaging (npm run dist) is environment-dependent and not part of this validation."
         }
       ]
@@ -619,15 +619,15 @@
       "steps": [
         {
           "check": "localize_anything_unittest",
-          "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m unittest discover -s tests -v",
+          "command": "<repo>/.venv/bin/python -m unittest discover -s tests -v",
           "exit_code": 0,
-          "duration_seconds": 7.38,
+          "duration_seconds": 8.27,
           "passed": true,
-          "tail": "apterTests.test_identity_round_trip_is_byte_identical) ... ok\ntest_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok\ntest_missing_and_unexpected_keys_fail (test_typescript_adapter.TypeScriptAdapterTests.test_missing_and_unexpected_keys_fail) ... ok\ntest_overlapping_edits_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_overlapping_edits_fail_closed) ... ok\ntest_placeholder_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_placeholder_mismatch_fails) ... ok\ntest_rebuild_longer_export_name_keeps_literal_spans (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_longer_export_name_keeps_literal_spans) ... ok\ntest_rebuild_preserves_function_signatures_and_expressions (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_preserves_function_signatures_and_expressions) ... ok\ntest_rebuild_renames_export_to_target_locale (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_renames_export_to_target_locale) ... ok\ntest_rebuild_shorter_export_name (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_shorter_export_name) ... ok\ntest_rebuild_translated_strings_and_arrays (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_translated_strings_and_arrays) ... ok\ntest_template_expression_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_mismatch_fails) ... ok\ntest_template_expression_order_change_is_blocking (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_order_change_is_blocking) ... ok\ntest_template_expression_order_preserved_passes (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_order_preserved_passes) ... ok\ntest_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok\n\n----------------------------------------------------------------------\nRan 126 tests in 7.200s\n\nOK\n"
+          "tail": "apterTests.test_identity_round_trip_is_byte_identical) ... ok\ntest_invalid_export_identifiers_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_invalid_export_identifiers_fail_closed) ... ok\ntest_missing_and_unexpected_keys_fail (test_typescript_adapter.TypeScriptAdapterTests.test_missing_and_unexpected_keys_fail) ... ok\ntest_overlapping_edits_fail_closed (test_typescript_adapter.TypeScriptAdapterTests.test_overlapping_edits_fail_closed) ... ok\ntest_placeholder_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_placeholder_mismatch_fails) ... ok\ntest_rebuild_longer_export_name_keeps_literal_spans (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_longer_export_name_keeps_literal_spans) ... ok\ntest_rebuild_preserves_function_signatures_and_expressions (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_preserves_function_signatures_and_expressions) ... ok\ntest_rebuild_renames_export_to_target_locale (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_renames_export_to_target_locale) ... ok\ntest_rebuild_shorter_export_name (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_shorter_export_name) ... ok\ntest_rebuild_translated_strings_and_arrays (test_typescript_adapter.TypeScriptAdapterTests.test_rebuild_translated_strings_and_arrays) ... ok\ntest_template_expression_mismatch_fails (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_mismatch_fails) ... ok\ntest_template_expression_order_change_is_blocking (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_order_change_is_blocking) ... ok\ntest_template_expression_order_preserved_passes (test_typescript_adapter.TypeScriptAdapterTests.test_template_expression_order_preserved_passes) ... ok\ntest_unsupported_shape_fails_closed (test_typescript_adapter.TypeScriptAdapterTests.test_unsupported_shape_fails_closed) ... ok\n\n----------------------------------------------------------------------\nRan 137 tests in 8.177s\n\nOK\n"
         },
         {
           "check": "adapter_tree_validation",
-          "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -c import json\nfrom pathlib import Path\nfrom runtime.localize_anything.contracts import validate_adapter_tree\nresult = validate_adapter_tree(Path('adapters'))\nprint(json.dumps(result, indent=2))\nif result['status'] != 'pass':\n    raise SystemExit(1)\nif result['manifests_checked'] < 13:\n    raise SystemExit('expected >=13 adapter manifests, got ' + str(result['manifests_checked']))",
+          "command": "<repo>/.venv/bin/python -c import json\nfrom pathlib import Path\nfrom runtime.localize_anything.contracts import validate_adapter_tree\nresult = validate_adapter_tree(Path('adapters'))\nprint(json.dumps(result, indent=2))\nif result['status'] != 'pass':\n    raise SystemExit(1)\nif result['manifests_checked'] < 13:\n    raise SystemExit('expected >=13 adapter manifests, got ' + str(result['manifests_checked']))",
           "exit_code": 0,
           "duration_seconds": 0.02,
           "passed": true,
@@ -635,7 +635,7 @@
         },
         {
           "check": "protocol_tree_validation",
-          "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -c import json\nfrom pathlib import Path\nfrom runtime.localize_anything.schema_validation import validate_protocol_tree\nresult = validate_protocol_tree(Path('protocol'))\nprint(json.dumps(result, indent=2))\nif result['status'] != 'pass':\n    raise SystemExit(1)",
+          "command": "<repo>/.venv/bin/python -c import json\nfrom pathlib import Path\nfrom runtime.localize_anything.schema_validation import validate_protocol_tree\nresult = validate_protocol_tree(Path('protocol'))\nprint(json.dumps(result, indent=2))\nif result['status'] != 'pass':\n    raise SystemExit(1)",
           "exit_code": 0,
           "duration_seconds": 0.02,
           "passed": true,
@@ -643,9 +643,9 @@
         },
         {
           "check": "compileall",
-          "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/",
+          "command": "<repo>/.venv/bin/python -m compileall -q runtime benchmarks -x /(work|runs|node_modules)/",
           "exit_code": 0,
-          "duration_seconds": 1.21,
+          "duration_seconds": 2.94,
           "passed": true,
           "tail": ""
         },

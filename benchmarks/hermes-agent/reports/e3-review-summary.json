@@ -1,0 +1,40 @@
+{
+  "benchmark_id": "hermes-agent",
+  "artifact": "e3-review-summary",
+  "reviewer_type": "native-language reviewer",
+  "human_review": true,
+  "professional_localization_review": false,
+  "overall_e3_status": "reviewed_complete",
+  "reviewer_id": "fr-native-01",
+  "sample_size": 508,
+  "counts_by_surface": {
+    "desktop": 229,
+    "web": 165,
+    "yaml": 114
+  },
+  "counts_by_status": {
+    "approved_with_note": 41,
+    "approved": 457,
+    "needs_revision": 10
+  },
+  "counts_by_rating": {
+    "4": 37,
+    "5": 466,
+    "3": 5
+  },
+  "revisions_proposed": 10,
+  "revisions_applied": 0,
+  "revisions_applied_total": 10,
+  "needs_bilingual_check": 0,
+  "rejected": 0,
+  "deferred": 0,
+  "identity_retention_changes": 0,
+  "identity_retentions_confirmed": 203,
+  "identity_retentions_unresolved": 0,
+  "glossary_changes": 0,
+  "forbidden_term_changes": 0,
+  "needs_bilingual_check_ids": [],
+  "reviewer_attestation_present": true,
+  "ai_assistance_used": true,
+  "user_accepted": false
+}

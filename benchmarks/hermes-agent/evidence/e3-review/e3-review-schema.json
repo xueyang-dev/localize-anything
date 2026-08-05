@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hermes French E3 review row",
+  "description": "One row of the deterministic Hermes French E3 native-speaker review sheet (evidence/e3-review/e3-review-sheet.csv).",
+  "type": "object",
+  "properties": {
+    "segment_id": { "type": "string" },
+    "surface": { "enum": ["yaml", "web", "desktop", "terminology"] },
+    "pointer": { "type": "string" },
+    "selection_reasons": { "type": "string" },
+    "risk_level": { "enum": ["high", "medium", "low"] },
+    "issue_category": { "type": "string" },
+    "source_en": { "type": "string" },
+    "current_target_fr": { "type": "string" },
+    "existing_official_fr": { "type": "string" },
+    "context": { "type": "string" },
+    "placeholders": { "type": "string" },
+    "template_expressions": { "type": "string" },
+    "current_retention_classification": { "type": "string" },
+    "proposed_action": {
+      "enum": [
+        "accept_current",
+        "edit_target",
+        "retain_english",
+        "translate_retained_term",
+        "add_glossary_entry",
+        "add_forbidden_term",
+        "request_bilingual_review",
+        "defer",
+        "reject"
+      ]
+    },
+    "review_status": {
+      "enum": ["", "approved", "approved_with_note", "needs_revision", "needs_bilingual_check", "reject", "defer"]
+    },
+    "native_quality_rating": {
+      "enum": ["", "5", "4", "3", "2", "1"]
+    },
+    "reviewer_target_fr": { "type": "string" },
+    "reviewer_note": { "type": "string" },
+    "terminology_decision": { "type": "string" },
+    "needs_bilingual_check": {
+      "enum": ["", "true", "false"]
+    },
+    "user_decision": { "type": "string" },
+    "final_accepted_target": { "type": "string" }
+  },
+  "required": [
+    "segment_id",
+    "surface",
+    "pointer",
+    "selection_reasons",
+    "risk_level",
+    "issue_category",
+    "source_en",
+    "current_target_fr",
+    "existing_official_fr",
+    "context",
+    "placeholders",
+    "template_expressions",
+    "current_retention_classification",
+    "proposed_action",
+    "review_status",
+    "native_quality_rating",
+    "reviewer_target_fr",
+    "reviewer_note",
+    "terminology_decision",
+    "needs_bilingual_check",
+    "user_decision",
+    "final_accepted_target"
+  ],
+  "additionalProperties": false
+}

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import sys
 import json
+import csv
+import hashlib
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,7 +13,9 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).parents[1] / "benchmarks" / "hermes-agent"))
 
 import common  # noqa: E402
+import build_e3_review  # noqa: E402
 import run_retention_adjudication  # noqa: E402
+import validate_e3_review  # noqa: E402
 
 from runtime.localize_anything.core_segments import diff_segments  # noqa: E402
 from runtime.localize_anything.structured_adapter import extract_segments as extract_yaml  # noqa: E402
@@ -284,6 +289,224 @@ class HermesBenchmarkHelpersTests(unittest.TestCase):
         self.assertIs(report["screenshots_reviewed"], False)
         self.assertIs(report["visual_layout_review_completed"], False)
         self.assertIn("visual layout quality not reviewed", report["delivery_claim"])
+
+    # ------------------------------------------------------------------
+    # E3 review package validation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _synthetic_e3_data() -> tuple[list[dict], dict, dict]:
+        """Self-contained synthetic package (hermetic; no work/ data needed)."""
+        columns = validate_e3_review.REVIEW_SHEET_COLUMNS
+        imports: dict[str, dict[str, str]] = {}
+        index: dict[str, dict[str, object]] = {}
+        rows: list[dict[str, str]] = []
+
+        def make_row(prefix: str, number: int, reasons: str, surface: str, identity: bool) -> dict[str, str]:
+            sid = f"seg-{prefix}-{surface}-{number:03d}"
+            source = f"Source {prefix} {number}"
+            target = source if identity else f"Cible {prefix} {number}"
+            imports[sid] = {
+                "surface": surface,
+                "target": target,
+                "classification": "technical_term_retained" if identity else "",
+            }
+            index[sid] = {
+                "surface": surface,
+                "pointer": f"/{prefix}/item{number}",
+                "source": source,
+                "placeholders": [],
+                "template_expressions": [],
+                "context": "{}",
+            }
+            row = {
+                "segment_id": sid,
+                "surface": surface,
+                "pointer": f"/{prefix}/item{number}",
+                "selection_reasons": reasons,
+                "risk_level": "low",
+                "issue_category": "naturalness",
+                "source_en": source,
+                "current_target_fr": target,
+                "existing_official_fr": "",
+                "context": "{}",
+                "placeholders": "",
+                "template_expressions": "",
+                "current_retention_classification": imports[sid]["classification"],
+                "proposed_action": "accept_current",
+                "review_status": "",
+                "native_quality_rating": "",
+                "reviewer_target_fr": "",
+                "reviewer_note": "",
+                "terminology_decision": "",
+                "needs_bilingual_check": "",
+                "user_decision": "",
+                "final_accepted_target": "",
+            }
+            return {key: row.get(key, "") for key in columns}
+
+        surfaces = ["yaml", "web", "desktop"]
+        for i in range(1, 181):
+            rows.append(make_row("e2", i, "e2_sample", surfaces[i % 3], identity=False))
+        for i in range(1, 204):
+            rows.append(make_row("identity", i, "identity_retention", surfaces[i % 3], identity=True))
+        for i in range(1, 21):
+            rows.append(make_row("term", i, "terminology", "yaml", identity=False))
+        for i, surface in enumerate(["yaml"] * 40 + ["web"] * 40 + ["desktop"] * 40, start=1):
+            rows.append(make_row("native", i, "native_naturalness_sample", surface, identity=False))
+        return rows, imports, index
+
+    def _temp_e3_package(self, mutate, *, refresh_manifest: bool = True) -> tuple[Path, list[str]]:
+        """Build a hermetic package, apply a CSV mutation, and run the validator."""
+        rows, imports, index = self._synthetic_e3_data()
+        mutate(rows)
+        fieldnames = validate_e3_review.REVIEW_SHEET_COLUMNS
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            package.mkdir()
+            for name in (
+                "e3-review-sheet.md",
+                "e3-review-schema.json",
+                "REVIEWER-INSTRUCTIONS-FR.md",
+                "COORDINATOR-INSTRUCTIONS.md",
+                "reviewer-metadata-template.json",
+            ):
+                (package / name).write_text("{}", encoding="utf-8")
+            with (package / "e3-review-sheet.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(row)
+            digest = hashlib.sha256((package / "e3-review-sheet.csv").read_bytes()).hexdigest()
+            manifest = {
+                "benchmark_id": "hermes-agent",
+                "artifact": "e3-review-manifest",
+                "review_sheet_sha256": digest if refresh_manifest else "0" * 64,
+                "sample": {"rows_after_dedup": len(rows)},
+            }
+            (package / "e3-review-manifest.json").write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+            (package / "e3-review-package-summary.json").write_text(
+                json.dumps({"rows": len(rows)}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+            with (
+                mock.patch.object(validate_e3_review, "E3_DIR", package),
+                mock.patch.object(validate_e3_review, "load_imports", lambda: imports),
+                mock.patch.object(validate_e3_review, "load_extraction_index", lambda: index),
+            ):
+                problems = validate_e3_review.validate_package()
+            return package, problems
+
+    def test_e3_valid_package_passes(self) -> None:
+        _, problems = self._temp_e3_package(lambda rows: None)
+        self.assertEqual(problems, [])
+
+    def test_e3_missing_mandatory_row_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            # drop one e2_sample row
+            for index, row in enumerate(rows):
+                if "e2_sample" in row["selection_reasons"].split("|"):
+                    del rows[index]
+                    break
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("mandatory E2 set incomplete" in problem for problem in problems))
+
+    def test_e3_missing_identity_row_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            for index, row in enumerate(rows):
+                if "identity_retention" in row["selection_reasons"].split("|"):
+                    del rows[index]
+                    break
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("mandatory identity set incomplete" in problem for problem in problems))
+
+    def test_e3_duplicate_row_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows.append(dict(rows[0]))
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("duplicate segment ids" in problem for problem in problems))
+
+    def test_e3_altered_target_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["current_target_fr"] = "Une modification détectée."
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("target mismatch" in problem for problem in problems))
+
+    def test_e3_unknown_segment_id_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["segment_id"] = "unknown:fake#00000000000000000000"
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("unknown segment ids" in problem for problem in problems))
+
+    def test_e3_missing_context_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["context"] = ""
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("missing context" in problem for problem in problems))
+
+    def test_e3_prefilled_reviewer_decision_fails(self) -> None:
+        def mutate(rows: list[dict]) -> None:
+            rows[0]["review_status"] = "approved"
+
+        _, problems = self._temp_e3_package(mutate)
+        self.assertTrue(any("prefilled review_status" in problem for problem in problems))
+
+    def test_e3_broken_manifest_hash_fails(self) -> None:
+        _, problems = self._temp_e3_package(lambda rows: None, refresh_manifest=False)
+        self.assertTrue(any("sha256 does not match" in problem for problem in problems))
+
+    def test_e3_malformed_metadata_fails(self) -> None:
+        rows, imports, index = self._synthetic_e3_data()
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            package = tmp / "package"
+            package.mkdir()
+            for name in (
+                "e3-review-sheet.md",
+                "e3-review-schema.json",
+                "REVIEWER-INSTRUCTIONS-FR.md",
+                "COORDINATOR-INSTRUCTIONS.md",
+                "reviewer-metadata-template.json",
+            ):
+                (package / name).write_text("{}", encoding="utf-8")
+            csv_path = package / "e3-review-sheet.csv"
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle, fieldnames=validate_e3_review.REVIEW_SHEET_COLUMNS, lineterminator="\n"
+                )
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(row)
+            digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+            (package / "e3-review-manifest.json").write_text(
+                json.dumps(
+                    {"benchmark_id": "hermes-agent", "artifact": "e3-review-manifest",
+                     "review_sheet_sha256": digest, "sample": {"rows_after_dedup": len(rows)}},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (package / "e3-review-package-summary.json").write_text(
+                json.dumps({"rows": len(rows)}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+            metadata_path = tmp / "reviewer-metadata.json"
+            metadata_path.write_text(json.dumps({"reviewer_id": "fr-native-01"}), encoding="utf-8")
+            with (
+                mock.patch.object(validate_e3_review, "E3_DIR", package),
+                mock.patch.object(validate_e3_review, "load_imports", lambda: imports),
+                mock.patch.object(validate_e3_review, "load_extraction_index", lambda: index),
+            ):
+                problems = validate_e3_review.validate_decisions(csv_path, metadata_path)
+        self.assertTrue(any("native-language attestation missing" in problem for problem in problems))
 
     def test_batch_assignment_is_semantic(self) -> None:
         segments = [
