@@ -124,6 +124,19 @@ def main() -> int:
         entry["target"] = revision["new_target"]
         changed[surface].append(segment_id)
 
+    # Merge with any existing change ledger (previous review rounds) instead
+    # of overwriting it; the ledger is the durable old->new history.
+    ledger: dict[str, dict[str, Any]] = {}
+    ledger_path = REPORTS / "e3-applied-changes.csv"
+    if ledger_path.is_file():
+        with ledger_path.open(encoding="utf-8", newline="") as handle:
+            for row in csv.DictReader(handle):
+                ledger[row["segment_id"]] = dict(row)
+    for revision in revisions_applied:
+        ledger[revision["segment_id"]] = revision
+    all_revisions = list(ledger.values())
+    all_revisions.sort(key=lambda revision: revision["segment_id"])
+
     manifest_path = REAL_IMPORTS / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     for surface, segment_ids in changed.items():
@@ -141,10 +154,12 @@ def main() -> int:
             1 for entry_id in imports if imports[entry_id].get("surface") == surface
         )
     manifest["e3_revision"] = {
-        "round": "E3-native-speaker-r1",
+        "round": "E3-native-speaker-r1-r2",
         "reviewer_id": reviewer_id,
-        "revisions_applied": len(revisions_applied),
-        "changed_surface_ids": {surface: len(ids) for surface, ids in changed.items() if ids},
+        "revisions_applied_total": len(all_revisions),
+        "changed_surface_ids": dict(
+            sorted(Counter(revision.get("surface", "") for revision in all_revisions).items())
+        ),
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
@@ -171,6 +186,7 @@ def main() -> int:
         "counts_by_rating": dict(counts_by_rating),
         "revisions_proposed": sum(1 for row in rows if row.get("review_status") == "needs_revision"),
         "revisions_applied": len(revisions_applied),
+        "revisions_applied_total": len(all_revisions),
         "needs_bilingual_check": sum(1 for row in rows if row.get("needs_bilingual_check") == "true"),
         "rejected": counts_by_status.get("reject", 0),
         "deferred": counts_by_status.get("defer", 0),
@@ -228,7 +244,7 @@ def main() -> int:
             f"- `{segment_id}` ({row.get('pointer', '')}): {row.get('reviewer_note', '')}"
         )
     (REPORTS / "e3-review-summary.md").write_text(
-        "\n".join(summary_md_lines) + "\n", encoding="utf-8", newline="\n"
+        "\n".join(summary_md_lines).rstrip("\n") + "\n", encoding="utf-8", newline="\n"
     )
 
     findings = {
@@ -280,23 +296,23 @@ def main() -> int:
             lineterminator="\n",
         )
         writer.writeheader()
-        for revision in revisions_applied:
+        for revision in all_revisions:
             writer.writerow(revision)
     applied_md_lines = [
         "# Hermes French E3 applied changes",
         "",
-        f"Revisions applied: **{len(revisions_applied)}**",
+        f"Revisions applied (cumulative ledger): **{len(all_revisions)}**",
         "",
         "| segment_id | surface | pointer | old target | new target | reviewer note |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
-    for revision in revisions_applied:
+    for revision in all_revisions:
         applied_md_lines.append(
             f"| `{revision['segment_id']}` | {revision['surface']} | {revision['pointer']} | "
             f"{revision['old_target']} | {revision['new_target']} | {revision['reviewer_note']} |"
         )
     (REPORTS / "e3-applied-changes.md").write_text(
-        "\n".join(applied_md_lines) + "\n", encoding="utf-8", newline="\n"
+        "\n".join(applied_md_lines).rstrip("\n") + "\n", encoding="utf-8", newline="\n"
     )
     csv_path = REPORTS / "e3-review-result.csv"
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
