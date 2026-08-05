@@ -23,7 +23,7 @@
     "desktop": {
       "file": "evidence/real-imports/desktop.jsonl",
       "segment_count": 2623,
-      "sha256": "9886a4e5441234afde39ef655633a48859f75456b8b514da8b1d2732d8028b9c"
+      "sha256": "a42703087dd82c74cb7d235328a40b1e5003db1aadba4521bb357e0ad8d27761"
     }
   },
   "total_segments": 3683,
@@ -49,13 +49,13 @@
   "creation_date": "2026-08-05",
   "created_from": "work/imports/{yaml,web,desktop}.jsonl (preserved before pipeline rerun)",
   "e3_revision": {
-    "round": "E3-native-speaker-r1",
+    "round": "E3-native-speaker-r1-r2",
     "reviewer_id": "fr-native-01",
-    "revisions_applied": 5,
+    "revisions_applied_total": 10,
     "changed_surface_ids": {
-      "yaml": 1,
+      "desktop": 7,
       "web": 2,
-      "desktop": 2
+      "yaml": 1
     }
   }
 }
