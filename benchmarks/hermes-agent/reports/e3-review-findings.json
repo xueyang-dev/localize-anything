@@ -1,57 +1,7 @@
 {
   "artifact": "e3-review-findings",
   "blocking_findings": [],
-  "high_severity_findings": [
-    {
-      "segment_id": "typescript-locale:apps/desktop/src/i18n/en.ts#01d871e8ebbbb81d8949",
-      "pointer": "/desktop/branchFailed",
-      "status": "needs_bilingual_check",
-      "rating": "3",
-      "note": "« Branch failed » : confirmer s'il s'agit de la création ou du changement de branche (git) ; « branchement » prête à confusion."
-    },
-    {
-      "segment_id": "typescript-locale:apps/desktop/src/i18n/en.ts#1eb61138484c8cc68fd8",
-      "pointer": "/updates/moreChanges#fn0",
-      "status": "needs_bilingual_check",
-      "rating": "3",
-      "note": "Le gabarit `${count === 1 ? '' : 's'}` ne permet pas l'accord français correct (« 2 autres modification incluse » serait fautif). À faire corriger côté produit (pluriel explicite ou ICU)."
-    },
-    {
-      "segment_id": "typescript-locale:apps/desktop/src/i18n/en.ts#7a67643bb2d280d77c92",
-      "pointer": "/messaging/approvedHint",
-      "status": "needs_bilingual_check",
-      "rating": "2",
-      "note": "L'anglais « They » est pluriel (ou neutre) ; le français utilise le singulier « Il… son ». Vérifier le référent."
-    },
-    {
-      "segment_id": "typescript-locale:apps/desktop/src/i18n/en.ts#7af64a6db5feeef77179",
-      "pointer": "/skills/hub/verdictDangerous",
-      "status": "needs_bilingual_check",
-      "rating": "3",
-      "note": "« Dangereuse » (féminin) suppose un nom féminin (commande, action) ; en étiquette isolée, préférer « Dangereux »."
-    },
-    {
-      "segment_id": "typescript-locale:apps/desktop/src/i18n/en.ts#d6d56f5c17480c4a0dba",
-      "pointer": "/skills/disableUnused",
-      "status": "needs_bilingual_check",
-      "rating": "3",
-      "note": "« Désactiver les inutilisées » : l'objet (« unused ») n'est pas précisé et l'accord féminin est incertain."
-    },
-    {
-      "segment_id": "typescript-locale:web/src/i18n/en.ts#96315f26d473ac06d96a",
-      "pointer": "/achievements/filters/visibility_secret",
-      "status": "needs_bilingual_check",
-      "rating": "3",
-      "note": "L'anglais est au singulier (« secret »), le français au pluriel (« secrets ») ; incohérence à vérifier."
-    }
-  ],
-  "unresolved_bilingual_checks": [
-    "typescript-locale:apps/desktop/src/i18n/en.ts#01d871e8ebbbb81d8949",
-    "typescript-locale:apps/desktop/src/i18n/en.ts#1eb61138484c8cc68fd8",
-    "typescript-locale:apps/desktop/src/i18n/en.ts#7a67643bb2d280d77c92",
-    "typescript-locale:apps/desktop/src/i18n/en.ts#7af64a6db5feeef77179",
-    "typescript-locale:apps/desktop/src/i18n/en.ts#d6d56f5c17480c4a0dba",
-    "typescript-locale:web/src/i18n/en.ts#96315f26d473ac06d96a"
-  ],
+  "high_severity_findings": [],
+  "unresolved_bilingual_checks": [],
   "rejected_or_deferred": []
 }
