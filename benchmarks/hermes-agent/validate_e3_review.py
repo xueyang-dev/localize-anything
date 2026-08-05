@@ -110,6 +110,15 @@ def validate_package(require_decision_gate_silent: bool = False) -> list[str]:
     imports = load_imports()
     index = load_extraction_index()
 
+    # After Mode B, the immutable review sheet still shows pre-revision targets;
+    # accept those when the change ledger documents the exact old target.
+    old_targets: dict[str, str] = {}
+    ledger_path = REPORTS / "e3-applied-changes.csv"
+    if ledger_path.is_file():
+        with ledger_path.open(encoding="utf-8", newline="") as handle:
+            for row in csv.DictReader(handle):
+                old_targets[row["segment_id"]] = row.get("old_target", "")
+
     with (E3_DIR / "e3-review-sheet.csv").open(encoding="utf-8", newline="") as handle:
         reader = list(csv.DictReader(handle))
     if not reader:
@@ -144,7 +153,11 @@ def validate_package(require_decision_gate_silent: bool = False) -> list[str]:
             problems.append(f"source mismatch for {segment_id}")
         if segment_id not in imports:
             continue
-        if row["current_target_fr"] != imports[segment_id]["target"]:
+        documented_old = old_targets.get(segment_id)
+        if (
+            row["current_target_fr"] != imports[segment_id]["target"]
+            and row["current_target_fr"] != documented_old
+        ):
             problems.append(f"target mismatch for {segment_id}")
         if not row["context"]:
             problems.append(f"missing context for {segment_id}")

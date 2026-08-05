@@ -77,6 +77,7 @@ def main() -> int:
     for surface in ("yaml", "web", "desktop"):
         for line in (REAL_IMPORTS / f"{surface}.jsonl").read_text(encoding="utf-8").splitlines():
             entry = json.loads(line)
+            entry["surface"] = surface
             imports[entry["segment_id"]] = entry
     source_map: dict[str, str] = {}
     from common import BLIND
@@ -132,7 +133,8 @@ def main() -> int:
         with path.open("w", encoding="utf-8", newline="\n") as handle:
             for entry_id in sorted(imports):
                 if imports[entry_id].get("surface") == surface:
-                    handle.write(json.dumps(imports[entry_id], ensure_ascii=False) + "\n")
+                    entry = {key: value for key, value in imports[entry_id].items() if key != "surface"}
+                    handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         manifest["surfaces"][surface]["sha256"] = digest
         manifest["surfaces"][surface]["segment_count"] = sum(
@@ -148,12 +150,20 @@ def main() -> int:
 
     counts_by_status = Counter(row.get("review_status", "") or "unreviewed" for row in rows)
     counts_by_rating = Counter((row.get("native_quality_rating", "") or "").strip() for row in rows)
+    bilingual_check_ids = [
+        row["segment_id"] for row in rows if (row.get("needs_bilingual_check") or "") == "true"
+    ]
+    identity_rows = [row for row in rows if row["segment_id"] in identity_ids]
+    identity_by_outcome = dict(identity_outcomes)
     summary = {
         "benchmark_id": "hermes-agent",
         "artifact": "e3-review-summary",
         "reviewer_type": "native-language reviewer",
         "human_review": True,
         "professional_localization_review": False,
+        "overall_e3_status": (
+            "reviewed_with_pending_bilingual_checks" if bilingual_check_ids else "reviewed_complete"
+        ),
         "reviewer_id": reviewer_id,
         "sample_size": len(rows),
         "counts_by_surface": dict(Counter((row.get("surface", "") or "") for row in rows)),
@@ -164,12 +174,130 @@ def main() -> int:
         "needs_bilingual_check": sum(1 for row in rows if row.get("needs_bilingual_check") == "true"),
         "rejected": counts_by_status.get("reject", 0),
         "deferred": counts_by_status.get("defer", 0),
-        "identity_retention_changes": identity_outcomes.get("translate_now", 0),
+        "identity_retention_changes": identity_by_outcome.get("translate_now", 0),
+        "identity_retentions_confirmed": identity_by_outcome.get("confirmed_retention", 0),
+        "identity_retentions_unresolved": identity_by_outcome.get("needs_bilingual_check", 0)
+        + identity_by_outcome.get("context_dependent", 0),
         "glossary_changes": 0,
         "forbidden_term_changes": 0,
+        "needs_bilingual_check_ids": bilingual_check_ids,
+        "reviewer_attestation_present": bool(
+            metadata.get("native_language_attestation") and "native" in str(
+                metadata.get("native_language_attestation", "")
+            ).lower()
+        ),
+        "ai_assistance_used": metadata.get("ai_assistance_used"),
         "user_accepted": False,
     }
     write_json(summary, REPORTS / "e3-review-summary.json")
+
+    summary_md_lines = [
+        "# Hermes French E3 native-speaker review summary",
+        "",
+        f"- Reviewer type: **native-language reviewer** (`{reviewer_id}`), human review: **true**",
+        f"- Professional localization review (E4): false | user accepted: false",
+        f"- Overall status: **{summary['overall_e3_status']}**",
+        f"- Sample size: {len(rows)} (all mandatory rows reviewed)",
+        f"- AI assistance used by reviewer: {summary['ai_assistance_used']} (recorded truthfully)",
+        f"- Revisions proposed: {summary['revisions_proposed']} | applied: {summary['revisions_applied']}",
+        f"- needs_bilingual_check: {summary['needs_bilingual_check']}",
+        f"- Rejected: {summary['rejected']} | deferred: {summary['deferred']}",
+        f"- Identity retentions confirmed: {summary['identity_retentions_confirmed']} | "
+        f"translated: {summary['identity_retention_changes']} | unresolved: {summary['identity_retentions_unresolved']}",
+        "",
+        "## Counts by status",
+        "",
+        "| status | count |",
+        "| --- | --- |",
+    ]
+    for status, count in sorted(counts_by_status.items()):
+        summary_md_lines.append(f"| {status} | {count} |")
+    summary_md_lines.append("")
+    summary_md_lines.append("## Counts by native-quality rating")
+    summary_md_lines.append("")
+    summary_md_lines.append("| rating | count |")
+    summary_md_lines.append("| --- | --- |")
+    for rating, count in sorted(counts_by_rating.items()):
+        summary_md_lines.append(f"| {rating} | {count} |")
+    summary_md_lines.append("")
+    summary_md_lines.append("## Bilingual questions left for the project owner")
+    summary_md_lines.append("")
+    for segment_id in bilingual_check_ids:
+        row = by_id.get(segment_id, {})
+        summary_md_lines.append(
+            f"- `{segment_id}` ({row.get('pointer', '')}): {row.get('reviewer_note', '')}"
+        )
+    (REPORTS / "e3-review-summary.md").write_text(
+        "\n".join(summary_md_lines) + "\n", encoding="utf-8", newline="\n"
+    )
+
+    findings = {
+        "artifact": "e3-review-findings",
+        "blocking_findings": [],
+        "high_severity_findings": [
+            {
+                "segment_id": row["segment_id"],
+                "pointer": row.get("pointer", ""),
+                "status": row.get("review_status", ""),
+                "rating": row.get("native_quality_rating", ""),
+                "note": row.get("reviewer_note", ""),
+            }
+            for row in rows
+            if (row.get("native_quality_rating", "") or "").strip() in ("1", "2")
+            or (row.get("needs_bilingual_check") or "") == "true"
+        ],
+        "unresolved_bilingual_checks": bilingual_check_ids,
+        "rejected_or_deferred": [
+            row["segment_id"] for row in rows if row.get("review_status") in ("reject", "defer")
+        ],
+    }
+    write_json(findings, REPORTS / "e3-review-findings.json")
+
+    terminology_decision_rows = [
+        {
+            "segment_id": row["segment_id"],
+            "surface": row.get("surface", ""),
+            "pointer": row.get("pointer", ""),
+            "terminology_decision": row.get("terminology_decision", ""),
+            "reviewer_note": row.get("reviewer_note", ""),
+        }
+        for row in rows
+        if "terminology" in (row.get("selection_reasons", "") or "").split("|")
+    ]
+    with (REPORTS / "e3-terminology-decisions.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=list(terminology_decision_rows[0].keys()), lineterminator="\n"
+        )
+        writer.writeheader()
+        for row in terminology_decision_rows:
+            writer.writerow(row)
+
+    applied_csv_path = REPORTS / "e3-applied-changes.csv"
+    with applied_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["segment_id", "surface", "pointer", "old_target", "new_target", "reviewer_note"],
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        for revision in revisions_applied:
+            writer.writerow(revision)
+    applied_md_lines = [
+        "# Hermes French E3 applied changes",
+        "",
+        f"Revisions applied: **{len(revisions_applied)}**",
+        "",
+        "| segment_id | surface | pointer | old target | new target | reviewer note |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for revision in revisions_applied:
+        applied_md_lines.append(
+            f"| `{revision['segment_id']}` | {revision['surface']} | {revision['pointer']} | "
+            f"{revision['old_target']} | {revision['new_target']} | {revision['reviewer_note']} |"
+        )
+    (REPORTS / "e3-applied-changes.md").write_text(
+        "\n".join(applied_md_lines) + "\n", encoding="utf-8", newline="\n"
+    )
     csv_path = REPORTS / "e3-review-result.csv"
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
